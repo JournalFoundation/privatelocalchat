@@ -73,25 +73,11 @@
     }
 
     .threads-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       margin-top: 16px;
     }
 
-    #newThreadBtn {
-      border: none;
-      background: #28a745;
-      color: #fff;
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1.2rem;
-      line-height: 1;
-    }
-
-    #newThreadBtn:hover {
-      background: #1c7e32;
+    .threads-header h3 {
+      margin: 0 0 12px 0;
     }
 
     .thread-list {
@@ -103,6 +89,10 @@
     }
 
     .thread-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       padding: 6px 8px;
       border-radius: 4px;
       cursor: pointer;
@@ -116,6 +106,89 @@
 
     .thread-list li:hover {
       background: #e2e6ea;
+    }
+
+    .thread-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .thread-menu-btn {
+      border: none;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 4px;
+    }
+
+    .thread-menu-btn:hover {
+      color: #007bff;
+    }
+
+    .thread-list li.selected .thread-menu-btn:hover {
+      color: #cfe2ff;
+    }
+
+    .thread-menu {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      padding: 4px 0;
+      min-width: 140px;
+      z-index: 1000;
+    }
+
+    .thread-menu button {
+      width: 100%;
+      background: none;
+      border: none;
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    .thread-menu button:hover {
+      background: #f0f0f0;
+    }
+
+    .thread-menu button.delete {
+      color: #c1121f;
+    }
+
+    .thread-list li.new-thread-item {
+      display: block;
+      padding: 0;
+      background: none;
+    }
+
+    .thread-list li.new-thread-item:hover {
+      background: none;
+    }
+
+    .new-thread-button {
+      width: 100%;
+      border: none;
+      background: #28a745;
+      color: #fff;
+      padding: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .new-thread-button:hover {
+      background: #1c7e32;
     }
 
     .actions {
@@ -317,7 +390,6 @@
       <hr />
       <div class="threads-header">
         <h3>Chats</h3>
-        <button id="newThreadBtn" title="New chat">＋</button>
       </div>
       <ul id="threadList" class="thread-list"></ul>
       <div class="actions">
@@ -359,7 +431,6 @@
       const refreshModelsBtn = document.getElementById('refreshModelsBtn');
       const saveConfigBtn = document.getElementById('saveConfigBtn');
       const threadList = document.getElementById('threadList');
-      const newThreadBtn = document.getElementById('newThreadBtn');
       const exportBtn = document.getElementById('exportBtn');
       const importBtn = document.getElementById('importBtn');
       const importInput = document.getElementById('importInput');
@@ -382,6 +453,7 @@
       let threads = [];
       let currentThreadId = null;
       let models = [];
+      let openThreadMenu = null;
 
       const defaults = { endpoint: '', token: '', model: '' };
       const CONFIG_KEY = 'chatConfig';
@@ -486,20 +558,50 @@
       };
 
       function renderThreadList() {
+        closeThreadMenu();
         threadList.innerHTML = '';
+        const createLi = document.createElement('li');
+        createLi.classList.add('new-thread-item');
+        const createBtn = document.createElement('button');
+        createBtn.type = 'button';
+        createBtn.classList.add('new-thread-button');
+        createBtn.textContent = 'Start new chat';
+        createBtn.addEventListener('click', event => {
+          event.stopPropagation();
+          newThread();
+        });
+        createLi.appendChild(createBtn);
+        threadList.appendChild(createLi);
         threads.forEach(thread => {
+          const threadName = thread.title && thread.title.trim() ? thread.title.trim() : 'Untitled';
           const li = document.createElement('li');
-          li.textContent = thread.title || 'Untitled';
           li.dataset.id = thread.id;
           if (thread.id === currentThreadId) {
             li.classList.add('selected');
           }
+          const nameSpan = document.createElement('span');
+          nameSpan.classList.add('thread-name');
+          nameSpan.textContent = threadName;
+          li.appendChild(nameSpan);
+
+          const menuBtn = document.createElement('button');
+          menuBtn.type = 'button';
+          menuBtn.classList.add('thread-menu-btn');
+          menuBtn.setAttribute('aria-label', `Options for ${threadName}`);
+          menuBtn.textContent = '⋮';
+          menuBtn.addEventListener('click', event => {
+            event.stopPropagation();
+            toggleThreadMenu(thread.id, menuBtn);
+          });
+          li.appendChild(menuBtn);
+
           li.addEventListener('click', () => selectThread(thread.id));
           threadList.appendChild(li);
         });
       }
 
       function selectThread(id) {
+        closeThreadMenu();
         currentThreadId = id;
         const thread = getThread(id);
         if (!thread) return;
@@ -520,9 +622,9 @@
         selectThread(id);
       }
 
-      function deleteThread() {
-        if (!currentThreadId) return;
-        const index = threads.findIndex(t => t.id === currentThreadId);
+      function deleteThread(targetId = currentThreadId) {
+        if (!targetId) return;
+        const index = threads.findIndex(t => t.id === targetId);
         if (index === -1) return;
         const confirmed = window.confirm('Delete this chat thread?');
         if (!confirmed) return;
@@ -537,6 +639,20 @@
         systemPromptInput.value = '';
         messagesEl.innerHTML = '';
         renderThreadList();
+      }
+
+      function renameThread(threadId) {
+        const thread = getThread(threadId);
+        if (!thread) return;
+        const currentName = thread.title && thread.title.trim() ? thread.title.trim() : 'Untitled';
+        const newName = window.prompt('Rename chat', currentName);
+        if (newName === null) return;
+        thread.title = newName.trim() || 'Untitled';
+        saveThreads();
+        renderThreadList();
+        if (threadId === currentThreadId) {
+          threadTitleInput.value = thread.title;
+        }
       }
 
       function renderMessages(thread) {
@@ -555,6 +671,74 @@
         if (thread) {
           renderMessages(thread);
         }
+      }
+
+      function closeThreadMenu() {
+        if (!openThreadMenu) return;
+        document.removeEventListener('mousedown', openThreadMenu.outsideHandler);
+        document.removeEventListener('keydown', openThreadMenu.keyHandler);
+        if (openThreadMenu.menuEl.parentNode) {
+          openThreadMenu.menuEl.parentNode.removeChild(openThreadMenu.menuEl);
+        }
+        openThreadMenu = null;
+      }
+
+      function toggleThreadMenu(threadId, anchor) {
+        if (openThreadMenu && openThreadMenu.anchor === anchor) {
+          closeThreadMenu();
+          return;
+        }
+        closeThreadMenu();
+        const menu = document.createElement('div');
+        menu.classList.add('thread-menu');
+
+        const renameBtn = document.createElement('button');
+        renameBtn.textContent = 'Rename';
+        renameBtn.addEventListener('click', () => {
+          closeThreadMenu();
+          renameThread(threadId);
+        });
+        menu.appendChild(renameBtn);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.classList.add('delete');
+        deleteBtn.addEventListener('click', () => {
+          closeThreadMenu();
+          deleteThread(threadId);
+        });
+        menu.appendChild(deleteBtn);
+
+        document.body.appendChild(menu);
+        const rect = anchor.getBoundingClientRect();
+        menu.style.top = `${window.scrollY + rect.bottom + 4}px`;
+        menu.style.left = `${window.scrollX + rect.left}px`;
+        const menuRect = menu.getBoundingClientRect();
+        const viewportWidth = document.documentElement.clientWidth;
+        if (menuRect.right > viewportWidth) {
+          const adjustedLeft = Math.max(8, viewportWidth - menuRect.width - 8);
+          menu.style.left = `${window.scrollX + adjustedLeft}px`;
+        }
+
+        const outsideHandler = event => {
+          if (menu.contains(event.target) || anchor.contains(event.target)) {
+            return;
+          }
+          closeThreadMenu();
+        };
+        const keyHandler = event => {
+          if (event.key === 'Escape') {
+            closeThreadMenu();
+          }
+        };
+        document.addEventListener('mousedown', outsideHandler);
+        document.addEventListener('keydown', keyHandler);
+        openThreadMenu = {
+          menuEl: menu,
+          anchor,
+          outsideHandler,
+          keyHandler
+        };
       }
 
       async function handleSendMessage(event) {
@@ -837,7 +1021,6 @@
         persistConfig();
       });
       saveConfigBtn.addEventListener('click', saveConfig);
-      newThreadBtn.addEventListener('click', newThread);
       deleteThreadBtn.addEventListener('click', deleteThread);
       messageForm.addEventListener('submit', handleSendMessage);
       exportBtn.addEventListener('click', exportHistory);
