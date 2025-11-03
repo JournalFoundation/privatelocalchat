@@ -324,6 +324,9 @@
         <button id="exportBtn">Export history</button>
         <input type="file" id="importInput" accept="application/json" style="display:none;" />
         <button id="importBtn">Import history</button>
+        <button id="exportConfigBtn">Export config</button>
+        <input type="file" id="importConfigInput" accept="application/json" style="display:none;" />
+        <button id="importConfigBtn">Import config</button>
       </div>
     </aside>
 
@@ -360,6 +363,9 @@
       const exportBtn = document.getElementById('exportBtn');
       const importBtn = document.getElementById('importBtn');
       const importInput = document.getElementById('importInput');
+      const exportConfigBtn = document.getElementById('exportConfigBtn');
+      const importConfigBtn = document.getElementById('importConfigBtn');
+      const importConfigInput = document.getElementById('importConfigInput');
       const threadTitleInput = document.getElementById('threadTitleInput');
       const deleteThreadBtn = document.getElementById('deleteThreadBtn');
       const systemPromptInput = document.getElementById('systemPromptInput');
@@ -766,6 +772,65 @@
         reader.readAsText(file);
       }
 
+      function exportConfig() {
+        const payload = {
+          config: { ...config },
+          models: [...models],
+          exportedAt: new Date().toISOString()
+        };
+        const dataStr = JSON.stringify(payload, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'chat-config.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      function normalizeConfig(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        return {
+          endpoint: typeof raw.endpoint === 'string' ? raw.endpoint : '',
+          token: typeof raw.token === 'string' ? raw.token : '',
+          model: typeof raw.model === 'string' ? raw.model : ''
+        };
+      }
+
+      function importConfig(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const imported = JSON.parse(e.target.result);
+            const source = imported && typeof imported === 'object'
+              ? (imported.config && typeof imported.config === 'object' ? imported.config : imported)
+              : null;
+            const nextConfig = normalizeConfig(source);
+            if (!nextConfig) {
+              alert('Invalid config file.');
+              return;
+            }
+            config = { ...defaults, ...nextConfig };
+            persistConfig();
+            endpointInput.value = config.endpoint;
+            tokenInput.value = config.token;
+            if (Array.isArray(imported?.models)) {
+              storeModels(imported.models);
+            }
+            renderModelOptions(models, config.model);
+            alert('Configuration imported.');
+          } catch (err) {
+            alert('Failed to import config: ' + err.message);
+          }
+          importConfigInput.value = '';
+        };
+        reader.readAsText(file);
+      }
+
       refreshModelsBtn.addEventListener('click', () => refreshModels());
       modelSelect.addEventListener('change', () => {
         config.model = modelSelect.value;
@@ -778,6 +843,9 @@
       exportBtn.addEventListener('click', exportHistory);
       importBtn.addEventListener('click', () => importInput.click());
       importInput.addEventListener('change', importHistory);
+      exportConfigBtn.addEventListener('click', exportConfig);
+      importConfigBtn.addEventListener('click', () => importConfigInput.click());
+      importConfigInput.addEventListener('change', importConfig);
 
       threadTitleInput.addEventListener('blur', () => {
         updateThread(thread => {
