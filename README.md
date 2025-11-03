@@ -7,6 +7,7 @@ This single-page web app provides a private frontend for large language model ch
 - Dynamic model list fetched from the configured endpoint (persisted per session).
 - Multiple chat threads with localStorage persistence.
 - Import/export of chat history and session configuration as JSON.
+- Responsive layout with a collapsible settings panel that adapts to mobile and desktop.
 
 ### Getting Started
 1. Open `index.html` in a modern browser (Chrome, Firefox, Edge).

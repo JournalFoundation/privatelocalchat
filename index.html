@@ -15,27 +15,64 @@
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      height: 100vh;
-      display: flex;
+      background: #fff;
+      color: #222;
+      min-height: 100vh;
     }
 
     #app {
       display: flex;
-      width: 100%;
+      flex-direction: column;
+      min-height: 100vh;
     }
 
     /* Sidebar styling */
     .sidebar {
-      width: 260px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: min(85vw, 320px);
       background: #f4f4f4;
       border-right: 1px solid #ddd;
+      box-shadow: 2px 0 12px rgba(0,0,0,0.15);
       padding: 16px;
+      display: flex;
+      flex-direction: column;
       overflow-y: auto;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      z-index: 1001;
+    }
+
+    body.sidebar-open .sidebar {
+      transform: translateX(0);
+    }
+
+    body.sidebar-open {
+      overflow: hidden;
     }
 
     .sidebar h2,
     .sidebar h3 {
       margin-top: 0;
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+
+    .sidebar-close {
+      border: none;
+      background: transparent;
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px;
     }
 
     .form-group {
@@ -84,7 +121,7 @@
       list-style: none;
       padding: 0;
       margin: 0;
-      max-height: 40vh;
+      flex: 1;
       overflow-y: auto;
     }
 
@@ -168,6 +205,7 @@
       display: block;
       padding: 0;
       background: none;
+      margin-bottom: 8px;
     }
 
     .thread-list li.new-thread-item:hover {
@@ -232,13 +270,13 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      min-height: 0;
     }
 
     .chat-header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      gap: 8px;
       padding: 12px;
       border-bottom: 1px solid #ddd;
     }
@@ -318,6 +356,7 @@
       border-radius: 4px;
       resize: vertical;
       font-size: 0.9rem;
+      min-height: 60px;
     }
 
     .message-form button {
@@ -346,6 +385,67 @@
       animation: spin 1s linear infinite;
     }
 
+    .mobile-toggle {
+      border: none;
+      background: transparent;
+      font-size: 1.6rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 4px 6px;
+      color: #007bff;
+    }
+
+    .mobile-toggle:focus,
+    .sidebar-close:focus {
+      outline: 2px solid #007bff;
+      outline-offset: 2px;
+    }
+
+    #sidebarOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 1000;
+    }
+
+    body.sidebar-open #sidebarOverlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    @media (min-width: 900px) {
+      #app {
+        flex-direction: row;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: relative;
+        transform: none;
+        width: 300px;
+        max-width: 300px;
+        box-shadow: none;
+      }
+
+      body.sidebar-open {
+        overflow: auto;
+      }
+
+      #sidebarOverlay,
+      .mobile-toggle,
+      .sidebar-close {
+        display: none;
+      }
+
+      .chat-area {
+        padding-left: 0;
+        min-height: 100vh;
+      }
+    }
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
@@ -354,8 +454,11 @@
 <body>
   <div id="app">
     <!-- Sidebar containing configuration and thread list -->
-    <aside class="sidebar">
-      <h2>Settings</h2>
+    <aside class="sidebar" aria-label="Settings panel" aria-hidden="true">
+      <div class="sidebar-header">
+        <h2>Settings</h2>
+        <button type="button" id="closeSidebarBtn" class="sidebar-close" aria-label="Close settings">×</button>
+      </div>
       <div class="form-group">
         <label for="endpointInput">API endpoint</label>
         <input type="text" id="endpointInput" placeholder="https://api.example.com/v1/chat/completions" />
@@ -388,10 +491,12 @@
         <button id="importConfigBtn">Import settings</button>
       </div>
     </aside>
+    <div id="sidebarOverlay" aria-hidden="true"></div>
 
     <!-- Main chat area -->
     <main class="chat-area">
       <div id="chatHeader" class="chat-header">
+        <button type="button" id="openSidebarBtn" class="mobile-toggle" aria-label="Open settings">☰</button>
         <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
       </div>
       <div id="systemPromptContainer" class="system-prompt-container">
@@ -423,6 +528,10 @@
       const exportConfigBtn = document.getElementById('exportConfigBtn');
       const importConfigBtn = document.getElementById('importConfigBtn');
       const importConfigInput = document.getElementById('importConfigInput');
+      const openSidebarBtn = document.getElementById('openSidebarBtn');
+      const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+      const sidebarOverlay = document.getElementById('sidebarOverlay');
+      const sidebarEl = document.querySelector('.sidebar');
       const threadTitleInput = document.getElementById('threadTitleInput');
       const systemPromptInput = document.getElementById('systemPromptInput');
       const messagesEl = document.getElementById('messages');
@@ -439,6 +548,7 @@
       let currentThreadId = null;
       let models = [];
       let openThreadMenu = null;
+      const desktopMediaQuery = window.matchMedia('(min-width: 900px)');
 
       const defaults = { endpoint: '', token: '', model: '' };
       const CONFIG_KEY = 'chatConfig';
@@ -597,6 +707,7 @@
         renderMessages(thread);
         // Re-render thread list to highlight current
         renderThreadList();
+        closeSidebar();
       }
 
       function newThread() {
@@ -656,6 +767,32 @@
         if (thread) {
           renderMessages(thread);
         }
+      }
+
+      function openSidebar() {
+        document.body.classList.add('sidebar-open');
+        closeThreadMenu();
+        if (closeSidebarBtn) {
+          setTimeout(() => closeSidebarBtn.focus(), 0);
+        }
+        updateSidebarAria();
+      }
+
+      function closeSidebar(options = {}) {
+        const wasOpen = document.body.classList.contains('sidebar-open');
+        if (wasOpen) {
+          document.body.classList.remove('sidebar-open');
+          if (options.restoreFocus && openSidebarBtn && !desktopMediaQuery.matches) {
+            openSidebarBtn.focus({ preventScroll: true });
+          }
+        }
+        updateSidebarAria();
+      }
+
+      function updateSidebarAria() {
+        if (!sidebarEl) return;
+        const hidden = !desktopMediaQuery.matches && !document.body.classList.contains('sidebar-open');
+        sidebarEl.setAttribute('aria-hidden', hidden ? 'true' : 'false');
       }
 
       function closeThreadMenu() {
@@ -1013,6 +1150,36 @@
       exportConfigBtn.addEventListener('click', exportConfig);
       importConfigBtn.addEventListener('click', () => importConfigInput.click());
       importConfigInput.addEventListener('change', importConfig);
+      if (openSidebarBtn) {
+        openSidebarBtn.addEventListener('click', openSidebar);
+      }
+      if (closeSidebarBtn) {
+        closeSidebarBtn.addEventListener('click', () => closeSidebar({ restoreFocus: true }));
+      }
+      if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', () => closeSidebar({ restoreFocus: true }));
+      }
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          if (document.body.classList.contains('sidebar-open')) {
+            closeSidebar({ restoreFocus: true });
+            return;
+          }
+          closeThreadMenu();
+        }
+      });
+      const handleViewportChange = event => {
+        if (event.matches) {
+          closeSidebar();
+        }
+        updateSidebarAria();
+      };
+      if (desktopMediaQuery.addEventListener) {
+        desktopMediaQuery.addEventListener('change', handleViewportChange);
+      } else if (desktopMediaQuery.addListener) {
+        desktopMediaQuery.addListener(handleViewportChange);
+      }
+      updateSidebarAria();
 
       threadTitleInput.addEventListener('blur', () => {
         updateThread(thread => {
