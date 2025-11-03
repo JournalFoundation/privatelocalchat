@@ -20,6 +20,15 @@ This single-page web app provides a private frontend for large language model ch
 - Model selections that are no longer offered by the endpoint are automatically replaced with the first available option when the list is refreshed.
 - The app never transmits your configuration or history outside of requests you explicitly send to your configured endpoint.
 
+### Deploying to GitLab Pages
+1. Create a GitLab project (public or private) and push this repository to it.
+2. The included `.gitlab-ci.yml` copies `index.html` (and the `LICENSE`) into the `public/` artifact so GitLab Pages can serve it. The pipeline runs on commits to `main`; adjust if you use a different default branch.
+3. Once the pipeline succeeds, enable **Settings ▸ Pages** in GitLab to view the default `https://<namespace>.gitlab.io/<project>` URL.
+4. To use `privatelocalchat.com`:
+   - In **Settings ▸ Pages**, add a new custom domain and follow the prompts.
+   - Create the required DNS records with your registrar: a TXT record for domain verification and a CNAME/ALIAS/ANAME pointing `privatelocalchat.com` to the GitLab Pages host indicated in the setup instructions (typically `<namespace>.gitlab.io` or `lb.gitlab.io` for apex domains).
+   - Wait for DNS to propagate, then click “Verify” in GitLab. Optionally enable HTTPS; GitLab will issue a Let’s Encrypt certificate once the domain is verified.
+
 ### License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
