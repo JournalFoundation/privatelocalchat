@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Private Chat Client</title>
+  <style>
+    /* Minimal styling for the chat client UI. */
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+    }
+
+    #app {
+      display: flex;
+      width: 100%;
+    }
+
+    /* Sidebar styling */
+    .sidebar {
+      width: 260px;
+      background: #f4f4f4;
+      border-right: 1px solid #ddd;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .sidebar h2,
+    .sidebar h3 {
+      margin-top: 0;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.9rem;
+      color: #333;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .form-group button {
+      width: 100%;
+      padding: 8px;
+      background: #007bff;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .form-group button:hover {
+      background: #0056b3;
+    }
+
+    .threads-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    #newThreadBtn {
+      border: none;
+      background: #28a745;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    #newThreadBtn:hover {
+      background: #1c7e32;
+    }
+
+    .thread-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+
+    .thread-list li {
+      padding: 6px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 4px;
+    }
+
+    .thread-list li.selected {
+      background: #007bff;
+      color: #fff;
+    }
+
+    .thread-list li:hover {
+      background: #e2e6ea;
+    }
+
+    .actions {
+      margin-top: 16px;
+    }
+
+    .actions button {
+      width: 100%;
+      margin-bottom: 8px;
+      padding: 8px;
+      background: #6c757d;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .actions button:hover {
+      background: #565e64;
+    }
+
+    .model-select-row button {
+      width: 100%;
+      padding: 8px;
+      font-size: 0.9rem;
+    }
+
+    .model-select-row button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .model-select-row select {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    /* Chat area styling */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .chat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .thread-title {
+      flex: 1;
+      font-size: 1.1rem;
+      padding: 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-right: 8px;
+    }
+
+    #deleteThreadBtn {
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: #dc3545;
+    }
+
+    #deleteThreadBtn:hover {
+      color: #a71d2a;
+    }
+
+    .system-prompt-container {
+      padding: 8px 12px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .system-prompt-container label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    .system-prompt-container textarea {
+      width: 100%;
+      min-height: 60px;
+      resize: vertical;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .messages {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+      background: #fafafa;
+    }
+
+    .message {
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      max-width: 80%;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message.user {
+      background: #e9f7ef;
+      align-self: flex-end;
+    }
+
+    .message.assistant {
+      background: #f1f1f1;
+      align-self: flex-start;
+    }
+
+    .message.system {
+      background: #fffbe6;
+      border: 1px dashed #ccc;
+    }
+
+    .message-form {
+      display: flex;
+      padding: 12px;
+      border-top: 1px solid #ddd;
+      background: #f8f9fa;
+    }
+
+    .message-form textarea {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+      font-size: 0.9rem;
+    }
+
+    .message-form button {
+      margin-left: 8px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: #fff;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    .message-form button:hover {
+      background: #0056b3;
+    }
+
+    /* Loading indicator styling */
+    .loading {
+      display: inline-block;
+      border: 4px solid rgba(0,0,0,0.1);
+      border-radius: 50%;
+      border-top-color: #007bff;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar containing configuration and thread list -->
+    <aside class="sidebar">
+      <h2>Settings</h2>
+      <div class="form-group">
+        <label for="endpointInput">API endpoint</label>
+        <input type="text" id="endpointInput" placeholder="https://api.example.com/v1/chat/completions" />
+      </div>
+      <div class="form-group">
+        <label for="modelSelect">Model</label>
+        <div class="model-select-row">
+          <button type="button" id="refreshModelsBtn">Refresh model list</button>
+          <select id="modelSelect"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="tokenInput">API token</label>
+        <input type="password" id="tokenInput" placeholder="sk-..." />
+      </div>
+      <div class="form-group">
+        <button id="saveConfigBtn">Save config</button>
+      </div>
+      <hr />
+      <div class="threads-header">
+        <h3>Chats</h3>
+        <button id="newThreadBtn" title="New chat">＋</button>
+      </div>
+      <ul id="threadList" class="thread-list"></ul>
+      <div class="actions">
+        <button id="exportBtn">Export history</button>
+        <input type="file" id="importInput" accept="application/json" style="display:none;" />
+        <button id="importBtn">Import history</button>
+      </div>
+    </aside>
+
+    <!-- Main chat area -->
+    <main class="chat-area">
+      <div id="chatHeader" class="chat-header">
+        <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
+        <button id="deleteThreadBtn" title="Delete chat">🗑️</button>
+      </div>
+      <div id="systemPromptContainer" class="system-prompt-container">
+        <label for="systemPromptInput">System prompt:</label>
+        <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
+      </div>
+      <div id="messages" class="messages"></div>
+      <form id="messageForm" class="message-form">
+        <textarea id="messageInput" placeholder="Type your message" rows="3"></textarea>
+        <button type="submit" id="sendBtn">Send</button>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    /* Private Chat Client: lightweight local chat UI for chat completion APIs. */
+
+    (() => {
+      // DOM element references
+      const endpointInput = document.getElementById('endpointInput');
+      const tokenInput = document.getElementById('tokenInput');
+      const modelSelect = document.getElementById('modelSelect');
+      const refreshModelsBtn = document.getElementById('refreshModelsBtn');
+      const saveConfigBtn = document.getElementById('saveConfigBtn');
+      const threadList = document.getElementById('threadList');
+      const newThreadBtn = document.getElementById('newThreadBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const importBtn = document.getElementById('importBtn');
+      const importInput = document.getElementById('importInput');
+      const threadTitleInput = document.getElementById('threadTitleInput');
+      const deleteThreadBtn = document.getElementById('deleteThreadBtn');
+      const systemPromptInput = document.getElementById('systemPromptInput');
+      const messagesEl = document.getElementById('messages');
+      const messageForm = document.getElementById('messageForm');
+      const messageInput = document.getElementById('messageInput');
+
+      // Application state
+      let config = {
+        endpoint: '',
+        token: '',
+        model: ''
+      };
+      let threads = [];
+      let currentThreadId = null;
+      let models = [];
+
+      const defaults = { endpoint: '', token: '', model: '' };
+      const CONFIG_KEY = 'chatConfig';
+      const THREAD_KEY = 'chatThreads';
+      const MODELS_KEY = 'chatModels';
+
+      const readJson = (store, key, fallback) => {
+        try {
+          const raw = store.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch (err) {
+          console.warn(`Could not read ${key}:`, err);
+          return fallback;
+        }
+      };
+
+      const writeJson = (store, key, value) => {
+        try {
+          store.setItem(key, JSON.stringify(value));
+        } catch (err) {
+          console.error(`Failed to write ${key}:`, err);
+        }
+      };
+
+      const persistConfig = () => writeJson(sessionStorage, CONFIG_KEY, config);
+
+      function loadModels() {
+        models = readJson(sessionStorage, MODELS_KEY, []);
+      }
+
+      function storeModels(list) {
+        models = [...new Set(list.filter(Boolean))];
+        writeJson(sessionStorage, MODELS_KEY, models);
+      }
+
+      function renderModelOptions(list, desiredModel) {
+        const ids = [...new Set(list.filter(Boolean))];
+        modelSelect.innerHTML = '';
+        if (!ids.length) {
+          modelSelect.disabled = true;
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No models loaded';
+          modelSelect.appendChild(option);
+          if (config.model) {
+            config.model = '';
+            persistConfig();
+          }
+          return;
+        }
+
+        ids.forEach(id => {
+          const option = document.createElement('option');
+          option.value = id;
+          option.textContent = id;
+          modelSelect.appendChild(option);
+        });
+
+        modelSelect.disabled = false;
+        const selection = ids.includes(desiredModel) ? desiredModel : ids[0];
+        modelSelect.value = selection;
+        if (config.model !== selection) {
+          config.model = selection;
+          persistConfig();
+        }
+      }
+
+      function loadConfig() {
+        config = { ...defaults, ...readJson(sessionStorage, CONFIG_KEY, {}) };
+        endpointInput.value = config.endpoint;
+        tokenInput.value = config.token;
+        renderModelOptions(models, config.model);
+      }
+
+      function saveConfig() {
+        config = {
+          endpoint: endpointInput.value.trim(),
+          token: tokenInput.value.trim(),
+          model: modelSelect.value.trim()
+        };
+        persistConfig();
+        alert('Configuration saved for this session.');
+        refreshModels({ silent: true });
+      }
+
+      function loadThreads() {
+        threads = readJson(localStorage, THREAD_KEY, []);
+      }
+
+      function saveThreads() {
+        writeJson(localStorage, THREAD_KEY, threads);
+      }
+
+      const getThread = id => threads.find(t => t.id === id);
+      const currentThread = () => getThread(currentThreadId);
+      const updateThread = mutator => {
+        const thread = currentThread();
+        if (!thread) return null;
+        mutator(thread);
+        saveThreads();
+        return thread;
+      };
+
+      function renderThreadList() {
+        threadList.innerHTML = '';
+        threads.forEach(thread => {
+          const li = document.createElement('li');
+          li.textContent = thread.title || 'Untitled';
+          li.dataset.id = thread.id;
+          if (thread.id === currentThreadId) {
+            li.classList.add('selected');
+          }
+          li.addEventListener('click', () => selectThread(thread.id));
+          threadList.appendChild(li);
+        });
+      }
+
+      function selectThread(id) {
+        currentThreadId = id;
+        const thread = getThread(id);
+        if (!thread) return;
+        // Populate title and system prompt
+        threadTitleInput.value = thread.title || '';
+        systemPromptInput.value = thread.systemPrompt || '';
+        // Render messages
+        renderMessages(thread);
+        // Re-render thread list to highlight current
+        renderThreadList();
+      }
+
+      function newThread() {
+        const id = Date.now().toString();
+        threads.push({ id, title: 'New chat', systemPrompt: '', messages: [] });
+        saveThreads();
+        renderThreadList();
+        selectThread(id);
+      }
+
+      function deleteThread() {
+        if (!currentThreadId) return;
+        const index = threads.findIndex(t => t.id === currentThreadId);
+        if (index === -1) return;
+        const confirmed = window.confirm('Delete this chat thread?');
+        if (!confirmed) return;
+        threads.splice(index, 1);
+        saveThreads();
+        currentThreadId = threads[0]?.id || null;
+        if (currentThreadId) {
+          selectThread(currentThreadId);
+          return;
+        }
+        threadTitleInput.value = '';
+        systemPromptInput.value = '';
+        messagesEl.innerHTML = '';
+        renderThreadList();
+      }
+
+      function renderMessages(thread) {
+        messagesEl.innerHTML = '';
+        thread.messages.forEach(msg => {
+          const div = document.createElement('div');
+          div.classList.add('message', msg.role);
+          div.textContent = msg.content;
+          messagesEl.appendChild(div);
+        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function addMessage(role, content) {
+        const thread = updateThread(t => t.messages.push({ role, content }));
+        if (thread) {
+          renderMessages(thread);
+        }
+      }
+
+      async function handleSendMessage(event) {
+        event.preventDefault();
+        if (!currentThreadId) {
+          alert('Please create or select a chat thread first.');
+          return;
+        }
+        const message = messageInput.value.trim();
+        if (!message) return;
+        addMessage('user', message);
+        messageInput.value = '';
+
+        // Show loading indicator
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.classList.add('loading');
+        messagesEl.appendChild(loadingIndicator);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        try {
+          const reply = await sendToApi();
+          addMessage('assistant', reply);
+        } catch (err) {
+          console.error(err);
+          addMessage('system', 'Error: ' + err.message);
+        } finally {
+          if (loadingIndicator.parentNode) {
+            loadingIndicator.parentNode.removeChild(loadingIndicator);
+          }
+        }
+      }
+
+      async function sendToApi() {
+        if (!config.endpoint) {
+          throw new Error('Endpoint is not configured.');
+        }
+        const thread = currentThread();
+        if (!thread) {
+          throw new Error('No thread selected.');
+        }
+        if (!config.model) {
+          throw new Error('Model is not selected.');
+        }
+        const systemPrompt = thread.systemPrompt?.trim();
+        const messagesForRequest = systemPrompt
+          ? [{ role: 'system', content: systemPrompt }, ...thread.messages]
+          : [...thread.messages];
+        // Compose request payload. Adjust this object to match the API expected schema.
+        const body = {
+          model: config.model,
+          messages: messagesForRequest
+        };
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+        // Include authorization header if token is provided
+        if (config.token) {
+          headers['Authorization'] = `Bearer ${config.token}`;
+        }
+        const response = await fetch(config.endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+          throw new Error('API responded with status ' + response.status);
+        }
+        // Parse JSON response. We expect a property `choices[0].message.content` similar to OpenAI.
+        const data = await response.json();
+        const choice = Array.isArray(data?.choices) && data.choices.length ? data.choices[0] : null;
+        const reply = choice?.message?.content || choice?.text || (typeof data?.answer === 'string' ? data.answer : '');
+        return reply || JSON.stringify(data);
+      }
+
+      function deriveModelsUrl(endpoint) {
+        let url;
+        try {
+          url = new URL(endpoint);
+        } catch (err) {
+          url = new URL(endpoint, window.location.href);
+        }
+        const segments = url.pathname.split('/').filter(Boolean);
+        if (segments[segments.length - 1] === 'models') {
+          url.search = '';
+          url.hash = '';
+          return url.toString();
+        }
+        const versionIndex = segments.findIndex(seg => /^v\d+$/i.test(seg));
+        let baseSegments;
+        if (versionIndex !== -1) {
+          baseSegments = segments.slice(0, versionIndex + 1);
+        } else if (segments.length > 0) {
+          baseSegments = segments.slice(0, -1);
+        } else {
+          baseSegments = [];
+        }
+        const pathSegments = baseSegments.length ? baseSegments.concat('models') : ['models'];
+        url.pathname = '/' + pathSegments.join('/');
+        url.search = '';
+        url.hash = '';
+        return url.toString();
+      }
+
+      async function refreshModels({ silent } = {}) {
+        const endpoint = endpointInput.value.trim() || config.endpoint;
+        if (!endpoint) {
+          if (!silent) {
+            alert('Set an endpoint before refreshing models.');
+          }
+          return;
+        }
+        let modelsEndpoint;
+        try {
+          modelsEndpoint = deriveModelsUrl(endpoint);
+        } catch (err) {
+          console.error('Invalid endpoint:', err);
+          if (!silent) {
+            alert('Invalid endpoint: ' + err.message);
+          }
+          return;
+        }
+
+        if (config.endpoint !== endpoint) {
+          config.endpoint = endpoint;
+          persistConfig();
+        }
+
+        refreshModelsBtn.disabled = true;
+        const originalLabel = refreshModelsBtn.textContent;
+        refreshModelsBtn.textContent = 'Loading...';
+        try {
+          const headers = { Accept: 'application/json' };
+          const token = tokenInput.value.trim() || config.token;
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+            if (config.token !== token) {
+              config.token = token;
+              persistConfig();
+            }
+          }
+          const response = await fetch(modelsEndpoint, { method: 'GET', headers });
+          if (!response.ok) {
+            throw new Error('Status ' + response.status);
+          }
+          const data = await response.json();
+          const rawList = Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data?.models)
+              ? data.models
+              : [];
+          const ids = rawList
+            .map(item => {
+              if (typeof item === 'string') return item.trim();
+              if (item && typeof item.id === 'string') return item.id.trim();
+              if (item && typeof item.name === 'string') return item.name.trim();
+              return '';
+            })
+            .filter(id => id.length > 0);
+          if (!ids.length) {
+            throw new Error('No models returned.');
+          }
+          storeModels(ids);
+          renderModelOptions(models, config.model);
+          if (!silent) {
+            alert('Models updated.');
+          }
+        } catch (err) {
+          console.error('Failed to refresh models:', err);
+          if (!silent) {
+            alert('Failed to load models: ' + err.message);
+          }
+        } finally {
+          refreshModelsBtn.disabled = false;
+          refreshModelsBtn.textContent = originalLabel;
+        }
+      }
+
+      function exportHistory() {
+        const dataStr = JSON.stringify(threads, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'chat-history.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      function importHistory(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const imported = JSON.parse(e.target.result);
+            if (Array.isArray(imported)) {
+              threads = imported;
+              saveThreads();
+              renderThreadList();
+              if (threads.length) {
+                selectThread(threads[0].id);
+              }
+              alert('Import successful');
+            } else {
+              alert('Invalid file format.');
+            }
+          } catch (err) {
+            alert('Failed to import: ' + err.message);
+          }
+          // Reset input to allow re-importing same file later
+          importInput.value = '';
+        };
+        reader.readAsText(file);
+      }
+
+      refreshModelsBtn.addEventListener('click', () => refreshModels());
+      modelSelect.addEventListener('change', () => {
+        config.model = modelSelect.value;
+        persistConfig();
+      });
+      saveConfigBtn.addEventListener('click', saveConfig);
+      newThreadBtn.addEventListener('click', newThread);
+      deleteThreadBtn.addEventListener('click', deleteThread);
+      messageForm.addEventListener('submit', handleSendMessage);
+      exportBtn.addEventListener('click', exportHistory);
+      importBtn.addEventListener('click', () => importInput.click());
+      importInput.addEventListener('change', importHistory);
+
+      threadTitleInput.addEventListener('blur', () => {
+        updateThread(thread => {
+          thread.title = threadTitleInput.value.trim() || 'Untitled';
+          renderThreadList();
+        });
+      });
+      systemPromptInput.addEventListener('blur', () => {
+        updateThread(thread => {
+          thread.systemPrompt = systemPromptInput.value.trim();
+        });
+      });
+
+      function init() {
+        loadModels();
+        loadConfig();
+        loadThreads();
+        renderThreadList();
+        const firstThread = threads[0];
+        if (firstThread) {
+          selectThread(firstThread.id);
+        }
+        if (!models.length && config.endpoint) {
+          refreshModels({ silent: true });
+        }
+      }
+      init();
+    })();
+  </script>
+</body>
+</html>
