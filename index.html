@@ -249,19 +249,6 @@
       padding: 4px;
       border: 1px solid #ccc;
       border-radius: 4px;
-      margin-right: 8px;
-    }
-
-    #deleteThreadBtn {
-      background: none;
-      border: none;
-      font-size: 1.2rem;
-      cursor: pointer;
-      color: #dc3545;
-    }
-
-    #deleteThreadBtn:hover {
-      color: #a71d2a;
     }
 
     .system-prompt-container {
@@ -396,9 +383,9 @@
         <button id="exportBtn">Export history</button>
         <input type="file" id="importInput" accept="application/json" style="display:none;" />
         <button id="importBtn">Import history</button>
-        <button id="exportConfigBtn">Export config</button>
+        <button id="exportConfigBtn">Export settings</button>
         <input type="file" id="importConfigInput" accept="application/json" style="display:none;" />
-        <button id="importConfigBtn">Import config</button>
+        <button id="importConfigBtn">Import settings</button>
       </div>
     </aside>
 
@@ -406,7 +393,6 @@
     <main class="chat-area">
       <div id="chatHeader" class="chat-header">
         <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
-        <button id="deleteThreadBtn" title="Delete chat">🗑️</button>
       </div>
       <div id="systemPromptContainer" class="system-prompt-container">
         <label for="systemPromptInput">System prompt:</label>
@@ -438,7 +424,6 @@
       const importConfigBtn = document.getElementById('importConfigBtn');
       const importConfigInput = document.getElementById('importConfigInput');
       const threadTitleInput = document.getElementById('threadTitleInput');
-      const deleteThreadBtn = document.getElementById('deleteThreadBtn');
       const systemPromptInput = document.getElementById('systemPromptInput');
       const messagesEl = document.getElementById('messages');
       const messageForm = document.getElementById('messageForm');
@@ -1021,7 +1006,6 @@
         persistConfig();
       });
       saveConfigBtn.addEventListener('click', saveConfig);
-      deleteThreadBtn.addEventListener('click', deleteThread);
       messageForm.addEventListener('submit', handleSendMessage);
       exportBtn.addEventListener('click', exportHistory);
       importBtn.addEventListener('click', () => importInput.click());
