@@ -783,9 +783,6 @@
         <label for="tokenInput">API token</label>
         <input type="password" id="tokenInput" placeholder="sk-..." />
       </div>
-      <div class="form-group">
-        <button id="saveConfigBtn">Save config</button>
-      </div>
       <hr />
       <div class="threads-header">
         <h3>Chats</h3>
@@ -969,7 +966,6 @@
       const tokenInput = document.getElementById('tokenInput');
       const modelSelect = document.getElementById('modelSelect');
       const refreshModelsBtn = document.getElementById('refreshModelsBtn');
-      const saveConfigBtn = document.getElementById('saveConfigBtn');
       const endpointHint = document.getElementById('endpointHint');
       const threadList = document.getElementById('threadList');
       const exportBtn = document.getElementById('exportBtn');
@@ -1167,7 +1163,7 @@
           label: 'Custom / self-hosted endpoint',
           baseUrl: '',
           hint:
-            'Paste any OpenAI-compatible base URL, such as a corporate gateway or another local server. Remember to include the provider’s API key (if required) and press <strong>Save config</strong> after editing. Requests use <code>/chat/completions</code> for this base URL.'
+            'Paste any OpenAI-compatible base URL, such as a corporate gateway or another local server. Remember to include the provider’s API key (if required). Changes save automatically as you edit. Requests use <code>/chat/completions</code> for this base URL.'
         }
       ];
 
@@ -1235,6 +1231,30 @@
         updateEndpointHint(option, value);
       }
 
+      function persistEndpointValue(value, { refresh = false } = {}) {
+        const normalized = (value || '').trim();
+        if (config.endpoint !== normalized) {
+          config.endpoint = normalized;
+          persistConfig();
+        }
+        syncEndpointControls(normalized);
+        updateChatAvailability();
+        if (refresh) {
+          refreshModels({ silent: true });
+        }
+      }
+
+      function persistTokenValue(value, { refresh = false } = {}) {
+        const normalized = (value || '').trim();
+        if (config.token !== normalized) {
+          config.token = normalized;
+          persistConfig();
+        }
+        if (refresh) {
+          refreshModels({ silent: true });
+        }
+      }
+
       function applyEndpointOption(optionId) {
         const option = getEndpointOptionById(optionId);
         if (!option) return;
@@ -1243,7 +1263,7 @@
         } else if (option.baseUrl) {
           endpointInput.value = option.baseUrl;
         }
-        syncEndpointControls(endpointInput.value.trim());
+        persistEndpointValue(endpointInput.value, { refresh: true });
       }
 
       function populateEndpointSelect() {
@@ -1385,19 +1405,6 @@
         tokenInput.value = config.token;
         syncEndpointControls(config.endpoint);
         renderModelOptions(models, config.model);
-      }
-
-      function saveConfig() {
-        config = {
-          endpoint: endpointInput.value.trim(),
-          token: tokenInput.value.trim(),
-          model: modelSelect.value.trim()
-        };
-        persistConfig();
-        syncEndpointControls(config.endpoint);
-        updateChatAvailability();
-        alert('Configuration saved for this session.');
-        refreshModels({ silent: true });
       }
 
       function loadThreads() {
@@ -2413,6 +2420,14 @@
         endpointInput.addEventListener('input', () => {
           syncEndpointControls(endpointInput.value.trim());
         });
+        endpointInput.addEventListener('change', () => {
+          persistEndpointValue(endpointInput.value, { refresh: true });
+        });
+      }
+      if (tokenInput) {
+        tokenInput.addEventListener('change', () => {
+          persistTokenValue(tokenInput.value, { refresh: true });
+        });
       }
       refreshModelsBtn.addEventListener('click', () => refreshModels());
       modelSelect.addEventListener('change', () => {
@@ -2420,7 +2435,6 @@
         persistConfig();
         updateChatAvailability();
       });
-      saveConfigBtn.addEventListener('click', saveConfig);
       messageForm.addEventListener('submit', handleSendMessage);
       messageInput.addEventListener('input', () => {
         updateSendButtonDisabled(getChatState().ready);
