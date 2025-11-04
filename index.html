@@ -1754,6 +1754,61 @@
         }
       }
 
+      function threadToMarkdown(thread) {
+        if (!thread) return '';
+        const title = typeof thread.title === 'string' && thread.title.trim() ? thread.title.trim() : 'Untitled chat';
+        const lines = [`# ${title}`];
+        const prompt = typeof thread.systemPrompt === 'string' ? thread.systemPrompt.trim() : '';
+        if (prompt) {
+          lines.push('', '## System Prompt', '', prompt);
+        }
+        const messages = Array.isArray(thread.messages) ? thread.messages : [];
+        if (messages.length) {
+          lines.push('', '## Messages', '');
+          messages.forEach((message, index) => {
+            const rawRole = typeof message?.role === 'string' ? message.role.trim() : '';
+            const role = rawRole ? rawRole.charAt(0).toUpperCase() + rawRole.slice(1) : 'Message';
+            let content = '';
+            if (message && typeof message.content === 'string') {
+              content = message.content;
+            } else if (message && message.content != null) {
+              try {
+                content = JSON.stringify(message.content, null, 2);
+              } catch (err) {
+                content = String(message.content);
+              }
+            }
+            if (!content.trim()) {
+              content = '_No content_';
+            }
+            lines.push(`### ${index + 1}. ${role}`, '', content, '');
+          });
+        } else {
+          lines.push('', '_No messages yet._');
+        }
+        return lines.join('\n');
+      }
+
+      function exportThreadMarkdown(threadId = currentThreadId) {
+        if (!threadId) return;
+        const thread = getThread(threadId);
+        if (!thread) return;
+        const markdown = threadToMarkdown(thread);
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const safeTitle = typeof thread.title === 'string' && thread.title.trim()
+          ? thread.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+          : 'chat';
+        const filename = `${safeTitle || 'chat'}-${thread.id}.md`;
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
       /**
        * Render all messages for a given thread. This simply loops over the
        * stored messages and creates elements for each role.
@@ -1852,6 +1907,14 @@
           renameThread(threadId);
         });
         menu.appendChild(renameBtn);
+
+        const exportThreadBtn = document.createElement('button');
+        exportThreadBtn.textContent = 'Export (.md)';
+        exportThreadBtn.addEventListener('click', () => {
+          closeThreadMenu();
+          exportThreadMarkdown(threadId);
+        });
+        menu.appendChild(exportThreadBtn);
 
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete';
