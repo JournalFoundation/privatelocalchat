@@ -441,13 +441,6 @@
       height: auto;
     }
 
-    .qr-link {
-      word-break: break-all;
-      text-align: center;
-      font-size: 0.85rem;
-      color: var(--color-strong-text);
-    }
-
     .icon {
       width: 18px;
       height: 18px;
@@ -1465,9 +1458,6 @@
           role="img"
           aria-label="QR code for shared chat settings"
         ></div>
-        <div class="qr-link">
-          <a id="configQrLink" href="#" target="_blank" rel="noopener">Link will appear after generating.</a>
-        </div>
       </div>
     </div>
   </div>
@@ -1532,7 +1522,6 @@
       const configQrModal = document.getElementById('configQrModal');
       const configQrCloseBtn = document.getElementById('configQrCloseBtn');
       const configQrCode = document.getElementById('configQrCode');
-      const configQrLink = document.getElementById('configQrLink');
       const copyConfigLinkBtn = document.getElementById('copyConfigLinkBtn');
 
       const createIcon = symbolId => {
@@ -3572,10 +3561,6 @@ const base64UrlEncode = value => {
           correctLevel: QRCode.CorrectLevel.H
         });
         configQrCode.setAttribute('aria-label', 'QR code for shared chat settings');
-        if (configQrLink) {
-          configQrLink.href = shareUrl;
-          configQrLink.textContent = shareUrl;
-        }
         latestConfigShareUrl = shareUrl;
         openModal(configQrModal, { focusEl: configQrCloseBtn, triggerEl: shareConfigBtn });
       }
