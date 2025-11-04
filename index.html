@@ -11,6 +11,122 @@
   <style>
     /* Minimal styling for the chat client UI. */
 
+    :root {
+      color-scheme: light;
+      --color-bg: #ffffff;
+      --color-text: #222222;
+      --color-strong-text: #333333;
+      --color-muted-text: #555555;
+      --color-inverse-text: #ffffff;
+      --color-link: #007bff;
+      --color-link-hover: #0056b3;
+      --color-link-focus: #80bdff;
+      --color-border: #dddddd;
+      --color-border-strong: #cccccc;
+      --color-sidebar-bg: #f4f4f4;
+      --color-sidebar-shadow: rgba(0, 0, 0, 0.15);
+      --color-surface: #ffffff;
+      --color-surface-alt: #f8f9fa;
+      --color-thread-hover: #e2e6ea;
+      --color-thread-selected: #007bff;
+      --color-thread-selected-text: #ffffff;
+      --color-thread-menu-bg: #ffffff;
+      --color-thread-menu-border: #cccccc;
+      --color-thread-menu-hover: #f0f0f0;
+      --color-icon-btn-bg: #ffffff;
+      --color-icon-btn-border: #cccccc;
+      --color-icon-btn-hover-bg: #e2e6ea;
+      --color-icon-btn-hover-border: #b3b3b3;
+      --color-success: #28a745;
+      --color-success-hover: #1c7e32;
+      --color-secondary: #6c757d;
+      --color-secondary-hover: #565e64;
+      --color-promo-bg: #fff8e1;
+      --color-promo-border: #f0c36d;
+      --color-promo-text: #7a5200;
+      --color-overlay: rgba(0, 0, 0, 0.35);
+      --color-modal-bg: #ffffff;
+      --color-modal-border: #dddddd;
+      --color-modal-secondary-bg: #ffffff;
+      --color-modal-secondary-text: #0d6efd;
+      --color-modal-fine-print: #666666;
+      --color-system-prompt-border: #dddddd;
+      --color-system-prompt-label: #555555;
+      --color-messages-bg: #fafafa;
+      --color-message-user-bg: #e9f7ef;
+      --color-message-assistant-bg: #f1f1f1;
+      --color-message-system-bg: #fffbe6;
+      --color-message-system-border: #cccccc;
+      --color-form-border: #cccccc;
+      --color-form-disabled-bg: #e9ecef;
+      --color-toast-bg: rgba(34, 34, 34, 0.92);
+      --color-toast-text: #ffffff;
+      --color-notice-bg: #fff3cd;
+      --color-notice-border: #f7d070;
+      --color-notice-text: #6c4a00;
+      --color-action-text: #333333;
+      --color-danger: #c1121f;
+      --color-loading-track: rgba(0, 0, 0, 0.1);
+    }
+
+    :root[data-theme='dark'] {
+      color-scheme: dark;
+      --color-bg: #0b1120;
+      --color-text: #e2e8f0;
+      --color-strong-text: #e5e7eb;
+      --color-muted-text: #94a3b8;
+      --color-inverse-text: #f8fafc;
+      --color-link: #60a5fa;
+      --color-link-hover: #3b82f6;
+      --color-link-focus: #93c5fd;
+      --color-border: #1f2937;
+      --color-border-strong: #334155;
+      --color-sidebar-bg: #111827;
+      --color-sidebar-shadow: rgba(15, 23, 42, 0.6);
+      --color-surface: #111827;
+      --color-surface-alt: #0f172a;
+      --color-thread-hover: #1f2937;
+      --color-thread-selected: #2563eb;
+      --color-thread-selected-text: #f8fafc;
+      --color-thread-menu-bg: #111827;
+      --color-thread-menu-border: #1f2937;
+      --color-thread-menu-hover: #1f2937;
+      --color-icon-btn-bg: #1f2937;
+      --color-icon-btn-border: #334155;
+      --color-icon-btn-hover-bg: #273449;
+      --color-icon-btn-hover-border: #3b4c63;
+      --color-success: #22c55e;
+      --color-success-hover: #16a34a;
+      --color-secondary: #475569;
+      --color-secondary-hover: #64748b;
+      --color-promo-bg: #1f2937;
+      --color-promo-border: #374151;
+      --color-promo-text: #facc15;
+      --color-overlay: rgba(15, 23, 42, 0.7);
+      --color-modal-bg: #0f172a;
+      --color-modal-border: #1f2937;
+      --color-modal-secondary-bg: #111827;
+      --color-modal-secondary-text: #60a5fa;
+      --color-modal-fine-print: #94a3b8;
+      --color-system-prompt-border: #1f2937;
+      --color-system-prompt-label: #94a3b8;
+      --color-messages-bg: #0f172a;
+      --color-message-user-bg: rgba(59, 130, 246, 0.18);
+      --color-message-assistant-bg: rgba(148, 163, 184, 0.18);
+      --color-message-system-bg: rgba(234, 179, 8, 0.18);
+      --color-message-system-border: rgba(250, 204, 21, 0.6);
+      --color-form-border: #334155;
+      --color-form-disabled-bg: #1e293b;
+      --color-toast-bg: rgba(15, 23, 42, 0.92);
+      --color-toast-text: #f8fafc;
+      --color-notice-bg: rgba(234, 179, 8, 0.2);
+      --color-notice-border: rgba(250, 204, 21, 0.7);
+      --color-notice-text: #facc15;
+      --color-action-text: #e2e8f0;
+      --color-danger: #f87171;
+      --color-loading-track: rgba(255, 255, 255, 0.18);
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -18,9 +134,18 @@
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #fff;
-      color: #222;
+      background: var(--color-bg);
+      color: var(--color-text);
       min-height: 100vh;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    a {
+      color: var(--color-link);
+    }
+
+    a:hover {
+      color: var(--color-link-hover);
     }
 
     #app {
@@ -36,9 +161,9 @@
       left: 0;
       bottom: 0;
       width: min(85vw, 320px);
-      background: #f4f4f4;
-      border-right: 1px solid #ddd;
-      box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+      background: var(--color-sidebar-bg);
+      border-right: 1px solid var(--color-border);
+      box-shadow: 2px 0 12px var(--color-sidebar-shadow);
       padding: 16px;
       display: flex;
       flex-direction: column;
@@ -87,7 +212,7 @@
       display: block;
       margin-bottom: 4px;
       font-size: 0.9rem;
-      color: #333;
+      color: var(--color-strong-text);
     }
 
     .form-group input,
@@ -95,8 +220,10 @@
     .form-group textarea {
       width: 100%;
       padding: 6px 8px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--color-form-border);
       border-radius: 4px;
+      background: var(--color-surface);
+      color: var(--color-text);
     }
 
     .secret-field {
@@ -119,7 +246,7 @@
       margin-bottom: 12px;
       font-size: 0.85rem;
       line-height: 1.4;
-      color: #555;
+      color: var(--color-muted-text);
     }
 
     .hint-text a {
@@ -130,7 +257,7 @@
     .link-btn {
       border: none;
       background: transparent;
-      color: #007bff;
+      color: var(--color-link);
       padding: 0;
       font: inherit;
       text-decoration: underline;
@@ -138,27 +265,27 @@
     }
 
     .link-btn:hover {
-      color: #0056b3;
+      color: var(--color-link-hover);
     }
 
     .link-btn:focus-visible {
-      outline: 2px solid #0056b3;
+      outline: 2px solid var(--color-link-hover);
       outline-offset: 2px;
     }
 
     .form-group button {
       width: 100%;
       padding: 8px;
-      background: #007bff;
+      background: var(--color-link);
       border: none;
       border-radius: 4px;
-      color: #fff;
+      color: var(--color-inverse-text);
       cursor: pointer;
       font-size: 0.9rem;
     }
 
     .form-group button:hover {
-      background: #0056b3;
+      background: var(--color-link-hover);
     }
 
     .threads-header {
@@ -189,12 +316,12 @@
     }
 
     .thread-list li.selected {
-      background: #007bff;
-      color: #fff;
+      background: var(--color-thread-selected);
+      color: var(--color-thread-selected-text);
     }
 
     .thread-list li:hover {
-      background: #e2e6ea;
+      background: var(--color-thread-hover);
     }
 
     .thread-name {
@@ -221,19 +348,19 @@
     }
 
     .thread-menu-btn:hover {
-      color: #007bff;
+      color: var(--color-link);
     }
 
     .thread-list li.selected .thread-menu-btn:hover {
-      color: #cfe2ff;
+      color: var(--color-thread-selected-text);
     }
 
     .thread-menu {
       position: absolute;
-      background: #fff;
-      border: 1px solid #ccc;
+      background: var(--color-thread-menu-bg);
+      border: 1px solid var(--color-thread-menu-border);
       border-radius: 4px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 2px 6px var(--color-sidebar-shadow);
       padding: 4px 0;
       min-width: 140px;
       z-index: 1101;
@@ -253,11 +380,11 @@
     }
 
     .thread-menu button:hover {
-      background: #f0f0f0;
+      background: var(--color-thread-menu-hover);
     }
 
     .thread-menu button.delete {
-      color: #c1121f;
+      color: var(--color-danger);
     }
 
     .sr-only {
@@ -278,7 +405,7 @@
       gap: 12px;
       margin-top: 12px;
       font-size: 0.9rem;
-      color: #333;
+      color: var(--color-action-text);
     }
 
     .action-group {
@@ -301,10 +428,10 @@
     }
 
     .qr-code {
-      background: #fff;
+      background: var(--color-surface);
       padding: 12px;
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 4px 12px var(--color-sidebar-shadow);
     }
 
     .qr-code canvas,
@@ -318,7 +445,7 @@
       word-break: break-all;
       text-align: center;
       font-size: 0.85rem;
-      color: #333;
+      color: var(--color-strong-text);
     }
 
     .icon {
@@ -342,8 +469,8 @@
     }
 
     .icon-btn {
-      border: 1px solid #ccc;
-      background: #fff;
+      border: 1px solid var(--color-icon-btn-border);
+      background: var(--color-icon-btn-bg);
       border-radius: 4px;
       padding: 6px;
       display: inline-flex;
@@ -351,16 +478,16 @@
       justify-content: center;
       cursor: pointer;
       transition: background 0.2s ease, border-color 0.2s ease;
-      color: #333;
+      color: var(--color-action-text);
     }
 
     .icon-btn:hover {
-      background: #e2e6ea;
-      border-color: #b3b3b3;
+      background: var(--color-icon-btn-hover-bg);
+      border-color: var(--color-icon-btn-hover-border);
     }
 
     .icon-btn:focus {
-      outline: 2px solid #0056b3;
+      outline: 2px solid var(--color-link);
       outline-offset: 2px;
     }
 
@@ -389,8 +516,8 @@
     .new-thread-button {
       width: 100%;
       border: none;
-      background: #28a745;
-      color: #fff;
+      background: var(--color-success);
+      color: var(--color-inverse-text);
       padding: 10px;
       border-radius: 4px;
       cursor: pointer;
@@ -404,7 +531,7 @@
     }
 
     .new-thread-button:hover {
-      background: #1c7e32;
+      background: var(--color-success-hover);
     }
 
     .model-select-row button {
@@ -440,15 +567,17 @@
       align-items: center;
       gap: 8px;
       padding: 12px;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--color-border);
     }
 
     .thread-title {
       flex: 1;
       font-size: 1.1rem;
       padding: 4px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--color-form-border);
       border-radius: 4px;
+      background: var(--color-surface);
+      color: var(--color-text);
     }
 
     /* === Promo banner (minimal, mobile-first) === */
@@ -461,9 +590,9 @@
       justify-content: space-between;
       gap: 8px;
       padding: 8px 12px;
-      background: #fff8e1;
-      border-bottom: 1px solid #f0c36d;
-      color: #7a5200;
+      background: var(--color-promo-bg);
+      border-bottom: 1px solid var(--color-promo-border);
+      color: var(--color-promo-text);
       font-size: 0.9rem;
     }
 
@@ -472,7 +601,7 @@
     }
 
     .promo-banner a {
-      color: #7a5200;
+      color: var(--color-promo-text);
       text-decoration: underline;
     }
 
@@ -480,7 +609,7 @@
       border: none;
       background: transparent;
       cursor: pointer;
-      color: #7a5200;
+      color: var(--color-promo-text);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -488,27 +617,31 @@
     }
 
     /* Info button in header */
-    .about-btn {
+    .about-btn,
+    .theme-toggle-btn {
       width: 44px;
       height: 44px;
-      border: 2px solid #007bff;
+      border: 2px solid var(--color-link);
       border-radius: 50%;
-      background: #fff;
-      color: #007bff;
+      background: var(--color-surface);
+      color: var(--color-link);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 0;
       cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     }
 
-    .about-btn .icon {
+    .about-btn .icon,
+    .theme-toggle-btn .icon {
       width: 20px;
       height: 20px;
     }
 
-    .about-btn:focus-visible {
-      outline: 3px solid #80bdff;
+    .about-btn:focus-visible,
+    .theme-toggle-btn:focus-visible {
+      outline: 3px solid var(--color-link-focus);
       outline-offset: 2px;
     }
 
@@ -516,7 +649,7 @@
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.35);
+      background: var(--color-overlay);
       z-index: 1000;
     }
 
@@ -538,12 +671,12 @@
       width: 100%;
       max-height: 85vh;
       overflow: auto;
-      background: #fff;
+      background: var(--color-modal-bg);
       border-top-left-radius: 12px;
       border-top-right-radius: 12px;
       padding: 16px;
       padding-bottom: max(16px, env(safe-area-inset-bottom));
-      box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 -6px 24px var(--color-sidebar-shadow);
       position: relative;
     }
 
@@ -576,8 +709,8 @@
       align-items: center;
       padding: 8px 10px;
       border-radius: 6px;
-      background: #f1f3f5;
-      color: #0a58ca;
+      background: var(--color-surface-alt);
+      color: var(--color-link);
       text-decoration: none;
       gap: 6px;
     }
@@ -586,28 +719,28 @@
     .modal .secondary {
       padding: 10px 12px;
       border-radius: 6px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--color-border-strong);
       cursor: pointer;
-      background: #fff;
+      background: var(--color-modal-secondary-bg);
       display: inline-flex;
       align-items: center;
       gap: 6px;
     }
 
     .modal .primary {
-      background: #0d6efd;
-      color: #fff;
-      border-color: #0d6efd;
+      background: var(--color-link);
+      color: var(--color-inverse-text);
+      border-color: var(--color-link);
     }
 
     .modal .secondary {
-      background: #fff;
-      color: #0d6efd;
-      border-color: #0d6efd;
+      background: var(--color-modal-secondary-bg);
+      color: var(--color-modal-secondary-text);
+      border-color: var(--color-link);
     }
 
     .modal .fine-print {
-      color: #666;
+      color: var(--color-modal-fine-print);
       font-size: 0.85rem;
     }
 
@@ -626,14 +759,14 @@
 
     .system-prompt-container {
       padding: 8px 12px;
-      border-bottom: 1px solid #ddd;
+      border-bottom: 1px solid var(--color-system-prompt-border);
     }
 
     .system-prompt-container label {
       display: block;
       margin-bottom: 4px;
       font-size: 0.9rem;
-      color: #555;
+      color: var(--color-system-prompt-label);
     }
 
     .system-prompt-container textarea {
@@ -641,16 +774,18 @@
       min-height: 60px;
       resize: vertical;
       padding: 6px 8px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--color-form-border);
       border-radius: 4px;
       font-size: 0.9rem;
+      background: var(--color-surface);
+      color: var(--color-text);
     }
 
     .messages {
       flex: 1;
       padding: 12px;
       overflow-y: auto;
-      background: #fafafa;
+      background: var(--color-messages-bg);
     }
 
     .message {
@@ -663,35 +798,37 @@
     }
 
     .message.user {
-      background: #e9f7ef;
+      background: var(--color-message-user-bg);
       align-self: flex-end;
     }
 
     .message.assistant {
-      background: #f1f1f1;
+      background: var(--color-message-assistant-bg);
       align-self: flex-start;
     }
 
     .message.system {
-      background: #fffbe6;
-      border: 1px dashed #ccc;
+      background: var(--color-message-system-bg);
+      border: 1px dashed var(--color-message-system-border);
     }
 
     .message-form {
       display: flex;
       padding: 12px;
-      border-top: 1px solid #ddd;
-      background: #f8f9fa;
+      border-top: 1px solid var(--color-border);
+      background: var(--color-surface-alt);
     }
 
     .message-form textarea {
       flex: 1;
       padding: 8px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--color-form-border);
       border-radius: 4px;
       resize: vertical;
       font-size: 0.9rem;
       min-height: 60px;
+      background: var(--color-surface);
+      color: var(--color-text);
     }
 
     .message-form button {
@@ -699,8 +836,8 @@
       padding: 10px 16px;
       border: none;
       border-radius: 4px;
-      background: #007bff;
-      color: #fff;
+      background: var(--color-link);
+      color: var(--color-inverse-text);
       font-size: 0.9rem;
       cursor: pointer;
       display: inline-flex;
@@ -709,16 +846,17 @@
     }
 
     .message-form button:hover {
-      background: #0056b3;
+      background: var(--color-link-hover);
     }
 
     .message-form button:disabled {
-      background: #94b9e8;
+      background: var(--color-link-hover);
+      opacity: 0.6;
       cursor: not-allowed;
     }
 
     .message-form textarea:disabled {
-      background: #e9ecef;
+      background: var(--color-form-disabled-bg);
       cursor: not-allowed;
     }
 
@@ -753,8 +891,8 @@
       left: 50%;
       bottom: 24px;
       transform: translate(-50%, 100%);
-      background: rgba(34, 34, 34, 0.92);
-      color: #fff;
+      background: var(--color-toast-bg);
+      color: var(--color-toast-text);
       padding: 10px 16px;
       border-radius: 6px;
       font-size: 0.9rem;
@@ -780,9 +918,9 @@
     .chat-notice {
       display: none;
       padding: 12px;
-      background: #fff3cd;
-      border-bottom: 1px solid #f7d070;
-      color: #6c4a00;
+      background: var(--color-notice-bg);
+      border-bottom: 1px solid var(--color-notice-border);
+      color: var(--color-notice-text);
       font-size: 0.9rem;
     }
 
@@ -795,7 +933,7 @@
     }
 
     .chat-notice.requires-endpoint:focus-visible {
-      outline: 2px solid #f7d070;
+      outline: 2px solid var(--color-notice-border);
       outline-offset: 2px;
     }
 
@@ -821,25 +959,25 @@
       padding: 6px 12px;
       font-size: 0.85rem;
       cursor: pointer;
-      background: #007bff;
-      color: #fff;
+      background: var(--color-link);
+      color: var(--color-inverse-text);
     }
 
     .notice-actions button.secondary {
-      background: #6c757d;
+      background: var(--color-secondary);
     }
 
     .notice-actions button:focus-visible {
-      outline: 2px solid #fff;
+      outline: 2px solid var(--color-inverse-text);
       outline-offset: 2px;
     }
 
     /* Loading indicator styling */
     .loading {
       display: inline-block;
-      border: 4px solid rgba(0, 0, 0, 0.1);
+      border: 4px solid var(--color-loading-track);
       border-radius: 50%;
-      border-top-color: #007bff;
+      border-top-color: var(--color-link);
       width: 24px;
       height: 24px;
       animation: spin 1s linear infinite;
@@ -850,7 +988,7 @@
       background: transparent;
       cursor: pointer;
       padding: 4px 6px;
-      color: #007bff;
+      color: var(--color-link);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -858,14 +996,14 @@
 
     .mobile-toggle:focus,
     .sidebar-close:focus {
-      outline: 2px solid #007bff;
+      outline: 2px solid var(--color-link);
       outline-offset: 2px;
     }
 
     #sidebarOverlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.35);
+      background: var(--color-overlay);
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.25s ease;
@@ -935,6 +1073,16 @@
     <symbol id="icon-info" viewBox="0 0 16 16" fill="currentColor">
       <path
         d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM8 4.25a.875.875 0 1 1 0 1.75.875.875 0 0 1 0-1.75zM7 7.75h2v5H7z"
+      />
+    </symbol>
+    <symbol id="icon-sun" viewBox="0 0 24 24" fill="currentColor">
+      <path
+        d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm0-16a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 18a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zm9-7a1 1 0 0 1-1 1h-2a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1zm-14 0a1 1 0 0 1-1 1H4a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1zm11.07-7.07a1 1 0 0 1 0 1.41L17.66 6.76a1 1 0 1 1-1.41-1.41l1.41-1.41a1 1 0 0 1 1.41 0zM7.76 16.24a1 1 0 0 1 0 1.41L6.34 19.07a1 1 0 0 1-1.41-1.41l1.41-1.41a1 1 0 0 1 1.41 0zM18.07 17.66a1 1 0 0 1-1.41 0l-1.41-1.41a1 1 0 1 1 1.41-1.41l1.41 1.41a1 1 0 0 1 0 1.41zM8.24 7.76a1 1 0 0 1-1.41 0L5.41 6.34A1 1 0 0 1 6.83 4.93l1.41 1.41a1 1 0 0 1 0 1.42z"
+      />
+    </symbol>
+    <symbol id="icon-moon" viewBox="0 0 24 24" fill="currentColor">
+      <path
+        d="M21 12.79A9 9 0 0 1 11.21 3a7 7 0 1 0 9.79 9.79z"
       />
     </symbol>
     <symbol id="icon-github" viewBox="0 0 16 16" fill="currentColor">
@@ -1184,6 +1332,16 @@
         <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
         <button
           type="button"
+          id="themeToggleBtn"
+          class="theme-toggle-btn"
+          aria-label="Toggle theme"
+          aria-pressed="false"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#icon-sun"></use></svg>
+          <span class="sr-only">Toggle theme</span>
+        </button>
+        <button
+          type="button"
           id="aboutBtn"
           class="about-btn"
           aria-label="About &amp; Privacy"
@@ -1256,7 +1414,7 @@
       <h3>What’s stored locally</h3>
       <ul>
         <li><code>localStorage</code>: chat threads and messages.</li>
-        <li><code>sessionStorage</code>: settings (endpoint, token, models) for the current session.</li>
+        <li><code>sessionStorage</code>: settings (endpoint, token, model, theme) for the current session.</li>
       </ul>
       <p>No network calls happen unless you set an API endpoint and press <em>Send</em> (or <em>Refresh model list</em>).</p>
 
@@ -1359,6 +1517,7 @@
       const authGuidance = document.getElementById('authGuidance');
       const authGuideEndpointBtn = document.getElementById('authGuideEndpointBtn');
       const authGuideImportBtn = document.getElementById('authGuideImportBtn');
+      const themeToggleBtn = document.getElementById('themeToggleBtn');
       const aboutBtn = document.getElementById('aboutBtn');
       const promoBanner = document.getElementById('promoBanner');
       const dismissPromoBtn = document.getElementById('dismissPromoBtn');
@@ -1390,7 +1549,8 @@
       let config = {
         endpoint: '',
         token: '',
-        model: ''
+        model: '',
+        theme: ''
       };
       let threads = [];
       let currentThreadId = null;
@@ -1405,6 +1565,62 @@
       let configQrInstance = null;
       let latestConfigShareUrl = '';
       let qrLibraryLoaded = false;
+
+      const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+      const resolveTheme = preference =>
+        preference === 'light' || preference === 'dark'
+          ? preference
+          : prefersDarkScheme && prefersDarkScheme.matches
+            ? 'dark'
+            : 'light';
+
+      function updateThemeToggle(resolvedTheme, preference) {
+        if (!themeToggleBtn) return;
+        const iconUse = themeToggleBtn.querySelector('use');
+        if (iconUse) {
+          iconUse.setAttribute('href', resolvedTheme === 'dark' ? '#icon-moon' : '#icon-sun');
+        }
+        const followingSystem = preference !== 'light' && preference !== 'dark';
+        const labelAction = resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+        const systemHint = 'Shift+click to follow system theme.';
+        const ariaLabel = followingSystem
+          ? `${labelAction}. Following system preference. ${systemHint}`
+          : `${labelAction}. ${systemHint}`;
+        themeToggleBtn.setAttribute('aria-label', ariaLabel);
+        themeToggleBtn.setAttribute('title', `${labelAction} · ${systemHint}`);
+        themeToggleBtn.setAttribute('aria-pressed', resolvedTheme === 'dark' ? 'true' : 'false');
+        const srLabel = themeToggleBtn.querySelector('.sr-only');
+        if (srLabel) {
+          const status = followingSystem
+            ? `Following system preference (currently ${resolvedTheme}).`
+            : `Preference set to ${resolvedTheme} mode.`;
+          srLabel.textContent = `${status} ${labelAction}. ${systemHint}`;
+        }
+      }
+
+      function applyTheme(preference) {
+        const resolved = resolveTheme(preference);
+        if (resolved === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+        updateThemeToggle(resolved, preference);
+      }
+
+      if (prefersDarkScheme) {
+        const handleSchemeChange = () => {
+          if (config.theme !== 'light' && config.theme !== 'dark') {
+            applyTheme('');
+          }
+        };
+        if (typeof prefersDarkScheme.addEventListener === 'function') {
+          prefersDarkScheme.addEventListener('change', handleSchemeChange);
+        } else if (typeof prefersDarkScheme.addListener === 'function') {
+          prefersDarkScheme.addListener(handleSchemeChange);
+        }
+      }
 
       const qrLibBase64 = `
 dmFyIFFSQ29kZTshZnVuY3Rpb24oKXtmdW5jdGlvbiBhKGEpe3RoaXMubW9kZT1jLk1PREVfOEJJ
@@ -1808,7 +2024,7 @@ const base64UrlEncode = value => {
         });
       }
 
-      const defaults = { endpoint: '', token: '', model: '' };
+      const defaults = { endpoint: '', token: '', model: '', theme: '' };
       const CONFIG_KEY = 'chatConfig';
       const THREAD_KEY = 'chatThreads';
       const MODELS_KEY = 'chatModels';
@@ -2279,6 +2495,7 @@ const base64UrlEncode = value => {
         endpointInput.value = config.endpoint;
         tokenInput.value = config.token;
         syncEndpointControls(config.endpoint);
+        applyTheme(config.theme);
         renderModelOptions(models, config.model);
       }
 
@@ -3308,7 +3525,8 @@ const base64UrlEncode = value => {
         return {
           endpoint: typeof raw.endpoint === 'string' ? raw.endpoint : '',
           token: typeof raw.token === 'string' ? raw.token : '',
-          model: typeof raw.model === 'string' ? raw.model : ''
+          model: typeof raw.model === 'string' ? raw.model : '',
+          theme: raw.theme === 'light' || raw.theme === 'dark' ? raw.theme : ''
         };
       }
 
@@ -3316,7 +3534,8 @@ const base64UrlEncode = value => {
         const trimmed = {
           endpoint: (config.endpoint || '').trim(),
           token: (config.token || '').trim(),
-          model: (config.model || '').trim()
+          model: (config.model || '').trim(),
+          theme: config.theme === 'light' || config.theme === 'dark' ? config.theme : ''
         };
         const hasValue = Object.values(trimmed).some(value => value);
         if (!hasValue) {
@@ -3341,12 +3560,15 @@ const base64UrlEncode = value => {
         }
         ensureQrLibrary();
         configQrCode.innerHTML = '';
+        const resolvedThemeForQr = resolveTheme(config.theme);
+        const qrColorDark = resolvedThemeForQr === 'dark' ? '#f8fafc' : '#000000';
+        const qrColorLight = resolvedThemeForQr === 'dark' ? '#111827' : '#ffffff';
         new QRCode(configQrCode, {
           text: shareUrl,
           width: 256,
           height: 256,
-          colorDark: '#000000',
-          colorLight: '#ffffff',
+          colorDark: qrColorDark,
+          colorLight: qrColorLight,
           correctLevel: QRCode.CorrectLevel.H
         });
         configQrCode.setAttribute('aria-label', 'QR code for shared chat settings');
@@ -3434,6 +3656,7 @@ const base64UrlEncode = value => {
             endpointInput.value = config.endpoint;
             tokenInput.value = config.token;
             syncEndpointControls(config.endpoint);
+            applyTheme(config.theme);
             consecutiveAuthErrors = 0;
             updateAuthGuidance();
             if (Array.isArray(imported?.models)) {
@@ -3467,7 +3690,7 @@ const base64UrlEncode = value => {
             console.warn('Ignoring invalid settings parameter:', err);
           }
         }
-        ['endpoint', 'token', 'model'].forEach(key => {
+        ['endpoint', 'token', 'model', 'theme'].forEach(key => {
           if (params.has(key)) {
             merged[key] = params.get(key) ?? '';
           }
@@ -3485,6 +3708,7 @@ const base64UrlEncode = value => {
         endpointInput.value = config.endpoint;
         tokenInput.value = config.token;
         syncEndpointControls(config.endpoint);
+        applyTheme(config.theme);
         consecutiveAuthErrors = 0;
         updateAuthGuidance();
         const needsModelRefresh =
@@ -3498,7 +3722,8 @@ const base64UrlEncode = value => {
         const changed =
           previous.endpoint !== config.endpoint ||
           previous.token !== config.token ||
-          previous.model !== config.model;
+          previous.model !== config.model ||
+          previous.theme !== config.theme;
         const warningMessage = desiredModel && appliedModel !== desiredModel
           ? `Requested model "${desiredModel}" is not available at this endpoint.` +
             (appliedModel ? ` Using "${appliedModel}" instead.` : ' No models are currently available.')
@@ -3515,7 +3740,7 @@ const base64UrlEncode = value => {
         }
         try {
           const cleanedUrl = new URL(window.location.href);
-          ['settings', 'endpoint', 'token', 'model'].forEach(key => cleanedUrl.searchParams.delete(key));
+          ['settings', 'endpoint', 'token', 'model', 'theme'].forEach(key => cleanedUrl.searchParams.delete(key));
           history.replaceState(null, document.title, cleanedUrl.toString());
         } catch (err) {
           console.warn('Unable to clear shared settings parameters:', err);
@@ -3646,6 +3871,26 @@ const base64UrlEncode = value => {
       importConfigInput.addEventListener('change', importConfig);
       if (shareConfigBtn) {
         shareConfigBtn.addEventListener('click', openConfigQr);
+      }
+      if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', event => {
+          if (event.shiftKey) {
+            if (config.theme === 'light' || config.theme === 'dark') {
+              config.theme = '';
+              persistConfig();
+              applyTheme('');
+              showToast('Theme now follows your system setting.');
+            } else {
+              showToast('Theme already follows your system setting.');
+            }
+            return;
+          }
+          const nextTheme = resolveTheme(config.theme) === 'dark' ? 'light' : 'dark';
+          config.theme = nextTheme;
+          persistConfig();
+          applyTheme(nextTheme);
+          showToast(`Switched to ${nextTheme} theme.`);
+        });
       }
       if (configQrCloseBtn) {
         configQrCloseBtn.addEventListener('click', () => closeConfigQr());
