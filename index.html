@@ -289,6 +289,46 @@
       border-radius: 4px;
     }
 
+    .about-btn {
+      min-width: 36px;
+      height: 36px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fff;
+      color: #007bff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .promo-banner {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #fff8e1;
+      border-bottom: 1px solid #f0c36d;
+      color: #7a5200;
+      font-size: 0.9rem;
+    }
+
+    .promo-banner a {
+      color: #7a5200;
+      text-decoration: underline;
+    }
+
+    .promo-banner .dismiss {
+      border: none;
+      background: transparent;
+      font-size: 1.2rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #7a5200;
+    }
+
     .system-prompt-container {
       padding: 8px 12px;
       border-bottom: 1px solid #ddd;
@@ -357,6 +397,108 @@
       resize: vertical;
       font-size: 0.9rem;
       min-height: 60px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.35);
+      z-index: 1000;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 1001;
+    }
+
+    .modal[hidden],
+    .modal-backdrop[hidden] {
+      display: none !important;
+    }
+
+    .modal .sheet {
+      width: 100%;
+      max-height: 85vh;
+      overflow: auto;
+      background: #fff;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      padding: 16px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+      box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.2);
+      position: relative;
+    }
+
+    .modal .modal-close {
+      position: absolute;
+      right: 16px;
+      top: 12px;
+      border: none;
+      background: transparent;
+      font-size: 1.6rem;
+      cursor: pointer;
+    }
+
+    .modal h2 {
+      margin-top: 4px;
+    }
+
+    .modal .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .modal .cta-link {
+      display: inline-block;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #f1f3f5;
+      color: #0a58ca;
+      text-decoration: none;
+    }
+
+    .modal .primary,
+    .modal .secondary {
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      background: #fff;
+    }
+
+    .modal .primary {
+      background: #0d6efd;
+      color: #fff;
+      border-color: #0d6efd;
+    }
+
+    .modal .secondary {
+      background: #fff;
+      color: #0d6efd;
+      border-color: #0d6efd;
+    }
+
+    .modal .fine-print {
+      color: #666;
+      font-size: 0.85rem;
+    }
+
+    @media (min-width: 900px) {
+      .modal {
+        align-items: center;
+      }
+
+      .modal .sheet {
+        max-width: 720px;
+        border-radius: 12px;
+        padding: 20px 24px;
+      }
     }
 
     .message-form button {
@@ -532,6 +674,15 @@
       <div id="chatHeader" class="chat-header">
         <button type="button" id="openSidebarBtn" class="mobile-toggle" aria-label="Open settings">☰</button>
         <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
+        <button type="button" id="aboutBtn" class="about-btn" aria-label="About &amp; Privacy">ⓘ</button>
+      </div>
+      <div id="promoBanner" class="promo-banner" role="region" aria-label="Journal Foundation notice" hidden>
+        <span>
+          Private local chat demo by
+          <a href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation.org</a>.
+          Save this page to run it offline.
+        </span>
+        <button id="dismissPromoBtn" class="dismiss" aria-label="Dismiss notice">×</button>
       </div>
       <div id="chatNotice" class="chat-notice" role="status" aria-live="polite" hidden></div>
       <div id="systemPromptContainer" class="system-prompt-container">
@@ -544,6 +695,61 @@
         <button type="submit" id="sendBtn">Send</button>
       </form>
     </main>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop" hidden></div>
+  <div
+    id="aboutModal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="aboutTitle"
+    hidden
+  >
+    <div class="sheet" role="document">
+      <button type="button" class="modal-close" id="aboutCloseBtn" aria-label="Close">×</button>
+      <h2 id="aboutTitle">Private &amp; Local — About this demo</h2>
+      <p>
+        <strong>This is a single static HTML file.</strong>
+        There is no backend, no database, and nothing on a server to capture your data. Your chats are stored in your browser.
+      </p>
+
+      <h3>How to run it anywhere</h3>
+      <ul>
+        <li><strong>Desktop:</strong> Right-click → <em>Save Page As…</em>, then open the saved file.</li>
+        <li>
+          <strong>iPhone (Safari):</strong> Share → <em>Add to Home Screen</em>, or Share → <em>Save to Files</em>, then open it.
+        </li>
+      </ul>
+
+      <h3>What’s stored locally</h3>
+      <ul>
+        <li><code>localStorage</code>: chat threads and messages.</li>
+        <li><code>sessionStorage</code>: settings (endpoint, token, models) for the current session.</li>
+      </ul>
+      <p>No network calls happen unless you set an API endpoint and press <em>Send</em> (or <em>Refresh model list</em>).</p>
+
+      <div class="cta-row">
+        <a id="jfSiteLink" class="cta-link" href="https://JournalFoundation.org" target="_blank" rel="noopener"
+          >JournalFoundation.org</a
+        >
+        <a
+          id="githubProjectLink"
+          class="cta-link"
+          href="https://github.com/JournalFoundation/privatelocalchat"
+          target="_blank"
+          rel="noopener"
+          >Fork / contribute on GitHub</a
+        >
+      </div>
+
+      <div class="cta-row">
+        <button id="downloadPageBtn" class="primary">Download this page</button>
+        <button id="copyPreloadLinkBtn" class="secondary">Copy link with current title/system/prompt</button>
+      </div>
+
+      <p class="fine-print">Tip: You can also open this dialog directly with <code>?about=1</code> in the URL.</p>
+    </div>
   </div>
 
   <script>
@@ -585,6 +791,14 @@
       const messageForm = document.getElementById('messageForm');
       const messageInput = document.getElementById('messageInput');
       const sendBtn = document.getElementById('sendBtn');
+      const aboutBtn = document.getElementById('aboutBtn');
+      const promoBanner = document.getElementById('promoBanner');
+      const dismissPromoBtn = document.getElementById('dismissPromoBtn');
+      const aboutModal = document.getElementById('aboutModal');
+      const modalBackdrop = document.getElementById('modalBackdrop');
+      const aboutCloseBtn = document.getElementById('aboutCloseBtn');
+      const downloadPageBtn = document.getElementById('downloadPageBtn');
+      const copyPreloadLinkBtn = document.getElementById('copyPreloadLinkBtn');
 
       // Application state
       let config = {
@@ -622,6 +836,53 @@
       };
 
       const persistConfig = () => writeJson(sessionStorage, CONFIG_KEY, config);
+
+      function openAbout() {
+        if (!aboutModal || !modalBackdrop) return;
+        aboutModal.hidden = false;
+        modalBackdrop.hidden = false;
+        document.body.style.overflow = 'hidden';
+        if (aboutCloseBtn) {
+          setTimeout(() => aboutCloseBtn.focus(), 0);
+        }
+      }
+
+      function closeAbout() {
+        if (!aboutModal || !modalBackdrop) return;
+        aboutModal.hidden = true;
+        modalBackdrop.hidden = true;
+        document.body.style.overflow = '';
+        if (aboutBtn) {
+          aboutBtn.focus();
+        }
+      }
+
+      function maybeShowPromo() {
+        if (!promoBanner) return;
+        const dismissed = sessionStorage.getItem('promoDismissed') === '1';
+        promoBanner.hidden = dismissed;
+      }
+
+      function buildPreloadUrl() {
+        const base = window.location.origin + window.location.pathname;
+        const params = new URLSearchParams();
+        const titleValue = threadTitleInput?.value?.trim();
+        const systemValue = systemPromptInput?.value?.trim();
+        const promptValue = messageInput?.value?.trim();
+        if (titleValue) params.set('title', titleValue);
+        if (systemValue) params.set('system', systemValue);
+        if (promptValue) params.set('prompt', promptValue);
+        const query = params.toString();
+        return query ? `${base}?${query}` : base;
+      }
+
+      function initMarketing() {
+        maybeShowPromo();
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('about') === '1') {
+          openAbout();
+        }
+      }
 
       function loadModels() {
         models = readJson(sessionStorage, MODELS_KEY, []);
@@ -1516,6 +1777,10 @@
       }
       document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
+          if (aboutModal && !aboutModal.hidden) {
+            closeAbout();
+            return;
+          }
           if (document.body.classList.contains('sidebar-open')) {
             closeSidebar({ restoreFocus: true });
             return;
@@ -1535,6 +1800,62 @@
         desktopMediaQuery.addListener(handleViewportChange);
       }
       updateSidebarAria();
+
+      if (dismissPromoBtn) {
+        dismissPromoBtn.addEventListener('click', () => {
+          sessionStorage.setItem('promoDismissed', '1');
+          maybeShowPromo();
+        });
+      }
+
+      if (aboutBtn) {
+        aboutBtn.addEventListener('click', openAbout);
+      }
+
+      if (aboutCloseBtn) {
+        aboutCloseBtn.addEventListener('click', closeAbout);
+      }
+
+      if (modalBackdrop) {
+        modalBackdrop.addEventListener('click', closeAbout);
+      }
+
+      if (downloadPageBtn) {
+        downloadPageBtn.addEventListener('click', () => {
+          try {
+            const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'private-chat.html';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          } catch (err) {
+            alert('If download is blocked by your browser, use “Save Page As…” instead.');
+          }
+        });
+      }
+
+      if (copyPreloadLinkBtn) {
+        copyPreloadLinkBtn.addEventListener('click', async () => {
+          const originalLabel = copyPreloadLinkBtn.textContent;
+          const url = buildPreloadUrl();
+          try {
+            await navigator.clipboard.writeText(url);
+            copyPreloadLinkBtn.textContent = 'Copied!';
+            setTimeout(() => {
+              copyPreloadLinkBtn.textContent = originalLabel;
+            }, 1200);
+          } catch (err) {
+            window.prompt('Copy this link:', url);
+          }
+        });
+      }
+
+      initMarketing();
 
       threadTitleInput.addEventListener('blur', () => {
         updateThread(thread => {
