@@ -607,6 +607,57 @@
       opacity: 0.7;
     }
 
+    .message-input-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+    }
+
+    .message-input-wrapper textarea {
+      flex: 1;
+      width: 100%;
+    }
+
+    .message-input-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .message-form.disabled .message-input-overlay {
+      pointer-events: auto;
+      cursor: not-allowed;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translate(-50%, 100%);
+      background: rgba(34, 34, 34, 0.92);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      opacity: 0;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      z-index: 2000;
+      max-width: min(90vw, 320px);
+      text-align: center;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .toast {
+        transition: none;
+      }
+    }
+
     .chat-notice {
       display: none;
       padding: 12px;
@@ -850,11 +901,16 @@
       </div>
       <div id="messages" class="messages"></div>
       <form id="messageForm" class="message-form">
-        <textarea id="messageInput" placeholder="Type your message" rows="3"></textarea>
+        <div class="message-input-wrapper">
+          <textarea id="messageInput" placeholder="Type your message" rows="3"></textarea>
+          <div id="messageInputOverlay" class="message-input-overlay" aria-hidden="true"></div>
+        </div>
         <button type="submit" id="sendBtn">Send</button>
       </form>
     </main>
   </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-hidden="true" hidden></div>
 
   <div id="modalBackdrop" class="modal-backdrop" hidden></div>
   <div id="aboutModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
@@ -932,12 +988,14 @@
       const messagesEl = document.getElementById('messages');
       const messageForm = document.getElementById('messageForm');
       const messageInput = document.getElementById('messageInput');
+      const messageInputOverlay = document.getElementById('messageInputOverlay');
       const sendBtn = document.getElementById('sendBtn');
       const aboutBtn = document.getElementById('aboutBtn');
       const promoBanner = document.getElementById('promoBanner');
       const dismissPromoBtn = document.getElementById('dismissPromoBtn');
       const aboutModal = document.getElementById('aboutModal');
       const modalBackdrop = document.getElementById('modalBackdrop');
+      const toast = document.getElementById('toast');
       const aboutCloseBtn = document.getElementById('aboutCloseBtn');
       const downloadPageBtn = document.getElementById('downloadPageBtn');
       const copyPreloadLinkBtn = document.getElementById('copyPreloadLinkBtn');
@@ -952,6 +1010,7 @@
       let currentThreadId = null;
       let models = [];
       let openThreadMenu = null;
+      let toastHideTimer = null;
       const desktopMediaQuery = window.matchMedia('(min-width: 900px)');
 
       const defaults = { endpoint: '', token: '', model: '' };
@@ -1493,6 +1552,40 @@
         }
         updateChatNotice(state);
         updateSendButtonDisabled(state.ready);
+      }
+
+      function hideToast() {
+        if (!toast) return;
+        toast.classList.remove('visible');
+        toast.setAttribute('aria-hidden', 'true');
+        if (toastHideTimer) {
+          window.clearTimeout(toastHideTimer);
+          toastHideTimer = null;
+        }
+        window.setTimeout(() => {
+          if (!toast.classList.contains('visible')) {
+            toast.hidden = true;
+          }
+        }, 180);
+      }
+
+      function showToast(message, duration = 3200) {
+        if (!toast) return;
+        if (toastHideTimer) {
+          window.clearTimeout(toastHideTimer);
+          toastHideTimer = null;
+        }
+        toast.textContent = message;
+        toast.hidden = false;
+        toast.setAttribute('aria-hidden', 'false');
+        toast.classList.remove('visible');
+        // Force reflow so the animation retriggers when showToast runs rapidly.
+        void toast.offsetWidth;
+        toast.classList.add('visible');
+        toastHideTimer = window.setTimeout(() => {
+          toastHideTimer = null;
+          hideToast();
+        }, duration);
       }
 
       /**
@@ -2269,6 +2362,20 @@
       messageInput.addEventListener('input', () => {
         updateSendButtonDisabled(getChatState().ready);
       });
+      if (messageInputOverlay) {
+        messageInputOverlay.addEventListener('click', () => {
+          if (!messageInput || !messageInput.disabled) {
+            return;
+          }
+          const state = getChatState();
+          if (!state.hasEndpoint) {
+            showToast("You can't start chatting until you set an LLM API endpoint.");
+          }
+        });
+      }
+      if (toast) {
+        toast.addEventListener('click', hideToast);
+      }
       exportBtn.addEventListener('click', exportHistory);
       importBtn.addEventListener('click', () => importInput.click());
       importInput.addEventListener('change', importHistory);
