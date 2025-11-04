@@ -109,6 +109,23 @@
       background: #0056b3;
     }
 
+    .provider-hint {
+      margin-top: 6px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      color: #1f3b64;
+      background: #e9f2ff;
+      border-left: 4px solid #3b82f6;
+      border-radius: 4px;
+      padding: 8px 10px;
+    }
+
+    .provider-hint strong {
+      display: block;
+      font-size: 0.9rem;
+      margin-bottom: 2px;
+    }
+
     .threads-header {
       margin-top: 16px;
     }
@@ -696,6 +713,11 @@
         <button type="button" id="closeSidebarBtn" class="sidebar-close" aria-label="Close settings">×</button>
       </div>
       <div class="form-group">
+        <label for="endpointSelect">Provider presets</label>
+        <select id="endpointSelect"></select>
+        <div id="providerHint" class="provider-hint" role="status" aria-live="polite"></div>
+      </div>
+      <div class="form-group">
         <label for="endpointInput">API endpoint</label>
         <input type="text" id="endpointInput" placeholder="https://api.example.com/v1/chat/completions" />
       </div>
@@ -886,6 +908,8 @@
 
     (() => {
       // DOM element references
+      const endpointSelect = document.getElementById('endpointSelect');
+      const providerHint = document.getElementById('providerHint');
       const endpointInput = document.getElementById('endpointInput');
       const tokenInput = document.getElementById('tokenInput');
       const modelSelect = document.getElementById('modelSelect');
@@ -934,6 +958,218 @@
       const CONFIG_KEY = 'chatConfig';
       const THREAD_KEY = 'chatThreads';
       const MODELS_KEY = 'chatModels';
+
+      const ENDPOINT_SUGGESTIONS = [
+        {
+          id: 'choose',
+          label: 'Select a provider…',
+          prefill: '',
+          hint:
+            '<strong>Getting started</strong>Select a provider to autofill the endpoint and see where to grab an API key. You can also paste any OpenAI-compatible URL below.'
+        },
+        {
+          id: 'openrouter',
+          label: 'OpenRouter — https://openrouter.ai/api/v1',
+          prefill: 'https://openrouter.ai/api/v1',
+          hint:
+            '<strong>OpenRouter</strong>Sign in at openrouter.ai, open “API Keys”, choose “Create Key”, optionally set a limit, then copy the key because it is displayed only once.'
+        },
+        {
+          id: 'vercel',
+          label: 'Vercel AI Gateway — https://ai-gateway.vercel.sh/v1',
+          prefill: 'https://ai-gateway.vercel.sh/v1',
+          hint:
+            '<strong>Vercel AI Gateway</strong>In the Vercel dashboard go to AI Gateway → API Keys, click “Create key”, name it, and copy the generated key for your requests.'
+        },
+        {
+          id: 'cloudflare',
+          label: 'Cloudflare AI Gateway — https://gateway.ai.cloudflare.com/v1/ACCOUNT/GATEWAY/compat',
+          prefill: 'https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_id>/compat',
+          match: 'https://gateway.ai.cloudflare.com/v1/',
+          hint:
+            '<strong>Cloudflare AI Gateway</strong>In Cloudflare go to AI → AI Gateway, pick or create your gateway, add provider API keys under “Provider Keys”, and optionally generate a gateway token for the cf-aig-authorization header.'
+        },
+        {
+          id: 'anyscale',
+          label: 'Anyscale Endpoints — https://api.endpoints.anyscale.com/v1',
+          prefill: 'https://api.endpoints.anyscale.com/v1',
+          hint:
+            '<strong>Anyscale</strong>Sign in to the Anyscale Endpoints console, create or copy a personal API token, then paste this base URL to call hosted open-source models.'
+        },
+        {
+          id: 'groq',
+          label: 'Groq — https://api.groq.com/openai/v1',
+          prefill: 'https://api.groq.com/openai/v1',
+          hint:
+            '<strong>Groq</strong>Log in to console.groq.com, open the Developers section, click “Create API Key”, and store the displayed key securely because it is shown once.'
+        },
+        {
+          id: 'together',
+          label: 'Together AI — https://api.together.xyz/v1',
+          prefill: 'https://api.together.xyz/v1',
+          hint:
+            '<strong>Together AI</strong>Create an account, visit https://api.together.xyz/settings/api-keys, generate a key, and use it with this base URL.'
+        },
+        {
+          id: 'fireworks',
+          label: 'Fireworks AI — https://api.fireworks.ai/inference/v1',
+          prefill: 'https://api.fireworks.ai/inference/v1',
+          hint:
+            '<strong>Fireworks AI</strong>From the Fireworks dashboard open the API Keys page, create a new key, copy it, and send requests to this inference endpoint.'
+        },
+        {
+          id: 'deepseek',
+          label: 'DeepSeek — https://api.deepseek.com',
+          prefill: 'https://api.deepseek.com',
+          hint:
+            '<strong>DeepSeek</strong>After signing in, open “API Keys”, click “Create new API Key”, copy the key, and include it in the Authorization header.'
+        },
+        {
+          id: 'hyperbolic',
+          label: 'Hyperbolic — https://api.hyperbolic.xyz/v1',
+          prefill: 'https://api.hyperbolic.xyz/v1',
+          hint:
+            '<strong>Hyperbolic</strong>Generate an API key from the Hyperbolic dashboard and pair it with this OpenAI-compatible URL for scaled-down open models.'
+        },
+        {
+          id: 'deepinfra',
+          label: 'DeepInfra — https://api.deepinfra.com/v1/openai',
+          prefill: 'https://api.deepinfra.com/v1/openai',
+          hint:
+            '<strong>DeepInfra</strong>Create an API token in your DeepInfra account, then point the OpenAI client at this base URL to access chat, completions, and embeddings.'
+        },
+        {
+          id: 'perplexity',
+          label: 'Perplexity — https://api.perplexity.ai',
+          prefill: 'https://api.perplexity.ai',
+          hint:
+            '<strong>Perplexity</strong>Generate an API key from the Perplexity developer portal, then use this endpoint to reach the Sonar grounded-search models.'
+        },
+        {
+          id: 'hf-router',
+          label: 'Hugging Face router — https://router.huggingface.co/v1',
+          prefill: 'https://router.huggingface.co/v1',
+          hint:
+            '<strong>Hugging Face router</strong>Create a Hugging Face access token, then pass provider-qualified model names (for example groq/mixtral) through this router.'
+        },
+        {
+          id: 'hf-tgi',
+          label: 'Hugging Face TGI (local) — http://localhost:8080/v1',
+          prefill: 'http://localhost:8080/v1',
+          hint:
+            '<strong>Hugging Face TGI</strong>Start a local Text Generation Inference server; the API is OpenAI-compatible and ignores the API key field.'
+        },
+        {
+          id: 'lorax',
+          label: 'LoRAX (local) — http://127.0.0.1:8080/v1',
+          prefill: 'http://127.0.0.1:8080/v1',
+          hint:
+            '<strong>LoRAX</strong>Run the LoRAX server locally and point the client here. No API key is required by default.'
+        },
+        {
+          id: 'lmstudio',
+          label: 'LM Studio (local) — http://localhost:1234/v1',
+          prefill: 'http://localhost:1234/v1',
+          hint:
+            '<strong>LM Studio</strong>Launch the LM Studio desktop app, enable the local server, and use this base URL (the key field can stay blank).'
+        },
+        {
+          id: 'ollama',
+          label: 'Ollama (local) — http://localhost:11434/v1',
+          prefill: 'http://localhost:11434/v1',
+          hint:
+            '<strong>Ollama</strong>Start the Ollama service locally; it serves an OpenAI-compatible API that accepts any API key value.'
+        },
+        {
+          id: 'runpod',
+          label: 'RunPod vLLM — https://api.runpod.ai/v2/ENDPOINT_ID/openai/v1',
+          prefill: 'https://api.runpod.ai/v2/ENDPOINT_ID/openai/v1',
+          match: 'https://api.runpod.ai/v2/',
+          hint:
+            '<strong>RunPod</strong>Deploy a vLLM worker, note its endpoint ID, then combine it with this base path and authenticate using your RunPod API key.'
+        },
+        {
+          id: 'baseten',
+          label: 'Baseten — https://MODEL_ID.api.baseten.co/...',
+          prefill: 'https://MODEL_ID.api.baseten.co/environments/<environment_id>/openai/v1',
+          match: value => value.startsWith('https://') && value.includes('.api.baseten.co'),
+          hint:
+            '<strong>Baseten</strong>Create or copy a personal API key from your Baseten account, then use the model-specific URL shown in your deployment details.'
+        },
+        {
+          id: 'custom',
+          label: 'Custom endpoint (enter manually)',
+          prefill: '',
+          hint:
+            '<strong>Custom endpoint</strong>Paste any OpenAI-compatible base URL in the field below, supply the matching API key, and press “Save config”.'
+        }
+      ];
+
+      const normalizeEndpoint = value => (value || '').trim().replace(/\/+$/, '').toLowerCase();
+
+      function populateEndpointSelect() {
+        if (!endpointSelect) return;
+        endpointSelect.innerHTML = '';
+        ENDPOINT_SUGGESTIONS.forEach(option => {
+          const opt = document.createElement('option');
+          opt.value = option.id;
+          opt.textContent = option.label;
+          endpointSelect.appendChild(opt);
+        });
+      }
+
+      function findSuggestionById(id) {
+        return ENDPOINT_SUGGESTIONS.find(option => option.id === id) || null;
+      }
+
+      function findSuggestionByEndpoint(endpoint) {
+        if (!endpoint) return null;
+        const target = normalizeEndpoint(endpoint);
+        return (
+          ENDPOINT_SUGGESTIONS.find(option => {
+            if (typeof option.match === 'function') {
+              try {
+                return option.match(target);
+              } catch (err) {
+                return false;
+              }
+            }
+            if (option.match) {
+              return target.startsWith(normalizeEndpoint(option.match));
+            }
+            if (option.prefill) {
+              return target === normalizeEndpoint(option.prefill);
+            }
+            return false;
+          }) || null
+        );
+      }
+
+      function setProviderHint(option) {
+        if (!providerHint) return;
+        if (option && option.hint) {
+          providerHint.innerHTML = option.hint;
+          providerHint.hidden = false;
+        } else {
+          providerHint.textContent = '';
+          providerHint.hidden = true;
+        }
+      }
+
+      function syncEndpointSelection(endpointValue) {
+        if (!endpointSelect) return;
+        const match = findSuggestionByEndpoint(endpointValue);
+        if (match) {
+          endpointSelect.value = match.id;
+          setProviderHint(match);
+          return;
+        }
+        const fallback = endpointValue ? findSuggestionById('custom') : findSuggestionById('choose');
+        if (fallback) {
+          endpointSelect.value = fallback.id;
+          setProviderHint(fallback);
+        }
+      }
 
       const readJson = (store, key, fallback) => {
         try {
@@ -1059,6 +1295,7 @@
         config = { ...defaults, ...readJson(sessionStorage, CONFIG_KEY, {}) };
         endpointInput.value = config.endpoint;
         tokenInput.value = config.token;
+        syncEndpointSelection(config.endpoint);
         renderModelOptions(models, config.model);
       }
 
@@ -1070,6 +1307,7 @@
         };
         persistConfig();
         updateChatAvailability();
+        syncEndpointSelection(config.endpoint);
         alert('Configuration saved for this session.');
         refreshModels({ silent: true });
       }
@@ -1623,6 +1861,7 @@
         if (config.endpoint !== endpoint) {
           config.endpoint = endpoint;
           persistConfig();
+          syncEndpointSelection(config.endpoint);
         }
 
         refreshModelsBtn.disabled = true;
@@ -1785,6 +2024,7 @@
             persistConfig();
             endpointInput.value = config.endpoint;
             tokenInput.value = config.token;
+            syncEndpointSelection(config.endpoint);
             if (Array.isArray(imported?.models)) {
               storeModels(imported.models);
             }
@@ -1848,6 +2088,11 @@
        * silently if an endpoint is provided without cached models.
        */
       function init() {
+        populateEndpointSelect();
+        const defaultOption = findSuggestionById('choose');
+        if (defaultOption) {
+          setProviderHint(defaultOption);
+        }
         loadModels();
         loadConfig();
         loadThreads();
@@ -1872,6 +2117,25 @@
       init();
 
       // Attach event listeners
+      if (endpointSelect) {
+        endpointSelect.addEventListener('change', () => {
+          const option = findSuggestionById(endpointSelect.value);
+          if (!option) return;
+          if (option.prefill) {
+            endpointInput.value = option.prefill;
+          }
+          if (option.id === 'custom' && !endpointInput.value) {
+            endpointInput.focus();
+          }
+          syncEndpointSelection(endpointInput.value);
+        });
+      }
+      if (endpointInput) {
+        endpointInput.addEventListener('input', () => {
+          syncEndpointSelection(endpointInput.value);
+        });
+      }
+
       refreshModelsBtn.addEventListener('click', () => refreshModels());
       modelSelect.addEventListener('change', () => {
         config.model = modelSelect.value;
