@@ -104,11 +104,6 @@ Please run through this list before opening a PR:
 
   - [ ] No requests are made until **Refresh model list** or **Send** is clicked.
 
-- **Endpoints**
-
-  - [ ] OpenAI: models load, chat works.
-  - [ ] One local provider (e.g., Ollama or LM Studio) works without a token.
-
 - **Storage**
 
   - [ ] Chats persist across reloads (localStorage).
