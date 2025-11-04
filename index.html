@@ -72,10 +72,11 @@
     .sidebar-close {
       border: none;
       background: transparent;
-      font-size: 1.5rem;
       cursor: pointer;
-      line-height: 1;
       padding: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .form-group {
@@ -208,11 +209,15 @@
       background: transparent;
       color: inherit;
       cursor: pointer;
-      font-size: 1.1rem;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 2px 4px;
+    }
+
+    .thread-menu-btn .icon {
+      width: 16px;
+      height: 16px;
     }
 
     .thread-menu-btn:hover {
@@ -242,6 +247,9 @@
       padding: 8px 12px;
       font-size: 0.9rem;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .thread-menu button:hover {
@@ -284,6 +292,26 @@
       font-weight: 600;
     }
 
+    .icon {
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 18px;
+      fill: currentColor;
+      color: currentColor;
+    }
+
+    .icon + span {
+      margin-left: 6px;
+    }
+
+    .btn-label {
+      display: inline-flex;
+      align-items: center;
+    }
+
     .icon-btn {
       border: 1px solid #ccc;
       background: #fff;
@@ -307,10 +335,9 @@
       outline-offset: 2px;
     }
 
-    .icon-btn svg {
+    .icon-btn .icon {
       width: 18px;
       height: 18px;
-      fill: currentColor;
     }
 
     .highlight-pulse {
@@ -341,6 +368,10 @@
       font-size: 0.95rem;
       font-weight: 600;
       text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
     .new-thread-button:hover {
@@ -351,6 +382,10 @@
       width: 100%;
       padding: 8px;
       font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .model-select-row button:disabled {
@@ -415,10 +450,12 @@
     .promo-banner .dismiss {
       border: none;
       background: transparent;
-      font-size: 1.2rem;
-      line-height: 1;
       cursor: pointer;
       color: #7a5200;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
     }
 
     /* Info button in header */
@@ -429,14 +466,16 @@
       border-radius: 50%;
       background: #fff;
       color: #007bff;
-      font-weight: 700;
-      font-size: 1.25rem;
-      line-height: 1;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 0;
       cursor: pointer;
+    }
+
+    .about-btn .icon {
+      width: 20px;
+      height: 20px;
     }
 
     .about-btn:focus-visible {
@@ -485,8 +524,11 @@
       top: 12px;
       border: none;
       background: transparent;
-      font-size: 1.6rem;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
     }
 
     .modal h2 {
@@ -501,12 +543,14 @@
     }
 
     .modal .cta-link {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
       padding: 8px 10px;
       border-radius: 6px;
       background: #f1f3f5;
       color: #0a58ca;
       text-decoration: none;
+      gap: 6px;
     }
 
     .modal .primary,
@@ -516,6 +560,9 @@
       border: 1px solid #ccc;
       cursor: pointer;
       background: #fff;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .modal .primary {
@@ -627,6 +674,9 @@
       color: #fff;
       font-size: 0.9rem;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .message-form button:hover {
@@ -769,11 +819,12 @@
     .mobile-toggle {
       border: none;
       background: transparent;
-      font-size: 1.6rem;
-      line-height: 1;
       cursor: pointer;
       padding: 4px 6px;
       color: #007bff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .mobile-toggle:focus,
@@ -835,12 +886,121 @@
   </style>
 </head>
 <body>
+  <!-- Inline SVG sprite sheet for local icons -->
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    style="position: absolute; width: 0; height: 0; overflow: hidden"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <symbol id="icon-import" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M3 13.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1 0-1zM7.25 1.5a.75.75 0 0 1 .75.75v5.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5A.75.75 0 1 1 3.28 5.72L5.5 7.94V2.25a.75.75 0 0 1 .75-.75z"
+      />
+    </symbol>
+    <symbol id="icon-export" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M3 13.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1 0-1zM8.75 8.81V2.25a.75.75 0 0 0-1.5 0v6.56L5.03 6.59a.75.75 0 1 0-1.06 1.06l3.5 3.5a.75.75 0 0 0 1.06 0l3.5-3.5a.75.75 0 1 0-1.06-1.06L8.75 8.81z"
+      />
+    </symbol>
+    <symbol id="icon-info" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM8 4.25a.875.875 0 1 1 0 1.75.875.875 0 0 1 0-1.75zM7 7.75h2v5H7z"
+      />
+    </symbol>
+    <symbol id="icon-github" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        fill-rule="evenodd"
+        d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+      />
+    </symbol>
+    <symbol id="icon-menu" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M1.75 3.5h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Zm0 3.75h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Zm0 3.75h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"
+      />
+    </symbol>
+    <symbol id="icon-close" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"
+      />
+    </symbol>
+    <symbol id="icon-download" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M8 1.25a.75.75 0 0 1 .75.75v6.19l2.22-2.22a.75.75 0 0 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5A.75.75 0 0 1 4.03 5.97L6.25 8.19V2a.75.75 0 0 1 .75-.75zM3 13.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1 0-1z"
+      />
+    </symbol>
+    <symbol id="icon-plus" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M8 1a.75.75 0 0 1 .75.75v5.5h5.5a.75.75 0 0 1 0 1.5h-5.5v5.5a.75.75 0 0 1-1.5 0v-5.5h-5.5a.75.75 0 0 1 0-1.5h5.5v-5.5A.75.75 0 0 1 8 1z"
+      />
+    </symbol>
+    <symbol id="icon-refresh" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        fill-rule="evenodd"
+        d="M8 3a5 5 0 1 0 4.546 2.914.75.75 0 1 1 1.363-.65A6.5 6.5 0 1 1 8 1.5V0l2.25 2.25L8 4.5V3z"
+      />
+    </symbol>
+    <symbol id="icon-eye" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M8 3.25c3.33 0 6.2 2.15 7.12 4.69-.92 2.54-3.79 4.81-7.12 4.81S1.8 10.48.88 7.94C1.8 5.4 4.67 3.25 8 3.25zm0 1.5c-2.58 0-4.9 1.58-5.6 3.19.7 1.6 3.02 3.19 5.6 3.19s4.9-1.59 5.6-3.19C12.9 6.33 10.58 4.75 8 4.75z"
+      />
+      <path d="M8 6.25a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5z" />
+    </symbol>
+    <symbol id="icon-eye-off" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M2.146 2.146a.5.5 0 0 1 .708 0l1.94 1.94C5.9 3.37 6.92 3.25 8 3.25c3.33 0 6.2 2.15 7.12 4.69a7.59 7.59 0 0 1-2.3 2.97l1.984 1.984a.5.5 0 0 1-.708.708l-2.04-2.04C10.8 12.42 9.44 12.75 8 12.75c-3.33 0-6.2-2.15-7.12-4.69a7.57 7.57 0 0 1 2.32-3.03L2.146 2.854a.5.5 0 0 1 0-.708z"
+      />
+      <path
+        d="M6.28 6.28 8 8l1.72 1.72A1.75 1.75 0 0 1 6.28 6.28zm2.44-1.03a3.25 3.25 0 0 1 3.03 3.03.75.75 0 0 1-1.49.17 1.75 1.75 0 0 0-1.7-1.7.75.75 0 0 1 .16-1.5z"
+      />
+    </symbol>
+    <symbol id="icon-copy" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M4.5 1A1.5 1.5 0 0 0 3 2.5v9A1.5 1.5 0 0 0 4.5 13H5V4.5A2.5 2.5 0 0 1 7.5 2h5A1.5 1.5 0 0 0 11 0.5h-6.5z"
+      />
+      <path
+        d="M7.5 3A1.5 1.5 0 0 0 6 4.5v9A1.5 1.5 0 0 0 7.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 3h-7z"
+      />
+    </symbol>
+    <symbol id="icon-more-vertical" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M8 3a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm0 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm0 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"
+      />
+    </symbol>
+    <symbol id="icon-edit" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M12.854 1.146a.5.5 0 0 0-.708 0L5 8.293V11h2.707l7.146-7.146a.5.5 0 0 0 0-.708l-1-1a.5.5 0 0 0-.707 0z"
+      />
+      <path d="M4 12.5V8.707l-2 2V14h3.293l2-2H4.5a.5.5 0 0 1-.5-.5z" />
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M6.5 1a1.5 1.5 0 0 0-1.415 1H3a.75.75 0 0 0 0 1.5h10a.75.75 0 0 0 0-1.5h-2.085A1.5 1.5 0 0 0 9.5 1h-3zM4.5 5.5a.5.5 0 0 1 .5.5v6.75a1.75 1.75 0 0 0 1.75 1.75h2.5A1.75 1.75 0 0 0 11 12.75V6a.5.5 0 0 1 1 0v6.75A2.75 2.75 0 0 1 9.25 15.5h-2.5A2.75 2.75 0 0 1 4 12.75V6a.5.5 0 0 1 .5-.5z"
+      />
+      <path d="M6.75 6a.5.5 0 0 0-.5.5v6a.5.5 0 1 0 1 0v-6a.5.5 0 0 0-.5-.5zm2 0a.5.5 0 0 0-.5.5v6a.5.5 0 1 0 1 0v-6a.5.5 0 0 0-.5-.5z" />
+    </symbol>
+    <symbol id="icon-link" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M6.354 4.146a3.5 3.5 0 0 1 4.95 0l.55.55a3.5 3.5 0 0 1 0 4.95l-.707.707a.75.75 0 0 1-1.06-1.06l.707-.708a2 2 0 0 0 0-2.828l-.55-.55a2 2 0 0 0-2.828 0l-.708.707a.75.75 0 1 1-1.06-1.06l.707-.708z"
+      />
+      <path
+        d="M9.646 11.854a3.5 3.5 0 0 1-4.95 0l-.55-.55a3.5 3.5 0 0 1 0-4.95l.707-.707a.75.75 0 0 1 1.06 1.06l-.707.708a2 2 0 0 0 0 2.828l.55.55a2 2 0 0 0 2.828 0l.708-.707a.75.75 0 0 1 1.06 1.06l-.707.708z"
+      />
+    </symbol>
+    <symbol id="icon-send" viewBox="0 0 16 16" fill="currentColor">
+      <path
+        d="M15.854.146a.5.5 0 0 1 .058.638l-.058.07-9.5 9.5a.5.5 0 0 1-.233.131l-.095.015-4 1a.5.5 0 0 1-.607-.607l.02-.074 1-4a.5.5 0 0 1 .116-.217l.063-.06 9.5-9.5a.5.5 0 0 1 .765.638L12.207 5.5 7.5 10.207 5.793 8.5 13.646.646 15.146 2.146 14.5 2.793 15.854.146Z"
+      />
+    </symbol>
+  </svg>
   <div id="app">
     <!-- Sidebar containing configuration and thread list -->
     <aside class="sidebar" aria-label="Settings panel" aria-hidden="true">
       <div class="sidebar-header">
         <h2>Settings</h2>
-        <button type="button" id="closeSidebarBtn" class="sidebar-close" aria-label="Close settings">×</button>
+        <button type="button" id="closeSidebarBtn" class="sidebar-close" aria-label="Close settings">
+          <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+        </button>
       </div>
       <div class="form-group">
         <label for="endpointSelect">Quick-start endpoints</label>
@@ -859,7 +1019,10 @@
       <div class="form-group">
         <label for="modelSelect">Model</label>
         <div class="model-select-row">
-          <button type="button" id="refreshModelsBtn">Refresh model list</button>
+          <button type="button" id="refreshModelsBtn">
+            <svg class="icon" aria-hidden="true"><use href="#icon-refresh"></use></svg>
+            <span class="btn-label">Refresh model list</span>
+          </button>
           <select id="modelSelect"></select>
         </div>
       </div>
@@ -891,10 +1054,7 @@
             aria-pressed="false"
             title="Show token"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M12 5c-5 0-9 5-9 7s4 7 9 7 9-5 9-7-4-7-9-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
-              <path d="M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
-            </svg>
+            <svg class="icon" aria-hidden="true"><use href="#icon-eye"></use></svg>
             <span class="sr-only">Toggle token visibility</span>
           </button>
           <button
@@ -904,10 +1064,7 @@
             aria-label="Copy token"
             title="Copy token"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1z" />
-              <path d="M19 5H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" />
-            </svg>
+            <svg class="icon" aria-hidden="true"><use href="#icon-copy"></use></svg>
             <span class="sr-only">Copy token to clipboard</span>
           </button>
         </div>
@@ -927,15 +1084,7 @@
             title="Export chat history"
             aria-label="Export chat history"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M12 3a1 1 0 0 1 1 1v7.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L11 11.586V4a1 1 0 0 1 1-1Z"
-              />
-              <path
-                d="M5 15a1 1 0 0 1 1 1v2h12v-2a1 1 0 1 1 2 0v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z"
-              />
-            </svg>
-            <span class="sr-only">Export chat history</span>
+            <svg class="icon" aria-hidden="true"><use href="#icon-export"></use></svg>
           </button>
           <button
             type="button"
@@ -944,15 +1093,7 @@
             title="Import chat history"
             aria-label="Import chat history"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M12 21a1 1 0 0 1-1-1v-7.586l-2.293 2.293a1 1 0 0 1-1.414-1.414l4-4a1 1 0 0 1 1.414 0l4 4a1 1 0 0 1-1.414 1.414L13 12.414V20a1 1 0 0 1-1 1Z"
-              />
-              <path
-                d="M19 9a1 1 0 0 1-1-1V6H6v2a1 1 0 0 1-2 0V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1Z"
-              />
-            </svg>
-            <span class="sr-only">Import chat history</span>
+            <svg class="icon" aria-hidden="true"><use href="#icon-import"></use></svg>
           </button>
           <input type="file" id="importInput" accept="application/json" style="display: none;" />
         </div>
@@ -965,15 +1106,7 @@
             title="Export settings"
             aria-label="Export settings"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M12 3a1 1 0 0 1 1 1v7.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 1.414-1.414L11 11.586V4a1 1 0 0 1 1-1Z"
-              />
-              <path
-                d="M5 15a1 1 0 0 1 1 1v2h12v-2a1 1 0 1 1 2 0v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z"
-              />
-            </svg>
-            <span class="sr-only">Export settings</span>
+            <svg class="icon" aria-hidden="true"><use href="#icon-export"></use></svg>
           </button>
           <button
             type="button"
@@ -982,15 +1115,7 @@
             title="Import settings"
             aria-label="Import settings"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M12 21a1 1 0 0 1-1-1v-7.586l-2.293 2.293a1 1 0 0 1-1.414-1.414l4-4a1 1 0 0 1 1.414 0l4 4a1 1 0 0 1-1.414 1.414L13 12.414V20a1 1 0 0 1-1 1Z"
-              />
-              <path
-                d="M19 9a1 1 0 0 1-1-1V6H6v2a1 1 0 0 1-2 0V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1Z"
-              />
-            </svg>
-            <span class="sr-only">Import settings</span>
+            <svg class="icon" aria-hidden="true"><use href="#icon-import"></use></svg>
           </button>
           <input type="file" id="importConfigInput" accept="application/json" style="display: none;" />
         </div>
@@ -1001,7 +1126,9 @@
     <!-- Main chat area -->
     <main class="chat-area">
       <div id="chatHeader" class="chat-header">
-        <button type="button" id="openSidebarBtn" class="mobile-toggle" aria-label="Open settings">☰</button>
+        <button type="button" id="openSidebarBtn" class="mobile-toggle" aria-label="Open settings">
+          <svg class="icon" aria-hidden="true"><use href="#icon-menu"></use></svg>
+        </button>
         <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
         <button
           type="button"
@@ -1010,7 +1137,9 @@
           aria-label="About &amp; Privacy"
           aria-haspopup="dialog"
           aria-expanded="false"
-        >i</button>
+        >
+          <svg class="icon" aria-hidden="true"><use href="#icon-info"></use></svg>
+        </button>
       </div>
       <div id="promoBanner" class="promo-banner" role="region" aria-label="Journal Foundation notice" hidden>
         <span>
@@ -1018,7 +1147,9 @@
           <a href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation.org</a>.
           Save this page to run it offline.
         </span>
-        <button id="dismissPromoBtn" class="dismiss" aria-label="Dismiss notice">×</button>
+        <button id="dismissPromoBtn" class="dismiss" aria-label="Dismiss notice">
+          <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+        </button>
       </div>
       <div id="chatNotice" class="chat-notice" role="status" aria-live="polite" hidden></div>
       <div
@@ -1045,7 +1176,10 @@
           <textarea id="messageInput" placeholder="Type your message" rows="3"></textarea>
           <div id="messageInputOverlay" class="message-input-overlay" aria-hidden="true"></div>
         </div>
-        <button type="submit" id="sendBtn">Send</button>
+        <button type="submit" id="sendBtn">
+          <svg class="icon" aria-hidden="true"><use href="#icon-send"></use></svg>
+          <span class="btn-label">Send</span>
+        </button>
       </form>
     </main>
   </div>
@@ -1055,7 +1189,9 @@
   <div id="modalBackdrop" class="modal-backdrop" hidden></div>
   <div id="aboutModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
     <div class="sheet" role="document">
-      <button type="button" class="modal-close" id="aboutCloseBtn" aria-label="Close">×</button>
+      <button type="button" class="modal-close" id="aboutCloseBtn" aria-label="Close">
+        <svg class="icon" aria-hidden="true"><use href="#icon-close"></use></svg>
+      </button>
       <h2 id="aboutTitle">Private &amp; Local — About this demo</h2>
       <p><strong>This is a single static HTML file.</strong> There is no backend, no database, and nothing on a server to capture your data. Your chats are stored in your browser.</p>
 
@@ -1074,11 +1210,23 @@
 
       <div class="cta-row">
         <a id="jfSiteLink" class="cta-link" href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation.org</a>
-        <a id="githubProjectLink" class="cta-link" href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">Fork / contribute on GitHub</a>
+        <a
+          id="githubProjectLink"
+          class="cta-link"
+          href="https://github.com/JournalFoundation/privatelocalchat"
+          target="_blank"
+          rel="noopener"
+        >
+          <svg class="icon" aria-hidden="true"><use href="#icon-github"></use></svg>
+          <span class="btn-label">Fork / contribute on GitHub</span>
+        </a>
       </div>
 
       <div class="cta-row">
-        <button id="downloadPageBtn" class="primary">Download this page</button>
+        <button id="downloadPageBtn" class="primary">
+          <svg class="icon" aria-hidden="true"><use href="#icon-download"></use></svg>
+          <span class="btn-label">Download this page</span>
+        </button>
       </div>
 
       <p class="fine-print">
@@ -1143,6 +1291,16 @@
       const peekTokenBtn = document.getElementById('peekTokenBtn');
       const copyTokenBtn = document.getElementById('copyTokenBtn');
 
+      const createIcon = symbolId => {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'icon');
+        svg.setAttribute('aria-hidden', 'true');
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttribute('href', `#${symbolId}`);
+        svg.appendChild(use);
+        return svg;
+      };
+
       // Application state
       let config = {
         endpoint: '',
@@ -1195,6 +1353,10 @@
             peekTokenBtn.setAttribute('aria-pressed', String(!masked));
             peekTokenBtn.setAttribute('aria-label', label);
             peekTokenBtn.setAttribute('title', label);
+            const iconUse = peekTokenBtn.querySelector('use');
+            if (iconUse) {
+              iconUse.setAttribute('href', masked ? '#icon-eye' : '#icon-eye-off');
+            }
           }
         };
 
@@ -1869,7 +2031,11 @@
         const createBtn = document.createElement('button');
         createBtn.type = 'button';
         createBtn.classList.add('new-thread-button');
-        createBtn.textContent = 'Start new chat';
+        createBtn.appendChild(createIcon('icon-plus'));
+        const createLabel = document.createElement('span');
+        createLabel.classList.add('btn-label');
+        createLabel.textContent = 'Start new chat';
+        createBtn.appendChild(createLabel);
         createBtn.addEventListener('click', event => {
           event.stopPropagation();
           newThread();
@@ -1892,7 +2058,7 @@
           menuBtn.type = 'button';
           menuBtn.classList.add('thread-menu-btn');
           menuBtn.setAttribute('aria-label', `Options for ${threadName}`);
-          menuBtn.textContent = '⋮';
+          menuBtn.appendChild(createIcon('icon-more-vertical'));
           menuBtn.addEventListener('click', event => {
             event.stopPropagation();
             toggleThreadMenu(thread.id, menuBtn);
@@ -2198,7 +2364,12 @@
         menu.classList.add('thread-menu');
 
         const renameBtn = document.createElement('button');
-        renameBtn.textContent = 'Rename';
+        renameBtn.type = 'button';
+        renameBtn.appendChild(createIcon('icon-edit'));
+        const renameLabel = document.createElement('span');
+        renameLabel.classList.add('btn-label');
+        renameLabel.textContent = 'Rename';
+        renameBtn.appendChild(renameLabel);
         renameBtn.addEventListener('click', () => {
           closeThreadMenu();
           renameThread(threadId);
@@ -2206,7 +2377,12 @@
         menu.appendChild(renameBtn);
 
         const exportThreadBtn = document.createElement('button');
-        exportThreadBtn.textContent = 'Export (.md)';
+        exportThreadBtn.type = 'button';
+        exportThreadBtn.appendChild(createIcon('icon-export'));
+        const exportLabel = document.createElement('span');
+        exportLabel.classList.add('btn-label');
+        exportLabel.textContent = 'Export (.md)';
+        exportThreadBtn.appendChild(exportLabel);
         exportThreadBtn.addEventListener('click', () => {
           closeThreadMenu();
           exportThreadMarkdown(threadId);
@@ -2214,7 +2390,12 @@
         menu.appendChild(exportThreadBtn);
 
         const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = 'Delete';
+        deleteBtn.type = 'button';
+        deleteBtn.appendChild(createIcon('icon-trash'));
+        const deleteLabel = document.createElement('span');
+        deleteLabel.classList.add('btn-label');
+        deleteLabel.textContent = 'Delete';
+        deleteBtn.appendChild(deleteLabel);
         deleteBtn.classList.add('delete');
         deleteBtn.addEventListener('click', () => {
           closeThreadMenu();
@@ -2223,7 +2404,12 @@
         menu.appendChild(deleteBtn);
 
         const copyLinkBtn = document.createElement('button');
-        copyLinkBtn.textContent = 'Copy link with current title/system/prompt';
+        copyLinkBtn.type = 'button';
+        copyLinkBtn.appendChild(createIcon('icon-link'));
+        const copyLabel = document.createElement('span');
+        copyLabel.classList.add('btn-label');
+        copyLabel.textContent = 'Copy link with current title/system/prompt';
+        copyLinkBtn.appendChild(copyLabel);
         copyLinkBtn.addEventListener('click', async () => {
           const url = buildPreloadUrl();
           try {
@@ -2486,8 +2672,13 @@
         }
 
         refreshModelsBtn.disabled = true;
-        const originalLabel = refreshModelsBtn.textContent;
-        refreshModelsBtn.textContent = 'Loading...';
+        const refreshLabelTarget = refreshModelsBtn.querySelector('.btn-label');
+        const originalLabel = refreshLabelTarget ? refreshLabelTarget.textContent : refreshModelsBtn.textContent;
+        if (refreshLabelTarget) {
+          refreshLabelTarget.textContent = 'Loading...';
+        } else {
+          refreshModelsBtn.textContent = 'Loading...';
+        }
         try {
           const headers = { Accept: 'application/json' };
           const token = tokenInput.value.trim() || config.token;
@@ -2531,7 +2722,11 @@
           }
         } finally {
           refreshModelsBtn.disabled = false;
-          refreshModelsBtn.textContent = originalLabel;
+          if (refreshLabelTarget) {
+            refreshLabelTarget.textContent = originalLabel;
+          } else {
+            refreshModelsBtn.textContent = originalLabel;
+          }
           updateChatAvailability();
         }
       }
