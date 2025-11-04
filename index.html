@@ -374,6 +374,35 @@
       background: #0056b3;
     }
 
+    .message-form button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .thread-title:disabled,
+    .system-prompt-container textarea:disabled,
+    .message-form textarea:disabled {
+      background: #e9ecef;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .status-banner {
+      margin: 12px;
+      margin-bottom: 0;
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid #ffeeba;
+      background: #fff3cd;
+      color: #856404;
+      font-size: 0.9rem;
+    }
+
+    .status-banner.hidden {
+      display: none;
+    }
+
     /* Loading indicator styling */
     .loading {
       display: inline-block;
@@ -499,6 +528,7 @@
         <button type="button" id="openSidebarBtn" class="mobile-toggle" aria-label="Open settings">☰</button>
         <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
       </div>
+      <div id="statusBanner" class="status-banner hidden" role="status" aria-live="polite" aria-atomic="true"></div>
       <div id="systemPromptContainer" class="system-prompt-container">
         <label for="systemPromptInput">System prompt:</label>
         <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
@@ -533,10 +563,19 @@
       const sidebarOverlay = document.getElementById('sidebarOverlay');
       const sidebarEl = document.querySelector('.sidebar');
       const threadTitleInput = document.getElementById('threadTitleInput');
+      const systemPromptContainer = document.getElementById('systemPromptContainer');
       const systemPromptInput = document.getElementById('systemPromptInput');
+      const statusBanner = document.getElementById('statusBanner');
       const messagesEl = document.getElementById('messages');
       const messageForm = document.getElementById('messageForm');
       const messageInput = document.getElementById('messageInput');
+      const sendBtn = document.getElementById('sendBtn');
+
+      const defaultPlaceholders = {
+        threadTitle: threadTitleInput ? threadTitleInput.getAttribute('placeholder') : '',
+        systemPrompt: systemPromptInput ? systemPromptInput.getAttribute('placeholder') : '',
+        message: messageInput ? messageInput.getAttribute('placeholder') : ''
+      };
 
       // Application state
       let config = {
@@ -597,6 +636,7 @@
             config.model = '';
             persistConfig();
           }
+          updateInteractionState();
           return;
         }
 
@@ -614,6 +654,7 @@
           config.model = selection;
           persistConfig();
         }
+        updateInteractionState();
       }
 
       function loadConfig() {
@@ -630,6 +671,7 @@
           model: modelSelect.value.trim()
         };
         persistConfig();
+        updateInteractionState();
         alert('Configuration saved for this session.');
         refreshModels({ silent: true });
       }
@@ -651,6 +693,81 @@
         saveThreads();
         return thread;
       };
+
+      function updateInteractionState() {
+        const thread = currentThread();
+        const hasThread = Boolean(thread);
+        const hasEndpoint = Boolean(config.endpoint && config.endpoint.trim());
+        const hasModel = Boolean(config.model && config.model.trim());
+        const canSend = hasThread && hasEndpoint && hasModel;
+
+        if (threadTitleInput) {
+          threadTitleInput.disabled = !hasThread;
+          threadTitleInput.placeholder = hasThread
+            ? defaultPlaceholders.threadTitle
+            : 'Select a chat to set the title';
+        }
+
+        if (systemPromptInput) {
+          systemPromptInput.disabled = !hasThread;
+          systemPromptInput.placeholder = hasThread
+            ? defaultPlaceholders.systemPrompt
+            : 'Select a chat to edit the system prompt.';
+        }
+
+        if (systemPromptContainer) {
+          systemPromptContainer.setAttribute('aria-disabled', hasThread ? 'false' : 'true');
+        }
+
+        if (messageInput) {
+          messageInput.disabled = !hasThread;
+          if (!hasThread) {
+            messageInput.placeholder = 'Select or start a chat to begin messaging.';
+          } else if (!canSend) {
+            if (!hasEndpoint) {
+              messageInput.placeholder = 'Add an API endpoint in the settings.';
+            } else if (!hasModel) {
+              messageInput.placeholder = models.length
+                ? 'Choose a model before sending messages.'
+                : 'Refresh the model list for your endpoint.';
+            } else {
+              messageInput.placeholder = defaultPlaceholders.message;
+            }
+          } else {
+            messageInput.placeholder = defaultPlaceholders.message;
+          }
+        }
+
+        if (sendBtn) {
+          sendBtn.disabled = !canSend;
+        }
+
+        if (messageForm) {
+          messageForm.setAttribute('aria-disabled', canSend ? 'false' : 'true');
+        }
+
+        if (statusBanner) {
+          const requirements = [];
+          if (!hasThread) {
+            requirements.push('Select or start a chat to begin messaging.');
+          }
+          if (!hasEndpoint) {
+            requirements.push('Add an API endpoint in the settings.');
+          }
+          if (!hasModel && hasEndpoint) {
+            requirements.push(models.length
+              ? 'Choose a model before sending messages.'
+              : 'Refresh the model list for your endpoint.');
+          }
+          if (requirements.length) {
+            statusBanner.classList.remove('hidden');
+            statusBanner.textContent = requirements.join(' ');
+          } else {
+            statusBanner.textContent = '';
+            statusBanner.classList.add('hidden');
+          }
+        }
+      }
 
       function renderThreadList() {
         closeThreadMenu();
@@ -693,13 +810,17 @@
           li.addEventListener('click', () => selectThread(thread.id));
           threadList.appendChild(li);
         });
+        updateInteractionState();
       }
 
       function selectThread(id) {
         closeThreadMenu();
         currentThreadId = id;
         const thread = getThread(id);
-        if (!thread) return;
+        if (!thread) {
+          updateInteractionState();
+          return;
+        }
         // Populate title and system prompt
         threadTitleInput.value = thread.title || '';
         systemPromptInput.value = thread.systemPrompt || '';
@@ -865,8 +986,8 @@
 
       async function handleSendMessage(event) {
         event.preventDefault();
-        if (!currentThreadId) {
-          alert('Please create or select a chat thread first.');
+        if (!currentThreadId || (sendBtn && sendBtn.disabled) || (messageInput && messageInput.disabled)) {
+          updateInteractionState();
           return;
         }
         const message = messageInput.value.trim();
@@ -970,6 +1091,7 @@
           if (!silent) {
             alert('Set an endpoint before refreshing models.');
           }
+          updateInteractionState();
           return;
         }
         let modelsEndpoint;
@@ -980,12 +1102,14 @@
           if (!silent) {
             alert('Invalid endpoint: ' + err.message);
           }
+          updateInteractionState();
           return;
         }
 
         if (config.endpoint !== endpoint) {
           config.endpoint = endpoint;
           persistConfig();
+          updateInteractionState();
         }
 
         refreshModelsBtn.disabled = true;
@@ -1035,6 +1159,7 @@
         } finally {
           refreshModelsBtn.disabled = false;
           refreshModelsBtn.textContent = originalLabel;
+          updateInteractionState();
         }
       }
 
@@ -1141,6 +1266,7 @@
       modelSelect.addEventListener('change', () => {
         config.model = modelSelect.value;
         persistConfig();
+        updateInteractionState();
       });
       saveConfigBtn.addEventListener('click', saveConfig);
       messageForm.addEventListener('submit', handleSendMessage);
@@ -1205,6 +1331,7 @@
         if (!models.length && config.endpoint) {
           refreshModels({ silent: true });
         }
+        updateInteractionState();
       }
       init();
     })();
