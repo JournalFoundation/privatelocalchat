@@ -33,7 +33,6 @@ Thanks for your interest in improving **Private Local Chat**! This project is de
 - **Accessibility**: keyboard nav, focus management, contrast, ARIA.
 - **Providers**: add/update quick‑start endpoints (keep text concise).
 - **Features (small & scoped)**:
-  - Optional streaming mode (behind a simple toggle).
   - Better error surfaces / retry flows.
   - Export formats (e.g., JSONL) if lightweight.
 - **Refactors** that improve clarity without adding complexity.
