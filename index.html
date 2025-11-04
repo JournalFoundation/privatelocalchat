@@ -965,6 +965,13 @@
             'Pick a provider from the list to auto-fill the API endpoint and see instructions for locating its API key. You can still paste any custom endpoint below. Requests use <code>/chat/completions</code> for the configured base URL.'
         },
         {
+          id: 'openai',
+          label: 'OpenAI',
+          baseUrl: 'https://api.openai.com/v1',
+          hint:
+            'Access GPT-4o and other OpenAI models. Sign in at <a href="https://platform.openai.com/" target="_blank" rel="noopener">platform.openai.com</a>, open <strong>API keys</strong>, click <strong>Create new secret key</strong>, name it, and copy the value immediately (it is shown only once). Use this base URL; the client calls <code>/chat/completions</code> automatically.'
+        },
+        {
           id: 'openrouter',
           label: 'OpenRouter — multi-model hub',
           baseUrl: 'https://openrouter.ai/api/v1',
