@@ -86,6 +86,22 @@
       color: #333;
     }
 
+    input:disabled,
+    textarea:disabled {
+      background: #e9ecef;
+      cursor: not-allowed;
+    }
+
+    textarea[readonly] {
+      background: #f8f9fa;
+      cursor: not-allowed;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .form-group input,
     .form-group select {
       width: 100%;
@@ -374,6 +390,29 @@
       background: #0056b3;
     }
 
+    .chat-status {
+      margin: 0 12px 12px;
+      padding: 12px;
+      background: #fff4cd;
+      border: 1px solid #f5c16c;
+      border-radius: 4px;
+      color: #7a5d00;
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    .chat-status p {
+      margin: 0;
+    }
+
+    .chat-status p + p {
+      margin-top: 4px;
+    }
+
+    .chat-status[hidden] {
+      display: none !important;
+    }
+
     /* Loading indicator styling */
     .loading {
       display: inline-block;
@@ -504,6 +543,7 @@
         <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
       </div>
       <div id="messages" class="messages"></div>
+      <div id="chatStatus" class="chat-status" role="status" aria-live="polite" hidden></div>
       <form id="messageForm" class="message-form">
         <textarea id="messageInput" placeholder="Type your message" rows="3"></textarea>
         <button type="submit" id="sendBtn">Send</button>
@@ -537,6 +577,8 @@
       const messagesEl = document.getElementById('messages');
       const messageForm = document.getElementById('messageForm');
       const messageInput = document.getElementById('messageInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const chatStatus = document.getElementById('chatStatus');
 
       // Application state
       let config = {
@@ -549,6 +591,7 @@
       let models = [];
       let openThreadMenu = null;
       const desktopMediaQuery = window.matchMedia('(min-width: 900px)');
+      const defaultMessagePlaceholder = messageInput.getAttribute('placeholder') || 'Type your message';
 
       const defaults = { endpoint: '', token: '', model: '' };
       const CONFIG_KEY = 'chatConfig';
@@ -597,6 +640,7 @@
             config.model = '';
             persistConfig();
           }
+          updateChatState();
           return;
         }
 
@@ -614,6 +658,7 @@
           config.model = selection;
           persistConfig();
         }
+        updateChatState();
       }
 
       function loadConfig() {
@@ -630,6 +675,7 @@
           model: modelSelect.value.trim()
         };
         persistConfig();
+        updateChatState();
         alert('Configuration saved for this session.');
         refreshModels({ silent: true });
       }
@@ -651,6 +697,75 @@
         saveThreads();
         return thread;
       };
+
+      function updateChatState() {
+        const hasThreads = threads.length > 0;
+        const thread = currentThread();
+        const hasThread = Boolean(thread);
+        const endpoint = (config.endpoint || '').trim();
+        const model = (config.model || '').trim();
+        const issues = [];
+        const addIssue = text => {
+          if (text && !issues.includes(text)) {
+            issues.push(text);
+          }
+        };
+
+        if (!hasThreads) {
+          addIssue('Start a new chat to begin.');
+        } else if (!hasThread) {
+          addIssue('Select a chat to begin.');
+        }
+
+        threadTitleInput.disabled = !hasThread;
+        systemPromptInput.disabled = !hasThread;
+
+        let messagePlaceholder = defaultMessagePlaceholder;
+        if (!hasThread) {
+          messagePlaceholder = hasThreads
+            ? 'Select a chat to start messaging.'
+            : 'Create a chat to start messaging.';
+        }
+
+        if (!endpoint) {
+          addIssue('Enter and save an API endpoint in Settings.');
+          if (hasThread) {
+            messagePlaceholder = 'Enter and save an API endpoint in Settings.';
+          }
+        }
+
+        if (!model) {
+          const modelIssue = models.length
+            ? 'Select a model to use for this chat.'
+            : 'Refresh models from your API before chatting.';
+          addIssue(modelIssue);
+          if (hasThread && endpoint) {
+            messagePlaceholder = models.length
+              ? 'Select a model to send messages.'
+              : 'Load models to choose one.';
+          }
+        }
+
+        const canSend = hasThread && endpoint && model;
+
+        messageInput.disabled = !hasThread;
+        messageInput.readOnly = hasThread && !canSend;
+        if (canSend) {
+          messagePlaceholder = defaultMessagePlaceholder;
+        }
+        messageInput.placeholder = messagePlaceholder;
+        sendBtn.disabled = !canSend;
+
+        if (chatStatus) {
+          chatStatus.innerHTML = '';
+          chatStatus.hidden = issues.length === 0;
+          issues.forEach(issue => {
+            const p = document.createElement('p');
+            p.textContent = issue;
+            chatStatus.appendChild(p);
+          });
+        }
+      }
 
       function renderThreadList() {
         closeThreadMenu();
@@ -693,6 +808,7 @@
           li.addEventListener('click', () => selectThread(thread.id));
           threadList.appendChild(li);
         });
+        updateChatState();
       }
 
       function selectThread(id) {
@@ -708,6 +824,7 @@
         // Re-render thread list to highlight current
         renderThreadList();
         closeSidebar();
+        updateChatState();
       }
 
       function newThread() {
@@ -865,14 +982,16 @@
 
       async function handleSendMessage(event) {
         event.preventDefault();
-        if (!currentThreadId) {
-          alert('Please create or select a chat thread first.');
+        if (!currentThreadId || sendBtn.disabled) {
+          updateChatState();
           return;
         }
         const message = messageInput.value.trim();
         if (!message) return;
         addMessage('user', message);
         messageInput.value = '';
+        sendBtn.disabled = true;
+        messageInput.readOnly = true;
 
         // Show loading indicator
         const loadingIndicator = document.createElement('div');
@@ -890,6 +1009,7 @@
           if (loadingIndicator.parentNode) {
             loadingIndicator.parentNode.removeChild(loadingIndicator);
           }
+          updateChatState();
         }
       }
 
@@ -970,6 +1090,7 @@
           if (!silent) {
             alert('Set an endpoint before refreshing models.');
           }
+          updateChatState();
           return;
         }
         let modelsEndpoint;
@@ -980,6 +1101,7 @@
           if (!silent) {
             alert('Invalid endpoint: ' + err.message);
           }
+          updateChatState();
           return;
         }
 
@@ -1035,6 +1157,7 @@
         } finally {
           refreshModelsBtn.disabled = false;
           refreshModelsBtn.textContent = originalLabel;
+          updateChatState();
         }
       }
 
@@ -1141,6 +1264,7 @@
       modelSelect.addEventListener('change', () => {
         config.model = modelSelect.value;
         persistConfig();
+        updateChatState();
       });
       saveConfigBtn.addEventListener('click', saveConfig);
       messageForm.addEventListener('submit', handleSendMessage);
@@ -1205,6 +1329,7 @@
         if (!models.length && config.endpoint) {
           refreshModels({ silent: true });
         }
+        updateChatState();
       }
       init();
     })();
