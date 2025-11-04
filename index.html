@@ -643,18 +643,20 @@
     /* Info button in header */
     .about-btn,
     .theme-toggle-btn {
-      width: 44px;
-      height: 44px;
-      border: 2px solid var(--color-link);
-      border-radius: 50%;
-      background: var(--color-surface);
+      border: none;
+      background: transparent;
       color: var(--color-link);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0;
+      padding: 4px;
       cursor: pointer;
-      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+      transition: color 0.2s ease;
+    }
+
+    .about-btn:hover,
+    .theme-toggle-btn:hover {
+      color: var(--color-link-hover);
     }
 
     .about-btn .icon,
