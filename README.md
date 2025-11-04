@@ -3,7 +3,7 @@
 This single-page web app provides a private frontend for large language model chat APIs. All conversation data is stored locally in your browser, allowing you to manage multiple chat threads without sending history to a remote server.
 
 ### Features
-- Inline configuration for API endpoint, token, and model selection.
+- Inline configuration for API base URL, token, and model selection.
 - Dynamic model list fetched from the configured endpoint (persisted per session).
 - Multiple chat threads with localStorage persistence.
 - Import/export of chat history and session configuration as JSON.
@@ -11,7 +11,7 @@ This single-page web app provides a private frontend for large language model ch
 
 ### Getting Started
 1. Open `index.html` in a modern browser (Chrome, Firefox, Edge).
-2. Enter your API endpoint (e.g., `https://api.openai.com/v1/chat/completions`) and API token.
+2. Enter your API base URL (e.g., `https://api.openai.com/v1`) and API token. The client automatically calls the `/chat/completions` endpoint when sending requests.
 3. Refresh the model list to load available models, then choose the model you want to use.
 4. Click **Save config** to persist settings for the current session.
 5. Start chatting by submitting messages in the main panel. Use the sidebar to manage threads or export/import history.
