@@ -696,6 +696,15 @@
       display: block;
     }
 
+    .chat-notice.requires-endpoint {
+      cursor: pointer;
+    }
+
+    .chat-notice.requires-endpoint:focus-visible {
+      outline: 2px solid #f7d070;
+      outline-offset: 2px;
+    }
+
     .chat-notice ul {
       margin: 0;
       padding-left: 20px;
@@ -1085,6 +1094,31 @@
       let toastHideTimer = null;
       let consecutiveAuthErrors = 0;
       const desktopMediaQuery = window.matchMedia('(min-width: 900px)');
+
+      const promptUnavailableNoticeMessage = "You can't start chatting until you set an LLM API endpoint.";
+
+      const triggerEndpointGuidance = () => {
+        showToast(promptUnavailableNoticeMessage);
+        guideToEndpointSetup();
+      };
+
+      if (chatNotice) {
+        chatNotice.addEventListener('click', () => {
+          if (!chatNotice.classList.contains('requires-endpoint')) {
+            return;
+          }
+          triggerEndpointGuidance();
+        });
+        chatNotice.addEventListener('keydown', event => {
+          if (!chatNotice.classList.contains('requires-endpoint')) {
+            return;
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            triggerEndpointGuidance();
+          }
+        });
+      }
 
       const defaults = { endpoint: '', token: '', model: '' };
       const CONFIG_KEY = 'chatConfig';
@@ -1578,6 +1612,14 @@
         }
         if (!state.hasThread) {
           instructions.push('Create or select a chat from the sidebar.');
+        }
+
+        const requiresEndpoint = !state.hasEndpoint;
+        chatNotice.classList.toggle('requires-endpoint', requiresEndpoint);
+        if (requiresEndpoint) {
+          chatNotice.setAttribute('tabindex', '0');
+        } else {
+          chatNotice.removeAttribute('tabindex');
         }
 
         chatNotice.innerHTML = '';
@@ -2135,8 +2177,7 @@
         const state = getChatState();
         if (!state.ready) {
           if (!state.hasEndpoint) {
-            showToast("You can't start chatting until you set an LLM API endpoint.");
-            guideToEndpointSetup();
+            triggerEndpointGuidance();
           }
           updateChatAvailability();
           return;
@@ -2625,8 +2666,7 @@
           }
           const state = getChatState();
           if (!state.hasEndpoint) {
-            showToast("You can't start chatting until you set an LLM API endpoint.");
-            guideToEndpointSetup();
+            triggerEndpointGuidance();
           }
         });
       }
