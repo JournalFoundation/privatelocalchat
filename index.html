@@ -704,20 +704,31 @@
     .modal .sheet {
       width: 100%;
       max-height: 85vh;
-      overflow: auto;
       background: var(--color-modal-bg);
       border-top-left-radius: 12px;
       border-top-right-radius: 12px;
-      padding: 16px;
-      padding-bottom: max(16px, env(safe-area-inset-bottom));
       box-shadow: 0 -6px 24px var(--color-sidebar-shadow);
       position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      padding-bottom: 12px;
+      background: var(--color-modal-bg);
+      border-bottom: 1px solid var(--color-border);
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
     .modal .modal-close {
-      position: absolute;
-      right: 16px;
-      top: 12px;
       border: none;
       background: transparent;
       cursor: pointer;
@@ -725,10 +736,18 @@
       align-items: center;
       justify-content: center;
       padding: 4px;
+      flex-shrink: 0;
     }
 
     .modal h2 {
-      margin-top: 4px;
+      margin: 0;
+    }
+
+    .modal .modal-body {
+      flex: 1;
+      overflow: auto;
+      padding: 12px 16px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
     }
 
     .modal .cta-row {
@@ -787,7 +806,15 @@
       .modal .sheet {
         max-width: 720px;
         border-radius: 12px;
-        padding: 20px 24px;
+      }
+
+      .modal .modal-header {
+        padding: 20px 24px 16px;
+      }
+
+      .modal .modal-body {
+        padding: 16px 24px;
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
       }
     }
 
@@ -1364,49 +1391,49 @@
   <div id="modalBackdrop" class="modal-backdrop" hidden></div>
   <div id="aboutModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
     <div class="sheet" role="document">
-      <button type="button" class="modal-close" id="aboutCloseBtn" aria-label="Close">
-        <span class="emoji-icon" aria-hidden="true">❌</span>
-      </button>
-      <h2 id="aboutTitle">Private &amp; Local — About this demo</h2>
-      <p><strong>This is a single static HTML file.</strong> There is no backend, no database, and nothing on a server to capture your data. Your chats are stored in your browser.</p>
-
-      <h3>How to run it anywhere</h3>
-      <ul>
-        <li><strong>Desktop:</strong> Right-click → <em>Save Page As…</em>, then open the saved file.</li>
-        <li><strong>iPhone (Safari):</strong> Share → <em>Add to Home Screen</em>, or Share → <em>Save to Files</em>, then open it.</li>
-      </ul>
-
-      <h3>What’s stored locally</h3>
-      <ul>
-        <li><code>localStorage</code>: chat threads and messages.</li>
-        <li><code>sessionStorage</code>: settings (endpoint, token, model, theme) for the current session.</li>
-      </ul>
-      <p>No network calls happen unless you set an API endpoint and press <em>Send</em> (or <em>Refresh model list</em>).</p>
-
-      <div class="cta-row">
-        <a id="jfSiteLink" class="cta-link" href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation.org</a>
-        <a
-          id="githubProjectLink"
-          class="cta-link"
-          href="https://github.com/JournalFoundation/privatelocalchat"
-          target="_blank"
-          rel="noopener"
-        >
-          <svg class="icon" aria-hidden="true"><use href="#icon-github"></use></svg>
-          <span class="btn-label">Fork / contribute on GitHub</span>
-        </a>
-      </div>
-
-      <div class="cta-row">
-        <button id="downloadPageBtn" class="primary">
-          <span class="emoji-icon" aria-hidden="true">⬇️</span>
-          <span class="btn-label">Download this page</span>
+      <div class="modal-header">
+        <h2 id="aboutTitle">Private &amp; Local — About this demo</h2>
+        <button type="button" class="modal-close" id="aboutCloseBtn" aria-label="Close">
+          <span class="emoji-icon" aria-hidden="true">❌</span>
         </button>
       </div>
+      <div class="modal-body">
+        <p><strong>This is a single static HTML file.</strong> There is no backend, no database, and nothing on a server to capture your data. Your chats are stored in your browser.</p>
 
-      <p class="fine-print">
-        Tip: You can also open this dialog directly with <code>?about=1</code> in the URL.
-      </p>
+        <h3>How to run it anywhere</h3>
+        <ul>
+          <li><strong>Desktop:</strong> Right-click → <em>Save Page As…</em>, then open the saved file.</li>
+          <li><strong>iPhone (Safari):</strong> Share → <em>Add to Home Screen</em>, or Share → <em>Save to Files</em>, then open it.</li>
+        </ul>
+
+        <h3>What’s stored locally</h3>
+        <ul>
+          <li><code>localStorage</code>: chat threads and messages.</li>
+          <li><code>sessionStorage</code>: settings (endpoint, token, model, theme) for the current session.</li>
+        </ul>
+        <p>No network calls happen unless you set an API endpoint and press <em>Send</em> (or <em>Refresh model list</em>).</p>
+
+        <div class="cta-row">
+          <a id="jfSiteLink" class="cta-link" href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation.org</a>
+          <a
+            id="githubProjectLink"
+            class="cta-link"
+            href="https://github.com/JournalFoundation/privatelocalchat"
+            target="_blank"
+            rel="noopener"
+          >
+            <svg class="icon" aria-hidden="true"><use href="#icon-github"></use></svg>
+            <span class="btn-label">Fork / contribute on GitHub</span>
+          </a>
+        </div>
+
+        <div class="cta-row">
+          <button id="downloadPageBtn" class="primary">
+            <span class="emoji-icon" aria-hidden="true">⬇️</span>
+            <span class="btn-label">Download this page</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
   <div
@@ -1418,18 +1445,22 @@
     hidden
   >
     <div class="sheet" role="document">
-      <button type="button" class="modal-close" id="configQrCloseBtn" aria-label="Close">
-        <span class="emoji-icon" aria-hidden="true">❌</span>
-      </button>
-      <h2 id="configQrTitle">Share settings via QR code</h2>
-      <p>Scan this QR code on another device to import these chat settings instantly.</p>
-      <div class="qr-preview">
-        <div
-          id="configQrCode"
-          class="qr-code"
-          role="img"
-          aria-label="QR code for shared chat settings"
-        ></div>
+      <div class="modal-header">
+        <h2 id="configQrTitle">Share settings via QR code</h2>
+        <button type="button" class="modal-close" id="configQrCloseBtn" aria-label="Close">
+          <span class="emoji-icon" aria-hidden="true">❌</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Scan this QR code on another device to import these chat settings instantly.</p>
+        <div class="qr-preview">
+          <div
+            id="configQrCode"
+            class="qr-code"
+            role="img"
+            aria-label="QR code for shared chat settings"
+          ></div>
+        </div>
       </div>
     </div>
   </div>
