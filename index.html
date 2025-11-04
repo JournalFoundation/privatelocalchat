@@ -94,6 +94,17 @@
       border-radius: 4px;
     }
 
+    .form-group .helper-text {
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: #555;
+    }
+
+    .form-group .helper-text strong {
+      font-weight: 600;
+      color: #333;
+    }
+
     .form-group button {
       width: 100%;
       padding: 8px;
@@ -696,8 +707,16 @@
         <button type="button" id="closeSidebarBtn" class="sidebar-close" aria-label="Close settings">×</button>
       </div>
       <div class="form-group">
+        <label for="endpointPresetSelect">Suggested endpoints</label>
+        <select id="endpointPresetSelect"></select>
+        <p class="helper-text">
+          Choosing a preset fills the API endpoint below. You can still type a custom URL at any time.
+        </p>
+      </div>
+      <div class="form-group">
         <label for="endpointInput">API endpoint</label>
         <input type="text" id="endpointInput" placeholder="https://api.example.com/v1/chat/completions" />
+        <p id="endpointHint" class="helper-text"></p>
       </div>
       <div class="form-group">
         <label for="modelSelect">Model</label>
@@ -886,7 +905,9 @@
 
     (() => {
       // DOM element references
+      const endpointPresetSelect = document.getElementById('endpointPresetSelect');
       const endpointInput = document.getElementById('endpointInput');
+      const endpointHint = document.getElementById('endpointHint');
       const tokenInput = document.getElementById('tokenInput');
       const modelSelect = document.getElementById('modelSelect');
       const refreshModelsBtn = document.getElementById('refreshModelsBtn');
@@ -934,6 +955,235 @@
       const CONFIG_KEY = 'chatConfig';
       const THREAD_KEY = 'chatThreads';
       const MODELS_KEY = 'chatModels';
+
+      const ENDPOINT_PRESETS = [
+        {
+          id: 'custom',
+          label: 'Custom endpoint',
+          exampleUrl: '',
+          hint: 'Enter the full base URL for any OpenAI-compatible chat API. We will remember it for this session.'
+        },
+        {
+          id: 'openrouter',
+          label: 'OpenRouter',
+          exampleUrl: 'https://openrouter.ai/api/v1',
+          hint:
+            'OpenRouter aggregates Anthropic, Mistral, Llama 3, and more. Generate a key via OpenRouter → API Keys → Create Key; the key is shown once, so copy it into the token field immediately.',
+          match: value => value.startsWith('https://openrouter.ai/api/')
+        },
+        {
+          id: 'vercel',
+          label: 'Vercel AI Gateway',
+          exampleUrl: 'https://ai-gateway.vercel.sh/v1',
+          hint:
+            'Proxy Anthropic, Groq, Mistral, Perplexity, and others from Vercel. In the Vercel dashboard go to AI Gateway → API Keys → Create key, then paste the generated key as your token.',
+          match: value => value.startsWith('https://ai-gateway.vercel.sh')
+        },
+        {
+          id: 'cloudflare',
+          label: 'Cloudflare AI Gateway',
+          exampleUrl: 'https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_id>/compat',
+          hint:
+            'Route to Gemini, Cohere, Perplexity, and more via Cloudflare. In Cloudflare → AI → AI Gateway add provider API keys, then generate a Gateway auth token and send it via the cf-aig-authorization header.',
+          match: value => value.startsWith('https://gateway.ai.cloudflare.com/v1/')
+        },
+        {
+          id: 'anyscale',
+          label: 'Anyscale Endpoints',
+          exampleUrl: 'https://api.endpoints.anyscale.com/v1',
+          hint:
+            'Hosted open-source models (Mistral, Llama 3, etc.). Use the Anyscale Endpoints dashboard to create an API key and paste it into the token field before sending requests.',
+          match: value => value.startsWith('https://api.endpoints.anyscale.com')
+        },
+        {
+          id: 'groq',
+          label: 'Groq',
+          exampleUrl: 'https://api.groq.com/openai/v1',
+          hint:
+            'Ultra-fast inference on Groq hardware. Sign in at Groq Cloud → Developers → Create API Key; copy it immediately and use it as your token.',
+          match: value => value.startsWith('https://api.groq.com')
+        },
+        {
+          id: 'together',
+          label: 'Together AI',
+          exampleUrl: 'https://api.together.xyz/v1',
+          hint:
+            'Access Meta, Mistral, DeepSeek, Google, and more. Create a key at https://api.together.xyz/settings/api-keys and place it in the token field.',
+          match: value => value.startsWith('https://api.together.xyz')
+        },
+        {
+          id: 'fireworks',
+          label: 'Fireworks AI',
+          exampleUrl: 'https://api.fireworks.ai/inference/v1',
+          hint:
+            'Fireworks serves Mixtral-based instruct models through an OpenAI-compatible API. From your Fireworks dashboard choose API Keys → Create API Key and paste the new key into the token field.',
+          match: value => value.startsWith('https://api.fireworks.ai')
+        },
+        {
+          id: 'deepseek',
+          label: 'DeepSeek',
+          exampleUrl: 'https://api.deepseek.com',
+          hint:
+            'Use DeepSeek’s reasoning model. In the DeepSeek console open Access API → API Keys → Create new API key, then copy the value (it is shown only once).',
+          match: value => value.startsWith('https://api.deepseek.com')
+        },
+        {
+          id: 'hyperbolic',
+          label: 'Hyperbolic',
+          exampleUrl: 'https://api.hyperbolic.xyz/v1',
+          hint:
+            'Scaled-down open-source models with an OpenAI-style API. Create or reuse your Hyperbolic API key from their dashboard before calling.',
+          match: value => value.startsWith('https://api.hyperbolic.xyz')
+        },
+        {
+          id: 'deepinfra',
+          label: 'DeepInfra',
+          exampleUrl: 'https://api.deepinfra.com/v1/openai',
+          hint:
+            'DeepInfra offers hosted LLMs and embeddings. Generate an API key from the DeepInfra console and include it as your token.',
+          match: value => value.startsWith('https://api.deepinfra.com')
+        },
+        {
+          id: 'perplexity',
+          label: 'Perplexity AI',
+          exampleUrl: 'https://api.perplexity.ai',
+          hint:
+            'Use Perplexity’s grounded Sonar models. Retrieve your Perplexity API key from the Perplexity developer dashboard and paste it in the token field.',
+          match: value => value.startsWith('https://api.perplexity.ai')
+        },
+        {
+          id: 'hf-router',
+          label: 'Hugging Face router',
+          exampleUrl: 'https://router.huggingface.co/v1',
+          hint:
+            'Pick providers like Novita, Groq, or Together by prefixing the model name. Use your Hugging Face access token from https://huggingface.co/settings/tokens.',
+          match: value => value.startsWith('https://router.huggingface.co')
+        },
+        {
+          id: 'tgi-local',
+          label: 'Hugging Face TGI (local)',
+          exampleUrl: 'http://localhost:8080/v1',
+          hint:
+            'Point to a local Text Generation Inference server. API tokens are optional when running locally.',
+          match: value => value.startsWith('http://localhost:8080')
+        },
+        {
+          id: 'lorax',
+          label: 'LoRAX (local)',
+          exampleUrl: 'http://127.0.0.1:8080/v1',
+          hint:
+            'Connect to a local LoRAX deployment. Tokens are ignored, but you can enter any placeholder value if your tooling expects one.',
+          match: value => value.startsWith('http://127.0.0.1:8080')
+        },
+        {
+          id: 'lmstudio',
+          label: 'LM Studio (desktop)',
+          exampleUrl: 'http://localhost:1234/v1',
+          hint:
+            'LM Studio exposes an OpenAI-style API on its configured port. No API key is required for local use.',
+          match: value => value.startsWith('http://localhost:1234')
+        },
+        {
+          id: 'ollama',
+          label: 'Ollama (local)',
+          exampleUrl: 'http://localhost:11434/v1',
+          hint:
+            'Serve local models through Ollama. The API ignores the token, but you can enter any placeholder if needed.',
+          match: value => value.startsWith('http://localhost:11434')
+        },
+        {
+          id: 'runpod',
+          label: 'RunPod vLLM worker',
+          exampleUrl: 'https://api.runpod.ai/v2/ENDPOINT_ID/openai/v1',
+          hint:
+            'Replace ENDPOINT_ID with your worker ID. Grab the API key from the RunPod dashboard for the workspace that owns the endpoint.',
+          match: value => value.startsWith('https://api.runpod.ai/v2/')
+        },
+        {
+          id: 'baseten',
+          label: 'Baseten',
+          exampleUrl: 'https://YOUR_MODEL_ID.api.baseten.co/v1',
+          hint:
+            'Deploy models with Baseten’s Engine Builder. Create a personal API key via https://api.baseten.co/v1/api_keys and substitute YOUR_MODEL_ID with your deployed model ID.',
+          match: value => value.includes('.api.baseten.co/')
+        }
+      ];
+
+      function findPresetById(id) {
+        return ENDPOINT_PRESETS.find(preset => preset.id === id) || null;
+      }
+
+      function matchPreset(value) {
+        const trimmed = (value || '').trim();
+        if (!trimmed) return findPresetById('custom');
+        return (
+          ENDPOINT_PRESETS.find(preset => {
+            if (preset.id === 'custom') return false;
+            if (typeof preset.match === 'function') {
+              try {
+                return preset.match(trimmed);
+              } catch (err) {
+                console.warn('Preset match failed for', preset.id, err);
+                return false;
+              }
+            }
+            if (!preset.exampleUrl) return false;
+            return trimmed === preset.exampleUrl;
+          }) || null
+        );
+      }
+
+      function updateEndpointHint(preset, value) {
+        if (!endpointHint) return;
+        const trimmed = (value || '').trim();
+        let message = '';
+        if (!trimmed) {
+          message = 'Pick a preset or enter the OpenAI-compatible URL you want to call.';
+        } else if (preset) {
+          message = preset.hint;
+        } else {
+          message =
+            'Using a custom endpoint. Confirm it accepts OpenAI-style requests and provide the correct API key or token if required.';
+        }
+        endpointHint.textContent = message;
+      }
+
+      function syncEndpointPreset(value) {
+        if (!endpointPresetSelect) return null;
+        const preset = matchPreset(value);
+        const id = preset ? preset.id : 'custom';
+        endpointPresetSelect.value = id;
+        updateEndpointHint(preset, value);
+        return preset;
+      }
+
+      function populateEndpointPresets() {
+        if (!endpointPresetSelect) return;
+        endpointPresetSelect.innerHTML = '';
+        ENDPOINT_PRESETS.forEach(preset => {
+          const option = document.createElement('option');
+          option.value = preset.id;
+          option.textContent = preset.label;
+          endpointPresetSelect.appendChild(option);
+        });
+      }
+
+      function handleEndpointPresetChange() {
+        const preset = findPresetById(endpointPresetSelect?.value);
+        if (!preset) return;
+        if (preset.id === 'custom') {
+          if (!endpointInput.value.trim()) {
+            endpointInput.value = '';
+          }
+        } else if (preset.exampleUrl) {
+          endpointInput.value = preset.exampleUrl;
+        }
+        syncEndpointPreset(endpointInput.value);
+      }
+
+      function handleEndpointInputChange() {
+        syncEndpointPreset(endpointInput.value);
+      }
 
       const readJson = (store, key, fallback) => {
         try {
@@ -1059,6 +1309,7 @@
         config = { ...defaults, ...readJson(sessionStorage, CONFIG_KEY, {}) };
         endpointInput.value = config.endpoint;
         tokenInput.value = config.token;
+        syncEndpointPreset(config.endpoint);
         renderModelOptions(models, config.model);
       }
 
@@ -1069,6 +1320,7 @@
           model: modelSelect.value.trim()
         };
         persistConfig();
+        syncEndpointPreset(config.endpoint);
         updateChatAvailability();
         alert('Configuration saved for this session.');
         refreshModels({ silent: true });
@@ -1785,6 +2037,7 @@
             persistConfig();
             endpointInput.value = config.endpoint;
             tokenInput.value = config.token;
+            syncEndpointPreset(config.endpoint);
             if (Array.isArray(imported?.models)) {
               storeModels(imported.models);
             }
@@ -1848,6 +2101,7 @@
        * silently if an endpoint is provided without cached models.
        */
       function init() {
+        populateEndpointPresets();
         loadModels();
         loadConfig();
         loadThreads();
@@ -1872,6 +2126,10 @@
       init();
 
       // Attach event listeners
+      if (endpointPresetSelect) {
+        endpointPresetSelect.addEventListener('change', handleEndpointPresetChange);
+      }
+      endpointInput.addEventListener('input', handleEndpointInputChange);
       refreshModelsBtn.addEventListener('click', () => refreshModels());
       modelSelect.addEventListener('change', () => {
         config.model = modelSelect.value;
