@@ -77,8 +77,6 @@ Create or select a chat thread. Edit the system prompt (optional). Type your mes
   - Requests send `{ model, messages }` (system prompt included as the first message if present).
   - Responses are parsed for `choices[0].message.content` (or `choices[0].text` / `answer` as fallback).
 
-- **No streaming:** Responses are fetched as a single JSON payload (easy to reason about). Streaming can be added—see [Customization](#customization).
-
 - **Guardrails:** You can't send until a **thread**, **endpoint**, and **model** are set. Helpful notices point you to the right place.
 
 ---
@@ -171,9 +169,6 @@ Open `index.html` and look for these areas:
   - `deriveChatCompletionsUrl(endpoint)` controls how the Chat URL is built.
   - `sendToApi()` controls request body/headers and response parsing.
   Add headers here if your provider needs them.
-
-- **Streaming (advanced):**
-  Not implemented. To add it, use `fetch()` with `ReadableStream` and progressively append tokens to the UI instead of waiting for the full JSON.
 
 - **Branding/UI copy:**
   The About dialog and promo banner live in HTML near the bottom; styles are inlined in the `<style>` block.
