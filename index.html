@@ -715,7 +715,7 @@
       </div>
       <div class="form-group">
         <label for="endpointInput">API endpoint</label>
-        <input type="text" id="endpointInput" placeholder="https://api.example.com/v1/chat/completions" />
+        <input type="text" id="endpointInput" placeholder="https://api.example.com/v1" />
       </div>
       <p id="endpointHint" class="hint-text" role="note"></p>
       <div class="form-group">
@@ -969,21 +969,21 @@
           label: 'OpenRouter — multi-model hub',
           baseUrl: 'https://openrouter.ai/api/v1',
           hint:
-            'Aggregator of Anthropic, Mistral, Llama 3 and more. Create an account at <a href="https://openrouter.ai/" target="_blank" rel="noopener">openrouter.ai</a>, open <strong>API Keys</strong>, click <strong>Create Key</strong>, set an optional spend limit, and copy the key (it is shown only once).'
+            'Aggregator of Anthropic, Mistral, Llama 3 and more. Create an account at <a href="https://openrouter.ai/" target="_blank" rel="noopener">openrouter.ai</a>, open <strong>API Keys</strong>, click <strong>Create Key</strong>, set an optional spend limit, and copy the key (it is shown only once). Their OpenAI-compatible chat endpoint lives at <code>/chat/completions</code>, which this app appends automatically when sending messages.'
         },
         {
           id: 'vercel',
           label: 'Vercel AI Gateway',
           baseUrl: 'https://ai-gateway.vercel.sh/v1',
           hint:
-            'Proxy that fans out to Anthropic, Groq, Mistral, Perplexity and more. In the Vercel dashboard go to <strong>AI Gateway → API Keys</strong>, click <strong>Create key</strong>, name it, and copy the generated key for your requests.'
+            'Proxy that fans out to Anthropic, Groq, Mistral, Perplexity and more. In the Vercel dashboard go to <strong>AI Gateway → API Keys</strong>, click <strong>Create key</strong>, name it, and copy the generated key for your requests. Use the <code>/chat/completions</code> path for chat traffic—this client derives it automatically from the base URL.'
         },
         {
           id: 'cloudflare',
           label: 'Cloudflare AI Gateway',
           baseUrl: 'https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/compat',
           hint:
-            'Routes to Gemini, Cohere, Perplexity and other providers. In the Cloudflare dashboard open <strong>AI → AI Gateway</strong>, choose your gateway, add provider API keys under <strong>Provider Keys</strong>, and optionally generate an access token to send in the <code>cf-aig-authorization</code> header.',
+            'Routes to Gemini, Cohere, Perplexity and other providers. In the Cloudflare dashboard open <strong>AI → AI Gateway</strong>, choose your gateway, add provider API keys under <strong>Provider Keys</strong>, and optionally generate an access token to send in the <code>cf-aig-authorization</code> header. Cloudflare forwards OpenAI-style requests made to <code>/chat/completions</code>, which this app adds when you send a message.',
           detect: value => value.startsWith('https://gateway.ai.cloudflare.com/')
         },
         {
@@ -991,98 +991,98 @@
           label: 'Anyscale Endpoints',
           baseUrl: 'https://api.endpoints.anyscale.com/v1',
           hint:
-            'Hosted Mixtral and Llama family models. Sign in at <a href="https://www.anyscale.com/" target="_blank" rel="noopener">Anyscale</a>, open the Endpoints dashboard, and create an API key to authenticate with this URL.'
+            'Hosted Mixtral and Llama family models. Sign in at <a href="https://www.anyscale.com/" target="_blank" rel="noopener">Anyscale</a>, open the Endpoints dashboard, and create an API key to authenticate with this URL. When chatting, target the OpenAI-compatible <code>/chat/completions</code> route—this interface appends it for you.'
         },
         {
           id: 'groq',
           label: 'Groq — low-latency inference',
           baseUrl: 'https://api.groq.com/openai/v1',
           hint:
-            'Runs LLaMA and Mixtral models on Groq hardware. After logging in to <a href="https://console.groq.com/" target="_blank" rel="noopener">Groq Cloud</a>, open <strong>Developers</strong>, click <strong>Create API Key</strong>, and copy the key when it appears.'
+            'Runs LLaMA and Mixtral models on Groq hardware. After logging in to <a href="https://console.groq.com/" target="_blank" rel="noopener">Groq Cloud</a>, open <strong>Developers</strong>, click <strong>Create API Key</strong>, and copy the key when it appears. Groq follows the OpenAI <code>/chat/completions</code> route, which this client automatically uses.'
         },
         {
           id: 'together',
           label: 'Together AI',
           baseUrl: 'https://api.together.xyz/v1',
           hint:
-            'Unified endpoint for Meta, Mistral, DeepSeek, Google and more. Create an account at <a href="https://api.together.xyz/" target="_blank" rel="noopener">Together AI</a>, visit <strong>Settings → API Keys</strong>, generate a key, and paste it here.'
+            'Unified endpoint for Meta, Mistral, DeepSeek, Google and more. Create an account at <a href="https://api.together.xyz/" target="_blank" rel="noopener">Together AI</a>, visit <strong>Settings → API Keys</strong>, generate a key, and paste it here. Together accepts chat requests at <code>/chat/completions</code>, which this UI appends for you.'
         },
         {
           id: 'fireworks',
           label: 'Fireworks AI',
           baseUrl: 'https://api.fireworks.ai/inference/v1',
           hint:
-            'Fireworks hosts Mixtral-based instruct models and other OSS LLMs. In the Fireworks dashboard open <strong>API Keys</strong>, click <strong>Create API Key</strong>, and copy the value for use with this endpoint.'
+            'Fireworks hosts Mixtral-based instruct models and other OSS LLMs. In the Fireworks dashboard open <strong>API Keys</strong>, click <strong>Create API Key</strong>, and copy the value for use with this endpoint. Their chat interface responds on <code>/chat/completions</code>, which this client uses automatically.'
         },
         {
           id: 'deepseek',
           label: 'DeepSeek',
           baseUrl: 'https://api.deepseek.com',
           hint:
-            'Access DeepSeek’s reasoning models. Sign in to <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">DeepSeek</a>, choose <strong>Access API → API Keys</strong>, create a key, and store it securely because it is only shown once.'
+            'Access DeepSeek’s reasoning models. Sign in to <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">DeepSeek</a>, choose <strong>Access API → API Keys</strong>, create a key, and store it securely because it is only shown once. DeepSeek follows the OpenAI <code>/chat/completions</code> path, which the app appends when making requests.'
         },
         {
           id: 'hyperbolic',
           label: 'Hyperbolic',
           baseUrl: 'https://api.hyperbolic.xyz/v1',
           hint:
-            'Scaled-down OSS models with OpenAI compatibility. Log in to Hyperbolic, create an API key in your dashboard, and use it alongside this base URL.'
+            'Scaled-down OSS models with OpenAI compatibility. Log in to Hyperbolic, create an API key in your dashboard, and use it alongside this base URL. Requests should be sent to <code>/chat/completions</code>; this client appends the suffix automatically.'
         },
         {
           id: 'deepinfra',
           label: 'DeepInfra',
           baseUrl: 'https://api.deepinfra.com/v1/openai',
           hint:
-            'Chat, completion, and embedding APIs for open-source LLMs. Generate an API key from the <a href="https://deepinfra.com/" target="_blank" rel="noopener">DeepInfra</a> console and include it in the <code>Authorization</code> header.'
+            'Chat, completion, and embedding APIs for open-source LLMs. Generate an API key from the <a href="https://deepinfra.com/" target="_blank" rel="noopener">DeepInfra</a> console and include it in the <code>Authorization</code> header. DeepInfra serves chat responses from <code>/chat/completions</code>, which this UI targets automatically.'
         },
         {
           id: 'perplexity',
           label: 'Perplexity Sonar',
           baseUrl: 'https://api.perplexity.ai',
           hint:
-            'Grounded web-search models with an OpenAI-style API. From the Perplexity account dashboard create an API key, then use it with this endpoint.'
+            'Grounded web-search models with an OpenAI-style API. From the Perplexity account dashboard create an API key, then use it with this endpoint. Perplexity responds to <code>/chat/completions</code> calls, which the app handles on your behalf.'
         },
         {
           id: 'huggingface-router',
           label: 'Hugging Face router',
           baseUrl: 'https://router.huggingface.co/v1',
           hint:
-            'Route to providers like Novita, Groq or Together via the model name. Create or reuse a Hugging Face access token at <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens</a> and pass it as your API key.'
+            'Route to providers like Novita, Groq or Together via the model name. Create or reuse a Hugging Face access token at <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens</a> and pass it as your API key. The chat-compatible path is <code>/chat/completions</code>; the client appends it automatically.'
         },
         {
           id: 'huggingface-tgi',
           label: 'Hugging Face TGI (local)',
           baseUrl: 'http://localhost:8080/v1',
           hint:
-            'Run <strong>text-generation-inference</strong> locally and point the client at this base URL. No API key is required when running on your own machine.'
+            'Run <strong>text-generation-inference</strong> locally and point the client at this base URL. No API key is required when running on your own machine. Chat-style requests should go to <code>/chat/completions</code>, which the app adds automatically.'
         },
         {
           id: 'lorax',
           label: 'LoRAX (local server)',
           baseUrl: 'http://127.0.0.1:8080/v1',
           hint:
-            'LoRAX exposes an OpenAI-compatible endpoint on your workstation. Start the server and use any placeholder key if authentication is disabled.'
+            'LoRAX exposes an OpenAI-compatible endpoint on your workstation. Start the server and use any placeholder key if authentication is disabled. The chat endpoint is <code>/chat/completions</code>, which this UI appends automatically.'
         },
         {
           id: 'lmstudio',
           label: 'LM Studio (desktop)',
           baseUrl: 'http://localhost:1234/v1',
           hint:
-            'LM Studio ships with an OpenAI-compatible API. Start the local server from the LM Studio interface and use this URL (the API key field can stay empty).'
+            'LM Studio ships with an OpenAI-compatible API. Start the local server from the LM Studio interface and use this URL (the API key field can stay empty). Requests are handled at <code>/chat/completions</code>, which the client appends automatically.'
         },
         {
           id: 'ollama',
           label: 'Ollama (local)',
           baseUrl: 'http://localhost:11434/v1',
           hint:
-            'Ollama serves local LLaMA, Mistral and Phi models. No API key is required—any string will work—so you can leave the token blank.'
+            'Ollama serves local LLaMA, Mistral and Phi models. No API key is required—any string will work—so you can leave the token blank. Ollama implements <code>/chat/completions</code>, which the app calls automatically.'
         },
         {
           id: 'runpod',
           label: 'RunPod vLLM worker',
           baseUrl: 'https://api.runpod.ai/v2/ENDPOINT_ID/openai/v1',
           hint:
-            'Each RunPod worker exposes an OpenAI-compatible interface. Replace <code>ENDPOINT_ID</code> with your worker ID and use the API key from the RunPod dashboard.',
+            'Each RunPod worker exposes an OpenAI-compatible interface. Replace <code>ENDPOINT_ID</code> with your worker ID and use the API key from the RunPod dashboard. Requests hit the <code>/chat/completions</code> path, which is added for you when chatting.',
           detect: value => value.startsWith('https://api.runpod.ai/v2/')
         },
         {
@@ -1090,7 +1090,7 @@
           label: 'Baseten (model-specific URL)',
           baseUrl: 'https://{model_id}.api.baseten.co/environments/{environment}/content/v1',
           hint:
-            'Deploy models with Engine Builder to receive an OpenAI-style endpoint. Use the format <code>https://{model_id}.api.baseten.co/environments/&lt;env&gt;/content/v1</code> and authenticate with a Baseten personal API key created from <strong>Account → API keys</strong>.',
+            'Deploy models with Engine Builder to receive an OpenAI-style endpoint. Use the format <code>https://{model_id}.api.baseten.co/environments/&lt;env&gt;/content/v1</code> and authenticate with a Baseten personal API key created from <strong>Account → API keys</strong>. Baseten expects chat requests on <code>/chat/completions</code>, which the UI automatically adds.',
           detect: value => value.includes('.api.baseten.co')
         },
         {
@@ -1098,7 +1098,7 @@
           label: 'Custom / self-hosted endpoint',
           baseUrl: '',
           hint:
-            'Paste any OpenAI-compatible base URL, such as a corporate gateway or another local server. Remember to include the provider’s API key (if required) and press <strong>Save config</strong> after editing.'
+            'Paste any OpenAI-compatible base URL, such as a corporate gateway or another local server. The chat route should follow the OpenAI <code>/chat/completions</code> pattern—this app appends it automatically. Remember to include the provider’s API key (if required) and press <strong>Save config</strong> after editing.'
         }
       ];
 
@@ -1800,7 +1800,13 @@
         if (config.token) {
           headers['Authorization'] = `Bearer ${config.token}`;
         }
-        const response = await fetch(config.endpoint, {
+        let chatEndpoint;
+        try {
+          chatEndpoint = deriveChatCompletionsUrl(config.endpoint);
+        } catch (err) {
+          throw new Error('Invalid endpoint: ' + err.message);
+        }
+        const response = await fetch(chatEndpoint, {
           method: 'POST',
           headers,
           body: JSON.stringify(body)
@@ -1813,6 +1819,33 @@
         const choice = Array.isArray(data?.choices) && data.choices.length ? data.choices[0] : null;
         const reply = choice?.message?.content || choice?.text || (typeof data?.answer === 'string' ? data.answer : '');
         return reply || JSON.stringify(data);
+      }
+
+      /**
+       * Given a base endpoint derive the chat completions URL. If the path
+       * already ends with /chat/completions it is returned unchanged;
+       * otherwise the suffix is appended to the existing path.
+       * @param {string} endpoint base endpoint entered by the user
+       */
+      function deriveChatCompletionsUrl(endpoint) {
+        let url;
+        try {
+          url = new URL(endpoint);
+        } catch (err) {
+          url = new URL(endpoint, window.location.href);
+        }
+        const segments = url.pathname.split('/').filter(Boolean);
+        const lastTwo = segments.slice(-2);
+        if (lastTwo[0] === 'chat' && lastTwo[1] === 'completions') {
+          url.search = '';
+          url.hash = '';
+          return url.toString();
+        }
+        segments.push('chat', 'completions');
+        url.pathname = '/' + segments.join('/');
+        url.search = '';
+        url.hash = '';
+        return url.toString();
       }
 
       /**
