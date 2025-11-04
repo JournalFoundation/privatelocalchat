@@ -1465,6 +1465,41 @@
       }
 
       /**
+       * Ensure the chat history list is always tall enough to keep the "Start new chat"
+       * control visible on compact screens. The minimum height is equal to the combined
+       * height of the available items up to a maximum of 2.5 list items.
+       */
+      function updateThreadListMinHeight() {
+        if (!threadList) {
+          return;
+        }
+        const items = threadList.querySelectorAll('li');
+        if (!items.length) {
+          threadList.style.removeProperty('min-height');
+          return;
+        }
+
+        const itemHeights = Array.from(items, item => {
+          const rect = item.getBoundingClientRect();
+          const styles = window.getComputedStyle(item);
+          const marginTop = parseFloat(styles.marginTop) || 0;
+          const marginBottom = parseFloat(styles.marginBottom) || 0;
+          return rect.height + marginTop + marginBottom;
+        });
+
+        let minHeight = 0;
+        if (itemHeights.length === 1) {
+          minHeight = itemHeights[0];
+        } else if (itemHeights.length === 2) {
+          minHeight = itemHeights[0] + itemHeights[1];
+        } else {
+          minHeight = itemHeights[0] + itemHeights[1] + itemHeights[2] * 0.5;
+        }
+
+        threadList.style.minHeight = `${minHeight}px`;
+      }
+
+      /**
        * Render the list of chat threads in the sidebar. Each entry is clickable
        * and optionally exposes a menu for renaming or deleting the thread.
        */
@@ -1509,6 +1544,8 @@
           li.addEventListener('click', () => selectThread(thread.id));
           threadList.appendChild(li);
         });
+
+        updateThreadListMinHeight();
       }
 
       /**
@@ -2218,6 +2255,7 @@
       if (modalBackdrop) {
         modalBackdrop.addEventListener('click', closeAbout);
       }
+      window.addEventListener('resize', updateThreadListMinHeight);
       if (dismissPromoBtn) {
         dismissPromoBtn.addEventListener('click', () => {
           sessionStorage.setItem('promoDismissed', '1');
