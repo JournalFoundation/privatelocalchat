@@ -12,7 +12,7 @@ privatelocalchat/
 
 **Private Local Chat** is a tiny, self‑contained HTML app (one file!) that lets you chat with any OpenAI‑compatible endpoint while keeping your chat history **local**. The API can generate replies, but it never sees your stored chat history unless you send it in a message. You can save the page, open it offline, and import/export your chats or settings as portable JSON.
 
-This project is offered by **Journal Foundation** as a simple, auditable demo of privacy‑aware UI patterns. It also previews ideas that will grow into **JournalNet**—a more capable system for private sync, end‑to‑end encryption, and sharing.
+This project is offered by **[Journal Foundation](https://journalfoundation.org)** as a simple, auditable demo of privacy‑aware UI patterns. It also previews ideas that will grow into **[JournalNet](https://github.com/JournalFoundation/journalnet)**—a more capable system for private sync, end‑to‑end encryption, and sharing.
 
 ---
 
@@ -206,9 +206,9 @@ Contributions to improve accessibility are very welcome.
 
 ---
 
-## Roadmap: JournalNet
+## Roadmap: [JournalNet](https://github.com/JournalFoundation/journalnet)
 
-Private Local Chat is a minimal demo. **JournalNet** aims to provide:
+Private Local Chat is a minimal demo. **[JournalNet](https://github.com/JournalFoundation/journalnet)** aims to provide:
 - Automatic, selective sync across devices (opt‑in).
 - **End‑to‑end encryption** with hardware‑backed keys where available.
 - Large file support and shared spaces with fine‑grained permissions.
