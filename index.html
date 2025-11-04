@@ -111,6 +111,25 @@
       text-decoration: underline;
     }
 
+    .link-btn {
+      border: none;
+      background: transparent;
+      color: #007bff;
+      padding: 0;
+      font: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .link-btn:hover {
+      color: #0056b3;
+    }
+
+    .link-btn:focus-visible {
+      outline: 2px solid #0056b3;
+      outline-offset: 2px;
+    }
+
     .form-group button {
       width: 100%;
       padding: 8px;
@@ -277,6 +296,12 @@
       width: 18px;
       height: 18px;
       fill: currentColor;
+    }
+
+    .highlight-pulse {
+      box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.35);
+      border-radius: 4px;
+      transition: box-shadow 0.25s ease;
     }
 
     .thread-list li.new-thread-item {
@@ -676,6 +701,36 @@
       padding-left: 20px;
     }
 
+    .chat-notice p {
+      margin: 0 0 8px;
+    }
+
+    .notice-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .notice-actions button {
+      border: none;
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: #007bff;
+      color: #fff;
+    }
+
+    .notice-actions button.secondary {
+      background: #6c757d;
+    }
+
+    .notice-actions button:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+
     /* Loading indicator styling */
     .loading {
       display: inline-block;
@@ -767,6 +822,11 @@
         <label for="endpointSelect">Quick-start endpoints</label>
         <select id="endpointSelect"></select>
       </div>
+      <p id="endpointOnboardingHint" class="hint-text" role="note">
+        Tip: Pick an API endpoint above to get started. Already configured this app on another device?
+        <button type="button" id="importSettingsShortcut" class="link-btn">Import your settings file</button>
+        instead.
+      </p>
       <div class="form-group">
         <label for="endpointInput">API endpoint</label>
         <input type="text" id="endpointInput" placeholder="https://api.example.com/v1" />
@@ -892,6 +952,20 @@
         <button id="dismissPromoBtn" class="dismiss" aria-label="Dismiss notice">×</button>
       </div>
       <div id="chatNotice" class="chat-notice" role="status" aria-live="polite" hidden></div>
+      <div
+        id="authGuidance"
+        class="chat-notice"
+        role="status"
+        aria-live="polite"
+        aria-hidden="true"
+        hidden
+      >
+        <p><strong>Trouble authenticating?</strong> Double-check your endpoint or import your saved settings file.</p>
+        <div class="notice-actions" role="group" aria-label="Authentication help actions">
+          <button type="button" id="authGuideEndpointBtn">Select API endpoint</button>
+          <button type="button" id="authGuideImportBtn" class="secondary">Import settings</button>
+        </div>
+      </div>
       <div id="systemPromptContainer" class="system-prompt-container">
         <label for="systemPromptInput">System prompt:</label>
         <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
@@ -974,6 +1048,7 @@
       const exportConfigBtn = document.getElementById('exportConfigBtn');
       const importConfigBtn = document.getElementById('importConfigBtn');
       const importConfigInput = document.getElementById('importConfigInput');
+      const importSettingsShortcut = document.getElementById('importSettingsShortcut');
       const openSidebarBtn = document.getElementById('openSidebarBtn');
       const closeSidebarBtn = document.getElementById('closeSidebarBtn');
       const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -986,6 +1061,9 @@
       const messageInput = document.getElementById('messageInput');
       const messageInputOverlay = document.getElementById('messageInputOverlay');
       const sendBtn = document.getElementById('sendBtn');
+      const authGuidance = document.getElementById('authGuidance');
+      const authGuideEndpointBtn = document.getElementById('authGuideEndpointBtn');
+      const authGuideImportBtn = document.getElementById('authGuideImportBtn');
       const aboutBtn = document.getElementById('aboutBtn');
       const promoBanner = document.getElementById('promoBanner');
       const dismissPromoBtn = document.getElementById('dismissPromoBtn');
@@ -1007,6 +1085,7 @@
       let models = [];
       let openThreadMenu = null;
       let toastHideTimer = null;
+      let consecutiveAuthErrors = 0;
       const desktopMediaQuery = window.matchMedia('(min-width: 900px)');
 
       const defaults = { endpoint: '', token: '', model: '' };
@@ -1239,6 +1318,8 @@
         }
         syncEndpointControls(normalized);
         updateChatAvailability();
+        consecutiveAuthErrors = 0;
+        updateAuthGuidance();
         if (refresh) {
           refreshModels({ silent: true });
         }
@@ -1250,6 +1331,8 @@
           config.token = normalized;
           persistConfig();
         }
+        consecutiveAuthErrors = 0;
+        updateAuthGuidance();
         if (refresh) {
           refreshModels({ silent: true });
         }
@@ -1848,13 +1931,29 @@
        * Open the sidebar. Adds a class to the body that triggers the CSS
        * transform and disables page scrolling on mobile.
        */
-      function openSidebar() {
+      function openSidebar(arg) {
+        let options = {};
+        if (typeof Event !== 'undefined' && arg instanceof Event) {
+          arg.preventDefault();
+        } else if (arg && typeof arg === 'object') {
+          options = arg;
+        }
         document.body.classList.add('sidebar-open');
         closeThreadMenu();
-        if (closeSidebarBtn) {
+        updateSidebarAria();
+        const focusTarget = options.focusTarget;
+        const skipDefaultFocus = Boolean(options.skipDefaultFocus || focusTarget);
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+          setTimeout(() => {
+            try {
+              focusTarget.focus({ preventScroll: true });
+            } catch (err) {
+              focusTarget.focus();
+            }
+          }, 0);
+        } else if (!skipDefaultFocus && closeSidebarBtn) {
           setTimeout(() => closeSidebarBtn.focus(), 0);
         }
-        updateSidebarAria();
       }
 
       /**
@@ -1876,6 +1975,53 @@
         if (!sidebarEl) return;
         const hidden = !desktopMediaQuery.matches && !document.body.classList.contains('sidebar-open');
         sidebarEl.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+      }
+
+      function guideToEndpointSetup() {
+        openSidebar({ focusTarget: endpointSelect, skipDefaultFocus: true });
+        if (!endpointSelect) {
+          return;
+        }
+        const highlightClass = 'highlight-pulse';
+        const cleanupHighlight = () => endpointSelect.classList.remove(highlightClass);
+        endpointSelect.addEventListener('blur', cleanupHighlight, { once: true });
+        window.requestAnimationFrame(() => {
+          try {
+            endpointSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch (err) {
+            // Ignore scroll errors.
+          }
+          endpointSelect.classList.add(highlightClass);
+          window.setTimeout(cleanupHighlight, 1800);
+          try {
+            if (typeof endpointSelect.showPicker === 'function') {
+              endpointSelect.showPicker();
+            } else {
+              endpointSelect.focus({ preventScroll: true });
+            }
+          } catch (err) {
+            try {
+              endpointSelect.focus({ preventScroll: true });
+            } catch (focusErr) {
+              endpointSelect.focus();
+            }
+          }
+        });
+      }
+
+      function updateAuthGuidance() {
+        if (!authGuidance) {
+          return;
+        }
+        if (consecutiveAuthErrors >= 2) {
+          authGuidance.classList.add('active');
+          authGuidance.hidden = false;
+          authGuidance.setAttribute('aria-hidden', 'false');
+        } else {
+          authGuidance.classList.remove('active');
+          authGuidance.hidden = true;
+          authGuidance.setAttribute('aria-hidden', 'true');
+        }
       }
 
       /**
@@ -1975,6 +2121,10 @@
         event.preventDefault();
         const state = getChatState();
         if (!state.ready) {
+          if (!state.hasEndpoint) {
+            showToast("You can't start chatting until you set an LLM API endpoint.");
+            guideToEndpointSetup();
+          }
           updateChatAvailability();
           return;
         }
@@ -1995,10 +2145,18 @@
 
         try {
           const reply = await sendToApi();
+          consecutiveAuthErrors = 0;
+          updateAuthGuidance();
           addMessage('assistant', reply);
         } catch (err) {
           console.error(err);
           addMessage('system', 'Error: ' + err.message);
+          if (err && (err.isAuthError || err.status === 401 || err.status === 403)) {
+            consecutiveAuthErrors = Math.min(consecutiveAuthErrors + 1, 3);
+          } else {
+            consecutiveAuthErrors = 0;
+          }
+          updateAuthGuidance();
         } finally {
           if (loadingIndicator.parentNode) {
             loadingIndicator.parentNode.removeChild(loadingIndicator);
@@ -2051,7 +2209,12 @@
           body: JSON.stringify(body)
         });
         if (!response.ok) {
-          throw new Error('API responded with status ' + response.status);
+          const error = new Error('API responded with status ' + response.status);
+          error.status = response.status;
+          if (response.status === 401 || response.status === 403) {
+            error.isAuthError = true;
+          }
+          throw error;
         }
         // Parse JSON response. We expect a property `choices[0].message.content` similar to OpenAI.
         const data = await response.json();
@@ -2328,6 +2491,8 @@
             endpointInput.value = config.endpoint;
             tokenInput.value = config.token;
             syncEndpointControls(config.endpoint);
+            consecutiveAuthErrors = 0;
+            updateAuthGuidance();
             if (Array.isArray(imported?.models)) {
               storeModels(imported.models);
             }
@@ -2409,6 +2574,7 @@
         }
       }
       init();
+      updateAuthGuidance();
 
       // Attach event listeners
       if (endpointSelect) {
@@ -2447,6 +2613,7 @@
           const state = getChatState();
           if (!state.hasEndpoint) {
             showToast("You can't start chatting until you set an LLM API endpoint.");
+            guideToEndpointSetup();
           }
         });
       }
@@ -2459,6 +2626,28 @@
       exportConfigBtn.addEventListener('click', exportConfig);
       importConfigBtn.addEventListener('click', () => importConfigInput.click());
       importConfigInput.addEventListener('change', importConfig);
+      if (importSettingsShortcut) {
+        importSettingsShortcut.addEventListener('click', event => {
+          event.preventDefault();
+          if (importConfigInput) {
+            importConfigInput.click();
+          }
+        });
+      }
+      if (authGuideEndpointBtn) {
+        authGuideEndpointBtn.addEventListener('click', event => {
+          event.preventDefault();
+          guideToEndpointSetup();
+        });
+      }
+      if (authGuideImportBtn) {
+        authGuideImportBtn.addEventListener('click', event => {
+          event.preventDefault();
+          if (importConfigInput) {
+            importConfigInput.click();
+          }
+        });
+      }
       if (aboutBtn) {
         aboutBtn.addEventListener('click', openAbout);
       }
