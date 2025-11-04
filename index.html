@@ -489,13 +489,24 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease;
+      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
       color: var(--color-action-text);
+    }
+
+    .icon-btn.danger {
+      color: var(--color-danger);
+      border-color: var(--color-danger);
     }
 
     .icon-btn:hover {
       background: var(--color-icon-btn-hover-bg);
       border-color: var(--color-icon-btn-hover-border);
+    }
+
+    .icon-btn.danger:hover {
+      background: var(--color-danger);
+      border-color: var(--color-danger);
+      color: var(--color-inverse-text);
     }
 
     .icon-btn:focus {
@@ -1209,6 +1220,16 @@
           >
             <span class="emoji-icon" aria-hidden="true">📥</span>
           </button>
+          <button
+            type="button"
+            id="clearHistoryBtn"
+            class="icon-btn danger"
+            title="Delete all chat history"
+            aria-label="Delete all chat history"
+          >
+            <span class="emoji-icon" aria-hidden="true">☠️</span>
+            <span class="sr-only">Delete all chat history</span>
+          </button>
           <input type="file" id="importInput" accept="application/json" style="display: none;" />
         </div>
         <div class="action-group">
@@ -1248,6 +1269,16 @@
             aria-label="Copy share link"
           >
             <span class="emoji-icon" aria-hidden="true">🔗</span>
+          </button>
+          <button
+            type="button"
+            id="clearSettingsBtn"
+            class="icon-btn danger"
+            title="Reset all settings"
+            aria-label="Reset all settings"
+          >
+            <span class="emoji-icon" aria-hidden="true">☠️</span>
+            <span class="sr-only">Reset all settings</span>
           </button>
           <input type="file" id="importConfigInput" accept="application/json" style="display: none;" />
         </div>
@@ -1427,9 +1458,11 @@
       const exportBtn = document.getElementById('exportBtn');
       const importBtn = document.getElementById('importBtn');
       const importInput = document.getElementById('importInput');
+      const clearHistoryBtn = document.getElementById('clearHistoryBtn');
       const exportConfigBtn = document.getElementById('exportConfigBtn');
       const importConfigBtn = document.getElementById('importConfigBtn');
       const importConfigInput = document.getElementById('importConfigInput');
+      const clearSettingsBtn = document.getElementById('clearSettingsBtn');
       const importSettingsShortcut = document.getElementById('importSettingsShortcut');
       const openSidebarBtn = document.getElementById('openSidebarBtn');
       const closeSidebarBtn = document.getElementById('closeSidebarBtn');
@@ -3424,6 +3457,36 @@ const base64UrlEncode = value => {
         reader.readAsText(file);
       }
 
+      function clearChatHistory() {
+        if (!Array.isArray(threads) || threads.length === 0) {
+          showToast('No chat history to clear.');
+          return;
+        }
+        const confirmed = window.confirm('Delete all chat history? This action cannot be undone.');
+        if (!confirmed) {
+          return;
+        }
+        threads = [];
+        currentThreadId = null;
+        try {
+          localStorage.removeItem(THREAD_KEY);
+        } catch (err) {
+          console.warn('Unable to remove chat history from storage:', err);
+          saveThreads();
+        }
+        threadTitleInput.value = '';
+        systemPromptInput.value = '';
+        if (messageInput) {
+          messageInput.value = '';
+        }
+        if (messagesEl) {
+          messagesEl.innerHTML = '';
+        }
+        renderThreadList();
+        updateChatAvailability();
+        showToast('Chat history cleared.');
+      }
+
       /**
        * Export the current config and model list to a JSON file. Includes
        * an exportedAt timestamp for reference.
@@ -3473,6 +3536,44 @@ const base64UrlEncode = value => {
         const payload = base64UrlEncode(JSON.stringify(trimmed));
         base.searchParams.set('settings', payload);
         return base.toString();
+      }
+
+      function clearAllSettings() {
+        const hasConfigData =
+          Boolean((config.endpoint || '').trim()) ||
+          Boolean((config.token || '').trim()) ||
+          Boolean((config.model || '').trim()) ||
+          Boolean((config.theme || '').trim()) ||
+          models.length > 0;
+        if (!hasConfigData) {
+          showToast('No settings to clear.');
+          return;
+        }
+        const confirmed = window.confirm(
+          'Reset all settings? This removes your endpoint, token, model selection, cached models, and theme preference.'
+        );
+        if (!confirmed) {
+          return;
+        }
+        try {
+          sessionStorage.removeItem(CONFIG_KEY);
+          sessionStorage.removeItem(MODELS_KEY);
+        } catch (err) {
+          console.warn('Unable to clear settings from storage:', err);
+        }
+        config = { ...defaults };
+        models = [];
+        latestConfigShareUrl = '';
+        consecutiveAuthErrors = 0;
+        endpointInput.value = '';
+        tokenInput.value = '';
+        syncEndpointControls('');
+        applyTheme(config.theme);
+        renderModelOptions(models, config.model);
+        persistConfig();
+        updateAuthGuidance();
+        updateChatAvailability();
+        showToast('Settings cleared.');
       }
 
       function openConfigQr() {
@@ -3788,9 +3889,15 @@ const base64UrlEncode = value => {
       exportBtn.addEventListener('click', exportHistory);
       importBtn.addEventListener('click', () => importInput.click());
       importInput.addEventListener('change', importHistory);
+      if (clearHistoryBtn) {
+        clearHistoryBtn.addEventListener('click', clearChatHistory);
+      }
       exportConfigBtn.addEventListener('click', exportConfig);
       importConfigBtn.addEventListener('click', () => importConfigInput.click());
       importConfigInput.addEventListener('change', importConfig);
+      if (clearSettingsBtn) {
+        clearSettingsBtn.addEventListener('click', clearAllSettings);
+      }
       if (shareConfigBtn) {
         shareConfigBtn.addEventListener('click', openConfigQr);
       }
