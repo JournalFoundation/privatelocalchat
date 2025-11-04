@@ -374,6 +374,38 @@
       background: #0056b3;
     }
 
+    .message-form button:disabled {
+      background: #94b9e8;
+      cursor: not-allowed;
+    }
+
+    .message-form textarea:disabled {
+      background: #e9ecef;
+      cursor: not-allowed;
+    }
+
+    .message-form.disabled {
+      opacity: 0.7;
+    }
+
+    .chat-notice {
+      display: none;
+      padding: 12px;
+      background: #fff3cd;
+      border-bottom: 1px solid #f7d070;
+      color: #6c4a00;
+      font-size: 0.9rem;
+    }
+
+    .chat-notice.active {
+      display: block;
+    }
+
+    .chat-notice ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
     /* Loading indicator styling */
     .loading {
       display: inline-block;
@@ -499,6 +531,7 @@
         <button type="button" id="openSidebarBtn" class="mobile-toggle" aria-label="Open settings">☰</button>
         <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
       </div>
+      <div id="chatNotice" class="chat-notice" role="status" aria-live="polite" hidden></div>
       <div id="systemPromptContainer" class="system-prompt-container">
         <label for="systemPromptInput">System prompt:</label>
         <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
@@ -537,6 +570,8 @@
       const messagesEl = document.getElementById('messages');
       const messageForm = document.getElementById('messageForm');
       const messageInput = document.getElementById('messageInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const chatNotice = document.getElementById('chatNotice');
 
       // Application state
       let config = {
@@ -597,6 +632,7 @@
             config.model = '';
             persistConfig();
           }
+          updateChatAvailability();
           return;
         }
 
@@ -614,6 +650,7 @@
           config.model = selection;
           persistConfig();
         }
+        updateChatAvailability();
       }
 
       function loadConfig() {
@@ -621,6 +658,7 @@
         endpointInput.value = config.endpoint;
         tokenInput.value = config.token;
         renderModelOptions(models, config.model);
+        updateChatAvailability();
       }
 
       function saveConfig() {
@@ -630,6 +668,7 @@
           model: modelSelect.value.trim()
         };
         persistConfig();
+        updateChatAvailability();
         alert('Configuration saved for this session.');
         refreshModels({ silent: true });
       }
@@ -651,6 +690,88 @@
         saveThreads();
         return thread;
       };
+
+      function getChatState() {
+        const thread = currentThread();
+        const hasThread = Boolean(thread);
+        const hasEndpoint = Boolean((config.endpoint || '').trim());
+        const hasModel = Boolean((config.model || '').trim());
+        return {
+          hasThread,
+          hasEndpoint,
+          hasModel,
+          ready: hasThread && hasEndpoint && hasModel
+        };
+      }
+
+      function updateSendButtonDisabled(isReady) {
+        if (!sendBtn || !messageInput) return;
+        const hasContent = Boolean(messageInput.value.trim());
+        sendBtn.disabled = !isReady || !hasContent || messageInput.disabled;
+      }
+
+      function updateChatNotice(state) {
+        if (!chatNotice) return;
+        const instructions = [];
+        if (!state.hasEndpoint) {
+          instructions.push('Enter an API endpoint in Settings to send messages.');
+        }
+        if (state.hasEndpoint && !state.hasModel) {
+          instructions.push('Refresh and select a model before chatting.');
+        }
+        if (!state.hasThread) {
+          instructions.push('Create or select a chat from the sidebar.');
+        }
+
+        chatNotice.innerHTML = '';
+        if (!instructions.length) {
+          chatNotice.classList.remove('active');
+          chatNotice.setAttribute('aria-hidden', 'true');
+          chatNotice.hidden = true;
+          if (messageInput) {
+            messageInput.removeAttribute('aria-describedby');
+          }
+          return;
+        }
+
+        const list = document.createElement('ul');
+        instructions.forEach(text => {
+          const item = document.createElement('li');
+          item.textContent = text;
+          list.appendChild(item);
+        });
+        chatNotice.appendChild(list);
+        chatNotice.classList.add('active');
+        chatNotice.setAttribute('aria-hidden', 'false');
+        chatNotice.hidden = false;
+        if (messageInput) {
+          messageInput.setAttribute('aria-describedby', 'chatNotice');
+        }
+      }
+
+      function updateChatAvailability() {
+        const state = getChatState();
+        const placeholder = !state.hasThread
+          ? 'Select or start a chat to enable messaging'
+          : !state.hasEndpoint
+            ? 'Add an API endpoint to enable messaging'
+            : !state.hasModel
+              ? 'Select a model to enable messaging'
+              : 'Type your message';
+        threadTitleInput.disabled = !state.hasThread;
+        systemPromptInput.disabled = !state.hasThread;
+        messageInput.disabled = !state.ready;
+        messageInput.placeholder = placeholder;
+        if (state.ready) {
+          messageForm.classList.remove('disabled');
+          messageForm.setAttribute('aria-disabled', 'false');
+        } else {
+          messageForm.classList.add('disabled');
+          messageForm.setAttribute('aria-disabled', 'true');
+        }
+        updateChatNotice(state);
+        updateSendButtonDisabled(state.ready);
+      }
 
       function renderThreadList() {
         closeThreadMenu();
@@ -699,7 +820,10 @@
         closeThreadMenu();
         currentThreadId = id;
         const thread = getThread(id);
-        if (!thread) return;
+        if (!thread) {
+          updateChatAvailability();
+          return;
+        }
         // Populate title and system prompt
         threadTitleInput.value = thread.title || '';
         systemPromptInput.value = thread.systemPrompt || '';
@@ -708,6 +832,7 @@
         // Re-render thread list to highlight current
         renderThreadList();
         closeSidebar();
+        updateChatAvailability();
       }
 
       function newThread() {
@@ -735,6 +860,7 @@
         systemPromptInput.value = '';
         messagesEl.innerHTML = '';
         renderThreadList();
+        updateChatAvailability();
       }
 
       function renameThread(threadId) {
@@ -865,14 +991,19 @@
 
       async function handleSendMessage(event) {
         event.preventDefault();
-        if (!currentThreadId) {
-          alert('Please create or select a chat thread first.');
+        const state = getChatState();
+        if (!state.ready) {
+          updateChatAvailability();
           return;
         }
         const message = messageInput.value.trim();
-        if (!message) return;
+        if (!message) {
+          updateSendButtonDisabled(state.ready);
+          return;
+        }
         addMessage('user', message);
         messageInput.value = '';
+        updateSendButtonDisabled(state.ready);
 
         // Show loading indicator
         const loadingIndicator = document.createElement('div');
@@ -970,6 +1101,7 @@
           if (!silent) {
             alert('Set an endpoint before refreshing models.');
           }
+          updateChatAvailability();
           return;
         }
         let modelsEndpoint;
@@ -1035,6 +1167,7 @@
         } finally {
           refreshModelsBtn.disabled = false;
           refreshModelsBtn.textContent = originalLabel;
+          updateChatAvailability();
         }
       }
 
@@ -1064,6 +1197,9 @@
               renderThreadList();
               if (threads.length) {
                 selectThread(threads[0].id);
+              } else {
+                currentThreadId = null;
+                updateChatAvailability();
               }
               alert('Import successful');
             } else {
@@ -1141,9 +1277,13 @@
       modelSelect.addEventListener('change', () => {
         config.model = modelSelect.value;
         persistConfig();
+        updateChatAvailability();
       });
       saveConfigBtn.addEventListener('click', saveConfig);
       messageForm.addEventListener('submit', handleSendMessage);
+      messageInput.addEventListener('input', () => {
+        updateSendButtonDisabled(getChatState().ready);
+      });
       exportBtn.addEventListener('click', exportHistory);
       importBtn.addEventListener('click', () => importInput.click());
       importInput.addEventListener('change', importHistory);
@@ -1201,6 +1341,8 @@
         const firstThread = threads[0];
         if (firstThread) {
           selectThread(firstThread.id);
+        } else {
+          updateChatAvailability();
         }
         if (!models.length && config.endpoint) {
           refreshModels({ silent: true });
