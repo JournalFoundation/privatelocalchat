@@ -1010,7 +1010,6 @@
 
       <div class="cta-row">
         <button id="downloadPageBtn" class="primary">Download this page</button>
-        <button id="copyPreloadLinkBtn" class="secondary">Copy link with current title/system/prompt</button>
       </div>
 
       <p class="fine-print">
@@ -1072,7 +1071,6 @@
       const toast = document.getElementById('toast');
       const aboutCloseBtn = document.getElementById('aboutCloseBtn');
       const downloadPageBtn = document.getElementById('downloadPageBtn');
-      const copyPreloadLinkBtn = document.getElementById('copyPreloadLinkBtn');
 
       // Application state
       let config = {
@@ -2078,6 +2076,21 @@
         });
         menu.appendChild(deleteBtn);
 
+        const copyLinkBtn = document.createElement('button');
+        copyLinkBtn.textContent = 'Copy link with current title/system/prompt';
+        copyLinkBtn.addEventListener('click', async () => {
+          const url = buildPreloadUrl();
+          try {
+            await navigator.clipboard.writeText(url);
+            showToast('Link copied to clipboard');
+          } catch (err) {
+            window.prompt('Copy this link:', url);
+          } finally {
+            closeThreadMenu();
+          }
+        });
+        menu.appendChild(copyLinkBtn);
+
         document.body.appendChild(menu);
         const rect = anchor.getBoundingClientRect();
         menu.style.top = `${window.scrollY + rect.bottom + 4}px`;
@@ -2679,21 +2692,6 @@
             URL.revokeObjectURL(url);
           } catch (err) {
             alert('If download is blocked by your browser, use “Save Page As…” instead.');
-          }
-        });
-      }
-      if (copyPreloadLinkBtn) {
-        const originalLabel = copyPreloadLinkBtn.textContent;
-        copyPreloadLinkBtn.addEventListener('click', async () => {
-          const url = buildPreloadUrl();
-          try {
-            await navigator.clipboard.writeText(url);
-            copyPreloadLinkBtn.textContent = 'Copied!';
-            setTimeout(() => {
-              copyPreloadLinkBtn.textContent = originalLabel;
-            }, 1200);
-          } catch (err) {
-            window.prompt('Copy this link:', url);
           }
         });
       }
