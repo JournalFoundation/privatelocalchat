@@ -366,14 +366,25 @@
 
     /* Info button in header */
     .about-btn {
-      min-width: 36px;
-      height: 36px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+      width: 44px;
+      height: 44px;
+      border: 2px solid #007bff;
+      border-radius: 50%;
       background: #fff;
       color: #007bff;
       font-weight: 700;
+      font-size: 1.25rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
       cursor: pointer;
+    }
+
+    .about-btn:focus-visible {
+      outline: 3px solid #80bdff;
+      outline-offset: 2px;
     }
 
     /* === Bottom-sheet modal === */
@@ -800,7 +811,7 @@
           aria-label="About &amp; Privacy"
           aria-haspopup="dialog"
           aria-expanded="false"
-        >ⓘ</button>
+        >i</button>
       </div>
       <div id="promoBanner" class="promo-banner" role="region" aria-label="Journal Foundation notice" hidden>
         <span>
