@@ -98,6 +98,21 @@
       border-radius: 4px;
     }
 
+    .secret-field {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .secret-input {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    }
+
+    .secret-input.masked {
+      -webkit-text-security: disc;
+    }
+
     .hint-text {
       margin-top: -4px;
       margin-bottom: 12px;
@@ -850,7 +865,52 @@
       </div>
       <div class="form-group">
         <label for="tokenInput">API token</label>
-        <input type="password" id="tokenInput" placeholder="sk-..." />
+        <div class="secret-field">
+          <input
+            type="text"
+            id="tokenInput"
+            name="api_token"
+            class="secret-input masked"
+            placeholder="sk-..."
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            inputmode="text"
+            data-1p-ignore
+            data-op-ignore
+            data-lpignore="true"
+            data-bwignore
+            data-protonpass-ignore="true"
+          />
+          <button
+            type="button"
+            id="peekTokenBtn"
+            class="icon-btn"
+            aria-label="Show token"
+            aria-pressed="false"
+            title="Show token"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 5c-5 0-9 5-9 7s4 7 9 7 9-5 9-7-4-7-9-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
+              <path d="M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+            </svg>
+            <span class="sr-only">Toggle token visibility</span>
+          </button>
+          <button
+            type="button"
+            id="copyTokenBtn"
+            class="icon-btn"
+            aria-label="Copy token"
+            title="Copy token"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1z" />
+              <path d="M19 5H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" />
+            </svg>
+            <span class="sr-only">Copy token to clipboard</span>
+          </button>
+        </div>
       </div>
       <hr />
       <div class="threads-header">
@@ -1080,6 +1140,8 @@
       const toast = document.getElementById('toast');
       const aboutCloseBtn = document.getElementById('aboutCloseBtn');
       const downloadPageBtn = document.getElementById('downloadPageBtn');
+      const peekTokenBtn = document.getElementById('peekTokenBtn');
+      const copyTokenBtn = document.getElementById('copyTokenBtn');
 
       // Application state
       let config = {
@@ -1124,6 +1186,48 @@
       const CONFIG_KEY = 'chatConfig';
       const THREAD_KEY = 'chatThreads';
       const MODELS_KEY = 'chatModels';
+
+      if (tokenInput) {
+        const setTokenMasked = masked => {
+          tokenInput.classList.toggle('masked', masked);
+          if (peekTokenBtn) {
+            const label = masked ? 'Show token' : 'Hide token';
+            peekTokenBtn.setAttribute('aria-pressed', String(!masked));
+            peekTokenBtn.setAttribute('aria-label', label);
+            peekTokenBtn.setAttribute('title', label);
+          }
+        };
+
+        setTokenMasked(true);
+
+        if (peekTokenBtn) {
+          peekTokenBtn.addEventListener('click', () => {
+            setTokenMasked(!tokenInput.classList.contains('masked'));
+          });
+        }
+
+        if (copyTokenBtn) {
+          copyTokenBtn.addEventListener('click', async () => {
+            const value = tokenInput.value || '';
+            if (!value) {
+              showToast('Token field is empty');
+              return;
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              try {
+                await navigator.clipboard.writeText(value);
+                showToast('Token copied to clipboard');
+                return;
+              } catch (error) {
+                console.warn('Clipboard write failed', error);
+              }
+            }
+
+            window.prompt('Copy token', value);
+          });
+        }
+      }
 
       const endpointOptions = [
         {
