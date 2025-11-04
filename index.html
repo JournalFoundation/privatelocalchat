@@ -1342,11 +1342,39 @@
       }
 
       function loadThreads() {
-        threads = readJson(localStorage, THREAD_KEY, []);
+        const storedThreads = readJson(localStorage, THREAD_KEY, []);
+        threads = Array.isArray(storedThreads) ? storedThreads : [];
       }
 
       function saveThreads() {
         writeJson(localStorage, THREAD_KEY, threads);
+      }
+
+      function generateThreadId() {
+        return `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
+      }
+
+      function createThread({ title = 'New chat', systemPrompt = '', messages = [] } = {}) {
+        const id = generateThreadId();
+        const normalizedTitle = typeof title === 'string' ? title : 'New chat';
+        const normalizedSystemPrompt = typeof systemPrompt === 'string' ? systemPrompt : '';
+        const thread = {
+          id,
+          title: normalizedTitle,
+          systemPrompt: normalizedSystemPrompt,
+          messages: Array.isArray(messages) ? [...messages] : []
+        };
+        threads.push(thread);
+        saveThreads();
+        return id;
+      }
+
+      function ensureThreadExists() {
+        const hasValidThread = threads.some(thread => thread && typeof thread.id === 'string' && thread.id);
+        if (hasValidThread) {
+          return null;
+        }
+        return createThread();
       }
 
       const getThread = id => threads.find(t => t.id === id);
@@ -1581,9 +1609,7 @@
        * currently selected one.
        */
       function newThread() {
-        const id = Date.now().toString();
-        threads.push({ id, title: 'New chat', systemPrompt: '', messages: [] });
-        saveThreads();
+        const id = createThread();
         renderThreadList();
         selectThread(id);
       }
@@ -1602,7 +1628,9 @@
         if (!confirmed) return;
         threads.splice(index, 1);
         saveThreads();
-        currentThreadId = threads[0]?.id || null;
+        const ensuredId = ensureThreadExists();
+        const firstThreadWithId = threads.find(thread => thread && typeof thread.id === 'string' && thread.id);
+        currentThreadId = firstThreadWithId?.id || ensuredId || null;
         if (currentThreadId) {
           selectThread(currentThreadId);
           return;
@@ -2057,9 +2085,12 @@
             if (Array.isArray(imported)) {
               threads = imported;
               saveThreads();
+              const ensuredId = ensureThreadExists();
               renderThreadList();
-              if (threads.length) {
-                selectThread(threads[0].id);
+              const firstThreadWithId = threads.find(thread => thread && typeof thread.id === 'string' && thread.id);
+              const nextId = firstThreadWithId?.id || ensuredId || null;
+              if (nextId) {
+                selectThread(nextId);
               } else {
                 currentThreadId = null;
                 updateChatAvailability();
@@ -2167,22 +2198,19 @@
         // Only act if at least one parameter is present and no threads yet created via params
         if (titleParam || systemParam || promptParam) {
           // Create a new thread with provided values
-          const id = Date.now().toString();
-          const threadObj = {
-            id,
+          const threadDetails = {
             title: titleParam ? decodeURIComponent(titleParam) : 'New chat',
-            systemPrompt: systemParam ? decodeURIComponent(systemParam) : '',
-            messages: []
+            systemPrompt: systemParam ? decodeURIComponent(systemParam) : ''
           };
-          threads.push(threadObj);
-          saveThreads();
+          const id = createThread(threadDetails);
           currentThreadId = id;
+          const threadObj = getThread(id);
           // Insert into UI
           renderThreadList();
           selectThread(id);
           // Overwrite fields with decoded values
-          threadTitleInput.value = threadObj.title;
-          systemPromptInput.value = threadObj.systemPrompt;
+          threadTitleInput.value = threadObj?.title ?? threadDetails.title;
+          systemPromptInput.value = threadObj?.systemPrompt ?? threadDetails.systemPrompt;
           if (promptParam) {
             messageInput.value = decodeURIComponent(promptParam);
           }
@@ -2203,17 +2231,15 @@
         loadThreads();
         // Check if URL contains chat data and create a thread accordingly
         parseUrlParams();
+        const ensuredId = ensureThreadExists();
         renderThreadList();
         // If a thread was created via URL params select it; otherwise pick the first existing
-        if (currentThreadId) {
-          selectThread(currentThreadId);
+        const firstThreadWithId = threads.find(thread => thread && typeof thread.id === 'string' && thread.id);
+        const targetThreadId = currentThreadId || ensuredId || firstThreadWithId?.id || null;
+        if (targetThreadId) {
+          selectThread(targetThreadId);
         } else {
-          const firstThread = threads[0];
-          if (firstThread) {
-            selectThread(firstThread.id);
-          } else {
-            updateChatAvailability();
-          }
+          updateChatAvailability();
         }
         if (!models.length && config.endpoint) {
           refreshModels({ silent: true });
