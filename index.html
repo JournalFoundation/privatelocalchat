@@ -1160,6 +1160,15 @@
           >
             <svg class="icon" aria-hidden="true"><use href="#icon-qr"></use></svg>
           </button>
+          <button
+            type="button"
+            id="copyConfigLinkBtn"
+            class="icon-btn"
+            title="Copy share link"
+            aria-label="Copy share link"
+          >
+            <svg class="icon" aria-hidden="true"><use href="#icon-link"></use></svg>
+          </button>
           <input type="file" id="importConfigInput" accept="application/json" style="display: none;" />
         </div>
       </div>
@@ -1292,15 +1301,16 @@
       <h2 id="configQrTitle">Share settings via QR code</h2>
       <p>Scan this QR code on another device to import these chat settings instantly.</p>
       <div class="qr-preview">
-        <div id="configQrCode" class="qr-code" role="img" aria-label="Shareable QR code"></div>
+        <div
+          id="configQrCode"
+          class="qr-code"
+          role="img"
+          aria-label="QR code for shared chat settings"
+        ></div>
         <div class="qr-link">
           <a id="configQrLink" href="#" target="_blank" rel="noopener">Link will appear after generating.</a>
         </div>
       </div>
-      <div class="cta-row">
-        <button id="copyConfigLinkBtn" class="secondary">Copy share link</button>
-      </div>
-      <p class="fine-print">This link includes your endpoint, selected model, and access token.</p>
     </div>
   </div>
 
