@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/JournalFoundation/privatelocalchat/compare/v0.3.0...v0.3.1) (2025-11-04)
+
+
+### Bug Fixes
+
+* await model refresh before applying shared config ([2d46ac2](https://github.com/JournalFoundation/privatelocalchat/commit/2d46ac239439a55b336cf8559030ab9d124634b5))
+
 # [0.3.0](https://github.com/JournalFoundation/privatelocalchat/compare/v0.2.0...v0.3.0) (2025-11-03)
 
 
