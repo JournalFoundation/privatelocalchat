@@ -35,7 +35,7 @@
       width: min(85vw, 320px);
       background: #f4f4f4;
       border-right: 1px solid #ddd;
-      box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+      box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
       padding: 16px;
       display: flex;
       flex-direction: column;
@@ -177,7 +177,7 @@
       background: #fff;
       border: 1px solid #ccc;
       border-radius: 4px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
       padding: 4px 0;
       min-width: 140px;
       z-index: 1000;
@@ -409,7 +409,7 @@
     /* Loading indicator styling */
     .loading {
       display: inline-block;
-      border: 4px solid rgba(0,0,0,0.1);
+      border: 4px solid rgba(0, 0, 0, 0.1);
       border-radius: 50%;
       border-top-color: #007bff;
       width: 24px;
@@ -436,7 +436,7 @@
     #sidebarOverlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.35);
+      background: rgba(0, 0, 0, 0.35);
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.25s ease;
@@ -479,7 +479,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
   </style>
 </head>
@@ -516,10 +518,10 @@
       <ul id="threadList" class="thread-list"></ul>
       <div class="actions">
         <button id="exportBtn">Export history</button>
-        <input type="file" id="importInput" accept="application/json" style="display:none;" />
+        <input type="file" id="importInput" accept="application/json" style="display: none;" />
         <button id="importBtn">Import history</button>
         <button id="exportConfigBtn">Export settings</button>
-        <input type="file" id="importConfigInput" accept="application/json" style="display:none;" />
+        <input type="file" id="importConfigInput" accept="application/json" style="display: none;" />
         <button id="importConfigBtn">Import settings</button>
       </div>
     </aside>
@@ -545,7 +547,18 @@
   </div>
 
   <script>
-    /* Private Chat Client: lightweight local chat UI for chat completion APIs. */
+    /*
+     * Private Chat Client: lightweight local chat UI for chat completion APIs.
+     *
+     * This implementation is based on PR #2 from the provided options.
+     *
+     * The script below manages chat threads, configuration, and interactions
+     * with external API endpoints. It also enforces availability rules such
+     * that a user cannot send a message until a thread is selected and the
+     * endpoint and model are configured. Additionally, this version
+     * supports pre-populating the chat title, system prompt, and message
+     * fields via URL query parameters. See the parseUrlParams() function.
+     */
 
     (() => {
       // DOM element references
@@ -567,11 +580,11 @@
       const sidebarEl = document.querySelector('.sidebar');
       const threadTitleInput = document.getElementById('threadTitleInput');
       const systemPromptInput = document.getElementById('systemPromptInput');
+      const chatNotice = document.getElementById('chatNotice');
       const messagesEl = document.getElementById('messages');
       const messageForm = document.getElementById('messageForm');
       const messageInput = document.getElementById('messageInput');
       const sendBtn = document.getElementById('sendBtn');
-      const chatNotice = document.getElementById('chatNotice');
 
       // Application state
       let config = {
@@ -619,6 +632,11 @@
         writeJson(sessionStorage, MODELS_KEY, models);
       }
 
+      /**
+       * Render the model dropdown. If no models are loaded the select is disabled.
+       * @param {string[]} list list of model ids
+       * @param {string} desiredModel previously selected model
+       */
       function renderModelOptions(list, desiredModel) {
         const ids = [...new Set(list.filter(Boolean))];
         modelSelect.innerHTML = '';
@@ -658,7 +676,6 @@
         endpointInput.value = config.endpoint;
         tokenInput.value = config.token;
         renderModelOptions(models, config.model);
-        updateChatAvailability();
       }
 
       function saveConfig() {
@@ -691,6 +708,11 @@
         return thread;
       };
 
+      /**
+       * Derive the state of the chat. A thread, endpoint and model must be selected
+       * before sending messages. This helper returns booleans representing those
+       * conditions as well as an aggregate "ready" flag.
+       */
       function getChatState() {
         const thread = currentThread();
         const hasThread = Boolean(thread);
@@ -704,12 +726,21 @@
         };
       }
 
+      /**
+       * Enable or disable the send button depending on whether a message is ready to send.
+       * @param {boolean} isReady indicates if chat conditions are met
+       */
       function updateSendButtonDisabled(isReady) {
         if (!sendBtn || !messageInput) return;
         const hasContent = Boolean(messageInput.value.trim());
         sendBtn.disabled = !isReady || !hasContent || messageInput.disabled;
       }
 
+      /**
+       * Update the notice block above the chat area to indicate missing prerequisites.
+       * When there are no issues this hides the notice, otherwise lists guidance.
+       * @param {object} state output from getChatState()
+       */
       function updateChatNotice(state) {
         if (!chatNotice) return;
         const instructions = [];
@@ -749,6 +780,12 @@
         }
       }
 
+      /**
+       * Based on chat state, enable/disable inputs and update placeholders
+       * to guide the user toward completing the necessary steps. When a
+       * message has been prefilled via URL, we leave that value intact
+       * so the user can see it even if sending is disabled.
+       */
       function updateChatAvailability() {
         const state = getChatState();
         const placeholder = !state.hasThread
@@ -760,8 +797,14 @@
               : 'Type your message';
         threadTitleInput.disabled = !state.hasThread;
         systemPromptInput.disabled = !state.hasThread;
+
+        // Only update the message placeholder if the input is empty. If there's
+        // pre-filled text we leave it alone so that the user can see it.
+        if (!messageInput.value) {
+          messageInput.placeholder = placeholder;
+        }
+        // Disable input when not ready, but leave the value alone.
         messageInput.disabled = !state.ready;
-        messageInput.placeholder = placeholder;
         if (state.ready) {
           messageForm.classList.remove('disabled');
           messageForm.setAttribute('aria-disabled', 'false');
@@ -773,6 +816,10 @@
         updateSendButtonDisabled(state.ready);
       }
 
+      /**
+       * Render the list of chat threads in the sidebar. Each entry is clickable
+       * and optionally exposes a menu for renaming or deleting the thread.
+       */
       function renderThreadList() {
         closeThreadMenu();
         threadList.innerHTML = '';
@@ -816,6 +863,11 @@
         });
       }
 
+      /**
+       * Select a thread by ID, updating UI and state accordingly. If the
+       * thread doesn't exist, the chat inputs are disabled.
+       * @param {string} id thread identifier
+       */
       function selectThread(id) {
         closeThreadMenu();
         currentThreadId = id;
@@ -835,6 +887,11 @@
         updateChatAvailability();
       }
 
+      /**
+       * Create a new chat thread. This generates a unique id and inserts
+       * an empty conversation into the list. The new thread becomes the
+       * currently selected one.
+       */
       function newThread() {
         const id = Date.now().toString();
         threads.push({ id, title: 'New chat', systemPrompt: '', messages: [] });
@@ -843,6 +900,12 @@
         selectThread(id);
       }
 
+      /**
+       * Delete a chat thread by id. After deletion the next available thread
+       * becomes current. If none remain, the chat area is cleared and
+       * disabled.
+       * @param {string} targetId id to delete
+       */
       function deleteThread(targetId = currentThreadId) {
         if (!targetId) return;
         const index = threads.findIndex(t => t.id === targetId);
@@ -863,6 +926,11 @@
         updateChatAvailability();
       }
 
+      /**
+       * Rename the given thread by prompting the user for a new title. The
+       * current thread title input updates along with the list.
+       * @param {string} threadId id of the thread to rename
+       */
       function renameThread(threadId) {
         const thread = getThread(threadId);
         if (!thread) return;
@@ -877,6 +945,11 @@
         }
       }
 
+      /**
+       * Render all messages for a given thread. This simply loops over the
+       * stored messages and creates elements for each role.
+       * @param {object} thread chat thread
+       */
       function renderMessages(thread) {
         messagesEl.innerHTML = '';
         thread.messages.forEach(msg => {
@@ -888,6 +961,11 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
       }
 
+      /**
+       * Helper to append a message to the current thread, saving and re-rendering.
+       * @param {string} role message role ('user', 'assistant', 'system')
+       * @param {string} content message content
+       */
       function addMessage(role, content) {
         const thread = updateThread(t => t.messages.push({ role, content }));
         if (thread) {
@@ -895,6 +973,10 @@
         }
       }
 
+      /**
+       * Open the sidebar. Adds a class to the body that triggers the CSS
+       * transform and disables page scrolling on mobile.
+       */
       function openSidebar() {
         document.body.classList.add('sidebar-open');
         closeThreadMenu();
@@ -904,6 +986,10 @@
         updateSidebarAria();
       }
 
+      /**
+       * Close the sidebar and optionally restore focus to the hamburger button.
+       * @param {object} options options.restoreFocus when true focuses the open button
+       */
       function closeSidebar(options = {}) {
         const wasOpen = document.body.classList.contains('sidebar-open');
         if (wasOpen) {
@@ -921,6 +1007,9 @@
         sidebarEl.setAttribute('aria-hidden', hidden ? 'true' : 'false');
       }
 
+      /**
+       * Close the thread action menu if open.
+       */
       function closeThreadMenu() {
         if (!openThreadMenu) return;
         document.removeEventListener('mousedown', openThreadMenu.outsideHandler);
@@ -931,6 +1020,13 @@
         openThreadMenu = null;
       }
 
+      /**
+       * Toggle the thread action menu for a given thread. The menu appears
+       * anchored to the provided element and is removed when clicking outside
+       * or pressing escape.
+       * @param {string} threadId id of the thread
+       * @param {HTMLElement} anchor element to anchor the menu to
+       */
       function toggleThreadMenu(threadId, anchor) {
         if (openThreadMenu && openThreadMenu.anchor === anchor) {
           closeThreadMenu();
@@ -989,6 +1085,13 @@
         };
       }
 
+      /**
+       * Send the current message to the API. This prevents default form
+       * submission behaviour, validates chat readiness and content, then
+       * appends the user message, sends the request and appends the reply.
+       * It also shows a loading indicator while the API call is in flight.
+       * @param {Event} event form submit event
+       */
       async function handleSendMessage(event) {
         event.preventDefault();
         const state = getChatState();
@@ -1024,6 +1127,11 @@
         }
       }
 
+      /**
+       * Send the conversation to the configured API endpoint. Uses the current
+       * model and thread messages. Throws if required fields are missing or
+       * the response status is not ok.
+       */
       async function sendToApi() {
         if (!config.endpoint) {
           throw new Error('Endpoint is not configured.');
@@ -1066,6 +1174,12 @@
         return reply || JSON.stringify(data);
       }
 
+      /**
+       * Given an endpoint (possibly relative) derive the URL for the models
+       * endpoint. This attempts to find the nearest version segment and
+       * replace the trailing path with 'models'.
+       * @param {string} endpoint base endpoint
+       */
       function deriveModelsUrl(endpoint) {
         let url;
         try {
@@ -1095,6 +1209,12 @@
         return url.toString();
       }
 
+      /**
+       * Fetch the list of available models for the current endpoint and token.
+       * Updates the dropdown with the returned ids. Silent mode suppresses
+       * alerts for invalid endpoints or no models returned.
+       * @param {object} opts silent: when true suppresses alert messages
+       */
       async function refreshModels({ silent } = {}) {
         const endpoint = endpointInput.value.trim() || config.endpoint;
         if (!endpoint) {
@@ -1112,6 +1232,7 @@
           if (!silent) {
             alert('Invalid endpoint: ' + err.message);
           }
+          updateChatAvailability();
           return;
         }
 
@@ -1171,6 +1292,10 @@
         }
       }
 
+      /**
+       * Export chat history to a JSON file. The user can download their
+       * threads array as a structured JSON document.
+       */
       function exportHistory() {
         const dataStr = JSON.stringify(threads, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
@@ -1184,11 +1309,17 @@
         URL.revokeObjectURL(url);
       }
 
+      /**
+       * Import chat history from a selected JSON file. The file is parsed
+       * and, if valid, replaces the current threads list. Afterwards the
+       * first thread is selected or the chat area is disabled if none.
+       * @param {Event} event input change event
+       */
       function importHistory(event) {
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
           try {
             const imported = JSON.parse(e.target.result);
             if (Array.isArray(imported)) {
@@ -1214,6 +1345,10 @@
         reader.readAsText(file);
       }
 
+      /**
+       * Export the current config and model list to a JSON file. Includes
+       * an exportedAt timestamp for reference.
+       */
       function exportConfig() {
         const payload = {
           config: { ...config },
@@ -1241,11 +1376,17 @@
         };
       }
 
+      /**
+       * Import a configuration file. Extracts config and model list and
+       * updates session storage accordingly. Will override current session
+       * config but not modify saved threads.
+       * @param {Event} event input change event
+       */
       function importConfig(event) {
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
           try {
             const imported = JSON.parse(e.target.result);
             const source = imported && typeof imported === 'object'
@@ -1273,6 +1414,80 @@
         reader.readAsText(file);
       }
 
+      /**
+       * Parse the current URL's query parameters and, if any chat data is
+       * provided, prepopulate a new chat thread. Supported parameters:
+       *
+       *   - title: the chat title
+       *   - system: the system prompt
+       *   - prompt: the initial message to prefill in the message input
+       *
+       * If at least one of these parameters is present, a new thread is
+       * created (without altering existing ones) and selected. The chat
+       * remains disabled until the user configures an endpoint and model.
+       */
+      function parseUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        const titleParam = params.get('title') || params.get('chat') || params.get('name');
+        const systemParam = params.get('system') || params.get('systemPrompt') || params.get('system_prompt');
+        const promptParam = params.get('prompt') || params.get('message') || params.get('msg');
+        // Only act if at least one parameter is present and no threads yet created via params
+        if (titleParam || systemParam || promptParam) {
+          // Create a new thread with provided values
+          const id = Date.now().toString();
+          const threadObj = {
+            id,
+            title: titleParam ? decodeURIComponent(titleParam) : 'New chat',
+            systemPrompt: systemParam ? decodeURIComponent(systemParam) : '',
+            messages: []
+          };
+          threads.push(threadObj);
+          saveThreads();
+          currentThreadId = id;
+          // Insert into UI
+          renderThreadList();
+          selectThread(id);
+          // Overwrite fields with decoded values
+          threadTitleInput.value = threadObj.title;
+          systemPromptInput.value = threadObj.systemPrompt;
+          if (promptParam) {
+            messageInput.value = decodeURIComponent(promptParam);
+          }
+          updateChatAvailability();
+        }
+      }
+
+      /**
+       * Initialize the application. Loads persisted models, config and threads
+       * from storage, handles URL-based prepopulation, renders the thread
+       * list and selects the first available thread. Also refreshes models
+       * silently if an endpoint is provided without cached models.
+       */
+      function init() {
+        loadModels();
+        loadConfig();
+        loadThreads();
+        // Check if URL contains chat data and create a thread accordingly
+        parseUrlParams();
+        renderThreadList();
+        // If a thread was created via URL params select it; otherwise pick the first existing
+        if (currentThreadId) {
+          selectThread(currentThreadId);
+        } else {
+          const firstThread = threads[0];
+          if (firstThread) {
+            selectThread(firstThread.id);
+          } else {
+            updateChatAvailability();
+          }
+        }
+        if (!models.length && config.endpoint) {
+          refreshModels({ silent: true });
+        }
+      }
+      init();
+
+      // Attach event listeners
       refreshModelsBtn.addEventListener('click', () => refreshModels());
       modelSelect.addEventListener('change', () => {
         config.model = modelSelect.value;
@@ -1332,23 +1547,6 @@
           thread.systemPrompt = systemPromptInput.value.trim();
         });
       });
-
-      function init() {
-        loadModels();
-        loadConfig();
-        loadThreads();
-        renderThreadList();
-        const firstThread = threads[0];
-        if (firstThread) {
-          selectThread(firstThread.id);
-        } else {
-          updateChatAvailability();
-        }
-        if (!models.length && config.endpoint) {
-          refreshModels({ silent: true });
-        }
-      }
-      init();
     })();
   </script>
 </body>
