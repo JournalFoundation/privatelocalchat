@@ -11,7 +11,7 @@ This single-page web app provides a private frontend for large language model ch
 
 ### Getting Started
 1. Open `index.html` in a modern browser (Chrome, Firefox, Edge).
-2. Enter your API endpoint (e.g., `https://api.openai.com/v1/chat/completions`) and API token.
+2. Enter your API endpoint (e.g., `https://api.openai.com/v1`) and API token. The app automatically calls `/chat/completions` for chat requests.
 3. Refresh the model list to load available models, then choose the model you want to use.
 4. Click **Save config** to persist settings for the current session.
 5. Start chatting by submitting messages in the main panel. Use the sidebar to manage threads or export/import history.
