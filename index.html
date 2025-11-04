@@ -3449,7 +3449,7 @@ const base64UrlEncode = value => {
         reader.readAsText(file);
       }
 
-      function applyConfigFromUrl() {
+      async function applyConfigFromUrl() {
         const params = new URLSearchParams(window.location.search);
         if (!params.has('settings') && !params.has('endpoint') && !params.has('token') && !params.has('model')) {
           return;
@@ -3477,6 +3477,9 @@ const base64UrlEncode = value => {
           return;
         }
         const previous = { ...config };
+        const desiredModel = (nextConfig.model || '').trim();
+        const endpointChanged = typeof nextConfig.endpoint === 'string' && nextConfig.endpoint !== previous.endpoint;
+        const tokenChanged = typeof nextConfig.token === 'string' && nextConfig.token !== previous.token;
         config = { ...defaults, ...config, ...nextConfig };
         persistConfig();
         endpointInput.value = config.endpoint;
@@ -3484,14 +3487,31 @@ const base64UrlEncode = value => {
         syncEndpointControls(config.endpoint);
         consecutiveAuthErrors = 0;
         updateAuthGuidance();
+        const needsModelRefresh =
+          !!config.endpoint &&
+          (endpointChanged || tokenChanged || (desiredModel && !models.includes(desiredModel)));
+        if (needsModelRefresh) {
+          await refreshModels({ silent: true });
+        }
         renderModelOptions(models, config.model);
-        updateChatAvailability();
+        const appliedModel = config.model;
         const changed =
           previous.endpoint !== config.endpoint ||
           previous.token !== config.token ||
           previous.model !== config.model;
-        if (changed) {
-          showToast('Settings imported from shared link.');
+        const warningMessage = desiredModel && appliedModel !== desiredModel
+          ? `Requested model "${desiredModel}" is not available at this endpoint.` +
+            (appliedModel ? ` Using "${appliedModel}" instead.` : ' No models are currently available.')
+          : '';
+        if (warningMessage) {
+          console.warn(warningMessage);
+        }
+        updateChatAvailability();
+        if (changed || warningMessage) {
+          const toastMessage = warningMessage
+            ? (changed ? `Settings imported from shared link. ${warningMessage}` : warningMessage)
+            : 'Settings imported from shared link.';
+          showToast(toastMessage);
         }
         try {
           const cleanedUrl = new URL(window.location.href);
@@ -3548,11 +3568,11 @@ const base64UrlEncode = value => {
        * list and selects the first available thread. Also refreshes models
        * silently if an endpoint is provided without cached models.
        */
-      function init() {
+      async function init() {
         populateEndpointSelect();
         loadModels();
         loadConfig();
-        applyConfigFromUrl();
+        await applyConfigFromUrl();
         loadThreads();
         // Check if URL contains chat data and create a thread accordingly
         parseUrlParams();
@@ -3570,7 +3590,9 @@ const base64UrlEncode = value => {
           refreshModels({ silent: true });
         }
       }
-      init();
+      init().catch(err => {
+        console.error('Failed to initialize application:', err);
+      });
       updateAuthGuidance();
 
       // Attach event listeners
