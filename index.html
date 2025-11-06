@@ -1362,7 +1362,14 @@
         aria-hidden="true"
         hidden
       >
-        <p><strong>Trouble authenticating?</strong> Double-check your endpoint or import your saved settings file.</p>
+        <p>
+          <strong>Trouble authenticating?</strong>
+          <span id="authHintText"
+            >No API key is currently saved. Add one under Settings → API key if your provider requires it. Local endpoints
+            and public routes such as OpenRouter’s model list may work without a key.</span
+          >
+          Double-check your endpoint or import your saved settings file.
+        </p>
         <div class="notice-actions" role="group" aria-label="Authentication help actions">
           <button type="button" id="authGuideEndpointBtn">Select API endpoint</button>
           <button type="button" id="authGuideImportBtn" class="secondary">Import settings</button>
@@ -1512,6 +1519,7 @@
       const authGuidance = document.getElementById('authGuidance');
       const authGuideEndpointBtn = document.getElementById('authGuideEndpointBtn');
       const authGuideImportBtn = document.getElementById('authGuideImportBtn');
+      const authHintText = document.getElementById('authHintText');
       const themeToggleBtn = document.getElementById('themeToggleBtn');
       const aboutBtn = document.getElementById('aboutBtn');
       const promoBanner = document.getElementById('promoBanner');
@@ -3026,6 +3034,9 @@ const base64UrlEncode = value => {
         if (!authGuidance) {
           return;
         }
+        if (authHintText) {
+          authHintText.textContent = buildAuthHintMessage();
+        }
         if (consecutiveAuthErrors >= 2) {
           authGuidance.classList.add('active');
           authGuidance.hidden = false;
@@ -3035,6 +3046,30 @@ const base64UrlEncode = value => {
           authGuidance.hidden = true;
           authGuidance.setAttribute('aria-hidden', 'true');
         }
+      }
+
+      function getActiveTokenValue() {
+        const inputValue = tokenInput && typeof tokenInput.value === 'string' ? tokenInput.value.trim() : '';
+        const storedValue = typeof config.token === 'string' ? config.token.trim() : '';
+        return inputValue || storedValue;
+      }
+
+      function buildAuthHintMessage() {
+        const token = getActiveTokenValue();
+        if (token) {
+          return 'Check that your saved API key is correct, has access to this provider, or consider regenerating it if it recently changed.';
+        }
+        return 'No API key is currently saved. Add one under Settings → API key if your provider requires it. Local endpoints and public routes such as OpenRouter’s model list may work without a key.';
+      }
+
+      function buildAuthErrorMessage(baseMessage) {
+        const message = typeof baseMessage === 'string' && baseMessage.trim() ? baseMessage.trim() : 'Error';
+        const hint = buildAuthHintMessage();
+        return hint ? `${message}\n\n${hint}` : message;
+      }
+
+      function isAuthError(err) {
+        return Boolean(err && (err.isAuthError || err.status === 401 || err.status === 403));
       }
 
       /**
@@ -3197,8 +3232,10 @@ const base64UrlEncode = value => {
           addMessage('assistant', reply);
         } catch (err) {
           console.error(err);
-          addMessage('system', 'Error: ' + err.message);
-          if (err && (err.isAuthError || err.status === 401 || err.status === 403)) {
+          const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
+          const systemMessage = buildAuthErrorMessage('Error: ' + errorText);
+          addMessage('system', systemMessage);
+          if (isAuthError(err)) {
             consecutiveAuthErrors = Math.min(consecutiveAuthErrors + 1, 3);
           } else {
             consecutiveAuthErrors = 0;
@@ -3394,7 +3431,12 @@ const base64UrlEncode = value => {
           }
           const response = await fetch(modelsEndpoint, { method: 'GET', headers });
           if (!response.ok) {
-            throw new Error('Status ' + response.status);
+            const error = new Error('Status ' + response.status);
+            error.status = response.status;
+            if (response.status === 401 || response.status === 403) {
+              error.isAuthError = true;
+            }
+            throw error;
           }
           const data = await response.json();
           const rawList = Array.isArray(data?.data)
@@ -3415,14 +3457,21 @@ const base64UrlEncode = value => {
           }
           storeModels(ids);
           renderModelOptions(models, config.model);
+          consecutiveAuthErrors = 0;
+          updateAuthGuidance();
           if (!silent) {
             alert('Models updated.');
           }
         } catch (err) {
           console.error('Failed to refresh models:', err);
           if (!silent) {
-            alert('Failed to load models: ' + err.message);
+            const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
+            alert(buildAuthErrorMessage('Failed to load models: ' + errorText));
           }
+          if (isAuthError(err)) {
+            consecutiveAuthErrors = Math.min(consecutiveAuthErrors + 1, 3);
+          }
+          updateAuthGuidance();
         } finally {
           refreshModelsBtn.disabled = false;
           if (refreshLabelTarget) {
@@ -3891,6 +3940,9 @@ const base64UrlEncode = value => {
         });
       }
       if (tokenInput) {
+        tokenInput.addEventListener('input', () => {
+          updateAuthGuidance();
+        });
         tokenInput.addEventListener('change', () => {
           persistTokenValue(tokenInput.value, { refresh: true });
         });
