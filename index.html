@@ -3782,6 +3782,16 @@ const base64UrlEncode = value => {
         if (!params.has('settings') && !params.has('endpoint') && !params.has('token') && !params.has('model')) {
           return;
         }
+        const hasSettingsParam = params.has('settings');
+        const clearSharedParams = () => {
+          try {
+            const cleanedUrl = new URL(window.location.href);
+            ['settings', 'endpoint', 'token', 'model', 'theme'].forEach(key => cleanedUrl.searchParams.delete(key));
+            history.replaceState(null, document.title, cleanedUrl.toString());
+          } catch (err) {
+            console.warn('Unable to clear shared settings parameters:', err);
+          }
+        };
         let merged = {};
         const encodedSettings = params.get('settings');
         if (encodedSettings) {
@@ -3805,10 +3815,68 @@ const base64UrlEncode = value => {
           return;
         }
         const previous = { ...config };
+        const resultingConfig = { ...defaults, ...config, ...nextConfig };
+        const describeSettingValue = (key, value) => {
+          const stringValue = typeof value === 'string' ? value.trim() : '';
+          if (key === 'theme') {
+            if (stringValue === 'light') return 'light theme';
+            if (stringValue === 'dark') return 'dark theme';
+            return 'system default';
+          }
+          return stringValue || 'not set';
+        };
+        const buildChangeDetails = (before, after) => {
+          const details = [];
+          const fields = ['endpoint', 'model', 'theme'];
+          fields.forEach(key => {
+            const beforeValue = typeof before[key] === 'string' ? before[key].trim() : before[key] || '';
+            const afterValue = typeof after[key] === 'string' ? after[key].trim() : after[key] || '';
+            if (beforeValue !== afterValue) {
+              const label = key === 'theme'
+                ? 'Theme preference'
+                : key === 'model'
+                  ? 'Model'
+                  : 'Endpoint';
+              details.push(
+                `• ${label}: ${describeSettingValue(key, before[key])} → ${describeSettingValue(key, after[key])}`
+              );
+            }
+          });
+          const beforeToken = typeof before.token === 'string' ? before.token : '';
+          const afterToken = typeof after.token === 'string' ? after.token : '';
+          if (beforeToken !== afterToken) {
+            if (!afterToken) {
+              details.push('• API key: will be cleared.');
+            } else if (!beforeToken) {
+              details.push('• API key: will be set.');
+            } else {
+              details.push('• API key: will be replaced.');
+            }
+          }
+          return details;
+        };
+        const changeDetails = buildChangeDetails(previous, resultingConfig);
+        const changeDetected = changeDetails.length > 0;
+        const hasExistingConfig = hasSettingsParam && Object.keys(defaults).some(
+          key => (previous[key] ?? '') !== (defaults[key] ?? '')
+        );
+        if (hasExistingConfig && changeDetected) {
+          const detailText = changeDetails.join('\n');
+          const confirmMessage = detailText
+            ? `Import settings from this link?\n\nThis will overwrite your existing configuration with:\n${detailText}\n\nContinue?`
+            : 'Import settings from this link? This will overwrite your existing configuration. Continue?';
+          const confirmed = window.confirm(confirmMessage);
+          if (!confirmed) {
+            showToast('Import canceled. Your existing settings were kept.');
+            clearSharedParams();
+            return;
+          }
+        }
+        const sharedSettingsMatch = hasSettingsParam && hasExistingConfig && !changeDetected;
         const desiredModel = (nextConfig.model || '').trim();
         const endpointChanged = typeof nextConfig.endpoint === 'string' && nextConfig.endpoint !== previous.endpoint;
         const tokenChanged = typeof nextConfig.token === 'string' && nextConfig.token !== previous.token;
-        config = { ...defaults, ...config, ...nextConfig };
+        config = resultingConfig;
         persistConfig();
         endpointInput.value = config.endpoint;
         tokenInput.value = config.token;
@@ -3824,11 +3892,6 @@ const base64UrlEncode = value => {
         }
         renderModelOptions(models, config.model);
         const appliedModel = config.model;
-        const changed =
-          previous.endpoint !== config.endpoint ||
-          previous.token !== config.token ||
-          previous.model !== config.model ||
-          previous.theme !== config.theme;
         const warningMessage = desiredModel && appliedModel !== desiredModel
           ? `Requested model "${desiredModel}" is not available at this endpoint.` +
             (appliedModel ? ` Using "${appliedModel}" instead.` : ' No models are currently available.')
@@ -3837,19 +3900,23 @@ const base64UrlEncode = value => {
           console.warn(warningMessage);
         }
         updateChatAvailability();
-        if (changed || warningMessage) {
-          const toastMessage = warningMessage
-            ? (changed ? `Settings imported from shared link. ${warningMessage}` : warningMessage)
-            : 'Settings imported from shared link.';
+        const changeSummaryText = changeDetails.map(detail => detail.replace(/^•\s*/, '')).join(' · ');
+        const prefix = hasSettingsParam ? 'Settings imported from shared link' : 'Settings updated from URL';
+        let toastMessage = '';
+        if (warningMessage) {
+          const summaryPart = changeSummaryText ? `: ${changeSummaryText}` : '';
+          toastMessage = `${prefix}${summaryPart}. ${warningMessage}`;
+        } else if (changeSummaryText) {
+          toastMessage = `${prefix}: ${changeSummaryText}`;
+        } else if (sharedSettingsMatch) {
+          toastMessage = 'Shared settings match your current configuration.';
+        } else if (changeDetected || hasSettingsParam) {
+          toastMessage = `${prefix}.`;
+        }
+        if (toastMessage) {
           showToast(toastMessage);
         }
-        try {
-          const cleanedUrl = new URL(window.location.href);
-          ['settings', 'endpoint', 'token', 'model', 'theme'].forEach(key => cleanedUrl.searchParams.delete(key));
-          history.replaceState(null, document.title, cleanedUrl.toString());
-        } catch (err) {
-          console.warn('Unable to clear shared settings parameters:', err);
-        }
+        clearSharedParams();
       }
 
       /**
