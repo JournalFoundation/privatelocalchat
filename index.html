@@ -2028,6 +2028,80 @@ const base64UrlEncode = value => {
       const CONFIG_KEY = 'chatConfig';
       const THREAD_KEY = 'chatThreads';
       const MODELS_KEY = 'chatModels';
+      const ENDPOINT_TOKENS_KEY = 'chatEndpointTokens';
+
+      let endpointTokens = {};
+      const promptedCopyFor = new Set();
+
+      function loadEndpointTokens() {
+        try {
+          endpointTokens = JSON.parse(sessionStorage.getItem(ENDPOINT_TOKENS_KEY)) || {};
+        } catch (err) {
+          console.warn('Failed to load endpoint tokens from storage:', err);
+          endpointTokens = {};
+        }
+      }
+
+      function saveEndpointTokens() {
+        try {
+          sessionStorage.setItem(ENDPOINT_TOKENS_KEY, JSON.stringify(endpointTokens));
+        } catch (err) {
+          console.warn('Failed to persist endpoint tokens to storage:', err);
+        }
+      }
+
+      function canonicalizeEndpoint(value) {
+        if (!value) return '';
+        let url;
+        try {
+          url = new URL(value, window.location.href);
+        } catch (err) {
+          return '';
+        }
+        url.hash = '';
+        url.search = '';
+        url.pathname = url.pathname.replace(/\/+$/, '');
+        const segments = url.pathname.split('/').filter(Boolean);
+        if (segments.length >= 2 && segments[segments.length - 2] === 'chat' && segments[segments.length - 1] === 'completions') {
+          url.pathname = '/' + segments.slice(0, -2).join('/');
+        }
+        url.pathname = url.pathname.replace(/\/+$/, '');
+        const normalizedPath = url.pathname === '/' ? '' : url.pathname;
+        return `${url.origin}${normalizedPath}`;
+      }
+
+      function getTokenForEndpoint(endpoint) {
+        const key = canonicalizeEndpoint(endpoint);
+        if (!key) return '';
+        if (Object.prototype.hasOwnProperty.call(endpointTokens, key)) {
+          return endpointTokens[key] || '';
+        }
+        return '';
+      }
+
+      function setTokenForEndpoint(endpoint, token) {
+        const key = canonicalizeEndpoint(endpoint);
+        if (!key) return;
+        const trimmedToken = (token || '').trim();
+        if (!trimmedToken) {
+          if (Object.prototype.hasOwnProperty.call(endpointTokens, key)) {
+            delete endpointTokens[key];
+            saveEndpointTokens();
+          }
+          return;
+        }
+        endpointTokens[key] = trimmedToken;
+        saveEndpointTokens();
+      }
+
+      function clearTokenForEndpoint(endpoint) {
+        const key = canonicalizeEndpoint(endpoint);
+        if (!key) return;
+        if (Object.prototype.hasOwnProperty.call(endpointTokens, key)) {
+          delete endpointTokens[key];
+          saveEndpointTokens();
+        }
+      }
 
       if (tokenInput) {
         const setTokenMasked = masked => {
@@ -2292,11 +2366,13 @@ const base64UrlEncode = value => {
         updateEndpointHint(option, value);
       }
 
-      function persistEndpointValue(value, { refresh = false } = {}) {
+      function persistEndpointValue(value, { refresh = false, promptCopy = true } = {}) {
         const normalized = (value || '').trim();
+        const previousEndpoint = config.endpoint;
         if (config.endpoint !== normalized) {
           config.endpoint = normalized;
           persistConfig();
+          handleEndpointSwitch(previousEndpoint, normalized, { promptCopy });
         }
         syncEndpointControls(normalized);
         updateChatAvailability();
@@ -2307,14 +2383,77 @@ const base64UrlEncode = value => {
         }
       }
 
-      function persistTokenValue(value, { refresh = false } = {}) {
+      function persistTokenValue(value, { refresh = false, remember = false, endpointForToken } = {}) {
         const normalized = (value || '').trim();
         if (config.token !== normalized) {
           config.token = normalized;
           persistConfig();
         }
+        if (remember) {
+          const targetEndpoint =
+            typeof endpointForToken === 'string' && endpointForToken
+              ? endpointForToken
+              : endpointInput
+                ? endpointInput.value
+                : config.endpoint;
+          setTokenForEndpoint(targetEndpoint, normalized);
+        }
         consecutiveAuthErrors = 0;
         updateAuthGuidance();
+        if (refresh) {
+          refreshModels({ silent: true });
+        }
+      }
+
+      function handleEndpointSwitch(prevEndpoint, nextEndpoint, { promptCopy = true, refresh = false } = {}) {
+        if (!tokenInput) return;
+        const prevCanon = canonicalizeEndpoint(prevEndpoint);
+        const nextCanon = canonicalizeEndpoint(nextEndpoint);
+
+        let prevToken = '';
+        const hasPrevTokenStored = prevCanon ? Object.prototype.hasOwnProperty.call(endpointTokens, prevCanon) : false;
+        const trimmedConfigToken = (config.token || '').trim();
+        if (hasPrevTokenStored) {
+          prevToken = endpointTokens[prevCanon] || '';
+        } else if (prevCanon && trimmedConfigToken) {
+          prevToken = trimmedConfigToken;
+          setTokenForEndpoint(prevEndpoint, prevToken);
+        } else {
+          prevToken = trimmedConfigToken;
+        }
+
+        const hasSavedNextToken = nextCanon && Object.prototype.hasOwnProperty.call(endpointTokens, nextCanon);
+        const savedNextToken = hasSavedNextToken ? endpointTokens[nextCanon] || '' : '';
+
+        if (hasSavedNextToken) {
+          if (tokenInput.value !== savedNextToken) {
+            tokenInput.value = savedNextToken;
+          }
+          persistTokenValue(savedNextToken, { refresh: false });
+        } else {
+          if (tokenInput.value) {
+            tokenInput.value = '';
+          }
+          persistTokenValue('', { refresh: false });
+
+          if (promptCopy && prevToken && nextCanon && !promptedCopyFor.has(nextCanon)) {
+            promptedCopyFor.add(nextCanon);
+            const confirmed = window.confirm(
+              `No API key is saved for this endpoint.\n\nWould you like to copy your current key to:\n${nextCanon}\n\nNote: API keys are generally specific to the provider/endpoint.`
+            );
+            if (confirmed) {
+              tokenInput.value = prevToken;
+              persistTokenValue(prevToken, {
+                refresh: false,
+                remember: true,
+                endpointForToken: nextEndpoint
+              });
+            }
+          } else if (promptCopy && nextCanon && !promptedCopyFor.has(nextCanon)) {
+            promptedCopyFor.add(nextCanon);
+          }
+        }
+
         if (refresh) {
           refreshModels({ silent: true });
         }
@@ -3640,6 +3779,7 @@ const base64UrlEncode = value => {
         try {
           sessionStorage.removeItem(CONFIG_KEY);
           sessionStorage.removeItem(MODELS_KEY);
+          sessionStorage.removeItem(ENDPOINT_TOKENS_KEY);
         } catch (err) {
           console.warn('Unable to clear settings from storage:', err);
         }
@@ -3647,6 +3787,8 @@ const base64UrlEncode = value => {
         models = [];
         latestConfigShareUrl = '';
         consecutiveAuthErrors = 0;
+        endpointTokens = {};
+        promptedCopyFor.clear();
         endpointInput.value = '';
         tokenInput.value = '';
         syncEndpointControls('');
@@ -3760,6 +3902,39 @@ const base64UrlEncode = value => {
             persistConfig();
             endpointInput.value = config.endpoint;
             tokenInput.value = config.token;
+            const trimmedTokenValue = (tokenInput.value || '').trim();
+            const hasEndpointValue = (config.endpoint || '').trim();
+            if (hasEndpointValue) {
+              if (trimmedTokenValue) {
+                persistTokenValue(tokenInput.value, {
+                  refresh: false,
+                  remember: true,
+                  endpointForToken: config.endpoint
+                });
+              } else {
+                const canonEndpoint = canonicalizeEndpoint(config.endpoint);
+                const hasStoredToken = canonEndpoint && Object.prototype.hasOwnProperty.call(endpointTokens, canonEndpoint);
+                if (hasStoredToken) {
+                  const storedToken = endpointTokens[canonEndpoint] || '';
+                  if (storedToken) {
+                    tokenInput.value = storedToken;
+                    persistTokenValue(storedToken, {
+                      refresh: false,
+                      remember: true,
+                      endpointForToken: config.endpoint
+                    });
+                  } else {
+                    clearTokenForEndpoint(config.endpoint);
+                    persistTokenValue('', { refresh: false });
+                  }
+                } else {
+                  persistTokenValue('', { refresh: false });
+                  clearTokenForEndpoint(config.endpoint);
+                }
+              }
+            } else {
+              persistTokenValue(tokenInput.value, { refresh: false });
+            }
             syncEndpointControls(config.endpoint);
             applyTheme(config.theme);
             consecutiveAuthErrors = 0;
@@ -3880,6 +4055,38 @@ const base64UrlEncode = value => {
         persistConfig();
         endpointInput.value = config.endpoint;
         tokenInput.value = config.token;
+        const trimmedImportedToken = (tokenInput.value || '').trim();
+        if ((config.endpoint || '').trim()) {
+          if (trimmedImportedToken) {
+            persistTokenValue(tokenInput.value, {
+              refresh: false,
+              remember: true,
+              endpointForToken: config.endpoint
+            });
+          } else {
+            const canonEndpoint = canonicalizeEndpoint(config.endpoint);
+            const hasStoredToken = canonEndpoint && Object.prototype.hasOwnProperty.call(endpointTokens, canonEndpoint);
+            if (hasStoredToken) {
+              const storedToken = endpointTokens[canonEndpoint] || '';
+              if (storedToken) {
+                tokenInput.value = storedToken;
+                persistTokenValue(storedToken, {
+                  refresh: false,
+                  remember: true,
+                  endpointForToken: config.endpoint
+                });
+              } else {
+                clearTokenForEndpoint(config.endpoint);
+                persistTokenValue('', { refresh: false });
+              }
+            } else {
+              persistTokenValue('', { refresh: false });
+              clearTokenForEndpoint(config.endpoint);
+            }
+          }
+        } else {
+          persistTokenValue(tokenInput.value, { refresh: false });
+        }
         syncEndpointControls(config.endpoint);
         applyTheme(config.theme);
         consecutiveAuthErrors = 0;
@@ -3969,6 +4176,20 @@ const base64UrlEncode = value => {
         populateEndpointSelect();
         loadModels();
         loadConfig();
+        loadEndpointTokens();
+        const initialEndpoint = (config.endpoint || '').trim();
+        if (initialEndpoint) {
+          const initialCanon = canonicalizeEndpoint(initialEndpoint);
+          if (initialCanon && Object.prototype.hasOwnProperty.call(endpointTokens, initialCanon)) {
+            const storedToken = endpointTokens[initialCanon] || '';
+            if (tokenInput && tokenInput.value !== storedToken) {
+              tokenInput.value = storedToken;
+            }
+            persistTokenValue(storedToken, { refresh: false });
+          } else if ((config.token || '').trim()) {
+            setTokenForEndpoint(initialEndpoint, config.token);
+          }
+        }
         await applyConfigFromUrl();
         loadThreads();
         // Check if URL contains chat data and create a thread accordingly
@@ -3993,6 +4214,8 @@ const base64UrlEncode = value => {
       updateAuthGuidance();
 
       // Attach event listeners
+      let endpointDebounceTimer = null;
+
       if (endpointSelect) {
         endpointSelect.addEventListener('change', () => {
           applyEndpointOption(endpointSelect.value);
@@ -4001,8 +4224,19 @@ const base64UrlEncode = value => {
       if (endpointInput) {
         endpointInput.addEventListener('input', () => {
           syncEndpointControls(endpointInput.value.trim());
+          if (endpointDebounceTimer) {
+            clearTimeout(endpointDebounceTimer);
+          }
+          endpointDebounceTimer = window.setTimeout(() => {
+            endpointDebounceTimer = null;
+            persistEndpointValue(endpointInput.value, { refresh: true });
+          }, 1600);
         });
         endpointInput.addEventListener('change', () => {
+          if (endpointDebounceTimer) {
+            clearTimeout(endpointDebounceTimer);
+            endpointDebounceTimer = null;
+          }
           persistEndpointValue(endpointInput.value, { refresh: true });
         });
       }
@@ -4011,7 +4245,24 @@ const base64UrlEncode = value => {
           updateAuthGuidance();
         });
         tokenInput.addEventListener('change', () => {
-          persistTokenValue(tokenInput.value, { refresh: true });
+          persistTokenValue(tokenInput.value, { refresh: true, remember: true });
+        });
+        tokenInput.addEventListener('blur', () => {
+          const trimmed = (tokenInput.value || '').trim();
+          const normalizedConfigToken = (config.token || '').trim();
+          if (trimmed !== normalizedConfigToken) {
+            persistTokenValue(tokenInput.value, { refresh: false, remember: true });
+          } else {
+            const activeEndpointValue = endpointInput ? endpointInput.value : config.endpoint;
+            if ((activeEndpointValue || '').trim()) {
+              setTokenForEndpoint(activeEndpointValue, trimmed);
+            }
+          }
+        });
+        tokenInput.addEventListener('paste', () => {
+          window.setTimeout(() => {
+            persistTokenValue(tokenInput.value, { refresh: false, remember: true });
+          }, 0);
         });
       }
       refreshModelsBtn.addEventListener('click', () => refreshModels());
