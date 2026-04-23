@@ -44,6 +44,9 @@
       --color-promo-bg: #fff8e1;
       --color-promo-border: #f0c36d;
       --color-promo-text: #7a5200;
+      --color-warning-bg: #fff1f2;
+      --color-warning-border: #f43f5e;
+      --color-warning-text: #881337;
       --color-overlay: rgba(0, 0, 0, 0.35);
       --color-modal-bg: #ffffff;
       --color-modal-border: #dddddd;
@@ -102,6 +105,9 @@
       --color-promo-bg: #1f2937;
       --color-promo-border: #374151;
       --color-promo-text: #facc15;
+      --color-warning-bg: rgba(248, 113, 113, 0.2);
+      --color-warning-border: #fb7185;
+      --color-warning-text: #fecdd3;
       --color-overlay: rgba(15, 23, 42, 0.7);
       --color-modal-bg: #0f172a;
       --color-modal-border: #1f2937;
@@ -638,6 +644,30 @@
       align-items: center;
       justify-content: center;
       padding: 4px;
+    }
+
+    .migration-warning-banner {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      padding: 14px 16px;
+      border-bottom: 2px solid var(--color-warning-border);
+      background: var(--color-warning-bg);
+      color: var(--color-warning-text);
+      font-size: 0.98rem;
+      line-height: 1.45;
+    }
+
+    .migration-warning-banner strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 1.02rem;
+    }
+
+    .migration-warning-banner a {
+      color: inherit;
+      font-weight: 700;
+      text-decoration: underline;
     }
 
     /* Info button in header */
@@ -1343,15 +1373,12 @@
           <span class="emoji-icon" aria-hidden="true">ℹ️</span>
         </button>
       </div>
-      <div id="promoBanner" class="promo-banner" role="region" aria-label="Journal Foundation notice" hidden>
-        <span>
-          Private local chat demo by
-          <a href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation.org</a>.
-          Save this page to run it offline.
-        </span>
-        <button id="dismissPromoBtn" class="dismiss" aria-label="Dismiss notice">
-          <span class="emoji-icon" aria-hidden="true">❌</span>
-        </button>
+      <div class="migration-warning-banner" role="alert" aria-label="Migration warning">
+        <strong>⚠️ Important migration notice: cutover is April 30, 2026.</strong>
+        This site is being migrated to a different schema. Please export your chat history and settings before the
+        cutover date. If you want to keep using your existing chat data with this page, you can self-host the code
+        from
+        <a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">the project repository</a>.
       </div>
       <div id="chatNotice" class="chat-notice" role="status" aria-live="polite" hidden></div>
       <div
