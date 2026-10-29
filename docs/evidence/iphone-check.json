@@ -1,0 +1,10 @@
+{
+  "device": "User's real iPhone",
+  "browser": "DuckDuckGo (reported by user)",
+  "model": "Qwen3.5-2B",
+  "onlineDownload": "User confirmed completed",
+  "onlineLoadAndGeneration": "User confirmed: It loads and replies",
+  "initialOfflineReopen": "Failed with redirected service-worker response; implementation subsequently fixed",
+  "offlineRetest": "Pending user result after updated shell installs",
+  "browserVersionAndCommit": "Pending diagnostic report"
+}

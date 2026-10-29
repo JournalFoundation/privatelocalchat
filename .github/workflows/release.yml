@@ -1,7 +1,9 @@
 name: Release
 on:
-  push:
-    branches: [ "main" ]
+  workflow_run:
+    workflows: ["Deploy Cloudflare Pages"]
+    branches: [main]
+    types: [completed]
 
 permissions:
   contents: write
@@ -10,14 +12,16 @@ permissions:
 
 jobs:
   release:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0  # semantic-release needs tags/history
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Semantic Release
         uses: cycjimmy/semantic-release-action@v4
         with:
