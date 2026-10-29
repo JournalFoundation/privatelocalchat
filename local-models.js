@@ -35,10 +35,12 @@ function render(s) {
   else if(s.load.state==='ready') $('modelStatus').textContent='Ready — replies run on this device.';
   else $('modelStatus').textContent=`Download: ${item.install.state}. Model: ${s.load.state}.`;
   const ready=s.load.state==='ready';
+  const supported=!!env?.webgpu.available && (tier!=='light'||env.webgpu.shaderF16);
+  if(env&&!supported&&!s.busy) showError(new Error(tier==='light'?'The 2B runtime needs GPU shader-f16 support. This browser does not expose it. Choose the 9B model if this device has enough memory, or explicitly choose API mode.':'WebGPU is unavailable in this browser.'));
   $('modelProgress').hidden=!t;
   if(t) $('modelProgress').value=(t.bytesDone || 0)/Math.max(1,t.bytesTotal || 1);
-  $('downloadModel').disabled=Boolean(s.busy)||activeGeneration||item.install.ok===true;
-  $('loadModel').disabled=Boolean(s.busy)||activeGeneration||item.install.ok!==true||ready;
+  $('downloadModel').disabled=!supported||Boolean(s.busy)||activeGeneration||item.install.ok===true;
+  $('loadModel').disabled=!supported||Boolean(s.busy)||activeGeneration||item.install.ok!==true||ready;
   $('repairModel').disabled=Boolean(s.busy)||activeGeneration;
   $('restartModel').disabled=Boolean(s.busy)||activeGeneration;
   $('removeModel').disabled=Boolean(s.busy)||activeGeneration;

@@ -8,7 +8,12 @@
 // ANSWERED BY VALIDATION: the host checks the finished text against the schema and a miss is attempt-failed (output-invalid), never repaired.
 // The adapter does not rewrite the mind's prompt: the mind must put the schema instruction in the prompt itself.
 import { compareInventory, planInstall, createRateTracker, hex } from "../verify.mjs";
-export { preflight } from "./webgpu.mjs";
+import { preflight as webgpuPreflight } from "./webgpu.mjs";
+export async function preflight() {
+  await webgpuPreflight();
+  const adapter=await navigator.gpu.requestAdapter();
+  if(!adapter?.features.has('shader-f16')) throw Object.assign(new Error('This 2B runtime requires shader-f16, which this browser does not expose. Choose the 9B model if this device has enough memory, or explicitly select API mode.'),{name:'WebGpuUnavailable'});
+}
 
 const wllamaCache = new Map(); // runtime dir -> Wllama (used only for its cache manager in storage ops)
 
