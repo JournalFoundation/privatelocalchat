@@ -35,3 +35,12 @@ On the tested Linux NVIDIA setup the 2B runtime needs the browser's optional sha
 enabled; see `docs/evidence/desktop-environment.json`. This is a test-environment requirement, not
 a promise that every Linux browser exposes that feature. The application refuses the unsupported
 2B path instead of falling back to an API.
+
+The canonical production domain is `privatelocal.chat`; `privatelocalchat.com` and its `www`
+alias redirect there with path and query preservation. GitHub Pages was disabled after verifying
+Cloudflare production and waiting for the previous DNS TTL. The GitHub repository continues to
+host code, Actions and public feedback forms. Serving the app and models requires no homelab.
+
+Run `node scripts/browser-cancellation.mjs` using the same browser environment variables and an
+installed 2B model profile to verify stopping streamed output and sending another message. The
+complete release gate status and unresolved device failures are in `docs/ACCEPTANCE.md`.

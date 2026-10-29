@@ -30,7 +30,7 @@ def main():
     args = parser.parse_args()
     if not args.apply:
         raise SystemExit('After verifying production at its pages.dev URL, use --apply.')
-    with urllib.request.urlopen('https://privatelocalchat.pages.dev/version.json') as response:
+    with urllib.request.urlopen(urllib.request.Request('https://privatelocalchat.pages.dev/version.json',headers={'User-Agent':'PrivateLocalChat-migration-check'})) as response:
         build = json.load(response)
     if build.get('branch') != 'main' or build.get('environment') != 'production':
         raise RuntimeError('The production Pages build is not verified.')
