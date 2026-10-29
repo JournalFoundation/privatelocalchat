@@ -98,4 +98,18 @@ try {
   await host.init({autoLoad:false});
   if(!env.webgpu.available) showError(new Error('This runtime needs WebGPU. Update your browser or explicitly choose API mode.'));
 } catch(e){showError(e);}
-if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(e=>showError(new Error('Offline app setup failed: '+e.message)));
+if('serviceWorker' in navigator) {
+  const checkOffline = () => {
+    const worker=navigator.serviceWorker.controller;
+    if(!worker)return;
+    const channel=new MessageChannel();
+    channel.port1.onmessage=event=>{
+      $('offlineStatus').textContent=event.data.cache==='plc-shell-'+window.APP_BUILD.commit?'Offline app ready. Downloaded models can be loaded without a connection.':'An app update is installing. Stay online until offline setup is ready.';
+      channel.port1.close();
+    };
+    worker.postMessage({type:'offline-status'},[channel.port2]);
+  };
+  navigator.serviceWorker.addEventListener('controllerchange',checkOffline);
+  navigator.serviceWorker.register('/sw.js').then(checkOffline).catch(e=>showError(new Error('Offline app setup failed: '+e.message)));
+} else $('offlineStatus').textContent='This browser cannot install the app for offline use.';
+

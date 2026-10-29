@@ -7,9 +7,11 @@ self.addEventListener('install',event=>event.waitUntil((async()=>{
   await self.skipWaiting();
 })()));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
-  for(const name of await caches.keys())if(name.startsWith('plc-shell-')&&name!==CACHE)await caches.delete(name);
+  const previous=(await caches.keys()).filter(name=>name.startsWith('plc-shell-')&&name!==CACHE);
+  for(const name of previous.slice(0,-1))await caches.delete(name);
   await self.clients.claim();
 })()));
+self.addEventListener('message',event=>{if(event.data?.type==='offline-status')event.ports[0]?.postMessage({cache:CACHE});});
 self.addEventListener('fetch',event=>{
  const url=new URL(event.request.url);
  if(event.request.method!=='GET'||url.origin!==location.origin)return;
@@ -18,6 +20,6 @@ self.addEventListener('fetch',event=>{
   if(event.request.mode==='navigate'){
    try{return await fetch(event.request);}catch{const saved=await cache.match('/index.html');return saved?new Response(saved.body,{status:200,headers:saved.headers}):Response.error();}
   }
-  return await cache.match(url.pathname)||fetch(event.request);
+  return await caches.match(event.request)||fetch(event.request);
  })());
 });
