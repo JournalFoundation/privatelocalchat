@@ -11,11 +11,12 @@ const reportKey = 'plc.diagnostic.generations.v1';
 let generations = [];
 try {generations=JSON.parse(localStorage.getItem(reportKey)||'[]');} catch {}
 const pageSession = crypto.randomUUID();
-const saveGeneration = entry => {generations.push(entry);generations=generations.slice(-10);localStorage.setItem(reportKey,JSON.stringify(generations));};
+const saveGeneration = entry => {generations.push(entry);generations=generations.slice(-10);try {localStorage.setItem(reportKey,JSON.stringify(generations));} catch(e) {console.warn('Diagnostic storage unavailable:',e.name);}};
 const modeKey = 'plc.inferenceMode.v1';
 let existingApi = false;
 try {existingApi = Boolean(JSON.parse(sessionStorage.getItem('chatConfig') || '{}').endpoint);} catch {}
-let mode = localStorage.getItem(modeKey) || (existingApi ? 'api' : 'local');
+let mode = existingApi ? 'api' : 'local';
+try {mode=localStorage.getItem(modeKey)||mode;} catch(e) {console.warn('Mode storage unavailable:',e.name);}
 if (!['local','api'].includes(mode)) mode = 'local';
 const gb = n => (n/1e9).toFixed(2)+' GB';
 const notify = () => window.dispatchEvent(new Event('local-model-state'));
@@ -39,6 +40,7 @@ function render(s) {
   $('downloadModel').disabled=Boolean(s.busy)||activeGeneration||item.install.ok===true;
   $('loadModel').disabled=Boolean(s.busy)||activeGeneration||item.install.ok!==true||ready;
   $('repairModel').disabled=Boolean(s.busy)||activeGeneration;
+  $('restartModel').disabled=Boolean(s.busy)||activeGeneration;
   $('removeModel').disabled=Boolean(s.busy)||activeGeneration;
   $('localModelSelect').disabled=Boolean(s.busy)||activeGeneration;
   $('inferenceMode').disabled=Boolean(s.busy)||activeGeneration;
@@ -52,7 +54,7 @@ function applyMode() {
   $('inferenceMode').value=mode;
   $('localModelPanel').hidden=mode!=='local';
   $('apiSettings').hidden=mode!=='api';
-  localStorage.setItem(modeKey,mode);
+  try {localStorage.setItem(modeKey,mode);} catch(e) {showError(new Error('The browser cannot save settings: '+e.name));}
   notify();
 }
 async function action(fn) {try {await fn();} catch(e) {showError(e);} }
@@ -84,6 +86,7 @@ $('localModelSelect').addEventListener('change',()=>action(()=>host.selectTier($
 $('downloadModel').addEventListener('click',()=>action(()=>host.install()));
 $('loadModel').addEventListener('click',()=>action(()=>host.load()));
 $('cancelModel').addEventListener('click',()=>host.cancelTransfer());
+$('restartModel').addEventListener('click',()=>action(async()=>{await host.restartHost();await host.inspect();}));
 $('repairModel').addEventListener('click',()=>action(()=>host.repair()));
 $('removeModel').addEventListener('click',()=>{if(confirm('Remove this downloaded model? Your conversations will be kept.'))action(()=>host.remove(undefined,{confirmed:true}));});
 $('persistModels').addEventListener('click',()=>action(()=>host.requestPersist()));

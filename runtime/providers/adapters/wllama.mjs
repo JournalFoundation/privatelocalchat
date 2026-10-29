@@ -134,7 +134,7 @@ export class WllamaAdapter {
     if (!compatRes.ok) throw new Error(`compat-worker-http-${compatRes.status}`);
     const compatCode = await compatRes.text();
     this.nativeLines = [];
-    const quiet = { debug() {}, log() {}, warn: (...a) => this._native(a), error: (...a) => this._native(a) };
+    const quiet = { debug: (...a) => this._native(a), log: (...a) => this._native(a), warn: (...a) => this._native(a), error: (...a) => this._native(a) };
     this.w = new Wllama({ default: base + "default.wasm", "single-thread/wllama.wasm": base + "default.wasm" }, {
       useMultiThread: false, parallelDownloads: 1, allowOffline: true, expectedBuildId: rt.buildId, forceCompat: rt.cls === "compat", logger: quiet
     });
@@ -156,7 +156,7 @@ export class WllamaAdapter {
     const c = cfg.context || {};
     const tCons0 = performance.now();
     onProgress?.({ phase: "construct-begin" });
-    await this.w.loadModelFromUrl(url, {
+    try { await this.w.loadModelFromUrl(url, {
       n_ctx: c.n_ctx ?? 4096, n_batch: c.n_batch, n_ubatch: c.n_ubatch, n_threads: 1, n_parallel: 1,
       cache_type_k: c.cache_type_k ?? "f16", cache_type_v: c.cache_type_v ?? "f16",
       flash_attn_policy: c.flash_attn_policy, fused_gdn_auto: c.fused_gdn_auto, fused_gdn_ar: c.fused_gdn_ar, fused_gdn_ch: c.fused_gdn_ch,
@@ -164,6 +164,11 @@ export class WllamaAdapter {
       no_kv_offload: false, cache_idle_slots: false, warmup: c.warmup ?? false, useCache: true, parallelDownloads: 1,
       progressCallback: () => {}
     });
+    } catch (error) {
+      error.detail = {...error.detail, nativeLog: this.nativeLines.slice(-30)};
+      error.message += ' ' + this.nativeLines.slice(-4).join(' | ');
+      throw error;
+    }
     timings.constructMs = Math.round(performance.now() - tCons0);
     if (k.progressiveSourceRelease) { try { this.w.releaseModelSource?.(); } catch (e) { this._native([`releaseModelSource failed: ${e?.message || e}`]); } }
 
@@ -183,7 +188,7 @@ export class WllamaAdapter {
     return this.info;
   }
 
-  _native(args) { const t = args.map(String).join(" ").slice(0, 300); if (this.nativeLines.length < 400) this.nativeLines.push(t); }
+  _native(args) { const t = args.map(String).join(" ").slice(0, 300); this.nativeLines.push(t); if (this.nativeLines.length > 400) this.nativeLines.shift(); }
   async _mem() { try { return await this.w.getRuntimeMemory(); } catch (e) { return { error: String(e?.message || e) }; } }
 
   async run(req, signal, emit) {

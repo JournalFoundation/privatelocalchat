@@ -1180,6 +1180,7 @@
           <button type="button" id="downloadModel">Download model</button>
           <button type="button" id="loadModel">Load model</button>
           <button type="button" id="cancelModel" hidden>Cancel download</button>
+          <button type="button" id="restartModel">Restart model engine</button>
           <button type="button" id="repairModel">Verify / repair</button>
           <button type="button" id="removeModel">Remove download</button>
         </div>
@@ -2727,6 +2728,7 @@ const base64UrlEncode = value => {
       document.getElementById('stopGeneration').addEventListener('click', () => generationController?.abort());
 
       function getChatState() {
+        if (!window.localModels) return {local:true,hasThread:Boolean(currentThread()),hasEndpoint:true,hasModel:false,ready:false};
         if (window.localModels?.mode === 'local') {
           const hasThread = Boolean(currentThread());
           const hasModel = window.localModels.ready;
@@ -3448,6 +3450,7 @@ const base64UrlEncode = value => {
        * the response status is not ok.
        */
       async function sendToApi(signal) {
+        if (!window.localModels) throw new Error('Inference controls have not initialized. Reload the app before sending.');
         if (window.localModels?.mode === 'local') {
           const thread = currentThread();
           const messages = thread.systemPrompt?.trim() ? [{role:'system', content:thread.systemPrompt.trim()}, ...thread.messages] : [...thread.messages];
