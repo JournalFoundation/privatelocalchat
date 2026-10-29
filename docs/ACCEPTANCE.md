@@ -49,3 +49,10 @@ including offline reopening, pass on this device without the unresolved restart.
 that selecting a new conversation updates the saved selection, and that a real model can reply
 with a legacy internal error notice preserved in the visible transcript. Internal notices are
 excluded from model/API context; original saved messages are retained.
+
+The dev light-model profile now separates logical batch 128 from microbatch 32 while
+keeping the full 4096-token context. The real-GPU comparison in
+[evidence/iphone-resource-profile.json](evidence/iphone-resource-profile.json) exercises
+the non-flash-attention graph selected by the phone: compute reservation falls from
+94.01 MiB to 5.88 MiB and three retained turns pass. This is a resource reduction;
+iPhone startup and second-turn restart acceptance remains open until device verification.

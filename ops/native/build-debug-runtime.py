@@ -31,6 +31,7 @@ def main():
  run([sdk/'emscripten/emcmake','cmake','-S',tree,'-B',build,'-DCMAKE_BUILD_TYPE=Release','-DWLLAMA_COMPAT=ON','-DGGML_WEBGPU=ON','-DGGML_WEBGPU_JSPI=OFF','-DLLAMA_WASM_MEM64=OFF','-DWLLAMA_TEST_BACKEND=OFF','-DWLLAMA_PRODUCT_SLIM=ON','-DWLLAMA_INITIAL_MEMORY_MIB=96','-DEMDAWNWEBGPU_DIR='+str(port/'emdawnwebgpu_pkg'),'-DLLAMA_BUILD_TESTS=OFF','-DLLAMA_BUILD_TOOLS=OFF','-DLLAMA_BUILD_SERVER=OFF','-DLLAMA_BUILD_EXAMPLES=OFF','-DGGML_NATIVE=OFF'],env=env,cwd=work)
  run(['cmake','--build',build,'--target','wllama','--parallel','8'],env=env,cwd=work)
  out=work/'runtime';out.mkdir();shutil.copyfile(build/'wllama.wasm',out/'compat.wasm');shutil.copyfile(build/'wllama.js',out/'compat-worker.js')
+ run([node,'--input-type=module','-e',"import {readFile,writeFile} from 'node:fs/promises';import {instrumentWebGpu} from './ops/native/instrument-webgpu.mjs';const p=process.argv[1];await writeFile(p,instrumentWebGpu(await readFile(p,'utf8')));",out/'compat-worker.js'],cwd=ROOT)
  old=manifest['baseBuildId'];identity=manifest['buildId'];library=(ROOT/'runtime/providers/vendor/wllama/v1q/wllama.js').read_text()
  needle='"'+old+'": "glue-v1:69/23"';assert library.count(needle)==1;library=library.replace(needle,needle+',\n  "'+identity+'": "glue-v1:69/23"')
  needle='"'+old+'"]);';assert library.count(needle)==1;library=library.replace(needle,'"'+old+'", "'+identity+'"]);');(out/'wllama.js').write_text(library)

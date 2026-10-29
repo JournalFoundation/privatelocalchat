@@ -57,3 +57,10 @@ graph computation (4), and backend synchronization (5). Those additional graph f
 when native readiness is reached. Edge 1 is PRE and edge 2 is POST. Counters are allocation
 observations rather than process RSS. A last PRE identifies an interrupted interval, not a
 confirmed OS memory-kill diagnosis.
+
+The compatibility worker also connects its actual WebGPU buffer/pipeline creation sites
+to the existing post-Ready counters. `instrument-webgpu.mjs` applies this transformation
+after compilation and refuses ambiguous sites. These counters measure cumulative creation,
+not live residency or process RSS. Earlier dev builds defined the counters without calling
+them; their zeros do not establish an absence of post-Ready allocations. The production
+worker remains unchanged.
