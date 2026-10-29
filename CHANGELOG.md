@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/JournalFoundation/privatelocalchat/compare/v0.4.0...v0.5.0) (2026-10-29)
+
+
+### Features
+
+* migrate to Cloudflare Pages with on-device models ([6119c35](https://github.com/JournalFoundation/privatelocalchat/commit/6119c355f9d8d09f947f6644b48f99d256007f70))
+
 # [0.4.0](https://github.com/JournalFoundation/privatelocalchat/compare/v0.3.1...v0.4.0) (2026-10-29)
 
 
