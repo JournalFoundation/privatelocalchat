@@ -6,7 +6,7 @@ const authorized=(request,env)=>Boolean(env.DEBUG_READ_TOKEN)&&request.headers.g
 export default {
  async fetch(request,env){
   const url=new URL(request.url),origin=request.headers.get('Origin');
-  if(url.pathname.includes('/dev-tools/'))return url.hostname===HOST?env.ASSETS.fetch(request):json({error:'Not found'},404);
+  if(url.pathname.includes('/dev-tools/')||url.pathname.includes('/runtime/providers/vendor/wllama/v1q/'))return url.hostname===HOST?env.ASSETS.fetch(request):json({error:'Not found'},404);
   if(!url.pathname.startsWith('/api/debug/'))return env.ASSETS.fetch(request);
   if(url.hostname!==HOST||!env.DEBUG_LOGS)return json({error:'Not found'},404);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:headers(origin)});

@@ -1,6 +1,7 @@
 import {cp,readFile,writeFile,readdir,mkdir,rm,rename} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 const root=process.cwd(), out=path.join(root,'dist');
 await rm(out,{recursive:true,force:true});await mkdir(out,{recursive:true});
 for(const p of ['index.html','local-models.js','local-models.css','runtime']) await cp(p,path.join(out,p),{recursive:true});
@@ -15,10 +16,16 @@ let html=await readFile(path.join(out,'index.html'),'utf8');
 html=html.replace('<script src="/build-info.js"></script>','<script>window.APP_BUILD='+JSON.stringify(build)+';</script>');
 html=html.replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');
 if(branch==='dev') {
+ const debugRuntime=path.join('dev-tools','native-runtime');
+ const native=JSON.parse(await readFile(path.join(debugRuntime,'manifest.json'),'utf8'));
+ for(const [file,pin] of Object.entries(native.files)){const bytes=await readFile(path.join(debugRuntime,file));if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Diagnostic runtime checksum mismatch: '+file);await writeFile(path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q',file),bytes);}
+ const catalogFile=path.join(out,releasePath,'runtime/providers/catalog.mjs');
+ await writeFile(catalogFile,(await readFile(catalogFile,'utf8')).replaceAll(native.baseBuildId,native.buildId));
+
  await mkdir(path.join(out,releasePath,'dev-tools'),{recursive:true});
  for(const file of ['start.js','ui.mjs','telemetry-core.mjs','native-journal.mjs'])await cp(path.join('dev-tools',file),path.join(out,releasePath,'dev-tools',file));
  await cp('dev-tools/receiver-worker.js',path.join(out,'_worker.js'));
- await writeFile(path.join(out,'_routes.json'),JSON.stringify({version:1,include:['/api/debug/*','/'+releasePath+'/dev-tools/*'],exclude:[]}));
+ await writeFile(path.join(out,'_routes.json'),JSON.stringify({version:1,include:['/api/debug/*','/'+releasePath+'/dev-tools/*','/'+releasePath+'/runtime/providers/vendor/wllama/v1q/*'],exclude:[]}));
  html=html.replace('</head>','<script type="module" src="/'+releasePath+'/dev-tools/start.js"></script></head>');
 } else {
  for(const relative of ['local-models.js','runtime/providers/adapters/wllama.mjs']){
@@ -37,5 +44,5 @@ const shell=[];
 async function walk(dir){for(const ent of await readdir(dir,{withFileTypes:true})){const p=path.join(dir,ent.name);if(ent.isDirectory())await walk(p);else if(!ent.name.startsWith('_'))shell.push('/'+path.relative(out,p).split(path.sep).join('/'));}}
 await walk(out);
 const template=await readFile('scripts/service-worker.js','utf8');
-await writeFile(path.join(out,'sw.js'),template.replace('__CACHE_NAME__',JSON.stringify('plc-shell-'+commit)).replace('__SHELL_FILES__',JSON.stringify(shell)));
+await writeFile(path.join(out,'sw.js'),template.replace('__CACHE_NAME__',JSON.stringify('plc-shell-'+commit)).replace('__SHELL_FILES__',JSON.stringify(shell)).replace('__DEVELOPMENT_NATIVE__',JSON.stringify(branch==='dev')));
 console.log(JSON.stringify({...build,files:shell.length}));

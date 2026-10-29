@@ -1,5 +1,6 @@
 const CACHE=__CACHE_NAME__;
-const SHELL=__SHELL_FILES__.filter(file=>location.hostname==='dev.privatelocal.chat'||!file.includes('/dev-tools/'));
+const DEVELOPMENT_NATIVE=__DEVELOPMENT_NATIVE__;
+const SHELL=__SHELL_FILES__.filter(file=>location.hostname==='dev.privatelocal.chat'||(!file.includes('/dev-tools/')&&(!DEVELOPMENT_NATIVE||!file.includes('/runtime/providers/vendor/wllama/v1q/'))));
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   let i=0;

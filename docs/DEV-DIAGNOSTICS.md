@@ -74,3 +74,8 @@ text enters the native ring. The generation hooks are stripped from production b
 Wasm capacity, bounded checkpoint replacement, cancellation followed by a successful reply,
 and received native generation milestones. Zero GPU creation counters do not rule out
 allocations outside the instrumented sites or a browser-process memory problem.
+
+A dev-only compatibility runtime adds the native phase 11/12 tail fences documented in
+`ops/native/README.md`. Its artifact pins are checked during build. Production retains the
+original native runtime hashes. These markers help localize the observed iPhone restart;
+they are not a claim that the restart has been fixed.
