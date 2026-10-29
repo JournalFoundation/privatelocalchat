@@ -1,5 +1,5 @@
 {
-  "buildId": "privatelocalchat-tail-20261029-v1",
+  "buildId": "privatelocalchat-queue-20261029-v2",
   "baseBuildId": "retained-v1q-chat-stable-slim-20260901",
   "compiler": "Emscripten 4.0.20-git",
   "compilerReleaseCommit": "c387d7a7e9537d0041d2c3ae71b7538cc978104e",
@@ -15,21 +15,28 @@
     "llama.cpp/ggml/src/ggml-backend.cpp": "6dcf439d2d49e4df07c72b6730d86ca3978fdb7e95999e0492d7c281ffa17b74",
     "CMakeLists.txt": "c52c9029029cea19cc397bf897d1ba8e5eab18a25af37c41a052adffdf8ad9f5",
     "cpp/checkpoint-diagnostics.cpp": "e8bc79eac400a712d6b53d591df48dd2a986c90655c5f22484177f9f61f1201a",
-    "scripts/patch_native_action_guard.mjs": "201657e0845d6daa2dc2e80e9bc1d6edead861402e1a5fd09b0eaff940b7b131"
+    "scripts/patch_native_action_guard.mjs": "201657e0845d6daa2dc2e80e9bc1d6edead861402e1a5fd09b0eaff940b7b131",
+    "llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp": "70062cc4e7f14fe87d4b0c363a2489054bec256cdb3b1fb18a073c8390198daf"
   },
   "files": {
     "compat.wasm": {
-      "bytes": 14419472,
-      "sha256": "95f819cdf3ef979df7f0263d71bd0305fb560049a21b14ef1eea6c804d4d3f51"
+      "bytes": 14430107,
+      "sha256": "a772105af5a7a0872e7461f0e33ce36b4dc979d893f651100d85cbbd80d0e6bb"
     },
     "compat-worker.js": {
       "bytes": 170551,
-      "sha256": "cd7e967920ebffc1ac1b41abd9556eb97b46426e8f0e6f9ad57623e724ba1397"
+      "sha256": "a7322bc937acb8544b2ea9efb6468df56ba84e492fd53b63380ab8e3d1c35606"
     },
     "wllama.js": {
-      "bytes": 414502,
-      "sha256": "0b3f5b16ae6b7119a2fe41eba3f3068d185855fdf0581bd710e94671eabb61ed"
+      "bytes": 414504,
+      "sha256": "5eafd996c2acf17a5e8a945c043440d37785f58ef78611fa3b30632d00ddfe9f"
     }
   },
-  "webGpuCreationCounters": true
+  "webGpuCreationCounters": true,
+  "queuePatchSha256": "526a20939c9a6796f29878003d3fea887c1f8a8e7e25e9b612bc90d8f07f1604",
+  "queuePolicy": {
+    "maxInFlightBatches": 2,
+    "commandSubmitBatchSize": 32,
+    "drainAtGraphEnd": true
+  }
 }

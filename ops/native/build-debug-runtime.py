@@ -18,11 +18,14 @@ def main():
   if digest(source/name)!=want:raise SystemExit('Pinned source mismatch: '+name)
  patch=ROOT/'ops/native/iphone-tail-diagnostics.patch'
  if digest(patch)!=manifest['patchSha256']:raise SystemExit('Diagnostic patch checksum mismatch')
+ queue_patch=ROOT/'ops/native/iphone-queue-bound.patch' if manifest.get('queuePatchSha256') else None
+ if queue_patch and digest(queue_patch)!=manifest['queuePatchSha256']:raise SystemExit('Queue patch checksum mismatch')
  work.mkdir(parents=True);tree=work/'source';tree.mkdir()
  for name in ['CMakeLists.txt','cpp','scripts','llama.cpp']:run(['cp','-a','--reflink=auto',source/name,tree/name])
  port=tree/'build/emdawn';port.mkdir(parents=True)
  run(['cp','-a','--reflink=auto',source/'build/emdawn/emdawnwebgpu_pkg',port/'emdawnwebgpu_pkg'])
  run(['patch','--batch','--forward','-p1','-i',patch],cwd=tree)
+ if queue_patch:run(['patch','--batch','--forward','-p1','-i',queue_patch],cwd=tree)
  config=work/'emscripten-config.py';config.write_text('LLVM_ROOT = '+repr(str(sdk/'bin'))+'\nBINARYEN_ROOT = '+repr(str(sdk))+'\nNODE_JS = ['+repr(str(node))+']\nCACHE = '+repr(str(work/'cache'))+'\n')
  env={**os.environ,'EM_CONFIG':str(config)}
  version=subprocess.check_output([str(sdk/'emscripten/emcc'),'--version'],env=env,text=True)

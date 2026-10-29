@@ -64,3 +64,24 @@ after compilation and refuses ambiguous sites. These counters measure cumulative
 not live residency or process RSS. Earlier dev builds defined the counters without calling
 them; their zeros do not establish an absence of post-Ready allocations. The production
 worker remains unchanged.
+
+The queue variant applies `iphone-queue-bound.patch` after the tail patch and
+uses build identity `privatelocalchat-queue-20261029-v2`. The manifest pins both
+patches and the additional original backend source. Its default profile submits
+32 kernels per batch, limits outstanding graph batches to two across graph
+boundaries, and waits for queue completion at each graph end. The default backend
+previously had an unlimited configured maximum.
+
+Same-binary laboratory controls use Emscripten ENV `PLC_WEBGPU_MAX_INFLIGHT`
+(0 selects the unbounded control; default 2) and `PLC_WEBGPU_SUBMIT_BATCH`
+(default 32). They are not product UI settings. Generation diagnostics expose
+`webGpuQueue`: submitted and explicitly completed graph batches, pending count,
+in-flight high-water, wait count/time, graph evaluations, and actual policy values.
+These are command-accounting counters, not physical GPU memory measurements.
+Phase14/op1/POST stores a sparse summary every16 graphs: operationSerial=graph
+count; slots176/184/192/200=submitted/completed/waits/in-flight high-water.
+
+See `docs/evidence/dev-queue-policy.json` for the same-binary real-GPU comparison.
+All three arms completed the retained workload; the bounded arms attested maximum
+two outstanding graph batches and zero pending batches at generation completion.
+iPhone retained-operation qualification remains open.
