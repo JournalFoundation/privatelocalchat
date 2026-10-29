@@ -1,6 +1,7 @@
 import {cp,readFile,writeFile,readdir,mkdir,rm,rename} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 const root=process.cwd(), out=path.join(root,'dist');
 await rm(out,{recursive:true,force:true});await mkdir(out,{recursive:true});
 for(const p of ['index.html','local-models.js','local-models.css','conversation-messages.mjs','runtime']) await cp(p,path.join(out,p),{recursive:true});
@@ -11,6 +12,13 @@ const build={version:pkg.version,commit,branch,environment:branch==='main'?'prod
 const releasePath='releases/'+commit;
 await mkdir(path.join(out,releasePath),{recursive:true});
 for(const item of ['local-models.js','local-models.css','conversation-messages.mjs','runtime']) await rename(path.join(out,item),path.join(out,releasePath,item));
+// Both branch builds start from the pinned production runtime. Dev overlays it below.
+const productionNative=JSON.parse(await readFile('ops/native/production-runtime.json','utf8'));
+if(productionNative.developmentDiagnostics!==false)throw new Error('Production runtime must exclude development instrumentation');
+for(const [file,pin] of Object.entries(productionNative.files)){
+ const bytes=await readFile(path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q',file));
+ if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Production runtime checksum mismatch: '+file);
+}
 let html=await readFile(path.join(out,'index.html'),'utf8');
 html=html.replace('<script src="/build-info.js"></script>','<script>window.APP_BUILD='+JSON.stringify(build)+';</script>');
 html=html.replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');

@@ -9,6 +9,7 @@
 // The adapter does not rewrite the mind's prompt: the mind must put the schema instruction in the prompt itself.
 import { compareInventory, planInstall, createRateTracker, hex } from "../verify.mjs";
 import { preflight as webgpuPreflight } from "./webgpu.mjs";
+import {retryDownload} from '../download-retry.mjs';
 export async function preflight() {
   await webgpuPreflight();
   const adapter=await navigator.gpu.requestAdapter();
@@ -88,11 +89,13 @@ async function install({ files, runtimeDir, verifyHash = true, deep = false }, {
   for (const p of plan.deleteFirst) { const f = files.find((x) => x.path === p); await cm.delete(f.url); }
   for (const f of plan.todo) { const name = await cm.getNameFromURL(f.url); await cm.delete(name).catch(() => {}); } // an orphan without metadata
   let fetched = 0; let filesDone = files.length - plan.todo.length;
-  const report = (active) => { const t = performance.now(); rate.add(fetched, t); onProgress?.({ phase: "install", bytesDone: plan.bytesKept + fetched, bytesKept: plan.bytesKept, bytesTotal: total, filesDone, filesTotal: files.length, active: active ? [active] : [], bytesPerSecond: rate.bytesPerSecond(), etaSeconds: rate.etaSeconds(plan.bytesToFetch - fetched) }); };
+  const report = (active,extra={}) => { const t = performance.now(); rate.add(fetched, t); onProgress?.({ phase: "install", bytesDone: plan.bytesKept + fetched, bytesKept: plan.bytesKept, bytesTotal: total, filesDone, filesTotal: files.length, active: active ? [active] : [], bytesPerSecond: rate.bytesPerSecond(), etaSeconds: rate.etaSeconds(plan.bytesToFetch - fetched),...extra }); };
   report(null);
   for (const f of plan.todo) {
     if (signal?.aborted) throw Object.assign(new Error("cancelled"), { name: "AbortError" });
+    await retryDownload(async()=>{
     let mine = 0; let lastT = 0;
+    report(f.path);
     try {
       await cm.download(f.url, { signal, progressCallback: ({ loaded }) => { fetched += loaded - mine; mine = loaded; const t = performance.now(); if (t - lastT > 400) { lastT = t; report(f.path); } } });
       const m = await cm.getMetadata(await cm.getNameFromURL(f.url));
@@ -108,6 +111,7 @@ async function install({ files, runtimeDir, verifyHash = true, deep = false }, {
       await cm.delete(f.url).catch(() => {}); // leave nothing half-written behind
       throw e;
     }
+    },{signal,onRetry:extra=>{rate.reset();report(f.path,extra);}});
     filesDone++; report(null);
   }
   const after = await inspect({ files, runtimeDir });

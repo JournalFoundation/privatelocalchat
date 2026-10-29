@@ -49,3 +49,10 @@ including offline reopening, pass on this device without the unresolved restart.
 that selecting a new conversation updates the saved selection, and that a real model can reply
 with a legacy internal error notice preserved in the visible transcript. Internal notices are
 excluded from model/API context; original saved messages are retained.
+
+The clean production queue candidate passed local real-browser generation, offline
+generation and whole-browser offline reopening, using the production artifact and
+pinned native bytes. See [the candidate receipt](evidence/production-queue-candidate.json).
+The service-worker status probe now retains the active channel and ignores stale
+controller replies; registration starts before model initialization. iPhone validation
+and production promotion remain pending.
