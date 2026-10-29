@@ -16,14 +16,16 @@ html=html.replace('<script src="/build-info.js"></script>','<script>window.APP_B
 html=html.replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');
 if(branch==='dev') {
  await mkdir(path.join(out,releasePath,'dev-tools'),{recursive:true});
- for(const file of ['start.js','ui.mjs','telemetry-core.mjs'])await cp(path.join('dev-tools',file),path.join(out,releasePath,'dev-tools',file));
+ for(const file of ['start.js','ui.mjs','telemetry-core.mjs','native-journal.mjs'])await cp(path.join('dev-tools',file),path.join(out,releasePath,'dev-tools',file));
  await cp('dev-tools/receiver-worker.js',path.join(out,'_worker.js'));
  await writeFile(path.join(out,'_routes.json'),JSON.stringify({version:1,include:['/api/debug/*','/'+releasePath+'/dev-tools/*'],exclude:[]}));
  html=html.replace('</head>','<script type="module" src="/'+releasePath+'/dev-tools/start.js"></script></head>');
 } else {
- const appFile=path.join(out,releasePath,'local-models.js');
+ for(const relative of ['local-models.js','runtime/providers/adapters/wllama.mjs']){
+ const appFile=path.join(out,releasePath,relative);
  const app=await readFile(appFile,'utf8');
  await writeFile(appFile,app.replace(/\/\* DEV_DIAGNOSTICS_START \*\/[\s\S]*?\/\* DEV_DIAGNOSTICS_END \*\//g,''));
+ }
 }
 await writeFile(path.join(out,'index.html'),html);
 

@@ -147,6 +147,13 @@ export class WllamaAdapter {
     const res = this.w.getWorkerResources();
     if ((rt.cls === "compat") !== (res.compat === true)) throw new Error(`runtime class mismatch: wanted ${rt.cls}, got compat=${res.compat}`);
     const k = cfg.knobs || {};
+    /* DEV_DIAGNOSTICS_START */
+    if(k.devDiagnostics){
+      this.w.setLifecycleListener?.(event=>onProgress?.({phase:'native-'+event.phase}));
+      this.w.setLedgerListener?.(event=>onProgress?.({phase:'native-ledger',memory:event}));
+      if(k.devDiagnosticsDisk)this.w.enableFlightRecorder?.(crypto.getRandomValues(new Uint8Array(16)));
+    }
+    /* DEV_DIAGNOSTICS_END */
     if (k.initialMemoryMiB) this.w.setFlightKnobs?.({ initialMemoryMiB: k.initialMemoryMiB });
     if (k.offloadTiedEmbedding) this.w.enableTiedEmbeddingOffload?.({ schemaField: true });
     if (k.progressiveSourceRelease) this.w.enableProgressiveSourceRelease?.({ recycleWindowBytes: k.recycleWindowBytes || 0 });
@@ -174,9 +181,11 @@ export class WllamaAdapter {
       error.message += ' ' + this.nativeLines.slice(-4).join(' | ');
       throw error;
     }
+    onProgress?.({phase:"construct-returned"});
     timings.constructMs = Math.round(performance.now() - tCons0);
     if (k.progressiveSourceRelease) { try { this.w.releaseModelSource?.(); } catch (e) { this._native([`releaseModelSource failed: ${e?.message || e}`]); } }
 
+    onProgress?.({phase:"source-released"});
     const ctx = this.w.getLoadedContextInfo();
     const meta = ctx.metadata || {};
     this.info = {
@@ -189,7 +198,9 @@ export class WllamaAdapter {
         contextWindowTokens: ctx.n_ctx, maxOutputTokens: 1024
       }
     };
+    onProgress?.({phase:"context-ready"});
     this.info.runtimeMemory = await this._mem();
+    onProgress?.({phase:"memory-ready"});
     return this.info;
   }
 
@@ -236,6 +247,9 @@ export class WllamaAdapter {
   }
 
   async stats() {
+    /* DEV_DIAGNOSTICS_START */
+    if(this.cfg?.knobs?.devDiagnostics)return {runtimeMemory:await this._mem(),sourceCounters:this.w?.getModelSourceCounters?.(),lastGenerationDiagnostics:this.w?.getLastGenerationDiagnostics?.(),nativeLinesSample:this.nativeLines?.slice(-40)??[],info:this.info};
+    /* DEV_DIAGNOSTICS_END */
     return { runtimeMemory: await this._mem(), lastGenerationDiagnostics: this.w?.getLastGenerationDiagnostics?.() ?? null, nativeLinesSample: this.nativeLines?.slice(-40) ?? [], info: this.info };
   }
 

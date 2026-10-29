@@ -1,7 +1,8 @@
 import {Telemetry} from './telemetry-core.mjs';
+import {readCheckpoints} from './native-journal.mjs';
 export async function startDiagnostics(){
  if(location.hostname!=='dev.privatelocal.chat')return;
- const panel=document.createElement('details');panel.id='devDiagnostics';panel.innerHTML=`<summary>Development diagnostics</summary><p>Enter a receiver URL to start streaming immediately. It stays on across reloads and restarts. Clear the URL to stop. Conversations and API credentials are excluded.</p><label for="debugReceiver">Diagnostic receiver URL</label><input id="debugReceiver" type="url" placeholder="https://your-receiver.example/session" autocomplete="off"><label><input id="debugDisk" type="checkbox"> Save diagnostics on this device, including airplane mode</label><p>Up to about 4 MB is retained. Saved events upload after reconnecting and clear only after acknowledgement.</p><div class="model-actions"><button type="button" id="debugSend">Send saved events now</button><button type="button" id="debugExport">Export saved events</button><button type="button" id="debugClear">Clear saved events</button></div><p id="debugStatus" role="status">Enter a receiver URL to enable diagnostics.</p>`;
+ const panel=document.createElement('details');panel.id='devDiagnostics';panel.innerHTML=`<summary>Development diagnostics</summary><p>Enter a receiver URL to start streaming immediately. It stays on across reloads and restarts. Clear the URL to stop. Conversations and API credentials are excluded.</p><label for="debugReceiver">Diagnostic receiver URL</label><input id="debugReceiver" type="url" placeholder="https://your-receiver.example/session" autocomplete="off"><label><input id="debugDisk" type="checkbox"> Save diagnostics on this device, including airplane mode</label><p>Up to about 5 MB is retained, including native construction checkpoints. Saved events upload after reconnecting and clear only after acknowledgement.</p><div class="model-actions"><button type="button" id="debugSend">Send saved events now</button><button type="button" id="debugExport">Export saved events</button><button type="button" id="debugClear">Clear saved events</button></div><p id="debugStatus" role="status">Enter a receiver URL to enable diagnostics.</p>`;
  document.querySelector('#localModelPanel').after(panel);
  const badge=document.createElement('p');badge.id='debugBadge';badge.setAttribute('role','status');document.querySelector('#modelStatus').after(badge);
  const $=id=>document.getElementById(id);let lastStatus='',generating=false,sampling=false,lastSample=0,lastHeartbeat=0,lastNative='';
@@ -34,27 +35,37 @@ export async function startDiagnostics(){
  window.addEventListener('error',event=>{let source='';try{source=new URL(event.filename).pathname;}catch{}record('page-error',{errorName:event.error?.name||'Error',source,line:event.lineno,column:event.colno});});
  window.addEventListener('unhandledrejection',event=>record('page-error',{errorName:event.reason?.name||'Error',code:event.reason?.code||'unhandled-rejection'}));
  await record('page-start',{online:navigator.onLine,browser:navigator.userAgent,pageRestart:true});
+ let checkpointBusy=false,lastSequence=-1;
+ async function checkpoints(recovered=false){
+  if(checkpointBusy||!t.config.enabled||!t.config.disk)return;checkpointBusy=true;
+  try{const records=(await readCheckpoints()).filter(r=>r.sequence>lastSequence).slice(-64);for(const memory of records){lastSequence=memory.sequence;await record(recovered?'native-checkpoint-recovered':'native-checkpoint',{memory});}}
+  catch(e){await record('native-journal-unavailable',{code:e.name});}finally{checkpointBusy=false;}
+ }
+ await checkpoints(true);
  const waitUntil=Date.now()+20000;while(!window.localModels&&Date.now()<waitUntil)await new Promise(r=>setTimeout(r,100));
  const host=window.__plcDebugModelHost;if(!host){lastStatus='Model controls did not initialize.';await update();return;}
+ const tierConfig=host.tierConfig.bind(host);
+ host.tierConfig=(...args)=>{const config=tierConfig(...args);if(config.adapter==='wllama')config.knobs={...config.knobs,devDiagnostics:t.config.enabled,devDiagnosticsDisk:t.config.enabled&&t.config.disk};return config;};
  async function sample(){
   if(sampling||!t.config.enabled)return;sampling=true;
   try{
    const s=host.getState();await record('runtime-state',{host:s.host.state,load:s.load.state,busy:s.busy,phase:s.load.progress?.phase,loadAttempt:s.load.loadAttempt});
-   const stats=await host.provider().stats();await record('runtime-memory',{memory:stats.engine?.runtimeMemory});
+   const stats=await host.provider().stats();await record('runtime-memory',{memory:{runtime:stats.engine?.runtimeMemory,source:stats.engine?.sourceCounters,context:stats.engine?.info?.context,generation:stats.engine?.lastGenerationDiagnostics}});
    if(s.load.state==='loading'){
     const lines=stats.engine?.nativeLinesSample||[],key=JSON.stringify(lines);
     if(key!==lastNative){lastNative=key;await record('native-load-log',{nativeLines:lines});}
    }
   }catch(e){await record('runtime-sample-unavailable',{code:e.code||e.name});}finally{sampling=false;}
  }
- let previous='',lastProgress=0;
+ let previous='',lastProgress=0,previousLoadPhase='';
  host.subscribe(s=>{
+  if(s.load.progress?.phase!==previousLoadPhase){previousLoadPhase=s.load.progress?.phase;if(previousLoadPhase)record('load-progress',{phase:previousLoadPhase,memory:s.load.progress.memory});}
   const key=[s.host.state,s.load.state,s.busy,s.selection.tier,s.tiers[s.selection.tier].install.state].join('|');
   if(key!==previous){previous=key;record('model-state',{host:s.host.state,load:s.load.state,busy:s.busy,tier:s.selection.tier,state:s.tiers[s.selection.tier].install.state,code:s.lastError?.code});}
   if(s.transfer&&Date.now()-lastProgress>250){lastProgress=Date.now();record('download-progress',{phase:s.transfer.kind,bytesDone:s.transfer.bytesDone,bytesTotal:s.transfer.bytesTotal,filesDone:s.transfer.filesDone,filesTotal:s.transfer.filesTotal});}
  });
  for(const name of ['load','install','repair','remove','restartHost','selectTier']){
-  const original=host[name].bind(host);host[name]=async(...args)=>{applySettings();await record(name+'-start',{tier:host.getState().selection.tier});const started=performance.now();try{const result=await original(...args);await record(name+'-complete',{durationMs:Math.round(performance.now()-started)});return result;}catch(e){await record(name+'-failed',{code:e.code||e.name,phase:e.phase,reason:e.reason});throw e;}};
+  const original=host[name].bind(host);host[name]=async(...args)=>{applySettings();await record(name+'-start',{tier:host.getState().selection.tier});const started=performance.now();try{const result=await original(...args);if(name==='load')await checkpoints();await record(name+'-complete',{durationMs:Math.round(performance.now()-started)});return result;}catch(e){await record(name+'-failed',{code:e.code||e.name,phase:e.phase,reason:e.reason});throw e;}};
  }
  const original=window.localModels.generate.bind(window.localModels);
  window.localModels.generate=async(messages,options={})=>{

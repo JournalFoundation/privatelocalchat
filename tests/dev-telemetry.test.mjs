@@ -17,6 +17,7 @@ test('production artefact contains no diagnostic UI, modules, receiver or disk j
  execFileSync('node',['scripts/build.mjs'],{env:{...process.env,DEPLOY_BRANCH:'main'},stdio:'pipe'});
  const build=JSON.parse(await readFile('dist/version.json','utf8'));const html=await readFile('dist/index.html','utf8');const app=await readFile('dist/releases/'+build.commit+'/local-models.js','utf8');
  assert.ok(!html.includes('dev-tools'));assert.ok(!app.includes('__plcDebugModelHost'));assert.ok(!app.includes('plc.diagnostic.generations'));
+ const adapter=await readFile('dist/releases/'+build.commit+'/runtime/providers/adapters/wllama.mjs','utf8');assert.ok(!adapter.includes('devDiagnostics'));assert.ok(!adapter.includes('enableFlightRecorder'));
  const files=await readdir('dist');assert.ok(!files.includes('_worker.js'));assert.ok(!files.includes('_routes.json'));assert.ok(!(await readdir('dist/releases/'+build.commit)).includes('dev-tools'));
 });
 test('development artefact includes isolated diagnostics and exact-host activation',async()=>{
@@ -38,4 +39,16 @@ test('reconnection drains every acknowledged batch from a saved backlog',async()
  const store=new Store();for(let i=0;i<125;i++)store.events.push({id:String(i),type:'heartbeat'});
  let batches=0;const t=new Telemetry({store,settings:settings(),fetchImpl:async(url,options)=>{batches++;const body=JSON.parse(options.body);return {ok:true,json:async()=>({accepted:body.events.length})};}});
  t.configure({disk:true,url:'https://receiver.example/session'});await t.flush();assert.equal(store.events.length,0);assert.equal(batches,3);
+});
+
+test('native crash journal orders valid records and rejects torn writes',async()=>{
+ const {parseCheckpoints,crc32}=await import('../dev-tools/native-journal.mjs');
+ const buffer=new ArrayBuffer(256*3),bytes=new Uint8Array(buffer);
+ for(let slot=0;slot<3;slot++){
+  const v=new DataView(buffer,slot*256,256);v.setUint32(0,0x53504652,true);v.setUint16(4,1,true);v.setUint16(6,256,true);
+  v.setUint32(8,[9,7,8][slot],true);v.setUint16(48,7,true);v.setUint16(50,42,true);v.setUint8(52,1);v.setUint32(72,134217728,true);
+  v.setUint32(252,crc32(bytes.subarray(slot*256,slot*256+252)),true);
+ }
+ bytes[256+80]^=1;const records=parseCheckpoints(buffer);assert.deepEqual(records.map(r=>r.sequence),[8,9]);assert.equal(records[0].wasmCapacityBytes,134217728);assert.equal(records[0].operation,42);
+ assert.equal(parseCheckpoints(buffer.slice(0,250)).length,0);
 });

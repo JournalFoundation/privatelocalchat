@@ -16,7 +16,7 @@ filtered construction logs and page lifecycle events are recorded.
 With local saving enabled, events are committed to IndexedDB before load/generation actions.
 The bounded queue survives offline operation and page reopening. Events upload in batches when
 connectivity returns and are removed only after acknowledgement. A failed upload keeps them.
-The queue is bounded to 2,000 events, approximately 4 MB maximum; the oldest events are dropped
+The queue is bounded to 2,000 events, approximately 4 MB maximum plus an optional 1 MiB native ring; the oldest events are dropped
 when full. Browser storage may still be evicted or unavailable. An OS process kill cannot emit a
 final event; the last committed events provide the lead-up, and the next page-start marks a new
 page session. Memory metrics are observations, not a confirmed OS termination diagnosis.
@@ -33,3 +33,17 @@ to the tester. Fetch saved server events with `python dev-tools/operator-session
 work/evidence/iphone-session.json`. Entering a receiver URL enables diagnostics; devices without a URL send no events.
 The receiver and administrator endpoints return 404 on hosts other than the exact development
 hostname. The production project has no diagnostic bucket binding or receiver worker.
+
+When both a receiver and local saving are enabled, the 2B runtime also enables its existing
+fixed-size native construction journal for that model session. It records and flushes numeric
+PRE/POST boundaries in the native worker before dangerous operations. After a page restart,
+dev recovers the latest 64 valid records before the next user-initiated load and uploads them
+through the normal acknowledged queue. Recovery never clears or overwrites the ring. The
+reader checks record size, magic, schema and CRC; torn records are ignored. It does not poll
+the ring during construction. Clearing the URL stops uploads; an already-running native
+recorder ends with its model-worker session. These hooks are stripped from production output.
+
+Native counters are allocation/logical proxies, not process RSS or an iOS memory-limit
+measurement. Raw payload slots have phase-dependent meanings; operation and phase codes are
+preserved so a retained-generation receipt is not mistaken for a construction allocation.
+Source counters can be historical after release; interpret them alongside release markers.
