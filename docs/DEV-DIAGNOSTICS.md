@@ -56,3 +56,9 @@ The desktop receipt in `docs/evidence/dev-native-journal.json` records real infe
 forced renderer-crash recovery and a live receiver acknowledgement. It also confirms zero
 retained model-source handles and late reads after release, with one bounded native
 checkpoint. Those findings apply to the tested desktop run, not an iPhone reliability claim.
+
+Recovery also runs when a receiver/local-saving choice is first configured and before a
+subsequent model load. Concurrent recovery requests share one promise. Transient OPFS lock
+errors receive bounded backoff; exhausted reads produce a diagnostic failure event instead
+of being silently classified as a missing journal. The construction-crash receipt includes
+an unfinished Wasm initialization PRE recovered and verified at the receiver after restart.

@@ -6,6 +6,7 @@ export async function startDiagnostics(){
  document.querySelector('#localModelPanel').after(panel);
  const badge=document.createElement('p');badge.id='debugBadge';badge.setAttribute('role','status');document.querySelector('#modelStatus').after(badge);
  const $=id=>document.getElementById(id);let lastStatus='',generating=false,sampling=false,lastSample=0,lastHeartbeat=0,lastNative='';
+ let checkpointTask=null,lastSequence=-1;
  const t=new Telemetry({onStatus:text=>{lastStatus=text;update();}});
  $('debugReceiver').value=t.config.url;$('debugDisk').checked=t.config.disk;
  async function update(){
@@ -21,6 +22,7 @@ export async function startDiagnostics(){
    t.configure({url,disk:$('debugDisk').checked});
    if(changed&&url){record('diagnostics-configured',{online:navigator.onLine,browser:navigator.userAgent});lastStatus='Streaming is enabled and will resume automatically after reconnecting.';}
    else if(!url)lastStatus='Receiver cleared. Streaming is off; saved events are kept.';
+   if(changed&&url&&t.config.disk)checkpoints(true);
    update();
   }catch(e){lastStatus=e.message;update();}
  }
@@ -35,12 +37,16 @@ export async function startDiagnostics(){
  window.addEventListener('error',event=>{let source='';try{source=new URL(event.filename).pathname;}catch{}record('page-error',{errorName:event.error?.name||'Error',source,line:event.lineno,column:event.colno});});
  window.addEventListener('unhandledrejection',event=>record('page-error',{errorName:event.reason?.name||'Error',code:event.reason?.code||'unhandled-rejection'}));
  await record('page-start',{online:navigator.onLine,browser:navigator.userAgent,pageRestart:true});
- let checkpointBusy=false,lastSequence=-1;
- async function checkpoints(recovered=false){
-  if(checkpointBusy||!t.config.enabled||!t.config.disk)return;checkpointBusy=true;
-  try{const records=(await readCheckpoints()).filter(r=>r.sequence>lastSequence).slice(-64);for(const memory of records){lastSequence=memory.sequence;await record(recovered?'native-checkpoint-recovered':'native-checkpoint',{memory});}}
-  catch(e){await record('native-journal-unavailable',{code:e.name});}finally{checkpointBusy=false;}
+ function checkpoints(recovered=false){
+  if(!t.config.enabled||!t.config.disk)return Promise.resolve();
+  if(checkpointTask)return checkpointTask;
+  checkpointTask=(async()=>{
+   try{const records=(await readCheckpoints()).filter(r=>r.sequence>lastSequence).slice(-64);for(const memory of records){await record(recovered?'native-checkpoint-recovered':'native-checkpoint',{memory});lastSequence=memory.sequence;}}
+   catch(e){await record('native-journal-unavailable',{code:e.name});}
+  })().finally(()=>{checkpointTask=null;});
+  return checkpointTask;
  }
+
  await checkpoints(true);
  const waitUntil=Date.now()+20000;while(!window.localModels&&Date.now()<waitUntil)await new Promise(r=>setTimeout(r,100));
  const host=window.__plcDebugModelHost;if(!host){lastStatus='Model controls did not initialize.';await update();return;}
@@ -65,7 +71,7 @@ export async function startDiagnostics(){
   if(s.transfer&&Date.now()-lastProgress>250){lastProgress=Date.now();record('download-progress',{phase:s.transfer.kind,bytesDone:s.transfer.bytesDone,bytesTotal:s.transfer.bytesTotal,filesDone:s.transfer.filesDone,filesTotal:s.transfer.filesTotal});}
  });
  for(const name of ['load','install','repair','remove','restartHost','selectTier']){
-  const original=host[name].bind(host);host[name]=async(...args)=>{applySettings();await record(name+'-start',{tier:host.getState().selection.tier});const started=performance.now();try{const result=await original(...args);if(name==='load')await checkpoints();await record(name+'-complete',{durationMs:Math.round(performance.now()-started)});return result;}catch(e){await record(name+'-failed',{code:e.code||e.name,phase:e.phase,reason:e.reason});throw e;}};
+  const original=host[name].bind(host);host[name]=async(...args)=>{applySettings();await record(name+'-start',{tier:host.getState().selection.tier});const started=performance.now();try{if(name==='load')await checkpoints(true);const result=await original(...args);if(name==='load')await checkpoints();await record(name+'-complete',{durationMs:Math.round(performance.now()-started)});return result;}catch(e){await record(name+'-failed',{code:e.code||e.name,phase:e.phase,reason:e.reason});throw e;}};
  }
  const original=window.localModels.generate.bind(window.localModels);
  window.localModels.generate=async(messages,options={})=>{

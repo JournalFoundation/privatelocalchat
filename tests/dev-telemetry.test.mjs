@@ -66,3 +66,11 @@ test('receiver keeps idempotent batches and offers a bounded newest-first stream
  assert.equal(objects.size,46);const result=await (await worker.fetch(new Request(base+'admin/sessions/'+created.id+'?recent=1',{headers:auth}),env)).json();assert.equal(result.events.length,40);assert.equal(result.events[0].data.chunks,5);assert.equal(result.events.at(-1).data.chunks,44);
  assert.equal((await worker.fetch(new Request('https://privatelocal.chat/api/debug/admin/sessions',{method:'POST',headers:auth}),env)).status,404);
 });
+
+test('native journal retries transient storage locks and reports an exhausted lock',async()=>{
+ const {readCheckpoints}=await import('../dev-tools/native-journal.mjs');let reads=0;const delays=[];
+ const busy=()=>Object.assign(new Error('temporarily locked'),{name:'InvalidStateError'});
+ const storage={async getDirectory(){return {async getDirectoryHandle(){return {async getFileHandle(){return {async getFile(){if(++reads<3)throw busy();return {size:0,arrayBuffer:async()=>new ArrayBuffer(0)};}};}};}};}};
+ assert.deepEqual(await readCheckpoints({storage,pause:async ms=>delays.push(ms)}),[]);assert.equal(reads,3);assert.deepEqual(delays,[100,200]);
+ await assert.rejects(()=>readCheckpoints({storage:{getDirectory:async()=>{throw busy();}},pause:async()=>{},attempts:2}),{name:'InvalidStateError'});
+});

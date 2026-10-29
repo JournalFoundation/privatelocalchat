@@ -13,13 +13,20 @@ export function parseCheckpoints(buffer){
  }
  return records.sort((a,b)=>a.sequence-b.sequence);
 }
-export async function readCheckpoints(){
- try{
-  const root=await navigator.storage.getDirectory();
-  const dir=await root.getDirectoryHandle('speechtest-flight');
-  const handle=await dir.getFileHandle('construction-flight-v1.bin');
-  const file=await handle.getFile();
-  if(file.size>RECORD*4096)return [];
-  return parseCheckpoints(await file.arrayBuffer());
- }catch(error){if(error.name==='NotFoundError'||error.name==='NoModificationAllowedError'||error.name==='InvalidStateError')return [];throw error;}
+export async function readCheckpoints({storage=globalThis.navigator?.storage,pause=ms=>new Promise(resolve=>setTimeout(resolve,ms)),attempts=5}={}){
+ for(let attempt=0;attempt<attempts;attempt++){
+  try{
+   const root=await storage.getDirectory();
+   const dir=await root.getDirectoryHandle('speechtest-flight');
+   const handle=await dir.getFileHandle('construction-flight-v1.bin');
+   const file=await handle.getFile();
+   if(file.size>RECORD*4096)throw new Error('Native journal exceeds its fixed bound');
+   return parseCheckpoints(await file.arrayBuffer());
+  }catch(error){
+   if(error.name==='NotFoundError')return [];
+   if(!['NoModificationAllowedError','InvalidStateError'].includes(error.name)||attempt+1===attempts)throw error;
+   await pause(100*2**attempt);
+  }
+ }
+ return [];
 }

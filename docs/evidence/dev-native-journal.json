@@ -71,5 +71,15 @@
   "limitations": [
     "These counters are allocation/logical proxies, not process RSS.",
     "Forced crash/recovery was verified on desktop; the real iPhone loading restart is unresolved."
-  ]
+  ],
+  "forcedCrashDuringConstruction": {
+    "phaseAtCrash": "native-wasm-init-called",
+    "newValidRecordsRecovered": 2,
+    "lastNativePhase": 2,
+    "lastNativeOperation": 10,
+    "lastNativeEdge": 1,
+    "nativeModelReadyReached": false,
+    "lastRecoveredSequence": 406,
+    "lastRecoveredSequenceVerifiedAtReceiver": true
+  }
 }
