@@ -9,7 +9,7 @@ page.on('pageerror',e=>evidence.errors.push(e.message));
 context.on('request',r=>{if(r.method()==='POST'||/benac\.dev|192\.168\./.test(r.url()))evidence.unexpectedRequests.push({method:r.method(),url:r.url()});});
 await context.route(/benac\.dev|192\.168\./,r=>r.abort());
 const record=async(name,data={})=>{evidence.steps.push({name,at:new Date().toISOString(),...data});console.log(name,JSON.stringify(data));await writeFile('work/evidence/browser-acceptance.json',JSON.stringify(evidence,null,2));};
-async function idle(timeout=1200000){let until=Date.now()+timeout,last=0;while(Date.now()<until){const s=await page.evaluate(()=>window.localModels?.state);if(s&&!s.busy)return s;if(Date.now()-last>10000){last=Date.now();console.log('working',JSON.stringify(s?.transfer||s?.load));}await page.waitForTimeout(1000);}throw Error('Model operation did not finish within observation window');}
+async function idle(timeout=1200000){let until=Date.now()+timeout,last=0;while(Date.now()<until){const s=await page.evaluate(()=>window.localModels?.state);if(s&&s.host.state==='running'&&!s.busy&&s.tiers[s.selection.tier].install.state!=='unknown')return s;if(Date.now()-last>10000){last=Date.now();console.log('working',JSON.stringify(s?.transfer||s?.load));}await page.waitForTimeout(1000);}throw Error('Model operation did not finish within observation window');}
 try{
  await page.goto(origin);await page.waitForFunction(()=>window.localModels?.state?.host.state==='running',null,{timeout:120000});await idle();
  await record('live startup',{build:await page.evaluate(()=>window.APP_BUILD),state:await page.evaluate(()=>({selection:window.localModels.state.selection,storage:window.localModels.state.storage}))});
@@ -30,19 +30,22 @@ try{
  await page.locator('#loadModel').click();const loaded=await idle();if(loaded.load.state!=='ready')throw Error('Load failed: '+JSON.stringify(loaded.lastError));
  await record('real model loaded',{load:loaded.load});
  await page.locator('#messageInput').fill('Reply with one short sentence: what is two plus three?');await page.locator('#sendBtn').click();
- await page.waitForFunction(()=>document.querySelector('#generationStatus').textContent==='Reply complete.',null,{timeout:180000});
+ await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
+ if(await page.locator('#generationStatus').textContent()!=='Reply complete.')throw Error(await page.locator('#generationStatus').textContent());
  await record('online generation',{reply:await page.locator('#messages').innerText()});
  await page.evaluate(()=>navigator.serviceWorker.ready.then(()=>new Promise(r=>{if(navigator.serviceWorker.controller)r();else navigator.serviceWorker.addEventListener('controllerchange',r,{once:true});})));
  await page.waitForFunction(()=>document.querySelector('#offlineStatus')?.textContent.startsWith('Offline app ready'),null,{timeout:120000});
  await record('offline shell ready',{status:await page.locator('#offlineStatus').innerText()});
  await context.setOffline(true);
  await page.locator('#messageInput').fill('Say one brief hello.');await page.locator('#sendBtn').click();
- await page.waitForFunction(()=>document.querySelector('#generationStatus').textContent==='Reply complete.',null,{timeout:180000});
+ await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
+ if(await page.locator('#generationStatus').textContent()!=='Reply complete.')throw Error(await page.locator('#generationStatus').textContent());
  await record('offline generation',{reply:await page.locator('#messages').innerText()});
  await page.reload();await page.waitForFunction(()=>window.localModels?.state?.host.state==='running',null,{timeout:120000});await idle();
  await page.locator('#loadModel').click();const reopened=await idle();if(reopened.load.state!=='ready')throw Error('Offline reload failed: '+JSON.stringify(reopened.lastError));
  await page.locator('#messageInput').fill('In one short sentence, say that you are ready.');await page.locator('#sendBtn').click();
- await page.waitForFunction(()=>document.querySelector('#generationStatus').textContent==='Reply complete.',null,{timeout:180000});
+ await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
+ if(await page.locator('#generationStatus').textContent()!=='Reply complete.')throw Error(await page.locator('#generationStatus').textContent());
  await record('offline reopen and generation',{reply:await page.locator('#messages').innerText(),unexpectedRequests:evidence.unexpectedRequests});
  await page.screenshot({path:'work/evidence/live-offline-generation.png',fullPage:true});
 }catch(e){await record('FAILED',{message:e.message});throw e;}

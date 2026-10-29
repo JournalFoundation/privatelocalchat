@@ -4,7 +4,7 @@
 
 `.github/workflows/deploy.yml` validates and builds the exact pushed commit before uploading `dist/` with pinned Wrangler. `main` targets Pages project `privatelocalchat`; `dev` targets the separate project `privatelocalchat-dev`. Each project has only its own custom domain. Manual deployment uses **Actions → Deploy Cloudflare Pages → Run workflow**, selecting `main` or `dev`.
 
-Deployment jobs serialize independently by branch. Immediately before upload the job compares the checkout SHA to the current branch tip and skips superseded commits. Failed validation prevents uploading. The workflow summary links to the deployed site; the build artifact is retained with its commit identifier. Release tagging/changelog work follows a successful production deployment; its changelog commit goes through the same deployment checks.
+Deployment jobs serialize independently by branch. Immediately before upload the job compares the checkout SHA to the current branch tip and skips superseded commits. Failed validation prevents uploading. The workflow summary links to the deployed site; the build artifact is retained with its commit identifier. Release tagging and notes follow a successful production deployment without pushing another commit to the branch. The branch tip remains the verified deployment commit.
 
 Repository Actions secrets are `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The operator's local provisioning token is at `/root/.config/privatelocalchat/cloudflare-api-token`, outside Git. Never copy it into application code, commands, logs, or build output.
 
@@ -35,3 +35,12 @@ On the tested Linux NVIDIA setup the 2B runtime needs the browser's optional sha
 enabled; see `docs/evidence/desktop-environment.json`. This is a test-environment requirement, not
 a promise that every Linux browser exposes that feature. The application refuses the unsupported
 2B path instead of falling back to an API.
+
+The canonical production domain is `privatelocal.chat`; `privatelocalchat.com` and its `www`
+alias redirect there with path and query preservation. GitHub Pages was disabled after verifying
+Cloudflare production and waiting for the previous DNS TTL. The GitHub repository continues to
+host code, Actions and public feedback forms. Serving the app and models requires no homelab.
+
+Run `node scripts/browser-cancellation.mjs` using the same browser environment variables and an
+installed 2B model profile to verify stopping streamed output and sending another message. The
+complete release gate status and unresolved device failures are in `docs/ACCEPTANCE.md`.

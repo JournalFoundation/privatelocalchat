@@ -1,10 +1,21 @@
 {
-  "device": "User's real iPhone",
-  "browser": "DuckDuckGo (reported by user)",
+  "device": "iPhone 15 Pro (reported by user)",
+  "browser": "DuckDuckGo 26.6, WebKit (diagnostic user agent)",
   "model": "Qwen3.5-2B",
   "onlineDownload": "User confirmed completed",
-  "onlineLoadAndGeneration": "User confirmed: It loads and replies",
-  "initialOfflineReopen": "Failed with redirected service-worker response; implementation subsequently fixed",
-  "offlineRetest": "Pending user result after updated shell installs",
-  "browserVersionAndCommit": "Pending diagnostic report"
+  "onlineLoadAndGeneration": "User confirmed successful replies; diagnostic stream independently observed streamed output",
+  "initialOfflineReopen": "Redirected service-worker response failure fixed; desktop offline reopen independently verified",
+  "offlineRetest": "User confirmed offline generation after reloading the downloaded model; subsequent generation caused a white page",
+  "browserVersionAndCommit": "94b44a3387a2fddc1f6f7b12ea4f8e9c51448721 in first received trace; new eager trace under review",
+  "followup": "Investigating with a configurable opt-in dev-only durable telemetry harness. This crash is not accepted as resolved.",
+  "acceptance": "OPEN: abrupt restart during construction and after about 12 seconds of generation; no handled JavaScript error proves cause",
+  "traceSummary": {
+    "loadThenNewPage": true,
+    "generationStartedAt": "2026-10-29T16:41:53.447Z",
+    "firstTokenAt": "2026-10-29T16:41:55.519Z",
+    "lastReceivedProgressAt": "2026-10-29T16:42:06.010Z",
+    "newPageAt": "2026-10-29T16:42:07.737Z",
+    "lastReceivedCharacters": 564,
+    "downloadedFilesAfterRestart": "complete (13 files)"
+  }
 }
