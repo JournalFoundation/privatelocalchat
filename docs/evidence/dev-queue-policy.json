@@ -245,7 +245,7 @@
     "Graph batches only: excludes upload commands and does not measure RSS or Metal residency.",
     "Completed batches are acknowledged by explicit successful QueueWorkDone waits.",
     "Desktop results do not establish iPhone survival.",
-    "No automatic answer segmentation, output-length cap or model substitution."
+    "The change preserves the existing output limit and does not add segmentation or substitute a model."
   ],
   "iphoneRetest": "pending",
   "cancellation": {
