@@ -38,5 +38,8 @@
     "maxInFlightBatches": 2,
     "commandSubmitBatchSize": 32,
     "drainAtGraphEnd": true
-  }
+  },
+  "wrapperSource": "ops/native/base-wllama-v1q.js",
+  "wrapperSourceSha256": "9d383dbc0b540407bbdaa9a1a60cf69e5cc88287f6be8bdf641eec1315664031",
+  "catalogBaseBuildId": "privatelocalchat-queue-production-20261029-v1"
 }

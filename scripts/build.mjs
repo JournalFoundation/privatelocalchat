@@ -12,6 +12,13 @@ const build={version:pkg.version,commit,branch,environment:branch==='main'?'prod
 const releasePath='releases/'+commit;
 await mkdir(path.join(out,releasePath),{recursive:true});
 for(const item of ['local-models.js','local-models.css','conversation-messages.mjs','runtime']) await rename(path.join(out,item),path.join(out,releasePath,item));
+// Both branch builds start from the pinned production runtime. Dev overlays it below.
+const productionNative=JSON.parse(await readFile('ops/native/production-runtime.json','utf8'));
+if(productionNative.developmentDiagnostics!==false)throw new Error('Production runtime must exclude development instrumentation');
+for(const [file,pin] of Object.entries(productionNative.files)){
+ const bytes=await readFile(path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q',file));
+ if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Production runtime checksum mismatch: '+file);
+}
 let html=await readFile(path.join(out,'index.html'),'utf8');
 html=html.replace('<script src="/build-info.js"></script>','<script>window.APP_BUILD='+JSON.stringify(build)+';</script>');
 html=html.replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');
@@ -20,7 +27,7 @@ if(branch==='dev') {
  const native=JSON.parse(await readFile(path.join(debugRuntime,'manifest.json'),'utf8'));
  for(const [file,pin] of Object.entries(native.files)){const bytes=await readFile(path.join(debugRuntime,file));if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Diagnostic runtime checksum mismatch: '+file);await writeFile(path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q',file),bytes);}
  const catalogFile=path.join(out,releasePath,'runtime/providers/catalog.mjs');
- await writeFile(catalogFile,(await readFile(catalogFile,'utf8')).replaceAll(native.baseBuildId,native.buildId));
+ await writeFile(catalogFile,(await readFile(catalogFile,'utf8')).replaceAll(native.catalogBaseBuildId||native.baseBuildId,native.buildId));
 
  await mkdir(path.join(out,releasePath,'dev-tools'),{recursive:true});
  for(const file of ['start.js','ui.mjs','telemetry-core.mjs','native-journal.mjs'])await cp(path.join('dev-tools',file),path.join(out,releasePath,'dev-tools',file));

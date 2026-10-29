@@ -63,3 +63,10 @@ Cancel interrupts backoff. Permanent HTTP, quota, permission and memory failures
 remain actionable failures. Installer tests simulate a partial failed shard and prove
 that only that shard is fetched again, its checksum passes and progress is accurate.
 Model loading and generation do not automatically retry.
+
+The clean production queue candidate passed local real-browser generation, offline
+generation and whole-browser offline reopening, using the production artifact and
+pinned native bytes. See [the candidate receipt](evidence/production-queue-candidate.json).
+The service-worker status probe now retains the active channel and ignores stale
+controller replies; registration starts before model initialization. iPhone validation
+and production promotion remain pending.

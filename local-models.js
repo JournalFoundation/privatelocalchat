@@ -1,3 +1,4 @@
+import {createOfflineStatusProbe} from './runtime/offline-status.mjs';
 import {createModelHost} from './runtime/providers/model-host.mjs';
 import {gatherEnv} from './runtime/providers/capability-probe.mjs';
 
@@ -94,25 +95,15 @@ $('removeModel').addEventListener('click',()=>{if(confirm('Remove this downloade
 $('persistModels').addEventListener('click',()=>action(()=>host.requestPersist()));
 $('releaseInfo').textContent=`${window.APP_BUILD?.environment || 'local'} · ${window.APP_BUILD?.version || 'development'} · ${window.APP_BUILD?.commit?.slice(0,12) || 'unbuilt'}`;
 applyMode();
-try {
-  env=await gatherEnv();
-  host.subscribe(render);
-  await host.init({autoLoad:false});
-  if(!env.webgpu.available) showError(new Error('This runtime needs WebGPU. Update your browser or explicitly choose API mode.'));
-} catch(e){showError(e);}
 if('serviceWorker' in navigator) {
-  const checkOffline = () => {
-    const worker=navigator.serviceWorker.controller;
-    if(!worker)return;
-    const channel=new MessageChannel();
-    channel.port1.onmessage=event=>{
-      const current=event.data.cache==='plc-shell-'+window.APP_BUILD.commit;
+  const checkOffline=createOfflineStatusProbe({
+    getController:()=>navigator.serviceWorker.controller,
+    expectedCache:'plc-shell-'+window.APP_BUILD.commit,
+    onResult:current=>{
       $('offlineStatus').textContent=current?'Offline app ready. Downloaded models can be loaded without a connection.':'An updated app is ready. Reload while online before the offline test.';
       $('reloadApp').hidden=current;
-      channel.port1.close();
-    };
-    worker.postMessage({type:'offline-status'},[channel.port2]);
-  };
+    }
+  });
   navigator.serviceWorker.addEventListener('controllerchange',checkOffline);
   navigator.serviceWorker.register('/sw.js').then(registration=>{
     const activate = worker=>worker?.postMessage({type:'activate-update'});
@@ -121,4 +112,9 @@ if('serviceWorker' in navigator) {
     checkOffline();
   }).catch(e=>showError(new Error('Offline app setup failed: '+e.message)));
 } else $('offlineStatus').textContent='This browser cannot install the app for offline use.';
-
+try {
+  env=await gatherEnv();
+  host.subscribe(render);
+  await host.init({autoLoad:false});
+  if(!env.webgpu.available) showError(new Error('This runtime needs WebGPU. Update your browser or explicitly choose API mode.'));
+} catch(e){showError(e);}
