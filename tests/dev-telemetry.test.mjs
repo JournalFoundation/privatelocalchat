@@ -17,7 +17,7 @@ test('production artefact contains no diagnostic UI, modules, receiver or disk j
  execFileSync('node',['scripts/build.mjs'],{env:{...process.env,DEPLOY_BRANCH:'main'},stdio:'pipe'});
  const build=JSON.parse(await readFile('dist/version.json','utf8'));const html=await readFile('dist/index.html','utf8');const app=await readFile('dist/releases/'+build.commit+'/local-models.js','utf8');
  assert.ok(!html.includes('dev-tools'));assert.ok(!app.includes('__plcDebugModelHost'));assert.ok(!app.includes('plc.diagnostic.generations'));
- const adapter=await readFile('dist/releases/'+build.commit+'/runtime/providers/adapters/wllama.mjs','utf8');assert.ok(!adapter.includes('devDiagnostics'));assert.ok(!adapter.includes('enableFlightRecorder'));
+ const adapter=await readFile('dist/releases/'+build.commit+'/runtime/providers/adapters/wllama.mjs','utf8');assert.ok(!adapter.includes('devDiagnostics'));assert.ok(!adapter.includes('enableFlightRecorder'));assert.ok(!adapter.includes('debugFence'));execFileSync('node',['--check','dist/releases/'+build.commit+'/runtime/providers/adapters/wllama.mjs']);
  const files=await readdir('dist');assert.ok(!files.includes('_worker.js'));assert.ok(!files.includes('_routes.json'));assert.ok(!(await readdir('dist/releases/'+build.commit)).includes('dev-tools'));
 });
 test('development artefact includes isolated diagnostics and exact-host activation',async()=>{

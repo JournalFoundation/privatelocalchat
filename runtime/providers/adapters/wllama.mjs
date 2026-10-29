@@ -216,6 +216,15 @@ export class WllamaAdapter {
     };
     if (s.repetitionPenalty) params.repeat_penalty = s.repetitionPenalty;
     if (req.stop?.length) params.stop = req.stop;
+    /* DEV_DIAGNOSTICS_START */
+    let debugChunks=0,debugCompleted=false;
+    const debugFence=async(op,edge)=>{
+      if(!this.cfg?.knobs?.devDiagnosticsDisk)return;
+      try{await this.w.flightMark(10,op,edge,debugChunks,0);}catch(error){this._native(['Development generation checkpoint unavailable: '+error.name]);}
+    };
+    await debugFence(1,1);
+    try {
+    /* DEV_DIAGNOSTICS_END */
     const gen = await this.w.createChatCompletion(params);
     let usage = null; let finish = null; let timings = null;
     // the runtime's iterator is a down-levelled hand-written one; consumed with next() like every other token path here
@@ -225,7 +234,13 @@ export class WllamaAdapter {
       if (done) break;
       const choice = chunk?.choices?.[0];
       const delta = choice?.delta?.content ?? choice?.text ?? "";
-      if (delta) emit({ delta });
+      if (delta) {
+        emit({ delta });
+        /* DEV_DIAGNOSTICS_START */
+        debugChunks++;
+        if([1,16,64,128,256,512].includes(debugChunks))await debugFence(2,2);
+        /* DEV_DIAGNOSTICS_END */
+      }
       if (choice?.finish_reason) finish = choice.finish_reason;
       if (chunk?.usage) usage = chunk.usage;
       if (chunk?.timings) timings = chunk.timings;
@@ -238,6 +253,10 @@ export class WllamaAdapter {
       },
       finish: finish === "length" ? "length" : "stop"
     });
+    /* DEV_DIAGNOSTICS_START */
+    debugCompleted=true;
+    } finally {await debugFence(debugCompleted?3:4,signal?.aborted?3:2);}
+    /* DEV_DIAGNOSTICS_END */
   }
 
   _diagUsage() {

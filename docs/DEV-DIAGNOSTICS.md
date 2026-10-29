@@ -62,3 +62,15 @@ subsequent model load. Concurrent recovery requests share one promise. Transient
 errors receive bounded backoff; exhausted reads produce a diagnostic failure event instead
 of being silently classified as a missing journal. The construction-crash receipt includes
 an unfinished Wasm initialization PRE recovered and verified at the receiver after restart.
+
+The same native ring also records sparse generation fences (phase 10): operation 1 before
+generation, 2 at streamed-chunk counts 1/16/64/128/256/512, 3 on completion, and 4 on failure
+or cancellation. Each fence flushes before the next inference step. Slot 176 is chunk count;
+slots 184/192/200 carry the retained runtime's post-ready GPU-buffer bytes/count and pipeline
+count. These are instrumented allocation counters, not resident memory. No prompt or reply
+text enters the native ring. The generation hooks are stripped from production builds.
+
+`docs/evidence/dev-long-generation.json` records two real 512-token completions, constant
+Wasm capacity, bounded checkpoint replacement, cancellation followed by a successful reply,
+and received native generation milestones. Zero GPU creation counters do not rule out
+allocations outside the instrumented sites or a browser-process memory problem.
