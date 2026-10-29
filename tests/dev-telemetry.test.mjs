@@ -24,3 +24,18 @@ test('development artefact includes isolated diagnostics and exact-host activati
  const build=JSON.parse(await readFile('dist/version.json','utf8'));const start=await readFile('dist/releases/'+build.commit+'/dev-tools/start.js','utf8');
  assert.match(start,/location.hostname==='dev.privatelocal.chat'/);assert.match(await readFile('dist/_worker.js','utf8'),/url.hostname!==HOST/);
 });
+
+test('a URL enables eager sending, persists across restart, and clearing it stops recording',async()=>{
+ const store=new Store(),config=settings();let requests=0;
+ const send=async(url,options)=>{requests++;return {ok:true,json:async()=>({accepted:JSON.parse(options.body).events.length})};};
+ const first=new Telemetry({store,settings:config,fetchImpl:send});first.configure({url:'https://receiver.example/session',disk:true});
+ await first.record('load-start');await new Promise(r=>setTimeout(r,10));assert.equal(requests,1);assert.equal(store.events.length,0);
+ const reopened=new Telemetry({store,settings:config,fetchImpl:send});assert.equal(reopened.config.enabled,true);assert.equal(reopened.config.disk,true);
+ await reopened.record('page-start');await new Promise(r=>setTimeout(r,10));assert.equal(requests,2);
+ reopened.configure({url:''});await reopened.record('heartbeat');assert.equal(store.events.length,0);assert.equal(requests,2);
+});
+test('reconnection drains every acknowledged batch from a saved backlog',async()=>{
+ const store=new Store();for(let i=0;i<125;i++)store.events.push({id:String(i),type:'heartbeat'});
+ let batches=0;const t=new Telemetry({store,settings:settings(),fetchImpl:async(url,options)=>{batches++;const body=JSON.parse(options.body);return {ok:true,json:async()=>({accepted:body.events.length})};}});
+ t.configure({disk:true,url:'https://receiver.example/session'});await t.flush();assert.equal(store.events.length,0);assert.equal(batches,3);
+});

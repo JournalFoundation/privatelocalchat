@@ -4,11 +4,14 @@ This module is maintained on `dev`. It is built and activated only for `dev.priv
 The production build excludes the UI, modules, receiver worker, routes, and debug host hooks,
 even if this source is later promoted to `main`. Tests inspect both build outputs.
 
-Diagnostics are off by default. Open **Development diagnostics**, enter an HTTPS receiver URL,
-choose whether to **Save diagnostics on this device**, and press **Start diagnostics**. Stop is
-explicit; saved events remain available for export or later upload. No prompts, replies, API
-credentials, or raw native logs are recorded. State transitions, event timing, numeric memory
-observations, download progress, model-host status and page lifecycle events are recorded.
+Entering an HTTPS receiver URL immediately enables streaming. The URL and disk-saving choice
+persist across reloads and browser restarts. There is no separate Start button or automatic
+turnoff. Clear the URL to stop; saved events remain available for export or later upload.
+Every event triggers an immediate upload attempt. Active loading and generation are sampled
+up to four times per second, with one-second idle sampling. Numeric runtime memory requests
+are coalesced so a slow provider cannot accumulate pending probes. Conversations and API
+credentials are excluded. State transitions, timing, numeric memory, download progress,
+filtered construction logs and page lifecycle events are recorded.
 
 With local saving enabled, events are committed to IndexedDB before load/generation actions.
 The bounded queue survives offline operation and page reopening. Events upload in batches when
@@ -22,11 +25,11 @@ The optional project receiver uses a private R2 bucket, `privatelocalchat-debug-
 only to the development Pages project as `DEBUG_LOGS`. The operator read/admin credential is the
 Pages secret `DEBUG_READ_TOKEN`, with its local copy outside Git at
 `/root/.config/privatelocalchat/debug-read-token`. Sessions use random write-capability URLs and
-expire after seven days. Read access requires the separate operator credential. Other HTTPS
+remain active until explicitly revoked by an authenticated operator DELETE request. Read access requires the separate operator credential. Other HTTPS
 receivers may be used if they accept the documented JSON batch format and appropriate CORS.
 
 Create a session with `python dev-tools/operator-session.py new`; give the returned receiver URL
 to the tester. Fetch saved server events with `python dev-tools/operator-session.py read --out
-work/evidence/iphone-session.json`. Only users who explicitly enable diagnostics send events.
+work/evidence/iphone-session.json`. Entering a receiver URL enables diagnostics; devices without a URL send no events.
 The receiver and administrator endpoints return 404 on hosts other than the exact development
 hostname. The production project has no diagnostic bucket binding or receiver worker.

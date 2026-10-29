@@ -18,7 +18,7 @@ if(branch==='dev') {
  await mkdir(path.join(out,releasePath,'dev-tools'),{recursive:true});
  for(const file of ['start.js','ui.mjs','telemetry-core.mjs'])await cp(path.join('dev-tools',file),path.join(out,releasePath,'dev-tools',file));
  await cp('dev-tools/receiver-worker.js',path.join(out,'_worker.js'));
- await writeFile(path.join(out,'_routes.json'),JSON.stringify({version:1,include:['/api/debug/*'],exclude:[]}));
+ await writeFile(path.join(out,'_routes.json'),JSON.stringify({version:1,include:['/api/debug/*','/'+releasePath+'/dev-tools/*'],exclude:[]}));
  html=html.replace('</head>','<script type="module" src="/'+releasePath+'/dev-tools/start.js"></script></head>');
 } else {
  const appFile=path.join(out,releasePath,'local-models.js');

@@ -6,6 +6,7 @@ const authorized=(request,env)=>Boolean(env.DEBUG_READ_TOKEN)&&request.headers.g
 export default {
  async fetch(request,env){
   const url=new URL(request.url),origin=request.headers.get('Origin');
+  if(url.pathname.includes('/dev-tools/'))return url.hostname===HOST?env.ASSETS.fetch(request):json({error:'Not found'},404);
   if(!url.pathname.startsWith('/api/debug/'))return env.ASSETS.fetch(request);
   if(url.hostname!==HOST||!env.DEBUG_LOGS)return json({error:'Not found'},404);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:headers(origin)});
@@ -13,10 +14,11 @@ export default {
    if(url.pathname==='/api/debug/admin/sessions'&&request.method==='POST'){
     if(!authorized(request,env))return json({error:'Unauthorized'},401);
     const id=crypto.randomUUID(),createdAt=new Date().toISOString();
-    await env.DEBUG_LOGS.put('control/'+id+'.json',JSON.stringify({id,createdAt,expiresAt:Date.now()+7*86400000}));
+    await env.DEBUG_LOGS.put('control/'+id+'.json',JSON.stringify({id,createdAt}));
     return json({id,receiver:'https://'+HOST+'/api/debug/'+id,createdAt});
    }
    const admin=/^\/api\/debug\/admin\/sessions\/([a-f0-9-]+)$/.exec(url.pathname);
+   if(admin&&request.method==='DELETE'){if(!authorized(request,env))return json({error:'Unauthorized'},401);await env.DEBUG_LOGS.put('control/'+admin[1]+'.json',JSON.stringify({disabled:true}));return json({disabled:true});}
    if(admin&&request.method==='GET'){
     if(!authorized(request,env))return json({error:'Unauthorized'},401);
     const id=admin[1];if(!uuid.test(id))return json({error:'Invalid session'},400);
@@ -32,7 +34,7 @@ export default {
    if(!match||request.method!=='POST'||!uuid.test(match[1]))return json({error:'Not found'},404,origin);
    if(origin!=='https://'+HOST)return json({error:'Origin not allowed'},403,origin);
    const control=await env.DEBUG_LOGS.get('control/'+match[1]+'.json');
-   if(!control||((await control.json()).expiresAt<Date.now()))return json({error:'Debug session is missing or expired'},403,origin);
+   if(!control||(await control.json()).disabled===true)return json({error:'Debug session is missing or disabled'},403,origin);
    if(Number(request.headers.get('Content-Length'))>131072)return json({error:'Batch too large'},413,origin);
    const raw=await request.text();if(new TextEncoder().encode(raw).length>131072)return json({error:'Batch too large'},413,origin);
    const batch=JSON.parse(raw);
