@@ -10,6 +10,7 @@ const host = createModelHost({sources:{webllmModelBase:webllm,webllmLibBase:webl
 window.__plcDebugModelHost=host;
 /* DEV_DIAGNOSTICS_END */
 let state, env, activeGeneration = false;
+let resetPromptAfterAbort=false;
 const modeKey = 'plc.inferenceMode.v1';
 let existingApi = false;
 try {existingApi = Boolean(JSON.parse(sessionStorage.getItem('chatConfig') || '{}').endpoint);} catch {}
@@ -31,7 +32,7 @@ function render(s) {
   if(s.busy) $('modelStatus').textContent=t ? `${s.busy}: ${gb(t.bytesDone || 0)} / ${gb(t.bytesTotal || item.info.downloadBytes)}${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy+'…';
   else if(s.lastError) showError(s.lastError);
   else if(s.load.state==='ready') $('modelStatus').textContent='Ready — replies run on this device.';
-  else $('modelStatus').textContent=`Download: ${item.install.state}. Model: ${s.load.state}.`;
+  else $('modelStatus').textContent=item.install.ok?'Model files are downloaded. Load the model into memory for this page session.':`Download: ${item.install.state}. Model: ${s.load.state}.`;
   const ready=s.load.state==='ready';
   const supported=!!env?.webgpu.available && (tier!=='light'||env.webgpu.shaderF16);
   if(env&&!supported&&!s.busy) showError(new Error(tier==='light'?'The 2B runtime needs GPU shader-f16 support. This browser does not expose it. Choose the 9B model if this device has enough memory, or explicitly choose API mode.':'WebGPU is unavailable in this browser.'));
@@ -62,18 +63,20 @@ async function action(fn) {try {await fn();} catch(e) {showError(e);} }
 window.localModels={
   get mode(){return mode;},
   get ready(){return state?.load.state==='ready';},
+  get installed(){return state?.tiers[state.selection.tier].install.ok===true;},
   get state(){return state;},
   async generate(messages,{signal,onToken}={}) {
     if(mode!=='local'||state?.load.state!=='ready') throw new Error('Load an on-device model before sending.');
     activeGeneration=true; render(state);
     try {
       let streamed="";
-      const call=host.provider().generate({attemptId:crypto.randomUUID(),messages:messages.filter(m=>m.role!=='system'||m.content).map(m=>({role:m.role,content:m.content})),maxTokens:512,temperature:0.6},{signal,onToken:ev=>{streamed+=ev.text;onToken?.(streamed);}});
+      const call=host.provider().generate({attemptId:crypto.randomUUID(),messages:messages.filter(m=>m.role!=='system'||m.content).map(m=>({role:m.role,content:m.content})),maxTokens:512,temperature:0.6,cachePrompt:!resetPromptAfterAbort},{signal,onToken:ev=>{streamed+=ev.text;onToken?.(streamed);}});
+      resetPromptAfterAbort=false;
       const end=await call.done;
       if(end.type==='attempt-aborted') throw new DOMException('Generation stopped.','AbortError');
       if(end.type!=='attempt-completed') throw Object.assign(new Error(end.error?.message || 'Model generation failed.'),end.error);
       return end.text;
-    } catch(e) {throw e;} finally {activeGeneration=false;render(host.getState());}
+    } catch(e) {if(e.name==='AbortError')resetPromptAfterAbort=true;throw e;} finally {activeGeneration=false;render(host.getState());}
   }
 };
 $('reloadApp').addEventListener('click',()=>{try {sessionStorage.setItem('plc.draft',document.querySelector('#messageInput').value);location.reload();}catch(e){showError(new Error('Copy your message draft before reloading; browser storage is unavailable.'));}});

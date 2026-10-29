@@ -130,6 +130,11 @@ export function createModelHost({
           state.load = { ...state.load, state: "faulted", progress: null, lastError: { class: "runtime-fault", code: "provider-fault", reason: "host-died", message: m.detail.message, advice: "The model host Worker stopped unexpectedly, so the loaded model is gone and anything it was generating failed. Nothing was retried. Press Restart to start a new host, then Load (a new load attempt).", loadAttempt: state.load.loadAttempt, phase: "host", at: now() } };
           state.lastError = { context: "host", ...state.load.lastError };
           emit();
+        } else if (m.state === "faulted") {
+          const error = {class:m.detail?.class || "runtime-fault",code:m.detail?.code || "engine-fault",message:m.detail?.message || "The local model stopped.",advice:"Restart the model engine, then load the downloaded model again. Your chats and downloaded files are kept.",phase:m.detail?.phase || "generate",at:now()};
+          state.load={...state.load,state:"faulted",info:null,progress:null,lastError:error};
+          state.lastError={context:"engine",...error};
+          emit();
         }
       }
     });

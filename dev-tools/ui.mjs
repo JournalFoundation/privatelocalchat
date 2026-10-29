@@ -31,10 +31,10 @@ export async function startDiagnostics(){
  }
  const original=window.localModels.generate.bind(window.localModels);
  window.localModels.generate=async(messages,options={})=>{
-  const started=performance.now();await record('generation-start',{model:host.getState().load.info?.modelId,online:navigator.onLine});let chunks=0,last=0;
+  const started=performance.now();try{const before=await host.provider().stats();await record('runtime-memory-before',{memory:before.engine?.runtimeMemory});}catch{}await record('generation-start',{model:host.getState().load.info?.modelId,online:navigator.onLine});let chunks=0,last=0;
   try{const result=await original(messages,{...options,onToken:text=>{chunks++;options.onToken?.(text);if(chunks===1||Date.now()-last>1000){last=Date.now();record(chunks===1?'first-token':'generation-progress',{chunks,characters:text.length,durationMs:Math.round(performance.now()-started)});}}});await record('generation-complete',{durationMs:Math.round(performance.now()-started),characters:result.length,chunks});return result;}
   catch(e){await record(e.name==='AbortError'?'generation-cancelled':'generation-failed',{code:e.code||e.name,phase:e.phase,reason:e.reason,durationMs:Math.round(performance.now()-started)});throw e;}
-  finally{try{const stats=await host.provider().stats();await record('runtime-memory',{memory:stats.runtimeMemory});}catch{}}
+  finally{try{const stats=await host.provider().stats();await record('runtime-memory',{memory:stats.engine?.runtimeMemory});}catch{}}
  };
  setInterval(async()=>{if(!t.config.enabled)return;const s=host.getState();await record('heartbeat',{host:s.host.state,load:s.load.state,busy:s.busy,online:navigator.onLine,visibility:document.visibilityState,memory:performance.memory?{jsHeapUsed:performance.memory.usedJSHeapSize,jsHeapTotal:performance.memory.totalJSHeapSize}:undefined});await t.flush();update();},3000);
  await update();if(t.config.enabled)t.flush();

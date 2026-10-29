@@ -14,10 +14,10 @@ parser.add_argument('--out')
 args=parser.parse_args()
 token=(PRIVATE/'debug-read-token').read_text().strip()
 if args.command=='new':
- request=urllib.request.Request(BASE,method='POST',headers={'Authorization':'Bearer '+token})
+ request=urllib.request.Request(BASE,method='POST',headers={'Authorization':'Bearer '+token,'User-Agent':'PrivateLocalChat-debug-operator'})
 else:
  saved=json.loads(Path(args.session_file).read_text())
- request=urllib.request.Request(BASE+'/'+saved['id'],headers={'Authorization':'Bearer '+token})
+ request=urllib.request.Request(BASE+'/'+saved['id'],headers={'Authorization':'Bearer '+token,'User-Agent':'PrivateLocalChat-debug-operator'})
 with urllib.request.urlopen(request,timeout=30) as response:
  data=json.load(response)
 if args.command=='new':
