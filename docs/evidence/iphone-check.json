@@ -5,6 +5,7 @@
   "onlineDownload": "User confirmed completed",
   "onlineLoadAndGeneration": "User confirmed: It loads and replies",
   "initialOfflineReopen": "Failed with redirected service-worker response; implementation subsequently fixed",
-  "offlineRetest": "Pending user result after updated shell installs",
-  "browserVersionAndCommit": "Pending diagnostic report"
+  "offlineRetest": "User confirmed an actual offline reply after loading the cached model again; a subsequent thanks turn left the browser white. Cause is not yet confirmed.",
+  "browserVersionAndCommit": "Pending diagnostic report",
+  "followup": "Investigating with a configurable opt-in dev-only durable telemetry harness. This crash is not accepted as resolved."
 }

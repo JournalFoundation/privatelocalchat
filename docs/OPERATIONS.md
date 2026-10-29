@@ -4,7 +4,7 @@
 
 `.github/workflows/deploy.yml` validates and builds the exact pushed commit before uploading `dist/` with pinned Wrangler. `main` targets Pages project `privatelocalchat`; `dev` targets the separate project `privatelocalchat-dev`. Each project has only its own custom domain. Manual deployment uses **Actions → Deploy Cloudflare Pages → Run workflow**, selecting `main` or `dev`.
 
-Deployment jobs serialize independently by branch. Immediately before upload the job compares the checkout SHA to the current branch tip and skips superseded commits. Failed validation prevents uploading. The workflow summary links to the deployed site; the build artifact is retained with its commit identifier. Release tagging/changelog work follows a successful production deployment; its changelog commit goes through the same deployment checks.
+Deployment jobs serialize independently by branch. Immediately before upload the job compares the checkout SHA to the current branch tip and skips superseded commits. Failed validation prevents uploading. The workflow summary links to the deployed site; the build artifact is retained with its commit identifier. Release tagging and notes follow a successful production deployment without pushing another commit to the branch. The branch tip remains the verified deployment commit.
 
 Repository Actions secrets are `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The operator's local provisioning token is at `/root/.config/privatelocalchat/cloudflare-api-token`, outside Git. Never copy it into application code, commands, logs, or build output.
 
