@@ -47,3 +47,7 @@ Native counters are allocation/logical proxies, not process RSS or an iOS memory
 measurement. Raw payload slots have phase-dependent meanings; operation and phase codes are
 preserved so a retained-generation receipt is not mistaken for a construction allocation.
 Source counters can be historical after release; interpret them alongside release markers.
+
+Use `operator-session.py read --recent` for the newest bounded stream window during live
+testing. Full reads follow all historical pages. Timestamp-ordered batch keys keep recent
+reads independent of session length; retrying an identical batch overwrites the same object.

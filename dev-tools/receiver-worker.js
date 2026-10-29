@@ -23,7 +23,8 @@ export default {
     if(!authorized(request,env))return json({error:'Unauthorized'},401);
     const id=admin[1];if(!uuid.test(id))return json({error:'Invalid session'},400);
     const events=new Map();
-    const listed=await env.DEBUG_LOGS.list({prefix:'events/'+id+'/',limit:100,cursor:url.searchParams.get('cursor')||undefined});
+    const recent=url.searchParams.get('recent')==='1';
+    const listed=await env.DEBUG_LOGS.list({prefix:'events/'+id+'/'+(recent?'stream/':''),limit:recent?40:100,cursor:url.searchParams.get('cursor')||undefined});
     for(let offset=0;offset<listed.objects.length;offset+=10){
      const batches=await Promise.all(listed.objects.slice(offset,offset+10).map(async item=>{const object=await env.DEBUG_LOGS.get(item.key);return object?object.json():null;}));
      for(const batch of batches)for(const event of batch?.events||[])events.set(event.id,event);
@@ -40,7 +41,9 @@ export default {
    const batch=JSON.parse(raw);
    if(batch.format!=='plc-dev-telemetry/1'||!Array.isArray(batch.events)||batch.events.length>100||!/^[a-f0-9_-]{20,100}$/.test(batch.id))return json({error:'Invalid batch'},400,origin);
    for(const event of batch.events){if(!uuid.test(event.id)||typeof event.type!=='string'||typeof event.at!=='string'||typeof event.data!=='object')return json({error:'Invalid event'},400,origin);}
-   await env.DEBUG_LOGS.put('events/'+match[1]+'/'+batch.id+'.json',JSON.stringify({receivedAt:new Date().toISOString(),...batch}),{httpMetadata:{contentType:'application/json'}});
+   const firstAt=Date.parse(batch.events[0]?.at);if(!Number.isFinite(firstAt)||firstAt<0||firstAt>9999999999999)return json({error:'Invalid event time'},400,origin);
+   const key=String(9999999999999-firstAt).padStart(13,'0')+'_'+batch.id;
+   await env.DEBUG_LOGS.put('events/'+match[1]+'/stream/'+key+'.json',JSON.stringify({receivedAt:new Date().toISOString(),...batch}),{httpMetadata:{contentType:'application/json'}});
    return json({accepted:batch.events.length},202,origin);
   }catch{return json({error:'Invalid diagnostic request'},400,origin);}
  }

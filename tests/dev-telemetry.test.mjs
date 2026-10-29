@@ -52,3 +52,17 @@ test('native crash journal orders valid records and rejects torn writes',async()
  bytes[256+80]^=1;const records=parseCheckpoints(buffer);assert.deepEqual(records.map(r=>r.sequence),[8,9]);assert.equal(records[0].wasmCapacityBytes,134217728);assert.equal(records[0].operation,42);
  assert.equal(parseCheckpoints(buffer.slice(0,250)).length,0);
 });
+
+test('receiver keeps idempotent batches and offers a bounded newest-first stream read',async()=>{
+ const worker=(await import('../dev-tools/receiver-worker.js')).default,objects=new Map();
+ const env={DEBUG_READ_TOKEN:'test-read-token',DEBUG_LOGS:{
+  async put(key,value){objects.set(key,value);},async get(key){return objects.has(key)?{json:async()=>JSON.parse(objects.get(key))}:null;},
+  async list({prefix,limit,cursor}){const keys=[...objects.keys()].filter(k=>k.startsWith(prefix)).sort();const offset=Number(cursor||0),selected=keys.slice(offset,offset+limit);return {objects:selected.map(key=>({key})),truncated:offset+limit<keys.length,cursor:String(offset+limit)};}
+ }};
+ const base='https://dev.privatelocal.chat/api/debug/',auth={Authorization:'Bearer test-read-token'};
+ const created=await (await worker.fetch(new Request(base+'admin/sessions',{method:'POST',headers:auth}),env)).json();assert.ok(!created.expiresAt);
+ const post=async(index)=>{const at=new Date(1700000000000+index*1000).toISOString();const batch={format:'plc-dev-telemetry/1',id:crypto.randomUUID()+'_'+crypto.randomUUID(),events:[{id:crypto.randomUUID(),at,type:'heartbeat',data:{chunks:index}}]};const req=()=>new Request(created.receiver,{method:'POST',headers:{Origin:'https://dev.privatelocal.chat','Content-Type':'application/json'},body:JSON.stringify(batch)});assert.equal((await worker.fetch(req(),env)).status,202);assert.equal((await worker.fetch(req(),env)).status,202);};
+ for(let i=0;i<45;i++)await post(i);
+ assert.equal(objects.size,46);const result=await (await worker.fetch(new Request(base+'admin/sessions/'+created.id+'?recent=1',{headers:auth}),env)).json();assert.equal(result.events.length,40);assert.equal(result.events[0].data.chunks,5);assert.equal(result.events.at(-1).data.chunks,44);
+ assert.equal((await worker.fetch(new Request('https://privatelocal.chat/api/debug/admin/sessions',{method:'POST',headers:auth}),env)).status,404);
+});
