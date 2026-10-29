@@ -50,6 +50,7 @@ jobs:
             url=https://dev.privatelocal.chat
           fi
           npx wrangler pages deploy dist --project-name "$project" --branch "$GITHUB_REF_NAME" --commit-hash "$GITHUB_SHA"
+          DEPLOY_SITE_URL="https://$project.pages.dev" node scripts/verify-release.mjs
           echo "### Deployed [$url]($url)" >> "$GITHUB_STEP_SUMMARY"
           echo "Commit: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
