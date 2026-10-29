@@ -44,3 +44,8 @@ OS killed a process, the GPU failed, or another browser/runtime condition caused
 The development-only durable diagnostic stream is now collecting the lead-up automatically.
 The migration cannot be declared complete until loading and a short multi-turn conversation,
 including offline reopening, pass on this device without the unresolved restart.
+
+`evidence/conversation-recovery.json` verifies that an active conversation survives reload,
+that selecting a new conversation updates the saved selection, and that a real model can reply
+with a legacy internal error notice preserved in the visible transcript. Internal notices are
+excluded from model/API context; original saved messages are retained.

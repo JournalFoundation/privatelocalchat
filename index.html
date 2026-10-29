@@ -2061,6 +2061,7 @@ const base64UrlEncode = value => {
       const defaults = { endpoint: '', token: '', model: '', theme: '' };
       const CONFIG_KEY = 'chatConfig';
       const THREAD_KEY = 'chatThreads';
+      const ACTIVE_THREAD_KEY = 'plc.activeThread.v1';
       const MODELS_KEY = 'chatModels';
       const ENDPOINT_TOKENS_KEY = 'chatEndpointTokens';
 
@@ -2981,6 +2982,7 @@ const base64UrlEncode = value => {
           updateChatAvailability();
           return;
         }
+        writeJson(localStorage, ACTIVE_THREAD_KEY, id);
         // Populate title and system prompt
         threadTitleInput.value = thread.title || '';
         systemPromptInput.value = thread.systemPrompt || '';
@@ -3126,8 +3128,8 @@ const base64UrlEncode = value => {
        * @param {string} role message role ('user', 'assistant', 'system')
        * @param {string} content message content
        */
-      function addMessage(role, content) {
-        const thread = updateThread(t => t.messages.push({ role, content }));
+      function addMessage(role, content, notice = false) {
+        const thread = updateThread(t => t.messages.push(notice ? { role, content, notice: true } : { role, content }));
         if (thread) {
           renderMessages(thread);
         }
@@ -3427,7 +3429,7 @@ const base64UrlEncode = value => {
           generationStatus.textContent = err.name === 'AbortError' ? 'Generation stopped.' : 'Generation failed: ' + err.message;
           const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
           const systemMessage = buildAuthErrorMessage('Error: ' + errorText);
-          if (err.name !== 'AbortError') addMessage('system', systemMessage);
+          if (err.name !== 'AbortError') addMessage('system', systemMessage, true);
           if (isAuthError(err)) {
             consecutiveAuthErrors = Math.min(consecutiveAuthErrors + 1, 3);
           } else {
@@ -3452,9 +3454,11 @@ const base64UrlEncode = value => {
        */
       async function sendToApi(signal) {
         if (!window.localModels) throw new Error('Inference controls have not initialized. Reload the app before sending.');
+        const historyModule = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/conversation-messages.mjs' : '/conversation-messages.mjs';
+        const {messagesForInference} = await import(historyModule);
         if (window.localModels?.mode === 'local') {
           const thread = currentThread();
-          const messages = thread.systemPrompt?.trim() ? [{role:'system', content:thread.systemPrompt.trim()}, ...thread.messages] : [...thread.messages];
+          const messages = messagesForInference(thread);
           return window.localModels.generate(messages, {signal, onToken: text => {
             document.getElementById('generationStatus').textContent = 'Generating on this device… ' + text;
           }});
@@ -3469,10 +3473,7 @@ const base64UrlEncode = value => {
         if (!config.model) {
           throw new Error('Model is not selected.');
         }
-        const systemPrompt = thread.systemPrompt?.trim();
-        const messagesForRequest = systemPrompt
-          ? [{ role: 'system', content: systemPrompt }, ...thread.messages]
-          : [...thread.messages];
+        const messagesForRequest = messagesForInference(thread);
         // Compose request payload. Adjust this object to match the API expected schema.
         const body = {
           model: config.model,
@@ -3759,6 +3760,7 @@ const base64UrlEncode = value => {
         currentThreadId = null;
         try {
           localStorage.removeItem(THREAD_KEY);
+          localStorage.removeItem(ACTIVE_THREAD_KEY);
         } catch (err) {
           console.warn('Unable to remove chat history from storage:', err);
           saveThreads();
@@ -4266,7 +4268,9 @@ const base64UrlEncode = value => {
         renderThreadList();
         // If a thread was created via URL params select it; otherwise pick the first existing
         const firstThreadWithId = threads.find(thread => thread && typeof thread.id === 'string' && thread.id);
-        const targetThreadId = currentThreadId || ensuredId || firstThreadWithId?.id || null;
+        const savedThreadId = readJson(localStorage, ACTIVE_THREAD_KEY, null);
+        const resumeThreadId = typeof savedThreadId === 'string' && getThread(savedThreadId) ? savedThreadId : null;
+        const targetThreadId = currentThreadId || resumeThreadId || ensuredId || firstThreadWithId?.id || null;
         if (targetThreadId) {
           selectThread(targetThreadId);
         } else {
