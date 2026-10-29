@@ -645,32 +645,7 @@
       justify-content: center;
       padding: 4px;
     }
-
-    .migration-warning-banner {
-      position: sticky;
-      top: 0;
-      z-index: 6;
-      padding: 14px 16px;
-      border-bottom: 2px solid var(--color-warning-border);
-      background: var(--color-warning-bg);
-      color: var(--color-warning-text);
-      font-size: 0.98rem;
-      line-height: 1.45;
-    }
-
-    .migration-warning-banner strong {
-      display: block;
-      margin-bottom: 4px;
-      font-size: 1.02rem;
-    }
-
-    .migration-warning-banner a {
-      color: inherit;
-      font-weight: 700;
-      text-decoration: underline;
-    }
-
-    /* Info button in header */
+/* Info button in header */
     .about-btn,
     .theme-toggle-btn {
       border: none;
@@ -1142,6 +1117,10 @@
       }
     }
   </style>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="stylesheet" href="/local-models.css" />
+  <script src="/build-info.js"></script>
+  <script type="module" src="/local-models.js"></script>
 </head>
 <body>
   <!-- Inline SVG sprite sheet for local icons -->
@@ -1186,6 +1165,28 @@
           <span class="emoji-icon" aria-hidden="true">❌</span>
         </button>
       </div>
+      <div class="form-group">
+        <label for="inferenceMode">Run replies</label>
+        <select id="inferenceMode"><option value="local">On this device</option><option value="api">With an API provider</option></select>
+      </div>
+      <section id="localModelPanel" aria-labelledby="localModelHeading">
+        <h3 id="localModelHeading">On-device model</h3>
+        <label for="localModelSelect">Model</label>
+        <select id="localModelSelect"><option value="light">Qwen3.5-2B — smaller download</option><option value="default">Qwen3.5-9B — higher quality</option></select>
+        <p id="modelDetails"></p>
+        <p id="modelStatus" role="status" aria-live="polite">Checking device capabilities…</p>
+        <progress id="modelProgress" max="1" value="0" hidden aria-label="Model download progress"></progress>
+        <div class="model-actions">
+          <button type="button" id="downloadModel">Download model</button>
+          <button type="button" id="loadModel">Load model</button>
+          <button type="button" id="cancelModel" hidden>Cancel download</button>
+          <button type="button" id="repairModel">Verify / repair</button>
+          <button type="button" id="removeModel">Remove download</button>
+        </div>
+        <details><summary>Device and storage details</summary><pre id="modelDiagnostics"></pre><button type="button" id="persistModels">Keep models on this device</button></details>
+        <p class="hint-text">Models download from assets.privatelocal.chat. Local conversations stay on this device. Browser storage may be cleared; export important chats.</p>
+      </section>
+      <div id="apiSettings" hidden>
       <div class="form-group">
         <label for="endpointSelect">Quick-start endpoints</label>
         <select id="endpointSelect"></select>
@@ -1253,7 +1254,10 @@
           </button>
         </div>
       </div>
+      </div>
       <hr />
+      <p><a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">Source code</a> · <a href="https://github.com/JournalFoundation/privatelocalchat/issues/new/choose" target="_blank" rel="noopener">Feedback</a></p>
+      <p id="releaseInfo" class="hint-text"></p>
       <div class="threads-header">
         <h3>Chats</h3>
       </div>
@@ -1373,13 +1377,7 @@
           <span class="emoji-icon" aria-hidden="true">ℹ️</span>
         </button>
       </div>
-      <div class="migration-warning-banner" role="alert" aria-label="Migration warning">
-        <strong>⚠️ Important migration notice: cutover is April 30, 2026.</strong>
-        This site is being migrated to a different schema. Please export your chat history and settings before the
-        cutover date. If you want to keep using your existing chat data with this page, you can self-host the code
-        from
-        <a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">the project repository</a>.
-      </div>
+      <p id="generationStatus" role="status" aria-live="polite" hidden></p>
       <div id="chatNotice" class="chat-notice" role="status" aria-live="polite" hidden></div>
       <div
         id="authGuidance"
@@ -1412,6 +1410,7 @@
           <textarea id="messageInput" placeholder="Type your message" rows="3"></textarea>
           <div id="messageInputOverlay" class="message-input-overlay" aria-hidden="true"></div>
         </div>
+        <button type="button" id="stopGeneration" hidden>Stop generating</button>
         <button type="submit" id="sendBtn">
           <span class="emoji-icon" aria-hidden="true">📩</span>
           <span class="btn-label">Send</span>
@@ -1432,11 +1431,11 @@
         </button>
       </div>
       <div class="modal-body">
-        <p><strong>This is a single static HTML file.</strong> There is no backend, no database, and nothing on a server to capture your data. Your chats are stored in your browser.</p>
+        <p><strong>The app runs in your browser.</strong> Your chats are stored locally. On-device models generate locally; choosing an API provider sends conversation context to that provider.</p>
 
         <h3>How to run it anywhere</h3>
         <ul>
-          <li><strong>Desktop:</strong> Right-click → <em>Save Page As…</em>, then open the saved file.</li>
+          <li><strong>Desktop:</strong> Install this app from your browser, or bookmark it.</li>
           <li><strong>iPhone (Safari):</strong> Share → <em>Add to Home Screen</em>, or Share → <em>Save to Files</em>, then open it.</li>
         </ul>
 
@@ -1445,7 +1444,7 @@
           <li><code>localStorage</code>: chat threads and messages.</li>
           <li><code>sessionStorage</code>: settings (endpoint, token, model, theme) for the current session.</li>
         </ul>
-        <p>No network calls happen unless you set an API endpoint and press <em>Send</em> (or <em>Refresh model list</em>).</p>
+        <p>Model downloads require a connection. After installation, on-device chat can work offline. API mode uses your selected provider.</p>
 
         <div class="cta-row">
           <a id="jfSiteLink" class="cta-link" href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation.org</a>
@@ -2721,7 +2720,17 @@ const base64UrlEncode = value => {
        * before sending messages. This helper returns booleans representing those
        * conditions as well as an aggregate "ready" flag.
        */
+      let generationController = null;
+      let generationBusy = false;
+      window.addEventListener('local-model-state', () => updateChatAvailability());
+      document.getElementById('stopGeneration').addEventListener('click', () => generationController?.abort());
+
       function getChatState() {
+        if (window.localModels?.mode === 'local') {
+          const hasThread = Boolean(currentThread());
+          const hasModel = window.localModels.ready;
+          return { local: true, hasThread, hasEndpoint: true, hasModel, ready: hasThread && hasModel && !generationBusy };
+        }
         const thread = currentThread();
         const hasThread = Boolean(thread);
         const hasEndpoint = Boolean((config.endpoint || '').trim());
@@ -2730,7 +2739,7 @@ const base64UrlEncode = value => {
           hasThread,
           hasEndpoint,
           hasModel,
-          ready: hasThread && hasEndpoint && hasModel
+          ready: hasThread && hasEndpoint && hasModel && !generationBusy
         };
       }
 
@@ -2752,10 +2761,11 @@ const base64UrlEncode = value => {
       function updateChatNotice(state) {
         if (!chatNotice) return;
         const instructions = [];
+        if (state.local && !state.hasModel) instructions.push('Download and load an on-device model in Settings to chat.');
         if (!state.hasEndpoint) {
           instructions.push('Enter an API endpoint in Settings to send messages.');
         }
-        if (state.hasEndpoint && !state.hasModel) {
+        if (!state.local && state.hasEndpoint && !state.hasModel) {
           instructions.push('Refresh and select a model before chatting.');
         }
         if (!state.hasThread) {
@@ -2809,7 +2819,7 @@ const base64UrlEncode = value => {
           : !state.hasEndpoint
             ? 'Add an API endpoint to enable messaging'
             : !state.hasModel
-              ? 'Select a model to enable messaging'
+              ? (state.local ? 'Download and load a model in Settings' : 'Select a model to enable messaging')
               : 'Type your message';
         threadTitleInput.disabled = !state.hasThread;
         systemPromptInput.disabled = !state.hasThread;
@@ -3386,6 +3396,12 @@ const base64UrlEncode = value => {
           updateSendButtonDisabled(state.ready);
           return;
         }
+        generationBusy = true;
+        generationController = new AbortController();
+        document.getElementById('stopGeneration').hidden = false;
+        const generationStatus = document.getElementById('generationStatus');
+        generationStatus.hidden = false;
+        generationStatus.textContent = window.localModels?.mode === 'local' ? 'Generating on this device…' : 'Waiting for the API provider…';
         addMessage('user', message);
         messageInput.value = '';
         updateSendButtonDisabled(state.ready);
@@ -3397,12 +3413,14 @@ const base64UrlEncode = value => {
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
         try {
-          const reply = await sendToApi();
+          const reply = await sendToApi(generationController.signal);
           consecutiveAuthErrors = 0;
           updateAuthGuidance();
           addMessage('assistant', reply);
+          generationStatus.textContent = 'Reply complete.';
         } catch (err) {
           console.error(err);
+          generationStatus.textContent = err.name === 'AbortError' ? 'Generation stopped.' : 'Generation failed: ' + err.message;
           const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
           const systemMessage = buildAuthErrorMessage('Error: ' + errorText);
           addMessage('system', systemMessage);
@@ -3413,6 +3431,10 @@ const base64UrlEncode = value => {
           }
           updateAuthGuidance();
         } finally {
+          generationBusy = false;
+          generationController = null;
+          document.getElementById('stopGeneration').hidden = true;
+          updateChatAvailability();
           if (loadingIndicator.parentNode) {
             loadingIndicator.parentNode.removeChild(loadingIndicator);
           }
@@ -3424,7 +3446,14 @@ const base64UrlEncode = value => {
        * model and thread messages. Throws if required fields are missing or
        * the response status is not ok.
        */
-      async function sendToApi() {
+      async function sendToApi(signal) {
+        if (window.localModels?.mode === 'local') {
+          const thread = currentThread();
+          const messages = thread.systemPrompt?.trim() ? [{role:'system', content:thread.systemPrompt.trim()}, ...thread.messages] : [...thread.messages];
+          return window.localModels.generate(messages, {signal, onToken: text => {
+            document.getElementById('generationStatus').textContent = 'Generating on this device… ' + text;
+          }});
+        }
         if (!config.endpoint) {
           throw new Error('Endpoint is not configured.');
         }
@@ -3461,7 +3490,8 @@ const base64UrlEncode = value => {
         const response = await fetch(chatEndpoint, {
           method: 'POST',
           headers,
-          body: JSON.stringify(body)
+          body: JSON.stringify(body),
+          signal
         });
         if (!response.ok) {
           const error = new Error('API responded with status ' + response.status);
@@ -3557,6 +3587,7 @@ const base64UrlEncode = value => {
        * @param {object} opts silent: when true suppresses alert messages
        */
       async function refreshModels({ silent } = {}) {
+        if (window.localModels?.mode !== "api") return;
         const endpoint = endpointInput.value.trim() || config.endpoint;
         if (!endpoint) {
           if (!silent) {
