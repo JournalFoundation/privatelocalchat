@@ -11,6 +11,7 @@
 //   * token path uses a hand-written iterator, not `for await` (Safari 27.0 async-generator crash).
 import { createThinkFilter } from "../think.mjs";
 import { compareInventory, planInstall, createRateTracker, hex } from "../verify.mjs";
+import {retryDownload} from '../download-retry.mjs';
 
 const WEBLLM_URL = new URL("../vendor/webllm/web-llm-0.2.86.js", import.meta.url).href;
 const SCOPES = ["webllm/model", "webllm/config", "webllm/wasm"];
@@ -123,10 +124,13 @@ async function install({ files, parallel = 3, verifyHash = true, deep = false },
   await mapLimit(plan.todo, parallel, async (f) => {
     if (signal?.aborted) throw Object.assign(new Error("cancelled"), { name: "AbortError" });
     active.add(f.path);
+    await retryDownload(async()=>{
     let mine = 0;
+    report();
     try {
       await downloadOne(f, { signal, verifyHash, onBytes: (b) => { mine += b; fetched += b; const t = performance.now(); if (t - last > 400) { last = t; report(); } } });
     } catch (e) { fetched -= mine; throw e; } // a failed file leaves nothing behind and is not counted
+    },{signal,onRetry:extra=>{rate.reset();report(extra);}});
     active.delete(f.path); filesDone++; report();
   });
   const after = await inspect({ files }, { signal });

@@ -56,3 +56,10 @@ keeping the full 4096-token context. The real-GPU comparison in
 the non-flash-attention graph selected by the phone: compute reservation falls from
 94.01 MiB to 5.88 MiB and three retained turns pass. This is a resource reduction;
 iPhone startup and second-turn restart acceptance remains open until device verification.
+
+Downloads now retry recoverable network/HTTP and integrity failures per file, with
+three automatic retries after 1, 2 and 4 seconds. Verified files remain on disk;
+Cancel interrupts backoff. Permanent HTTP, quota, permission and memory failures
+remain actionable failures. Installer tests simulate a partial failed shard and prove
+that only that shard is fetched again, its checksum passes and progress is accurate.
+Model loading and generation do not automatically retry.

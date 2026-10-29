@@ -34,6 +34,7 @@ function render(s) {
   else if(s.lastError) showError(s.lastError);
   else if(s.load.state==='ready') $('modelStatus').textContent='Ready — replies run on this device.';
   else $('modelStatus').textContent=item.install.ok?'Model files are downloaded. Load the model into memory for this page session.':`Download: ${item.install.state}. Model: ${s.load.state}.`;
+  if(s.busy&&t?.phase==='retry-wait') $('modelStatus').textContent+=` · Retrying download ${t.retryAttempt}/${t.retryLimit} in ${t.retryDelayMs/1000}s. Saved files are kept.`;
   const ready=s.load.state==='ready';
   const supported=!!env?.webgpu.available && (tier!=='light'||env.webgpu.shaderF16);
   if(env&&!supported&&!s.busy) showError(new Error(tier==='light'?'The 2B runtime needs GPU shader-f16 support. This browser does not expose it. Choose the 9B model if this device has enough memory, or explicitly choose API mode.':'WebGPU is unavailable in this browser.'));
