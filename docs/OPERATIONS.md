@@ -21,3 +21,17 @@ In Cloudflare **Workers & Pages**, select the affected project, open **Deploymen
 For a source-controlled rollback, use `git revert` on the faulty commit and push the same branch. Confirm the resulting Actions job succeeds and `/version.json` identifies the revert commit. Model URLs remain available across rollbacks. Browser data keys are unchanged; do not clear site storage to roll back.
 
 Check both app domains, canonical redirects, version identity, offline app installation, model installation/load, local generation, and feedback links after a release. A successful upload alone does not prove model inference works.
+
+## Browser acceptance
+
+Run `node scripts/browser-acceptance.mjs` after installing Playwright's browser or setting
+`CHROME_EXECUTABLE`. `PROOF_ORIGIN` selects the site, `BROWSER_PROOF_MODEL=9b` selects the quality
+model, `BROWSER_PROOF_PROFILE` chooses a dedicated persistent test profile, and `BROWSER_ARGS`
+accepts a JSON array of browser launch flags. Receipts are written under ignored `work/evidence/`.
+The test performs real model downloads and generation, including interruption/resumption, offline
+generation, and offline reopening. It can transfer several gigabytes.
+
+On the tested Linux NVIDIA setup the 2B runtime needs the browser's optional shader-f16 support
+enabled; see `docs/evidence/desktop-environment.json`. This is a test-environment requirement, not
+a promise that every Linux browser exposes that feature. The application refuses the unsupported
+2B path instead of falling back to an API.
