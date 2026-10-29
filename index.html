@@ -2836,7 +2836,7 @@ const base64UrlEncode = value => {
         }
         // Disable input when not ready, but leave the value alone.
         messageInput.disabled = !state.ready;
-        if (state.ready) {
+        if (state.ready || generationBusy) {
           messageForm.classList.remove('disabled');
           messageForm.setAttribute('aria-disabled', 'false');
         } else {
