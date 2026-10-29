@@ -44,3 +44,8 @@ host code, Actions and public feedback forms. Serving the app and models require
 Run `node scripts/browser-cancellation.mjs` using the same browser environment variables and an
 installed 2B model profile to verify stopping streamed output and sending another message. The
 complete release gate status and unresolved device failures are in `docs/ACCEPTANCE.md`.
+
+Use a dedicated browser profile with diagnostics disabled for the acceptance harness.
+It creates a test conversation, generates online and offline, closes the whole browser,
+and reopens the same profile offline to load the model and generate again. Model files
+remain cached. Receipts and screenshots are written under `work/evidence/`.
