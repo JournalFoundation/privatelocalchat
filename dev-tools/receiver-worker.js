@@ -22,13 +22,13 @@ export default {
    if(admin&&request.method==='GET'){
     if(!authorized(request,env))return json({error:'Unauthorized'},401);
     const id=admin[1];if(!uuid.test(id))return json({error:'Invalid session'},400);
-    const events=new Map();let cursor;
-    do{
-     const listed=await env.DEBUG_LOGS.list({prefix:'events/'+id+'/',limit:200,cursor});
-     for(const item of listed.objects){const object=await env.DEBUG_LOGS.get(item.key);const batch=await object.json();for(const event of batch.events)events.set(event.id,event);}
-     cursor=listed.truncated?listed.cursor:undefined;
-    }while(cursor&&events.size<10000);
-    return json({id,events:[...events.values()].sort((a,b)=>a.at.localeCompare(b.at))});
+    const events=new Map();
+    const listed=await env.DEBUG_LOGS.list({prefix:'events/'+id+'/',limit:100,cursor:url.searchParams.get('cursor')||undefined});
+    for(let offset=0;offset<listed.objects.length;offset+=10){
+     const batches=await Promise.all(listed.objects.slice(offset,offset+10).map(async item=>{const object=await env.DEBUG_LOGS.get(item.key);return object?object.json():null;}));
+     for(const batch of batches)for(const event of batch?.events||[])events.set(event.id,event);
+    }
+    return json({id,events:[...events.values()].sort((a,b)=>a.at.localeCompare(b.at)),cursor:listed.truncated?listed.cursor:null});
    }
    const match=/^\/api\/debug\/([a-f0-9-]+)$/.exec(url.pathname);
    if(!match||request.method!=='POST'||!uuid.test(match[1]))return json({error:'Not found'},404,origin);
