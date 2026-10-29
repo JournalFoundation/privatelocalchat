@@ -51,3 +51,8 @@ Source counters can be historical after release; interpret them alongside releas
 Use `operator-session.py read --recent` for the newest bounded stream window during live
 testing. Full reads follow all historical pages. Timestamp-ordered batch keys keep recent
 reads independent of session length; retrying an identical batch overwrites the same object.
+
+The desktop receipt in `docs/evidence/dev-native-journal.json` records real inference,
+forced renderer-crash recovery and a live receiver acknowledgement. It also confirms zero
+retained model-source handles and late reads after release, with one bounded native
+checkpoint. Those findings apply to the tested desktop run, not an iPhone reliability claim.
