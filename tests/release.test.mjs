@@ -36,3 +36,9 @@ test('deployment branches have separate projects and deployment follows validati
  assert.ok(ci.indexOf('run: npm test')<ci.indexOf('npx wrangler pages deploy'));
  assert.match(ci,/cancel-in-progress: false/);assert.match(ci,/Skipping superseded commit/);
 });
+
+test('offline navigation responses discard redirect metadata',async()=>{
+ const sw=await readFile('scripts/service-worker.js','utf8');
+ assert.match(sw,/cache.put\(url,new Response\(response.body/);
+ assert.match(sw,/new Response\(saved.body,\{status:200,headers:saved.headers\}\)/);
+});

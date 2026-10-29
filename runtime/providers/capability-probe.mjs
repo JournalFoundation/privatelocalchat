@@ -20,7 +20,10 @@ export async function gatherEnv(nav = globalThis.navigator) {
   } catch (e) { env.webgpu = { available: false, reason: `requestAdapter threw: ${e?.message || e}` }; }
   try { const e = await nav?.storage?.estimate?.(); env.storage = e ? { usage: e.usage ?? null, quota: e.quota ?? null } : null; } catch (e) { env.storage = { error: String(e?.message || e) }; }
   if (typeof globalThis.performance?.measureUserAgentSpecificMemory === "function") {
-    try { env.userAgentMemory = (await performance.measureUserAgentSpecificMemory()).bytes; } catch (e) { env.userAgentMemory = `refused: ${e?.message || e}`; }
+    env.userAgentMemory = "measurement pending";
+    const reading = performance.measureUserAgentSpecificMemory().then(result => { env.userAgentMemory = result.bytes; }, error => { env.userAgentMemory = `refused: ${error?.message || error}`; });
+    // This optional observation may wait for a browser GC cycle. It must not block model controls.
+    await Promise.race([reading, new Promise(resolve => setTimeout(resolve, 1000))]);
   }
   return env;
 }
