@@ -44,6 +44,7 @@ export function createModelHost({
   let lastEmit = 0; let emitTimer = null;
 
   const state = {
+    device: null,
     selection: { tier: "light", chosenBy: "default", reason: DEFAULT_REASON, at: null },
     notices: [],
     source: { label: src.label, overridden: src.overridden },
@@ -90,6 +91,7 @@ export function createModelHost({
   }
   async function chooseVariantFromGpu() {
     let env; try { env = await envProbe(); } catch (e) { notice("probe", `Could not read the GPU's capabilities (${e?.message || e}); using the ${DEFAULT_VARIANT} build.`); return; }
+    state.device = env;
     const v = chooseWebllmVariant(env);
     if (v === null) { state.variant = { chosen: variant, why: `no WebGPU adapter (${env.webgpu?.reason || "unknown"}); loading will fail with a clear error` }; return; }
     applyVariant(v, v === "q4f16_1" ? "this GPU supports shader-f16" : "this GPU has no shader-f16, so the f32 build is used");

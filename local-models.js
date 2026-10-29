@@ -25,6 +25,7 @@ function showError(error) {
 }
 function render(s) {
   state = s;
+  if(s.device) env=s.device;
   const tier=s.selection.tier, item=s.tiers[tier], t=s.transfer;
   $('localModelSelect').value=tier;
   $('modelDetails').textContent=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':'Smaller model; lower memory use.');
