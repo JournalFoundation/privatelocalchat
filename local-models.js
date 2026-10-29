@@ -80,8 +80,6 @@ $('releaseInfo').textContent=`${window.APP_BUILD?.environment || 'local'} · ${w
 applyMode();
 try {
   env=await gatherEnv();
-  // Fresh installs start with the smaller model. Existing explicit choices survive.
-  if(!localStorage.getItem('plc.models.v1')) localStorage.setItem('plc.models.v1',JSON.stringify({tier:'light',chosenBy:'human',at:Date.now()}));
   host.subscribe(render);
   await host.init({autoLoad:false});
   if(!env.webgpu.available) showError(new Error('This runtime needs WebGPU. Update your browser or explicitly choose API mode.'));

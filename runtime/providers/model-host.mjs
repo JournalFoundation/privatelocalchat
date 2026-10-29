@@ -21,7 +21,7 @@ import { classifyEngineError } from "./errors.mjs";
 
 const SETTINGS_KEY = "plc.models.v1";
 
-const DEFAULT_REASON = "Default: the quality model, Qwen3.5-9B (the owner's decision, DECISIONS 65). It enforces structured output with a grammar. The build (q4f16_1 or q4f32_1) follows what this GPU supports.";
+const DEFAULT_REASON = "The smaller Qwen3.5-2B model is the starting choice. Select the quality model if this device supports it.";
 
 export function createModelHost({
   workerUrl = new URL("./host.worker.mjs", import.meta.url).href,
@@ -44,7 +44,7 @@ export function createModelHost({
   let lastEmit = 0; let emitTimer = null;
 
   const state = {
-    selection: { tier: "default", chosenBy: "default", reason: DEFAULT_REASON, at: null },
+    selection: { tier: "light", chosenBy: "default", reason: DEFAULT_REASON, at: null },
     notices: [],
     source: { label: src.label, overridden: src.overridden },
     variant: { chosen: DEFAULT_VARIANT, why: "default build until the GPU is probed" },
@@ -77,7 +77,7 @@ export function createModelHost({
   function reasonFor(tier, at) {
     const when = at ? ` on ${new Date(at).toLocaleString()}` : "";
     return tier === "light"
-      ? `Light tier, chosen by you${when}. It is smaller and quicker to load, but it is not grammar constrained and it did not decline when nothing fit.`
+      ? `Light tier, chosen by you${when}. It uses less memory than the quality model.`
       : `Quality tier, chosen by you${when}.`;
   }
 
