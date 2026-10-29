@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/JournalFoundation/privatelocalchat/compare/v0.3.1...v0.4.0) (2026-10-29)
+
+
+### Features
+
+* add GitHub feedback forms and an in-app link ([#49](https://github.com/JournalFoundation/privatelocalchat/issues/49)) ([2bb3940](https://github.com/JournalFoundation/privatelocalchat/commit/2bb394021f8cbf4ce80b76fc093e6a1ddd8bd48c))
+
 ## [0.3.1](https://github.com/JournalFoundation/privatelocalchat/compare/v0.3.0...v0.3.1) (2025-11-04)
 
 
