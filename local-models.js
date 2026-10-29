@@ -46,6 +46,7 @@ function render(s) {
   $('removeModel').disabled=Boolean(s.busy)||activeGeneration;
   $('localModelSelect').disabled=Boolean(s.busy)||activeGeneration;
   $('inferenceMode').disabled=Boolean(s.busy)||activeGeneration;
+  $('reloadApp').disabled=Boolean(s.busy)||activeGeneration;
   $('cancelModel').hidden=!['install','repair'].includes(s.busy);
   const quality=$('localModelSelect').querySelector('[value="default"]');
   quality.disabled=!env?.webgpu.available || (env.deviceMemoryGB !== null && env.deviceMemoryGB < 8) || /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
@@ -79,6 +80,8 @@ window.localModels={
     } catch(e) {saveGeneration({...receipt,completedAt:new Date().toISOString(),result:e.name==='AbortError'?'cancelled':'failed',error:e.message});throw e;} finally {activeGeneration=false;render(host.getState());}
   }
 };
+$('reloadApp').addEventListener('click',()=>{try {sessionStorage.setItem('plc.draft',document.querySelector('#messageInput').value);location.reload();}catch(e){showError(new Error('Copy your message draft before reloading; browser storage is unavailable.'));}});
+try {const draft=sessionStorage.getItem('plc.draft');if(draft){document.querySelector('#messageInput').value=draft;sessionStorage.removeItem('plc.draft');}} catch {}
 $('copyModelReport').addEventListener('click',()=>{
   const report={format:'privatelocalchat-diagnostic/1',at:new Date().toISOString(),build:window.APP_BUILD,userAgent:navigator.userAgent,capability:env,selection:state?.selection,installation:state?.tiers[state.selection.tier].install,load:state?.load,generations};
   navigator.clipboard.writeText(JSON.stringify(report,null,2)).then(()=>{$('modelStatus').textContent='Diagnostic report copied. It contains no conversations or API credentials.';},()=>showError(new Error('Clipboard unavailable. Open Device and storage details to view diagnostics.')));
@@ -106,12 +109,19 @@ if('serviceWorker' in navigator) {
     if(!worker)return;
     const channel=new MessageChannel();
     channel.port1.onmessage=event=>{
-      $('offlineStatus').textContent=event.data.cache==='plc-shell-'+window.APP_BUILD.commit?'Offline app ready. Downloaded models can be loaded without a connection.':'An app update is installing. Stay online until offline setup is ready.';
+      const current=event.data.cache==='plc-shell-'+window.APP_BUILD.commit;
+      $('offlineStatus').textContent=current?'Offline app ready. Downloaded models can be loaded without a connection.':'An updated app is ready. Reload while online before the offline test.';
+      $('reloadApp').hidden=current;
       channel.port1.close();
     };
     worker.postMessage({type:'offline-status'},[channel.port2]);
   };
   navigator.serviceWorker.addEventListener('controllerchange',checkOffline);
-  navigator.serviceWorker.register('/sw.js').then(checkOffline).catch(e=>showError(new Error('Offline app setup failed: '+e.message)));
+  navigator.serviceWorker.register('/sw.js').then(registration=>{
+    const activate = worker=>worker?.postMessage({type:'activate-update'});
+    activate(registration.waiting);
+    registration.addEventListener('updatefound',()=>{const worker=registration.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed')activate(worker);});});
+    checkOffline();
+  }).catch(e=>showError(new Error('Offline app setup failed: '+e.message)));
 } else $('offlineStatus').textContent='This browser cannot install the app for offline use.';
 
