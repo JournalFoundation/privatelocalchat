@@ -7,6 +7,11 @@ const variants = {q4f16_1:'c7c5d3f5a81e37b8facbb72970940a1b131314a8',q4f32_1:'f8
 const webllm = Object.fromEntries(Object.entries(variants).map(([v,r]) => [v,base+'Qwen3.5-9B-'+v+'-MLC/resolve/'+r+'/']));
 const host = createModelHost({sources:{webllmModelBase:webllm,webllmLibBase:webllm,wllamaModelBase:base+'Qwen3.5-2B/15852e8c16360a2fea060d615a32b45270f8a8fc/'}});
 let state, env, activeGeneration = false;
+const reportKey = 'plc.diagnostic.generations.v1';
+let generations = [];
+try {generations=JSON.parse(localStorage.getItem(reportKey)||'[]');} catch {}
+const pageSession = crypto.randomUUID();
+const saveGeneration = entry => {generations.push(entry);generations=generations.slice(-10);localStorage.setItem(reportKey,JSON.stringify(generations));};
 const modeKey = 'plc.inferenceMode.v1';
 let existingApi = false;
 try {existingApi = Boolean(JSON.parse(sessionStorage.getItem('chatConfig') || '{}').endpoint);} catch {}
@@ -58,16 +63,22 @@ window.localModels={
   async generate(messages,{signal,onToken}={}) {
     if(mode!=='local'||state?.load.state!=='ready') throw new Error('Load an on-device model before sending.');
     activeGeneration=true; render(state);
+    const receipt={pageSession,startedAt:new Date().toISOString(),model:state.load.info?.modelId || state.selection.tier,browserReportedOnline:navigator.onLine,build:window.APP_BUILD};
     try {
       let streamed="";
       const call=host.provider().generate({attemptId:crypto.randomUUID(),messages:messages.filter(m=>m.role!=='system'||m.content).map(m=>({role:m.role,content:m.content})),maxTokens:512,temperature:0.6},{signal,onToken:ev=>{streamed+=ev.text;onToken?.(streamed);}});
       const end=await call.done;
       if(end.type==='attempt-aborted') throw new DOMException('Generation stopped.','AbortError');
       if(end.type!=='attempt-completed') throw Object.assign(new Error(end.error?.message || 'Model generation failed.'),end.error);
+      saveGeneration({...receipt,completedAt:new Date().toISOString(),result:"completed"});
       return end.text;
-    } finally {activeGeneration=false;render(host.getState());}
+    } catch(e) {saveGeneration({...receipt,completedAt:new Date().toISOString(),result:e.name==='AbortError'?'cancelled':'failed',error:e.message});throw e;} finally {activeGeneration=false;render(host.getState());}
   }
 };
+$('copyModelReport').addEventListener('click',()=>{
+  const report={format:'privatelocalchat-diagnostic/1',at:new Date().toISOString(),build:window.APP_BUILD,userAgent:navigator.userAgent,capability:env,selection:state?.selection,installation:state?.tiers[state.selection.tier].install,load:state?.load,generations};
+  navigator.clipboard.writeText(JSON.stringify(report,null,2)).then(()=>{$('modelStatus').textContent='Diagnostic report copied. It contains no conversations or API credentials.';},()=>showError(new Error('Clipboard unavailable. Open Device and storage details to view diagnostics.')));
+});
 $('inferenceMode').addEventListener('change',()=>{mode=$('inferenceMode').value;applyMode();});
 $('localModelSelect').addEventListener('change',()=>action(()=>host.selectTier($('localModelSelect').value,{confirmed:true})));
 $('downloadModel').addEventListener('click',()=>action(()=>host.install()));
