@@ -557,3 +557,15 @@ out. The device sampler last saw WebContent PID 574 at 15:49:44 UTC, with a samp
 footprint of 1,969 MiB; it disappeared from later samples. PID attribution and the operating
 system's reason have not been established, so this is evidence of a high-memory process
 vanishing near the failure, not proof of a particular jetsam event. The phone test remains open.
+
+The captured native logs show that both the successful `663646db` load and the later failed
+`5fc35bb` load reached full 25-layer GPU offload and reported a 1,136.33 MiB model buffer.
+The successful run recorded two generation completions at 15:43:23 and 15:44:15 UTC. The
+matching reported buffer size does not establish equal total process memory or the cause of
+the later process disappearance.
+
+Both live domains at `5fc35bb` passed desktop Chromium smoke checks using the light model on
+Centroid's 8 GB GPU: online generation, offline generation, and a full browser reopen while
+offline followed by another reply. Development produced no page errors or unexpected
+requests. The production and development releases use different native artifacts, and neither
+of these desktop results proves the current production artifact on iPhone.
