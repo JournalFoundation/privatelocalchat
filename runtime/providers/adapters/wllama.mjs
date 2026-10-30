@@ -7,9 +7,12 @@
 // immutable manifest); load() refuses with not-installed / cache-corrupt; no grammar exists in this build, so a structured request is
 // ANSWERED BY VALIDATION: the host checks the finished text against the schema and a miss is attempt-failed (output-invalid), never repaired.
 // The adapter does not rewrite the mind's prompt: the mind must put the schema instruction in the prompt itself.
-import { compareInventory, planInstall, createRateTracker, hex } from "../verify.mjs";
+import { compareInventory, planInstall, createRateTracker } from "../verify.mjs";
+import {sha256OfBlob} from '../hash-blob.mjs';
+import {shutdownNativeRuntime} from '../native-shutdown.mjs';
 import { preflight as webgpuPreflight } from "./webgpu.mjs";
 import {retryDownload} from '../download-retry.mjs';
+import {writeOpfsStream} from '../opfs-stream-writer.mjs';
 export async function preflight() {
   await webgpuPreflight();
   const adapter=await navigator.gpu.requestAdapter();
@@ -29,6 +32,10 @@ async function cacheManagerFor(runtimeDir) {
   if (!w) {
     const { base, Wllama } = await openRuntime(runtimeDir);
     w = new Wllama({ default: base + "default.wasm", "single-thread/wllama.wasm": base + "default.wasm" }, { useMultiThread: false, allowOffline: true, logger: { debug() {}, log() {}, warn() {}, error() {} } });
+    // Keep the pinned cache keys/metadata while owning failure-safe writer cleanup.
+    // The vendored writer can retain a Worker when opening or closing a file rejects.
+    const backend=w.cacheManager.sb.priv;
+    backend.write=(key,stream)=>writeOpfsStream(key,stream);
     wllamaCache.set(runtimeDir, w);
   }
   return w.cacheManager;
@@ -55,8 +62,6 @@ async function inspect({ files, runtimeDir }) {
   return { ...inv, partialNoMetadata: noMeta, ms: Math.round(performance.now() - t0), engine: "wllama", where: "OPFS (wllama cache)" };
 }
 
-async function sha256OfBlob(blob) { return hex(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())); }
-
 async function verify({ files, runtimeDir, deep = false }, hooks = {}) {
   const inv = await inspect({ files, runtimeDir });
   if (!deep) return { ...inv, deep: false, hashMismatch: [] };
@@ -65,7 +70,7 @@ async function verify({ files, runtimeDir, deep = false }, hooks = {}) {
     if (hooks.signal?.aborted) throw Object.assign(new Error("cancelled"), { name: "AbortError" });
     if (inv.missing.includes(f.path) || inv.bad.some((b) => b.path === f.path)) continue;
     const blob = await cm.open(f.url); if (!blob) { hashMismatch.push({ path: f.path, why: "unreadable" }); continue; }
-    const got = await sha256OfBlob(blob);
+    const got = await sha256OfBlob(blob,{signal:hooks.signal});
     if (f.sha256 && got !== f.sha256) hashMismatch.push({ path: f.path, want: f.sha256, got, why: "sha256" });
     hooks.onProgress?.({ phase: "hash", filesDone: ++done, filesTotal: files.length });
   }
@@ -103,7 +108,7 @@ async function install({ files, runtimeDir, verifyHash = true, deep = false }, {
       if (size !== f.bytes || (m && m.originalSize && m.originalSize !== f.bytes)) throw Object.assign(new Error(`download size mismatch for ${f.path}: stored ${size} bytes, the catalogue says ${f.bytes}`), { code: "cache-corrupt" });
       if (verifyHash && f.sha256) {
         const blob = await cm.open(f.url);
-        const got = blob ? await sha256OfBlob(blob) : "unreadable";
+        const got = blob ? await sha256OfBlob(blob,{signal}) : "unreadable";
         if (got !== f.sha256) throw Object.assign(new Error(`checksum mismatch for ${f.path}: sha256 ${got}, the catalogue says ${f.sha256}`), { code: "cache-corrupt" });
       }
     } catch (e) {
@@ -151,6 +156,13 @@ export class WllamaAdapter {
     const res = this.w.getWorkerResources();
     if ((rt.cls === "compat") !== (res.compat === true)) throw new Error(`runtime class mismatch: wanted ${rt.cls}, got compat=${res.compat}`);
     const k = cfg.knobs || {};
+    /* DEV_DIAGNOSTICS_START */
+    if(k.devDiagnostics){
+      this.w.setLifecycleListener?.(event=>onProgress?.({phase:'native-'+event.phase}));
+      this.w.setLedgerListener?.(event=>onProgress?.({phase:'native-ledger',memory:event}));
+      if(k.devDiagnosticsDisk)this.w.enableFlightRecorder?.(crypto.getRandomValues(new Uint8Array(16)));
+    }
+    /* DEV_DIAGNOSTICS_END */
     if (k.initialMemoryMiB) this.w.setFlightKnobs?.({ initialMemoryMiB: k.initialMemoryMiB });
     if (k.offloadTiedEmbedding) this.w.enableTiedEmbeddingOffload?.({ schemaField: true });
     if (k.progressiveSourceRelease) this.w.enableProgressiveSourceRelease?.({ recycleWindowBytes: k.recycleWindowBytes || 0 });
@@ -169,7 +181,7 @@ export class WllamaAdapter {
       n_ctx: c.n_ctx ?? 4096, n_batch: c.n_batch, n_ubatch: c.n_ubatch, n_threads: 1, n_parallel: 1,
       cache_type_k: c.cache_type_k ?? "f16", cache_type_v: c.cache_type_v ?? "f16",
       flash_attn_policy: c.flash_attn_policy, fused_gdn_auto: c.fused_gdn_auto, fused_gdn_ar: c.fused_gdn_ar, fused_gdn_ch: c.fused_gdn_ch,
-      sched_max_splits_hint: c.sched_max_splits_hint, ctx_checkpoints: c.ctx_checkpoints, checkpoint_every_n_tokens: c.checkpoint_every_n_tokens, checkpoint_clear_policy: c.checkpoint_clear_policy, jinja: c.jinja ?? true, reasoning: false, reasoning_budget_tokens: 0, n_gpu_layers: -1,
+      sched_max_splits_hint: c.sched_max_splits_hint, ctx_checkpoints: c.ctx_checkpoints, checkpoint_every_n_tokens: c.checkpoint_every_n_tokens, checkpoint_clear_policy: c.checkpoint_clear_policy, jinja: c.jinja ?? true, reasoning: false, reasoning_budget_tokens: 0, n_gpu_layers: c.n_gpu_layers ?? -1,
       no_kv_offload: false, cache_idle_slots: false, warmup: c.warmup ?? false, useCache: true, parallelDownloads: 1,
       progressCallback: () => {}
     });
@@ -178,9 +190,11 @@ export class WllamaAdapter {
       error.message += ' ' + this.nativeLines.slice(-4).join(' | ');
       throw error;
     }
+    onProgress?.({phase:"construct-returned"});
     timings.constructMs = Math.round(performance.now() - tCons0);
     if (k.progressiveSourceRelease) { try { this.w.releaseModelSource?.(); } catch (e) { this._native([`releaseModelSource failed: ${e?.message || e}`]); } }
 
+    onProgress?.({phase:"source-released"});
     const ctx = this.w.getLoadedContextInfo();
     const meta = ctx.metadata || {};
     this.info = {
@@ -193,7 +207,9 @@ export class WllamaAdapter {
         contextWindowTokens: ctx.n_ctx, maxOutputTokens: 1024
       }
     };
+    onProgress?.({phase:"context-ready"});
     this.info.runtimeMemory = await this._mem();
+    onProgress?.({phase:"memory-ready"});
     return this.info;
   }
 
@@ -209,6 +225,16 @@ export class WllamaAdapter {
     };
     if (s.repetitionPenalty) params.repeat_penalty = s.repetitionPenalty;
     if (req.stop?.length) params.stop = req.stop;
+    /* DEV_DIAGNOSTICS_START */
+    let debugChunks=0,debugCompleted=false;
+    const debugFence=async(op,edge)=>{
+      if(!this.cfg?.knobs?.devDiagnosticsDisk)return;
+      try{await this.w.flightMark(10,op,edge,debugChunks,0);}catch(error){this._native(['Development generation checkpoint unavailable: '+error.name]);}
+    };
+    await debugFence(1,1);
+    if(req.debugCapture&&this.cfg?.knobs?.devDiagnostics)emit({diagnostic:{kind:'native-request',object:{...params,abortSignal:{aborted:signal?.aborted===true}}}});
+    try {
+    /* DEV_DIAGNOSTICS_END */
     const gen = await this.w.createChatCompletion(params);
     let usage = null; let finish = null; let timings = null;
     // the runtime's iterator is a down-levelled hand-written one; consumed with next() like every other token path here
@@ -216,9 +242,18 @@ export class WllamaAdapter {
     for (;;) {
       const { value: chunk, done } = await it.next();
       if (done) break;
+      /* DEV_DIAGNOSTICS_START */
+      if(req.debugCapture&&this.cfg?.knobs?.devDiagnostics)emit({diagnostic:{kind:'native-chunk',object:chunk}});
+      /* DEV_DIAGNOSTICS_END */
       const choice = chunk?.choices?.[0];
       const delta = choice?.delta?.content ?? choice?.text ?? "";
-      if (delta) emit({ delta });
+      if (delta) {
+        emit({ delta });
+        /* DEV_DIAGNOSTICS_START */
+        debugChunks++;
+        if([1,16,64,128,256,512].includes(debugChunks))await debugFence(2,2);
+        /* DEV_DIAGNOSTICS_END */
+      }
       if (choice?.finish_reason) finish = choice.finish_reason;
       if (chunk?.usage) usage = chunk.usage;
       if (chunk?.timings) timings = chunk.timings;
@@ -231,6 +266,10 @@ export class WllamaAdapter {
       },
       finish: finish === "length" ? "length" : "stop"
     });
+    /* DEV_DIAGNOSTICS_START */
+    debugCompleted=true;
+    } finally {await debugFence(debugCompleted?3:4,signal?.aborted?3:2);}
+    /* DEV_DIAGNOSTICS_END */
   }
 
   _diagUsage() {
@@ -240,10 +279,13 @@ export class WllamaAdapter {
   }
 
   async stats() {
+    /* DEV_DIAGNOSTICS_START */
+    if(this.cfg?.knobs?.devDiagnostics)return {runtimeMemory:await this._mem(),sourceCounters:this.w?.getModelSourceCounters?.(),lastGenerationDiagnostics:this.w?.getLastGenerationDiagnostics?.(),nativeLinesSample:this.nativeLines?.slice(-40)??[],info:this.info};
+    /* DEV_DIAGNOSTICS_END */
     return { runtimeMemory: await this._mem(), lastGenerationDiagnostics: this.w?.getLastGenerationDiagnostics?.() ?? null, nativeLinesSample: this.nativeLines?.slice(-40) ?? [], info: this.info };
   }
 
   async unload() {
-    try { await this.w?.exit(); } finally { this.w = null; }
+    try { return await shutdownNativeRuntime(this.w); } finally { this.w = null; }
   }
 }

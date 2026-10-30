@@ -1,7 +1,12 @@
 # Release acceptance
 
-The migration remains **in progress** because the real iPhone path has an unresolved abrupt
-page restart. Hosting and desktop inference are verified; they do not close the device gate.
+The migration remains **in progress** because iPhone release qualification is incomplete.
+A full-GPU development control survived retained long replies but failed a later page/model cycle. Offline recovery and
+qualification of the clean production artifact remain open. Hosting and desktop inference
+are verified; they do not close the device gate.
+
+The [living iPhone investigation plan](IPHONE-INVESTIGATION.md) tracks the current evidence,
+prioritized experiments, and decisions. Its laboratory compiler controls do not close this device gate.
 
 | Requirement | Current evidence | Result |
 | --- | --- | --- |
@@ -77,3 +82,28 @@ pinned native bytes. See [the candidate receipt](evidence/production-queue-candi
 The service-worker status probe now retains the active channel and ignores stale
 controller replies; registration starts before model initialization. iPhone validation
 and production promotion remain pending.
+
+## Latest investigation status
+
+The compiler-control phone trial completed a 211-native-token reply without an observed restart,
+but this was not a matched-prompt comparison or a complete device gate. Development now has
+full request/chunk/result capture and bounded two-way controls, including remote download and
+cancellation. A live normal Mac Safari session completed 512 native tokens with exact stream
+reconstruction. Later USB phone trials encountered real APFS ENOSPC; temporary test models
+were removed and the user cleared storage. A subsequent complete download reached native
+construction but hit the kernel's explicit 2 GB per-process limit. A separate full-GPU control
+completed 12 replies including three 512-token responses, a streamed cancellation and recovery,
+and a bounded randomized-memory probe. See [the physical receipt](evidence/iphone-full-gpu-retained.json).
+Offline recovery and the clean production artifact still require device qualification.
+
+A clean production compiler candidate passed independently attested 7/28/512-token output parity
+with its clean baseline. It is prepared only: the native selection used by production builds
+has not changed, and live main remains at its previous deployment. Qualified runtime mitigation
+and the exclusion of development machinery must both survive a future source promotion.
+Neither this candidate nor the desktop control checks closes the physical device requirement.
+
+A fresh page on `436f001` verified the entire cached model and completed loading and a short
+reply, but the same Safari process hit its fatal 2 GB limit during a subsequent prompt.
+See [the lifecycle failure](evidence/iphone-current-build-reload-limit.json). The retained pass
+is preserved as evidence, not treated as release qualification. Bounded native cleanup is
+the next control; production remains unchanged.

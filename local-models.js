@@ -8,7 +8,12 @@ const base = 'https://assets.privatelocal.chat/models/';
 const variants = {q4f16_1:'c7c5d3f5a81e37b8facbb72970940a1b131314a8',q4f32_1:'f8f042bfb68cb88573af4c8e0ef9b1a26bef4ad0'};
 const webllm = Object.fromEntries(Object.entries(variants).map(([v,r]) => [v,base+'Qwen3.5-9B-'+v+'-MLC/resolve/'+r+'/']));
 const host = createModelHost({sources:{webllmModelBase:webllm,webllmLibBase:webllm,wllamaModelBase:base+'Qwen3.5-2B/15852e8c16360a2fea060d615a32b45270f8a8fc/'}});
-
+/* DEV_DIAGNOSTICS_START */
+window.__plcDebugModelHost=host;
+let diagnosticsStarted;
+const diagnosticsReady=new Promise(resolve=>{diagnosticsStarted=resolve;});
+window.__plcDiagnosticsStarted=diagnosticsStarted;
+/* DEV_DIAGNOSTICS_END */
 let state, env, downloadRecovery, activeGeneration = false;
 let resetPromptAfterAbort=false;
 const modeKey = 'plc.inferenceMode.v1';
@@ -69,10 +74,29 @@ function applyMode() {
 }
 async function action(fn) {try {await fn();} catch(e) {showError(e);} }
 downloadRecovery=createDownloadRecovery({host,
-
+/* DEV_DIAGNOSTICS_START */
+ beforeLoad:()=>new Promise(resolve=>{const timeout=setTimeout(resolve,5000);diagnosticsReady.then(()=>{clearTimeout(timeout);resolve();});}),
+/* DEV_DIAGNOSTICS_END */
  onState:detail=>{if(state)render(host.getState());
-
+/* DEV_DIAGNOSTICS_START */
+ window.dispatchEvent(new CustomEvent('download-recovery',{detail}));
+/* DEV_DIAGNOSTICS_END */
  }});
+/* DEV_DIAGNOSTICS_START */
+window.__plcDebugDownloadControl = action => {
+  if (action === 'cancel-download') {
+    const cancelled = downloadRecovery.state.pending;
+    if (cancelled) downloadRecovery.cancel();
+    return {cancelled,recovery:downloadRecovery.state};
+  }
+  if (action !== 'download' || mode !== 'local' || activeGeneration) throw new Error('Model downloading is unavailable now');
+  const current = host.getState();
+  if (current.tiers[current.selection.tier].install.ok) return {requested:false,installed:true,recovery:downloadRecovery.state};
+  if (current.busy && !downloadRecovery.state.pending) throw new Error('A model operation is already running');
+  downloadRecovery.start(current.selection.tier);
+  return {requested:true,installed:false,recovery:downloadRecovery.state};
+};
+/* DEV_DIAGNOSTICS_END */
 window.addEventListener('online',()=>downloadRecovery.wake());
 window.addEventListener('pageshow',()=>downloadRecovery.synchronize());
 window.addEventListener('storage',event=>{if(event.key==='plc.downloadIntent.v1')downloadRecovery.synchronize();});

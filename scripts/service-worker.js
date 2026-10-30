@@ -1,5 +1,7 @@
 const CACHE=__CACHE_NAME__;
-const SHELL=__SHELL_FILES__;
+const DEVELOPMENT_NATIVE=__DEVELOPMENT_NATIVE__;
+const SHELL=__SHELL_FILES__.filter(file=>location.hostname==='dev.privatelocal.chat'||(!file.includes('/dev-tools/')&&(!DEVELOPMENT_NATIVE||!file.includes('/runtime/providers/vendor/wllama/v1q/'))));
+__DEV_OFFLINE_FAULT__
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   let i=0;
@@ -14,12 +16,19 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
 self.addEventListener('message',event=>{if(event.data?.type==='offline-status')event.ports[0]?.postMessage({cache:CACHE});if(event.data?.type==='activate-update')self.skipWaiting();});
 self.addEventListener('fetch',event=>{
  const url=new URL(event.request.url);
+ /* DEV_DIAGNOSTICS_START */
+ if(location.hostname==='dev.privatelocal.chat'){
+  event.respondWith((async()=>await developmentOfflineResponse(event,url)||normalResponse(event,url))());return;
+ }
+ /* DEV_DIAGNOSTICS_END */
  if(event.request.method!=='GET'||url.origin!==location.origin)return;
- event.respondWith((async()=>{
+ event.respondWith(normalResponse(event,url));
+});
+async function normalResponse(event,url){
+  if(event.request.method!=='GET'||url.origin!==location.origin)return fetch(event.request);
   const cache=await caches.open(CACHE);
   if(event.request.mode==='navigate'){
    try{return await fetch(event.request);}catch{const saved=await cache.match('/index.html');return saved?new Response(saved.body,{status:200,headers:saved.headers}):Response.error();}
   }
   return await caches.match(event.request)||fetch(event.request);
- })());
-});
+}
