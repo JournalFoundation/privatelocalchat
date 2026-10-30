@@ -337,3 +337,19 @@ A separate dev-only service-worker network-denial harness passed real HTTPS brow
 including denied CDN misses and diagnostic POSTs, cached navigation after worker restart,
 and restoration. Production build inspection confirms its removal. It changes neither radios
 nor `navigator.onLine`, so it cannot stand in for every airplane-mode behavior.
+
+### Automation storage cleanup prerequisite
+
+The next native-cleanup trial's preflight found only 964,079,616 immediately available bytes.
+Read-only Instruments listing confirmed that the closed prior automation namespace still
+contains all 13 model-file entries. Its last verified model size was 1,202,488,640 bytes;
+current sizes were unavailable through that API. A new session contains zero model bytes
+and its shell brought immediate headroom to 884,539,392 bytes. No new model download started.
+See the [retention receipt](evidence/iphone-automation-storage-retention.json).
+
+The newer CoreDevice filesystem service is unavailable on this device and House Arrest does
+not vend the Safari container. Normal browser data was not deleted. Request permission before
+restarting shared iPhone Safari because the user has another agent observing a different
+project there; a restart is a proposed reclamation attempt, not proven cleanup. Clear the
+new empty session's own caches before closing it and prevent another model copy until the
+retained test data is reclaimed. Do not ask the user to clear unrelated personal data.
