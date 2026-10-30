@@ -1,3 +1,4 @@
+import {createDownloadRecovery} from './runtime/download-recovery.mjs';
 import {createOfflineStatusProbe} from './runtime/offline-status.mjs';
 import {createModelHost} from './runtime/providers/model-host.mjs';
 import {gatherEnv} from './runtime/providers/capability-probe.mjs';
@@ -8,7 +9,7 @@ const variants = {q4f16_1:'c7c5d3f5a81e37b8facbb72970940a1b131314a8',q4f32_1:'f8
 const webllm = Object.fromEntries(Object.entries(variants).map(([v,r]) => [v,base+'Qwen3.5-9B-'+v+'-MLC/resolve/'+r+'/']));
 const host = createModelHost({sources:{webllmModelBase:webllm,webllmLibBase:webllm,wllamaModelBase:base+'Qwen3.5-2B/15852e8c16360a2fea060d615a32b45270f8a8fc/'}});
 
-let state, env, activeGeneration = false;
+let state, env, downloadRecovery, activeGeneration = false;
 let resetPromptAfterAbort=false;
 const modeKey = 'plc.inferenceMode.v1';
 let existingApi = false;
@@ -47,7 +48,13 @@ function render(s) {
   $('localModelSelect').disabled=Boolean(s.busy)||activeGeneration;
   $('inferenceMode').disabled=Boolean(s.busy)||activeGeneration;
   $('reloadApp').disabled=Boolean(s.busy)||activeGeneration;
-  $('cancelModel').hidden=!['install','repair'].includes(s.busy);
+  const recovery=downloadRecovery?.state;
+  $('cancelModel').hidden=!['install','repair'].includes(s.busy)&&!recovery?.pending;
+  if(recovery?.pending&&!s.busy)$('modelStatus').textContent+=(recovery.phase==='offline'?' · Download will continue when connected.':' · Download will continue automatically; completed files are kept.');
+  if(recovery?.pending&&!recovery.remembered)$('modelStatus').textContent+=' Keep this page open: the browser could not save the download request yet.';
+  $('localModelSelect').disabled||=!!recovery?.pending;
+  $('inferenceMode').disabled||=!!recovery?.pending;
+  $('loadModel').disabled||=!!recovery?.pending;
   const quality=$('localModelSelect').querySelector('[value="default"]');
   quality.disabled=!env?.webgpu.available || (env.deviceMemoryGB !== null && env.deviceMemoryGB < 8) || /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
   $('modelDiagnostics').textContent=JSON.stringify({device:env,selection:s.selection,variant:s.variant,storage:s.storage,host:s.host,load:s.load,lastError:s.lastError},null,2);
@@ -61,7 +68,16 @@ function applyMode() {
   notify();
 }
 async function action(fn) {try {await fn();} catch(e) {showError(e);} }
+downloadRecovery=createDownloadRecovery({host,
+
+ onState:detail=>{if(state)render(host.getState());
+
+ }});
+window.addEventListener('online',()=>downloadRecovery.wake());
+window.addEventListener('pageshow',()=>downloadRecovery.synchronize());
+window.addEventListener('storage',event=>{if(event.key==='plc.downloadIntent.v1')downloadRecovery.synchronize();});
 window.localModels={
+  get downloadRecovery(){return downloadRecovery.state;},
   get mode(){return mode;},
   get ready(){return state?.load.state==='ready';},
   get installed(){return state?.tiers[state.selection.tier].install.ok===true;},
@@ -84,12 +100,12 @@ $('reloadApp').addEventListener('click',()=>{try {sessionStorage.setItem('plc.dr
 try {const draft=sessionStorage.getItem('plc.draft');if(draft){document.querySelector('#messageInput').value=draft;sessionStorage.removeItem('plc.draft');}} catch {}
 $('inferenceMode').addEventListener('change',()=>{mode=$('inferenceMode').value;applyMode();});
 $('localModelSelect').addEventListener('change',()=>action(()=>host.selectTier($('localModelSelect').value,{confirmed:true})));
-$('downloadModel').addEventListener('click',()=>action(()=>host.install()));
+$('downloadModel').addEventListener('click',()=>action(()=>downloadRecovery.start(host.getState().selection.tier)));
 $('loadModel').addEventListener('click',()=>action(()=>host.load()));
-$('cancelModel').addEventListener('click',()=>host.cancelTransfer());
+$('cancelModel').addEventListener('click',()=>downloadRecovery.cancel());
 $('restartModel').addEventListener('click',()=>action(async()=>{await host.restartHost();await host.inspect();}));
-$('repairModel').addEventListener('click',()=>action(()=>host.repair()));
-$('removeModel').addEventListener('click',()=>{if(confirm('Remove this downloaded model? Your conversations will be kept.'))action(()=>host.remove(undefined,{confirmed:true}));});
+$('repairModel').addEventListener('click',()=>{downloadRecovery.cancel();action(()=>host.repair());});
+$('removeModel').addEventListener('click',()=>{if(confirm('Remove this downloaded model? Your conversations will be kept.')){downloadRecovery.cancel();action(()=>host.remove(undefined,{confirmed:true}));}});
 $('persistModels').addEventListener('click',()=>action(()=>host.requestPersist()));
 $('releaseInfo').textContent=`${window.APP_BUILD?.environment || 'local'} · ${window.APP_BUILD?.version || 'development'} · ${window.APP_BUILD?.commit?.slice(0,12) || 'unbuilt'}`;
 applyMode();
@@ -115,4 +131,4 @@ try {
   host.subscribe(render);
   await host.init({autoLoad:false});
   if(!env.webgpu.available) showError(new Error('This runtime needs WebGPU. Update your browser or explicitly choose API mode.'));
-} catch(e){showError(e);}
+} catch(e){showError(e);} finally {downloadRecovery.resume();}
