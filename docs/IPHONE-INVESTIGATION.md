@@ -482,3 +482,26 @@ reported a different name. Preserve raw function indices and resolve against the
 artifact; do not use that stale decoded name as evidence of a speculative-decoding failure.
 The captured desktop Vulkan allocation error and the phone's kernel 2 GB process-limit kills
 remain distinct observations.
+
+### Development owner-cleanup candidate selected
+
+The development derivative selects native build `privatelocalchat-owner-cleanup-debug-20261030-v1`
+and compiler-control variant `privatelocalchat-owner-compiler-control-20261030-v1`, Wasm SHA-256
+`77d16dd0a2ba93b504ae2c799ed1ae4e3eebefd834dbb74ed9245287abd146af`. Its 51-body transform
+reconstructs exactly to the new source-built `6544e252…` baseline. Three desktop full-GPU
+load/generate/unload cycles completed 512 tokens each with no recorded errors. All 63 repository
+checks pass, including production exclusion of the new diagnostic client path.
+
+Native device errors now forward immediately through the existing consent-controlled full-object
+channel. A synthetic GPUValidationError delivered to the actual native device handler caused a
+real native abort; the actual Cloudflare receiver retained the complete error object with a
+verified SHA and no missing parts. See [the stream receipt](evidence/native-device-error-stream.json)
+and [the candidate receipt](evidence/dev-owner-cleanup-candidate.json). Compatibility symbol names
+are regenerated from this native link, and the symbol input and tool are pinned in the manifest.
+
+Next: publish and read back this dev candidate, then qualify sustained operation, cancellation
+and offline reopening on the actual iPhone. The clean production artifact remains separate;
+production promotion and overall acceptance remain open. The Mac/phone disconnect required
+restoring our SSH USB forward; fresh trusted pairing, inspector listing and an iPhone JavaScript
+evaluation succeeded afterward. The earlier namespace inspection timed out and did not prove
+that the retained model cache was reclaimed or reusable.

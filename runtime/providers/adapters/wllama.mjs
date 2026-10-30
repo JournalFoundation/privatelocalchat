@@ -148,14 +148,22 @@ export class WllamaAdapter {
     if (!compatRes.ok) throw new Error(`compat-worker-http-${compatRes.status}`);
     const compatCode = await compatRes.text();
     this.nativeLines = [];
-    const quiet = { debug: (...a) => this._native(a), log: (...a) => this._native(a), warn: (...a) => this._native(a), error: (...a) => this._native(a) };
+    const k = cfg.knobs || {};
+    const nativeError=(...args)=>{
+      this._native(args);
+      /* DEV_DIAGNOSTICS_START */
+      if(k.devDiagnostics)for(const value of args)if(value?.plcDeviceError){
+        try{globalThis.postMessage({type:'native-device-error',error:value.plcDeviceError});}catch{}
+      }
+      /* DEV_DIAGNOSTICS_END */
+    };
+    const quiet = { debug: (...a) => this._native(a), log: (...a) => this._native(a), warn: (...a) => this._native(a), error: nativeError };
     this.w = new Wllama({ default: base + "default.wasm", "single-thread/wllama.wasm": base + "default.wasm" }, {
       useMultiThread: false, parallelDownloads: 1, allowOffline: true, expectedBuildId: rt.buildId, forceCompat: rt.cls === "compat", logger: quiet
     });
     this.w.setCompat({ wasm: base + "compat.wasm", worker: { code: compatCode } }, "firefox_safari");
     const res = this.w.getWorkerResources();
     if ((rt.cls === "compat") !== (res.compat === true)) throw new Error(`runtime class mismatch: wanted ${rt.cls}, got compat=${res.compat}`);
-    const k = cfg.knobs || {};
     /* DEV_DIAGNOSTICS_START */
     if(k.devDiagnostics){
       this.w.setLifecycleListener?.(event=>onProgress?.({phase:'native-'+event.phase}));

@@ -9,5 +9,12 @@ export function instrumentWebGpu(source) {
     if (source.split(before).length !== 2) throw new Error('WebGPU instrumentation site changed: '+before);
     source = source.replace(before, after);
   }
-  return source;
+  return instrumentWebGpuErrors(source);
+}
+
+export function instrumentWebGpuErrors(source){
+ const before='device.onuncapturederror=ev=>{var type=5;';
+ if(source.split(before).length!==2)throw Error('WebGPU error instrumentation site changed');
+ const after=`device.onuncapturederror=ev=>{try{if((globalThis.__plcGpuErrorCount||0)<8){globalThis.__plcGpuErrorCount=(globalThis.__plcGpuErrorCount||0)+1;globalThis.postMessage({verb:'console.error',args:[{plcDeviceError:{name:String(ev.error?.name||ev.error?.constructor?.name||'GPUError').slice(0,80),message:String(ev.error?.message||'Unknown GPU error').slice(0,8192)}}]});}}catch{}var type=5;`;
+ return source.replace(before,after);
 }

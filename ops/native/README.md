@@ -214,3 +214,11 @@ a cleanup improvement in the tested desktop control. They do not establish full-
 physical GPU reclamation, safe navigation, offline behavior or an iPhone fix. Preserve native
 function indices and resolve them with the symbol file generated for the attested Wasm;
 the wrapper's inherited compressed symbol list is not a reliable map for rebuilt artifacts.
+
+The development owner-cleanup derivative is recorded in `dev-owner-cleanup.json` and selected
+by `dev-tools/native-runtime/manifest.json`. Its additional owner patch is pinned and applied
+after the diagnostic and queue patches. The existing compiler intervention is retained against
+its new, explicitly pinned baseline. `native-symbols.mjs` refreshes the compatibility map from
+the exact link symbol file; both inputs are pinned. Device-error forwarding is bounded to eight
+8,192-character objects per worker, preserves the original native error callback, and uses the
+existing full-content consent policy. It is absent from production builds.

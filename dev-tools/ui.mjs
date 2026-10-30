@@ -106,7 +106,8 @@ export async function startDiagnostics(){
  }
  await refreshContentPolicy();
  const getProvider=host.provider.bind(host),capturedProviders=new WeakSet();
- host.provider=(...args)=>{const provider=getProvider(...args);if(!capturedProviders.has(provider)){captureProvider(provider,t);capturedProviders.add(provider);}return provider;};
+ host.provider=(...args)=>{const provider=getProvider(...args);if(!capturedProviders.has(provider)){captureProvider(provider,t);provider.onProviderEvent(event=>{if(event.type==='native-device-error'){record('native-device-error',{errorName:event.error?.name,code:'webgpu-uncaptured',phase:'native-worker'});t.recordObject('native-error',crypto.randomUUID(),event.error);}});capturedProviders.add(provider);}return provider;};
+ host.subscribe(()=>{try{host.provider();}catch{}});
  const remote=new RemoteControl({telemetry:t,buildId:window.APP_BUILD.commit,execute:(action,args)=>window.__plcDebugControl(action,args),onStatus:text=>{$('debugRemoteStatus').textContent=text;}});remote.start();
  window.__plcRemoteControl=remote;
  setTimeout(()=>captureSnapshot(),500);

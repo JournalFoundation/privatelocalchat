@@ -1,5 +1,5 @@
 // Development-only local inference objects. No API settings or authorization headers are read.
-const KINDS=new Set(['provider-request','provider-event','native-request','native-chunk','conversation-snapshot','runtime-config','remote-command','remote-result']);
+const KINDS=new Set(['provider-request','provider-event','native-request','native-error','native-chunk','conversation-snapshot','runtime-config','remote-command','remote-result']);
 const bytesToBase64=bytes=>btoa(String.fromCharCode(...bytes));
 const base64ToBytes=text=>Uint8Array.from(atob(text),c=>c.charCodeAt(0));
 const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');

@@ -1,6 +1,6 @@
 {
   "recordedAt": "2026-10-30",
-  "status": "Measured native ownership cleanup improvement; candidate is unselected and not iPhone-qualified.",
+  "status": "Clean source candidate has a full-GPU 512-token control plus matched ownership controls; it remains unselected for production and not iPhone-qualified.",
   "baseline": {
     "arm": "baseline",
     "gpuLayerControl": 0,
@@ -370,5 +370,50 @@
   },
   "unitChecks": {
     "javascriptPassed": 59
+  },
+  "fullGpuCandidate": {
+    "arm": "candidate",
+    "nativeHash": "065354247ab2a35b58cdfc909bfcf66367b715bee53a0e72856be89ddc235aaa",
+    "buildId": "privatelocalchat-native-destroy-20261030-v1",
+    "modelCacheBytes": 1202488640,
+    "modelRedownloaded": false,
+    "nativeTokens": 512,
+    "textSha256": "c9a1aff033bbe3f7457d7bc38ebc14e72ae3ee9b77d59f0aac767f4539d40009",
+    "cleanup": {
+      "nativeExit": "acknowledged",
+      "beforeNativeExit": {
+        "wasm_capacity_bytes": 134217728,
+        "malloc_arena_bytes": 82440832,
+        "malloc_live_bytes": 79907088,
+        "malloc_free_bytes": 2533744,
+        "malloc_keepcost_bytes": 995960,
+        "sbrk_bytes": 90230784,
+        "qaGpuBufferCalls": {
+          "createdCount": 10,
+          "createdBytes": 1268986248,
+          "destroyedCount": 1,
+          "destroyedBytes": 993280,
+          "explicitlyUndestroyedBytes": 1267992968
+        }
+      },
+      "afterNativeExit": {
+        "wasm_capacity_bytes": 134217728,
+        "malloc_arena_bytes": 82440832,
+        "malloc_live_bytes": 4792112,
+        "malloc_free_bytes": 77648720,
+        "malloc_keepcost_bytes": 25579192,
+        "sbrk_bytes": 90230784,
+        "qaGpuBufferCalls": {
+          "createdCount": 10,
+          "createdBytes": 1268986248,
+          "destroyedCount": 8,
+          "destroyedBytes": 1267937544,
+          "explicitlyUndestroyedBytes": 1048704
+        }
+      },
+      "nativeExitMs": 60
+    },
+    "errors": [],
+    "observations": "GPU counters record createBuffer/destroy calls, not garbage collection or physical GPU residency. Test-only glue hooks leave native Wasm bytes unchanged."
   }
 }

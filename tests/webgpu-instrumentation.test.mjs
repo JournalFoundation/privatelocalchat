@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {instrumentWebGpu} from '../ops/native/instrument-webgpu.mjs';
 
 test('WebGPU instrumentation counts successful creations and preserves returned objects and failures',()=>{
-  const source='function bufferMake(device,desc){let buffer;try{buffer=device.createBuffer(desc)}catch(ex){return false}return buffer;}function pipelineMake(device,desc){return device.createComputePipeline(desc);}';
+  const source='function bufferMake(device,desc){let buffer;try{buffer=device.createBuffer(desc)}catch(ex){return false}return buffer;}function pipelineMake(device,desc){return device.createComputePipeline(desc);}function errors(device){device.onuncapturederror=ev=>{var type=5;throw ev.error;};}';
   const counters={bytes:0,pipelines:0}, buffer={}, pipeline={};
   const context=vm.createContext({__flightGpuBufferCreated:n=>counters.bytes+=n,__flightGpuPipelineCreated:()=>counters.pipelines++});
   vm.runInContext(instrumentWebGpu(source),context);

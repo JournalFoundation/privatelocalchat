@@ -44,7 +44,7 @@ if(branch==='dev') {
  html=html.replace('</head>','<script type="module" src="/'+releasePath+'/dev-tools/start.js"></script></head>');
 } else {
  html=html.replace(/\/\* DEV_DIAGNOSTICS_START \*\/[\s\S]*?\/\* DEV_DIAGNOSTICS_END \*\//g,'');
- for(const relative of ['local-models.js','runtime/providers/adapters/wllama.mjs','runtime/providers/host-core.mjs']){
+ for(const relative of ['local-models.js','runtime/providers/adapters/wllama.mjs','runtime/providers/host-core.mjs','runtime/providers/client.mjs']){
  const appFile=path.join(out,releasePath,relative);
  const app=await readFile(appFile,'utf8');
  await writeFile(appFile,app.replace(/\/\* DEV_DIAGNOSTICS_START \*\/[\s\S]*?\/\* DEV_DIAGNOSTICS_END \*\//g,''));

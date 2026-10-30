@@ -81,6 +81,9 @@ export function createProvider(target, { onProviderEvent } = {}) {
 
   target.onmessage = (e) => {
     const m = e.data; if (!m) return;
+    /* DEV_DIAGNOSTICS_START */
+    if(m.type==='native-device-error'){notify(m);return;}
+    /* DEV_DIAGNOSTICS_END */
     if (m.type === "ready") { hostState = m.state || "unloaded"; watchLiveness(m.livenessLock); return readyResolve(m); }
     if (m.type === "provider-state") { hostState = m.state; notify(m); return; }
     const p = pending.get(m.id); if (!p) return;

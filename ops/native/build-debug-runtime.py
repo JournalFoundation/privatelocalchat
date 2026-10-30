@@ -26,12 +26,18 @@ def main():
  if digest(patch)!=manifest['patchSha256']:raise SystemExit('Diagnostic patch checksum mismatch')
  queue_patch=ROOT/'ops/native/iphone-queue-bound.patch' if manifest.get('queuePatchSha256') else None
  if queue_patch and digest(queue_patch)!=manifest['queuePatchSha256']:raise SystemExit('Queue patch checksum mismatch')
+ owner_patch=ROOT/manifest['ownerCleanupPatchPath'] if manifest.get('ownerCleanupPatchPath') else None
+ if owner_patch and digest(owner_patch)!=manifest['ownerCleanupPatchSha256']:raise SystemExit('Owner cleanup patch checksum mismatch')
+ symbol_pin=manifest.get('symbolMap')
+ if symbol_pin and digest(ROOT/symbol_pin['tool'])!=symbol_pin['toolSha256']:raise SystemExit('Native symbol tool checksum mismatch')
+ if manifest.get('webGpuInstrumentationSha256') and digest(ROOT/'ops/native/instrument-webgpu.mjs')!=manifest['webGpuInstrumentationSha256']:raise SystemExit('WebGPU instrumentation checksum mismatch')
  work.mkdir(parents=True);tree=work/'source';tree.mkdir()
  for name in ['CMakeLists.txt','cpp','scripts','llama.cpp']:run(['cp','-a','--reflink=auto',source/name,tree/name])
  port=tree/'build/emdawn';port.mkdir(parents=True)
  run(['cp','-a','--reflink=auto',source/'build/emdawn/emdawnwebgpu_pkg',port/'emdawnwebgpu_pkg'])
  run(['patch','--batch','--forward','-p1','-i',patch],cwd=tree)
  if queue_patch:run(['patch','--batch','--forward','-p1','-i',queue_patch],cwd=tree)
+ if owner_patch:run(['patch','--batch','--forward','-p1','-i',owner_patch],cwd=tree)
  config=work/'emscripten-config.py';config.write_text('LLVM_ROOT = '+repr(str(sdk/'bin'))+'\nBINARYEN_ROOT = '+repr(str(sdk))+'\nNODE_JS = ['+repr(str(node))+']\nCACHE = '+repr(str(work/'cache'))+'\n')
  env={**os.environ,'EM_CONFIG':str(config)}
  version=subprocess.check_output([str(sdk/'emscripten/emcc'),'--version'],env=env,text=True)
@@ -50,6 +56,9 @@ def main():
  old=manifest['baseBuildId'];identity=manifest['buildId'];library=wrapper.read_text()
  needle='"'+old+'": "glue-v1:69/23"';assert library.count(needle)==1;library=library.replace(needle,needle+',\n  "'+identity+'": "glue-v1:69/23"')
  needle='"'+old+'"]);';assert library.count(needle)==1;library=library.replace(needle,'"'+old+'", "'+identity+'"]);');(out/'wllama.js').write_text(library)
+ if symbol_pin:
+  if digest(build/'wllama.js.symbols')!=symbol_pin['symbolsSha256']:raise SystemExit('Native link symbol checksum mismatch')
+  run([node,'--input-type=module','-e',"import {readFile,writeFile} from 'node:fs/promises';import {pathToFileURL} from 'node:url';const {refreshCompatSymbols}=await import(pathToFileURL(process.argv[3]).href);await writeFile(process.argv[1],refreshCompatSymbols(await readFile(process.argv[1],'utf8'),await readFile(process.argv[2],'utf8')));",out/'wllama.js',build/'wllama.js.symbols',ROOT/symbol_pin['tool']],cwd=ROOT)
  manifest['files']={name:{'bytes':(out/name).stat().st_size,'sha256':digest(out/name)} for name in ['compat.wasm','compat-worker.js','wllama.js']}
  (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n');print('Built '+identity+' at '+str(out))
 if __name__=='__main__':main()
