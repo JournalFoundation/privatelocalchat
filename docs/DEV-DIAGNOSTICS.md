@@ -156,3 +156,7 @@ short-lived SSH forward and device connection are closed on success or failure. 
 an advisory observation, not a guarantee that subsequent writes succeed. Do not substitute
 `TotalDataAvailable` or a browser's origin quota for immediately writable device storage.
 Run its regression checks with `python3 -m unittest discover -s dev-tools/tests -v`.
+
+Receiver-derived content/control grants belong to that receiver URL. Changing the URL clears
+those grants and stops an in-flight upload; retained content waits for the new receiver's
+content grant. An explicit local checkbox choice stays remembered across URL changes.

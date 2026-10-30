@@ -59,3 +59,15 @@ test('a stalled browser database cannot block streaming from the memory fallback
  pending[0].result={close(){closed++;}};pending[0].onsuccess();assert.equal(closed,1);
  await t.record('heartbeat');await t.flush();while(t.sending)await new Promise(r=>setImmediate(r));assert.equal(uploaded,2);assert.equal(opens,1);
 });
+
+test('a receiver grant cannot authorize content or controls at a different receiver URL',async()=>{
+ const store=new Store(),config=settings();let uploadedContent=0;
+ const t=new Telemetry({store,settings:config,fetchImpl:async(url,opt)=>{if(opt.method==='GET')return {ok:true,json:async()=>({format:'plc-dev-policy/1',captureContent:true,remoteControl:true})};const batch=JSON.parse(opt.body);uploadedContent+=batch.events.filter(e=>e.type==='conversation-object').length;return {ok:true,json:async()=>({accepted:batch.events.length})};}});
+ t.configure({url:'https://first.example/receiver',disk:true});await t.refreshPolicy();assert.equal(t.config.captureContent,true);assert.equal(t.config.remoteControl,true);
+ // A retained offline frame must wait for the next receiver's own content grant.
+ store.events.push({id:crypto.randomUUID(),type:'conversation-object',data:{},at:'2026-10-30T00:00:00Z'});
+ t.configure({url:'https://second.example/receiver'});assert.equal(t.config.enabled,true);assert.equal(t.config.captureContent,false);assert.equal(t.config.remoteControl,false);assert.equal(t.config.contentConsent,null);await t.flush();assert.equal(uploadedContent,0);assert.equal(store.events.length,1);
+ await t.refreshPolicy();await t.flush();assert.equal(uploadedContent,1);assert.equal(store.events.length,0);
+ // The tester's explicit local choice remains a remembered choice.
+ t.configure({captureContent:true,contentConsent:'local',remoteControl:true,controlConsent:'local'});t.configure({url:'https://third.example/receiver'});assert.equal(t.config.captureContent,true);assert.equal(t.config.remoteControl,true);
+});

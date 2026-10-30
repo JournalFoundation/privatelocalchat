@@ -55,7 +55,7 @@ export class Telemetry{
   try{Object.assign(this.config,JSON.parse(settings?.getItem(SETTINGS)||'{}'));}catch{}
   this.config.enabled=Boolean(this.config.url);
  }
- configure(config){const next={...this.config,...config};if(next.url){const u=new URL(next.url);if(u.protocol!=='https:')throw new Error('The diagnostic receiver must use HTTPS.');}next.enabled=Boolean(next.url);const contentStopped=this.config.captureContent&&!next.captureContent;this.config=next;if(!next.enabled||contentStopped)this.controller?.abort();try{this.settings?.setItem(SETTINGS,JSON.stringify(next));}catch{this.onStatus('Settings could not be saved on this device.');}}
+ configure(config){const next={...this.config,...config},urlChanged=next.url!==this.config.url;if(urlChanged){if(this.config.contentConsent==='receiver'){next.captureContent=false;next.contentConsent=null;}if(this.config.controlConsent==='receiver'){next.remoteControl=false;next.controlConsent=null;}}if(next.url){const u=new URL(next.url);if(u.protocol!=='https:')throw new Error('The diagnostic receiver must use HTTPS.');}next.enabled=Boolean(next.url);const contentStopped=this.config.captureContent&&!next.captureContent;this.config=next;if(urlChanged||!next.enabled||contentStopped)this.controller?.abort();try{this.settings?.setItem(SETTINGS,JSON.stringify(next));}catch{this.onStatus('Settings could not be saved on this device.');}}
  async refreshPolicy(){
   if(!this.config.enabled||(this.config.contentConsent==='local'&&!this.config.captureContent))return;
   const url=this.config.url,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3000);
