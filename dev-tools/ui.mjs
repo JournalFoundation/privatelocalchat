@@ -51,8 +51,10 @@ export async function startDiagnostics(){
  await checkpoints(true);
  const waitUntil=Date.now()+20000;while(!window.localModels&&Date.now()<waitUntil)await new Promise(r=>setTimeout(r,100));
  const host=window.__plcDebugModelHost;if(!host){lastStatus='Model controls did not initialize.';await update();return;}
+ const reducedGpuProfile=/iPhone|iPad|iPod/.test(navigator.userAgent);
+ if(reducedGpuProfile){const notice=document.createElement('p');notice.textContent='iPhone resource experiment: model layers run on CPU, with some weights still on GPU. Replies may be slower. Existing downloaded files are reused.';panel.querySelector('summary').after(notice);record('compute-profile',{state:'zero-layer-offload',memory:{requestedGpuLayers:0}});}
  const tierConfig=host.tierConfig.bind(host);
- host.tierConfig=(...args)=>{const config=tierConfig(...args);if(config.adapter==='wllama')config.knobs={...config.knobs,devDiagnostics:t.config.enabled,devDiagnosticsDisk:t.config.enabled&&t.config.disk};return config;};
+ host.tierConfig=(...args)=>{const config=tierConfig(...args);if(config.adapter==='wllama'){config.knobs={...config.knobs,devDiagnostics:t.config.enabled,devDiagnosticsDisk:t.config.enabled&&t.config.disk};if(reducedGpuProfile)config.context={...config.context,n_gpu_layers:0};}return config;};
  async function sample(){
   if(sampling||!t.config.enabled)return;sampling=true;
   try{

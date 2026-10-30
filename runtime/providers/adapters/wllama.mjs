@@ -176,7 +176,7 @@ export class WllamaAdapter {
       n_ctx: c.n_ctx ?? 4096, n_batch: c.n_batch, n_ubatch: c.n_ubatch, n_threads: 1, n_parallel: 1,
       cache_type_k: c.cache_type_k ?? "f16", cache_type_v: c.cache_type_v ?? "f16",
       flash_attn_policy: c.flash_attn_policy, fused_gdn_auto: c.fused_gdn_auto, fused_gdn_ar: c.fused_gdn_ar, fused_gdn_ch: c.fused_gdn_ch,
-      sched_max_splits_hint: c.sched_max_splits_hint, ctx_checkpoints: c.ctx_checkpoints, checkpoint_every_n_tokens: c.checkpoint_every_n_tokens, checkpoint_clear_policy: c.checkpoint_clear_policy, jinja: c.jinja ?? true, reasoning: false, reasoning_budget_tokens: 0, n_gpu_layers: -1,
+      sched_max_splits_hint: c.sched_max_splits_hint, ctx_checkpoints: c.ctx_checkpoints, checkpoint_every_n_tokens: c.checkpoint_every_n_tokens, checkpoint_clear_policy: c.checkpoint_clear_policy, jinja: c.jinja ?? true, reasoning: false, reasoning_budget_tokens: 0, n_gpu_layers: c.n_gpu_layers ?? -1,
       no_kv_offload: false, cache_idle_slots: false, warmup: c.warmup ?? false, useCache: true, parallelDownloads: 1,
       progressCallback: () => {}
     });

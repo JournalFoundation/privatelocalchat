@@ -79,3 +79,12 @@ A dev-only compatibility runtime adds the native phase 11/12 tail fences documen
 `ops/native/README.md`. Its artifact pins are checked during build. Production retains the
 original native runtime hashes. These markers help localize the observed iPhone restart;
 they are not a claim that the restart has been fixed.
+
+The current development iPhone experiment requests zero GPU-offloaded model layers.
+The native runtime still keeps some weights on GPU. It reuses the same full 2B model
+files and context, increases CPU/WebAssembly memory, and can be substantially slower.
+The setting is applied only by the development diagnostics module on an iPhone/iPad
+user agent. Production builds exclude this module. Desktop Chromium checks of this
+configuration validate plumbing and native execution; they do not emulate WebKit or
+establish iPhone survival. Measurements and limitations are recorded in
+[evidence/dev-model-placement.json](evidence/dev-model-placement.json).
