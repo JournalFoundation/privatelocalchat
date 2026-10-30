@@ -28,7 +28,7 @@
   },
   "wrapperSource": "ops/native/base-wllama-v1q.js",
   "wrapperSourceSha256": "9d383dbc0b540407bbdaa9a1a60cf69e5cc88287f6be8bdf641eec1315664031",
-  "catalogBaseBuildId": "privatelocalchat-queue-production-20261029-v1",
+  "catalogBaseBuildId": "privatelocalchat-native-destroy-20261030-v1",
   "developmentDiagnostics": true,
   "ownerCleanupPatchPath": "ops/native/dev-native-owner-cleanup.patch",
   "ownerCleanupPatchSha256": "25193dd20067da54d81b9c291c727beb991b85882cd95d2e43c09bcde21271c5",

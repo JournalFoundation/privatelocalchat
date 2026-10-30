@@ -773,9 +773,9 @@ var WIRE_SCHEMA_GENERATION_BY_BUILD_PREFIX = Object.freeze({
   "retained-v1n-stream-slim-20260901T073847Z": "glue-v1:69/23",
   "retained-v1p-checkpoint-slim-20260901T183523Z": "glue-v1:69/23",
   "retained-v1q-chat-stable-slim-20260901": "glue-v1:69/23",
-  "privatelocalchat-queue-production-20261029-v1": "glue-v1:69/23"
+  "privatelocalchat-native-destroy-20261030-v1": "glue-v1:69/23"
 });
-var EXACT_WIRE_SCHEMA_BUILD_IDS = new Set(["retained-v1m-slim-20260831", "retained-v1n-stream-slim-20260901T073847Z", "retained-v1p-checkpoint-slim-20260901T183523Z", "retained-v1q-chat-stable-slim-20260901", "privatelocalchat-queue-production-20261029-v1"]);
+var EXACT_WIRE_SCHEMA_BUILD_IDS = new Set(["retained-v1m-slim-20260831", "retained-v1n-stream-slim-20260901T073847Z", "retained-v1p-checkpoint-slim-20260901T183523Z", "retained-v1q-chat-stable-slim-20260901", "privatelocalchat-native-destroy-20261030-v1"]);
 function parseWireSchemaGeneration(generation) {
   const match = /^glue-v(\d+):(\d+)\/(\d+)$/.exec(generation || "");
   if (!match) throw new Error(`invalid-wire-schema-generation: ${generation}`);

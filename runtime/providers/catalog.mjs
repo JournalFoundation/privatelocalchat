@@ -115,7 +115,7 @@ export function loadConfigFor(tier, { sources = OFFICIAL_SOURCES, runtimeDir = n
   const files = tierFiles("light", sources);
   return {
     adapter: "wllama", tier, modelId: t.modelId, modelUrl: files[0].url, quantization: t.quantization, license: t.license, files,
-    runtime: { dir: runtimeDir, buildId: "privatelocalchat-queue-production-20261029-v1", cls: "compat" },
+    runtime: { dir: runtimeDir, buildId: "privatelocalchat-native-destroy-20261030-v1", cls: "compat" },
     context: {
       // Keep the full conversation window; bound temporary prefill graphs separately.
       // The non-flash-attention path used on iPhone otherwise reserves ~94 MiB at 512.
