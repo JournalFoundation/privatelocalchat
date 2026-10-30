@@ -21,8 +21,8 @@
   },
   "files": {
     "compat.wasm": {
-      "bytes": 14417422,
-      "sha256": "065354247ab2a35b58cdfc909bfcf66367b715bee53a0e72856be89ddc235aaa"
+      "bytes": 20661345,
+      "sha256": "e7aa8820a87ad1bdf262fc5d3f2f65978b4de81d9c118287b1506d1450b3369a"
     },
     "compat-worker.js": {
       "bytes": 170426,
@@ -41,5 +41,9 @@
     "drainAtGraphEnd": true
   },
   "wrapperSource": "ops/native/base-wllama-v1q.js",
-  "wrapperSourceSha256": "9d383dbc0b540407bbdaa9a1a60cf69e5cc88287f6be8bdf641eec1315664031"
+  "wrapperSourceSha256": "9d383dbc0b540407bbdaa9a1a60cf69e5cc88287f6be8bdf641eec1315664031",
+  "compilerControl": {
+    "receipt": "ops/native/production-owner-compiler-control.json",
+    "sourceSha256": "065354247ab2a35b58cdfc909bfcf66367b715bee53a0e72856be89ddc235aaa"
+  }
 }

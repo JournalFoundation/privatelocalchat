@@ -17,6 +17,11 @@ for(const item of ['local-models.js','local-models.css','conversation-messages.m
 // Both branch builds start from the pinned production runtime. Dev overlays it below.
 const productionNative=JSON.parse(await readFile('ops/native/production-runtime.json','utf8'));
 if(productionNative.developmentDiagnostics!==false)throw new Error('Production runtime must exclude development instrumentation');
+if(productionNative.compilerControl){
+ const control=JSON.parse(await readFile(productionNative.compilerControl.receipt,'utf8'));
+ if(control.source.sha256!==productionNative.compilerControl.sourceSha256||control.output.sha256!==productionNative.files['compat.wasm'].sha256)throw new Error('Production compiler control receipt mismatch');
+ execFileSync(process.execPath,['ops/native/compiler-control.mjs','verify',path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q/compat.wasm'),productionNative.compilerControl.receipt],{stdio:'pipe'});
+}
 for(const [file,pin] of Object.entries(productionNative.files)){
  const bytes=await readFile(path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q',file));
  if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Production runtime checksum mismatch: '+file);

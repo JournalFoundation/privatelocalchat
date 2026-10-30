@@ -15,6 +15,7 @@ import crypto from "node:crypto";
 
 // Each allowed input is an independently pinned artifact. Preparation does not select it for release.
 const BASELINES=new Set([
+  "065354247ab2a35b58cdfc909bfcf66367b715bee53a0e72856be89ddc235aaa", // Production owner-cleanup runtime.
   "6544e252a008a6d0e6e619ccbc19abce3745196cb3df4a23ac419b4098aeb080", // Source-built development model-owner cleanup control.
   "a772105af5a7a0872e7461f0e33ce36b4dc979d893f651100d85cbbd80d0e6bb",
   "1bf7ed18c5cf0071d5ce2651c952778103c65d75f658b8b9638f2988912ab1b8",
