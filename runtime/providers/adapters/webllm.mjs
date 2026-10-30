@@ -200,9 +200,10 @@ export class WebLlmAdapter {
     const s = req.sampling || {};
     const body = {
       messages: req.messages, stream: true, stream_options: { include_usage: true },
-      max_tokens: req.maxTokens, temperature: s.temperature ?? 0, top_p: s.topP ?? 1, seed: s.seed ?? 1,
+      temperature: s.temperature ?? 0, top_p: s.topP ?? 1, seed: s.seed ?? 1,
       extra_body: { enable_thinking: req.thinking === true }
     };
+    if (req.maxTokens !== undefined) body.max_tokens = req.maxTokens; // omitted: no limit before the context window
     if (s.repetitionPenalty) body.repetition_penalty = s.repetitionPenalty;
     if (req.stop?.length) body.stop = req.stop;
     // grammar-constrained: with a schema the engine cannot emit an id outside the schema's enum

@@ -111,10 +111,10 @@ window.localModels={
     activeGeneration=true; render(state);
     try {
       let streamed="";
-      const call=host.provider().generate({attemptId:crypto.randomUUID(),messages:messages.filter(m=>m.role!=='system'||m.content).map(m=>({role:m.role,content:m.content})),maxTokens:512,temperature:0.6,cachePrompt:!resetPromptAfterAbort},{signal,onToken:ev=>{streamed+=ev.text;onToken?.(streamed);}});
+      const call=host.provider().generate({attemptId:crypto.randomUUID(),messages:messages.filter(m=>m.role!=='system'||m.content).map(m=>({role:m.role,content:m.content})),temperature:0.6,cachePrompt:!resetPromptAfterAbort},{signal,onToken:ev=>{streamed+=ev.text;onToken?.(streamed);}});
       resetPromptAfterAbort=false;
       const end=await call.done;
-      if(end.type==='attempt-aborted') throw new DOMException('Generation stopped.','AbortError');
+      if(end.type==='attempt-aborted') throw Object.assign(new DOMException('Generation stopped.','AbortError'),{partialText:streamed});
       if(end.type!=='attempt-completed') throw Object.assign(new Error(end.error?.message || 'Model generation failed.'),end.error);
       return end.text;
     } catch(e) {if(e.name==='AbortError')resetPromptAfterAbort=true;throw e;} finally {activeGeneration=false;render(host.getState());}

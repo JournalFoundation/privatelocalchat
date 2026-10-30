@@ -22,7 +22,7 @@ export class MockAdapter {
     emit({ usage: { promptTokens: Math.ceil(req.messages.map((m) => m.content).join(" ").length / 4), cachedPromptTokens: 0 } });
     await sleep(mock.prefillMs ?? 2);
     let n = 0;
-    for (const piece of pieces.slice(0, req.maxTokens)) {
+    for (const piece of pieces.slice(0, req.maxTokens ?? pieces.length)) {
       if (signal.aborted) return;
       if (mock.failAfterTokens !== undefined && n >= mock.failAfterTokens) throw Object.assign(new Error(mock.failMessage || "mock engine failure"), { name: "MockEngineError" });
       if (mock.hangAfterTokens !== undefined && n >= mock.hangAfterTokens) await new Promise((res) => signal.addEventListener("abort", res, { once: true }));
@@ -30,7 +30,7 @@ export class MockAdapter {
       await sleep(mock.tokenDelayMs ?? 1);
       emit({ delta: piece }); n++;
     }
-    emit({ usage: { completionTokens: n }, finish: n >= req.maxTokens && pieces.length > n ? "length" : "stop" });
+    emit({ usage: { completionTokens: n }, finish: req.maxTokens !== undefined && n >= req.maxTokens && pieces.length > n ? "length" : "stop" });
   }
   async unload() {}
   async stats() { return { runtime: "mock" }; }

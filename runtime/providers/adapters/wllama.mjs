@@ -228,9 +228,10 @@ export class WllamaAdapter {
     const s = req.sampling || {};
     const params = {
       messages: req.messages, stream: true, abortSignal: signal, cache_prompt: req.cachePrompt !== false,
-      max_tokens: req.maxTokens, temperature: s.temperature ?? 0, top_p: s.topP ?? 1, top_k: s.topK ?? (s.temperature ? 40 : 1), seed: s.seed ?? 1,
+      temperature: s.temperature ?? 0, top_p: s.topP ?? 1, top_k: s.topK ?? (s.temperature ? 40 : 1), seed: s.seed ?? 1,
       chat_template_kwargs: { enable_thinking: req.thinking === true }
     };
+    if (req.maxTokens !== undefined) params.max_tokens = req.maxTokens; // omitted: no limit before the context window
     if (s.repetitionPenalty) params.repeat_penalty = s.repetitionPenalty;
     if (req.stop?.length) params.stop = req.stop;
     /* DEV_DIAGNOSTICS_START */
