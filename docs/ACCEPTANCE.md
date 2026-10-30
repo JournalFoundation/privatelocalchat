@@ -1,7 +1,7 @@
 # Release acceptance
 
 The migration remains **in progress** because iPhone release qualification is incomplete.
-A full-GPU development control now survives retained long replies, but offline recovery and
+A full-GPU development control survived retained long replies but failed a later page/model cycle. Offline recovery and
 qualification of the clean production artifact remain open. Hosting and desktop inference
 are verified; they do not close the device gate.
 
@@ -101,3 +101,9 @@ with its clean baseline. It is prepared only: the native selection used by produ
 has not changed, and live main remains at its previous deployment. Qualified runtime mitigation
 and the exclusion of development machinery must both survive a future source promotion.
 Neither this candidate nor the desktop control checks closes the physical device requirement.
+
+A fresh page on `436f001` verified the entire cached model and completed loading and a short
+reply, but the same Safari process hit its fatal 2 GB limit during a subsequent prompt.
+See [the lifecycle failure](evidence/iphone-current-build-reload-limit.json). The retained pass
+is preserved as evidence, not treated as release qualification. Bounded native cleanup is
+the next control; production remains unchanged.

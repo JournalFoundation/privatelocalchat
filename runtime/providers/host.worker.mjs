@@ -14,7 +14,7 @@ const lazyAdapter = (path, name) => () => {
     async preflight(config) { const mod = await import(path); await mod.preflight?.(config); },
     async load(config, hooks) { const mod = await import(path); inner = new mod[name](); return inner.load(config, hooks); },
     run: (req, signal, emit) => inner.run(req, signal, emit),
-    unload: async () => { const i = inner; inner = null; await i?.unload(); },
+    unload: async () => { const i = inner; inner = null; return await i?.unload(); },
     stats: async () => (inner?.stats ? inner.stats() : null),
     countTokens: async (messages) => (inner?.countTokens ? inner.countTokens(messages) : null)
   };

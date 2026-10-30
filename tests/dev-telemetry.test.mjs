@@ -16,6 +16,7 @@ test('durable events survive a new page and failed upload, and clear only after 
 test('conversation and credential fields are excluded from event data',()=>{assert.deepEqual(safeData({prompt:'secret',reply:'secret',token:'secret',messages:['secret'],model:'public-model',chunks:3,memory:{wasm:123,prompt:'secret'}}),{model:'public-model',chunks:3,memory:{wasm:123}});});
 test('production artefact contains no diagnostic UI, modules, receiver or disk journal',async()=>{
  execFileSync('node',['scripts/build.mjs'],{env:{...process.env,DEPLOY_BRANCH:'main'},stdio:'pipe'});
+ const sw=await readFile('dist/sw.js','utf8');assert.doesNotMatch(sw,/dev-network-fault|developmentOfflineResponse|FAULT_CACHE/);
  const build=JSON.parse(await readFile('dist/version.json','utf8'));const html=await readFile('dist/index.html','utf8');const app=await readFile('dist/releases/'+build.commit+'/local-models.js','utf8');
  assert.equal(build.developmentRuntime,undefined);assert.ok(!html.includes('compiler-control-20261030'));
  assert.ok(!html.includes('__plcDebugCurrentConversation'));

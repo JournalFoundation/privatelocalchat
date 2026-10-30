@@ -59,6 +59,8 @@ await writeFile(path.join(out,'_headers'),'/*\n  Cross-Origin-Opener-Policy: sam
 const shell=[];
 async function walk(dir){for(const ent of await readdir(dir,{withFileTypes:true})){const p=path.join(dir,ent.name);if(ent.isDirectory())await walk(p);else if(!ent.name.startsWith('_'))shell.push('/'+path.relative(out,p).split(path.sep).join('/'));}}
 await walk(out);
-const template=await readFile('scripts/service-worker.js','utf8');
+let template=await readFile('scripts/service-worker.js','utf8');
+if(branch!=='dev')template=template.replace(/\/\* DEV_DIAGNOSTICS_START \*\/[\s\S]*?\/\* DEV_DIAGNOSTICS_END \*\//g,'');
+template=template.replace('__DEV_OFFLINE_FAULT__',branch==='dev'?await readFile('dev-tools/offline-fault-sw.js','utf8'):'');
 await writeFile(path.join(out,'sw.js'),template.replace('__CACHE_NAME__',JSON.stringify('plc-shell-'+commit)).replace('__SHELL_FILES__',JSON.stringify(shell)).replace('__DEVELOPMENT_NATIVE__',JSON.stringify(branch==='dev')));
 console.log(JSON.stringify({...build,files:shell.length}));

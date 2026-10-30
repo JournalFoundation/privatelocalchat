@@ -2,7 +2,7 @@
 
 Updated: 2026-10-30 UTC. Owner: the agent continuing this investigation, with John providing physical iPhone observations when a qualified experiment needs them.
 
-**Status: open.** The latest unattended iPhone load hit the kernel’s 2 GB per-process limit despite the compiler-control binary. Local controls demonstrate substantial compiler-related allocation outside native memory counters, but the mitigation alone does not qualify a fix. Full GPU placement has now passed a retained physical control with long replies and cancellation; offline recovery and clean production qualification remain open.
+**Status: open.** Both the CPU construction control and a later full-GPU page/model cycle hit the kernel’s 2 GB per-process limit. A retained full-GPU session passed long replies and cancellation, but repeated lifecycle qualification failed. Native cleanup and process-resident allocations are the next investigative control; offline recovery and clean production qualification remain open.
 
 This is the living plan and decision record. Keep the current state and next action accurate, append results to the experiment log, and preserve failed controls. [Release acceptance](ACCEPTANCE.md) remains the authority for completing the migration.
 
@@ -18,7 +18,8 @@ This is the living plan and decision record. Keep the current state and next act
 - E03 has live Chromium and normal Mac Safari command/full-stream verification, including a 512-token Safari reply. Physical USB configuration, downloads and load-failure receipts were exercised without user relay. Generic browser storage errors were resolved to kernel ENOSPC; the iPhone's immediate space metric was about 0.5 GB after our temporary test models were removed. See [the storage receipt](evidence/iphone-usb-storage-failure.json). Do not infer usable space from the misleading `TotalDataAvailable` field.
 - The user cleared device storage. A fresh unattended CPU-profile load then hit the explicitly logged 2 GB per-process limit; the [kill receipt](evidence/iphone-single-copy-load-limit.json) supersedes the earlier unknown-cause statement for this specific trial.
 - Full GPU placement completed 12 replies, including three 512-token replies, plus a streamed cancellation and subsequent recovery on one physical page/model load. A random 64 MiB canary was verified after 151 seconds. This supports restoring the GPU default; it does not close offline or production qualification.
-- **Next action:** deploy and read back the new full-GPU default and bounded checksum build, reuse the isolated phone cache for fresh-page qualification, then test offline recovery and a clean production compiler preview. Production selection and release acceptance remain unchanged.
+- The fresh `436f001` page passed checksum verification, loading and a short reply, then the same Safari process hit its 2 GB limit during the next prompt. Retained-turn success does not establish lifecycle reliability.
+- **Next action:** qualify bounded native cleanup before worker termination, then repeat physical load/unload and navigation cycles on fixed model/compiler bytes. The dev-only network-denial harness is prepared for later offline tests and is stripped from production. Production selection and release acceptance remain unchanged.
 
 ## Evidence and its limits
 
@@ -294,3 +295,45 @@ and does not prove that checksums caused the previous kill.
 Next: deploy and read back the new full-GPU default/checksum build, reuse this isolated phone
 cache for fresh-page qualification, then test offline recovery and a clean production compiler
 preview. Keep production unchanged until those device checks and diagnostic exclusion pass.
+
+### Fresh-page repeat failed: lifecycle gate remains open
+
+Build `436f001` reused the isolated cache, retained diagnostic settings and selected GPU layers
+`-1` by default. Its new checksum worker verified all 13 files (1,202,488,640 bytes) in 8.545
+seconds with no mismatch and no model redownload. A new load and first short reply completed.
+During the second prompt, the kernel killed WebContent at 11:00:34 UTC for the same fatal
+2 GB per-process limit. This was the same Safari process as the earlier retained 12-reply
+trial, after explicit unload/host restart and navigation. Thus the earlier retained pass
+does not qualify repeated page/model lifecycles. See the [repeat-failure receipt](evidence/iphone-current-build-reload-limit.json).
+
+The controller was stopped; recovery in that automation session timed out, and its owned
+session was closed. No additional native load was dispatched. The USB capture preserved
+the explicit kill reason without relying on a separate Jetsam file.
+
+Inspection found the pinned wrapper normally terminates an owned native worker without
+calling its existing `wllama.exit` wire operation. The next candidate requests native cleanup
+with a bounded wait, then terminates regardless of success or failure. This is a concrete
+cleanup improvement and a hypothesis about lifecycle accumulation, not established cause.
+Repeated load/unload and page navigation must pass before returning to production or offline
+qualification. Keep model and compiler-control bytes fixed for this comparison.
+
+### Bounded native cleanup and direct footprint instrumentation prepared
+
+The adapter now requests the pinned runtime's existing `wllama.exit` operation before worker
+termination. The request has a 3-second bound; failure or timeout still proceeds to termination.
+Externally owned workers keep their existing ownership behavior. Three real Chromium/Vulkan
+load/generate/unload cycles each completed 512 native tokens and acknowledged cleanup in
+12–15 ms, with no page errors. Native Wasm and vendored wrapper bytes stayed fixed.
+See the [candidate receipt](evidence/native-cleanup-candidate.json). The unit suite now has
+59 JavaScript checks and five stdlib-only Python operator checks. Physical comparison remains open.
+
+The USB Instruments route now works through a userspace RSD tunnel. The operator sampler
+obtained real positive process `physFootprint` readings, then closed the connection and tunnel.
+This supplies the previously missing time-resolved physical metric for the next phone trial;
+raw PID/unique-ID samples stay private under `work/`. Correlate with the exact page/process
+before making model-specific claims.
+
+A separate dev-only service-worker network-denial harness passed real HTTPS browser checks,
+including denied CDN misses and diagnostic POSTs, cached navigation after worker restart,
+and restoration. Production build inspection confirms its removal. It changes neither radios
+nor `navigator.onLine`, so it cannot stand in for every airplane-mode behavior.

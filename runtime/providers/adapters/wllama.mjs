@@ -9,6 +9,7 @@
 // The adapter does not rewrite the mind's prompt: the mind must put the schema instruction in the prompt itself.
 import { compareInventory, planInstall, createRateTracker } from "../verify.mjs";
 import {sha256OfBlob} from '../hash-blob.mjs';
+import {shutdownNativeRuntime} from '../native-shutdown.mjs';
 import { preflight as webgpuPreflight } from "./webgpu.mjs";
 import {retryDownload} from '../download-retry.mjs';
 import {writeOpfsStream} from '../opfs-stream-writer.mjs';
@@ -285,6 +286,6 @@ export class WllamaAdapter {
   }
 
   async unload() {
-    try { await this.w?.exit(); } finally { this.w = null; }
+    try { return await shutdownNativeRuntime(this.w); } finally { this.w = null; }
   }
 }

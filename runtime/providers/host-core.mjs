@@ -274,7 +274,7 @@ export function createHost({ adapters, storage = {}, providerId = "provider", li
     setState("unloading");
     for (const a of [...queue]) abortAttempt(a.attemptId, { by: "supervisor", reason: "provider-unload" });
     if (running) abortAttempt(running.attemptId, { by: "supervisor", reason: "provider-unload" });
-    try { await adapter?.unload(); adapter = null; loadedInfo = null; loadedConfig = null; setState("unloaded"); send(port, { id, type: "result", value: { unloaded: true } }); }
+    try { const cleanup=await adapter?.unload(); adapter = null; loadedInfo = null; loadedConfig = null; setState("unloaded"); send(port, { id, type: "result", value: { unloaded: true, ...(cleanup?{cleanup}:{}) } }); }
     catch (err) { setState("faulted", { phase: "unload", message: String(err?.message || err) }); send(port, { id, type: "error", error: { ...serializeError(err), class: "runtime-fault" } }); }
   }
 

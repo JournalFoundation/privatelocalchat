@@ -160,3 +160,36 @@ Run its regression checks with `python3 -m unittest discover -s dev-tools/tests 
 Receiver-derived content/control grants belong to that receiver URL. Changing the URL clears
 those grants and stops an in-flight upload; retained content waits for the new receiver's
 content grant. An explicit local checkbox choice stays remembered across URL changes.
+
+## Scoped network-denial testing
+
+Development builds include a service-worker fault injector for unattended USB checks. It is
+removed from production output. A same-origin page on the exact development hostname can send
+`{type: 'dev-network-fault', enabled: true}` to its service-worker controller through a
+`MessageChannel`; wait for the channel's acknowledgement before beginning a trial. Send the
+same message with `enabled: false` and await acknowledgement to restore transport.
+
+The setting survives worker restart and page navigation in that origin's storage. While active,
+cache hits remain available, cached navigation returns the app shell, and cache misses and
+POST requests return a network error. Diagnostic events must queue locally until restoration.
+The operator should use USB to restore transport before ending the trial. This does not change
+phone radios, `navigator.onLine`, or browser-internal update traffic; report it as scoped
+application network denial, not an airplane-mode test. The [browser receipt](evidence/dev-offline-fault-harness.json)
+verifies failure of app/CDN misses and diagnostic POSTs, cached navigation after worker restart,
+and successful restoration against an actual HTTPS test server. Physical-device use is pending.
+
+## USB process-footprint sampling
+
+`operator-device-memory.py` uses the existing trusted USB connection and an in-process RSD
+tunnel to read iOS Instruments process samples. It does not change phone radios or Mac
+interfaces, install software on the device, or establish a new trust relationship. Run it
+with the optional device-tools Python environment, an existing `--usbmux-socket`, the private
+`--pairing-cache`, and `--out work/evidence/<trial>-memory-private.jsonl`. Set `--duration-seconds`
+(default 600, maximum 3600), `--interval-ms` (default 1000), and optional repeated `--pid` filters.
+
+Only MobileSafari and WebContent process identity and selected numeric metrics are written.
+The journal is capped at 20 MB and flushed as samples arrive; its connections/tunnel close
+on completion or failure. Timestamps are host receive times. Physical footprint, resident
+bytes and compressed bytes are distinct accounting views and must not be added. Correlate
+process identity with USB lifecycle logs before attributing a sample to the model page.
+A real-device smoke check produced positive footprint samples and closed the tunnel afterward.

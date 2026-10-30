@@ -3100,7 +3100,7 @@ const base64UrlEncode = value => {
         if (window.localModels?.mode !== 'local') throw new Error('Remote generation is restricted to local mode');
         if (action === 'download' || action === 'cancel-download') return window.__plcDebugDownloadControl(action);
         if (action === 'load') return window.localModels.ready ? window.localModels.state.load.info : window.__plcDebugModelHost.load();
-        if (action === 'unload') {await window.__plcDebugModelHost.restartHost();return window.localModels.state;}
+        if (action === 'unload') {const result=await window.__plcDebugModelHost.unload();await window.__plcDebugModelHost.restartHost();return {state:window.localModels.state,cleanup:result?.cleanup};}
         if (action === 'profile') return window.__plcDebugSetComputeProfile(args);
         if (action !== 'prompt' || typeof args.text !== 'string' || !args.text.trim() || args.text.length > 16000) throw new Error('Invalid remote prompt');
         if (!window.localModels.ready) throw new Error('Load the saved model before sending a prompt');
