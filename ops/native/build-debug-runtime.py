@@ -14,6 +14,9 @@ def main():
  parser.add_argument('--manifest',type=Path,default=ROOT/'dev-tools/native-runtime/manifest.json',help='Verified profile manifest; production profiles omit development instrumentation')
  args=parser.parse_args();source=args.source.resolve();work=args.workdir.resolve();sdk=args.toolchain.resolve();node=args.node.resolve()
  manifest=json.loads(args.manifest.read_text())
+ if manifest.get('compilerControl'):
+  control=manifest['compilerControl']
+  if digest(ROOT/control['tool'])!=control['toolSha256']:raise SystemExit('Compiler control tool checksum mismatch')
  if work.exists() or work.is_relative_to(source):raise SystemExit('Use a new work directory outside the source tree.')
  for name,want in manifest['baseSourceSha256'].items():
   if digest(source/name)!=want:raise SystemExit('Pinned source mismatch: '+name)
@@ -37,6 +40,11 @@ def main():
  run([sdk/'emscripten/emcmake','cmake','-S',tree,'-B',build,'-DCMAKE_BUILD_TYPE=Release','-DWLLAMA_COMPAT=ON','-DGGML_WEBGPU=ON','-DGGML_WEBGPU_JSPI=OFF','-DLLAMA_WASM_MEM64=OFF','-DWLLAMA_TEST_BACKEND=OFF','-DWLLAMA_PRODUCT_SLIM=ON','-DWLLAMA_INITIAL_MEMORY_MIB=96','-DEMDAWNWEBGPU_DIR='+str(port/'emdawnwebgpu_pkg'),'-DLLAMA_BUILD_TESTS=OFF','-DLLAMA_BUILD_TOOLS=OFF','-DLLAMA_BUILD_SERVER=OFF','-DLLAMA_BUILD_EXAMPLES=OFF','-DGGML_NATIVE=OFF'],env=env,cwd=work)
  run(['cmake','--build',build,'--target','wllama','--parallel','8'],env=env,cwd=work)
  out=work/'runtime';out.mkdir();shutil.copyfile(build/'wllama.wasm',out/'compat.wasm');shutil.copyfile(build/'wllama.js',out/'compat-worker.js')
+ if manifest.get('compilerControl'):
+  baseline=work/'untransformed';baseline.mkdir();shutil.move(out/'compat.wasm',baseline/'compat.wasm')
+  run([node,ROOT/'ops/native/compiler-control.mjs','pad',baseline/'compat.wasm',out/'compat.wasm'],cwd=ROOT)
+  run([node,ROOT/'ops/native/compiler-control.mjs','verify',out/'compat.wasm',out/'manifest.json'],cwd=ROOT)
+  if digest(out/'compat.wasm')!=manifest['files']['compat.wasm']['sha256']:raise SystemExit('Compiler control output does not match pinned candidate')
  if manifest.get('developmentDiagnostics',True):
   run([node,'--input-type=module','-e',"import {readFile,writeFile} from 'node:fs/promises';import {instrumentWebGpu} from './ops/native/instrument-webgpu.mjs';const p=process.argv[1];await writeFile(p,instrumentWebGpu(await readFile(p,'utf8')));",out/'compat-worker.js'],cwd=ROOT)
  old=manifest['baseBuildId'];identity=manifest['buildId'];library=wrapper.read_text()

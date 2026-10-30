@@ -88,3 +88,10 @@ user agent. Production builds exclude this module. Desktop Chromium checks of th
 configuration validate plumbing and native execution; they do not emulate WebKit or
 establish iPhone survival. Measurements and limitations are recorded in
 [evidence/dev-model-placement.json](evidence/dev-model-placement.json).
+
+The development compiler-control candidate preserves that placement profile and
+adds a separate runtime variant and Wasm SHA-256 to `version.json`, the diagnostics
+panel, and startup/configuration events. These identifiers distinguish transformed
+bytes that retain the baseline native build string. See the
+[living investigation](IPHONE-INVESTIGATION.md) for qualification and rollout status.
+Diagnostic sampling cadence and the conversation-content exclusion are unchanged.

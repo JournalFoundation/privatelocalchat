@@ -16,11 +16,14 @@ export async function startDiagnostics(){
   $('debugStatus').textContent=lastStatus||'Enter a receiver URL to enable diagnostics.';
  }
  const record=(type,data)=>t.record(type,{version:window.APP_BUILD.version,commit:window.APP_BUILD.commit,...data});
+ const runtime=window.APP_BUILD.developmentRuntime;
+ const runtimeIdentity=runtime?{nativeBuildId:runtime.nativeBuildId,runtimeVariant:runtime.variant,runtimeSha256:runtime.wasmSha256}:{};
+ if(runtime){const identity=document.createElement('p');identity.id='debugRuntime';identity.textContent='Runtime experiment: '+runtime.variant+' · Wasm '+runtime.wasmSha256.slice(0,12);panel.querySelector('summary').after(identity);}
  function applySettings(){
   try{
    const url=$('debugReceiver').value.trim(),changed=url!==t.config.url||$('debugDisk').checked!==t.config.disk;
    t.configure({url,disk:$('debugDisk').checked});
-   if(changed&&url){record('diagnostics-configured',{online:navigator.onLine,browser:navigator.userAgent});lastStatus='Streaming is enabled and will resume automatically after reconnecting.';}
+   if(changed&&url){record('diagnostics-configured',{online:navigator.onLine,browser:navigator.userAgent,...runtimeIdentity});lastStatus='Streaming is enabled and will resume automatically after reconnecting.';}
    else if(!url)lastStatus='Receiver cleared. Streaming is off; saved events are kept.';
    if(changed&&url&&t.config.disk)checkpoints(true);
    update();
@@ -37,7 +40,7 @@ export async function startDiagnostics(){
  window.addEventListener('error',event=>{let source='';try{source=new URL(event.filename).pathname;}catch{}record('page-error',{errorName:event.error?.name||'Error',source,line:event.lineno,column:event.colno});});
  window.addEventListener('unhandledrejection',event=>record('page-error',{errorName:event.reason?.name||'Error',code:event.reason?.code||'unhandled-rejection'}));
  window.addEventListener('download-recovery',event=>record('download-recovery',event.detail));
- await record('page-start',{online:navigator.onLine,browser:navigator.userAgent,pageRestart:true});
+ await record('page-start',{online:navigator.onLine,browser:navigator.userAgent,pageRestart:true,...runtimeIdentity});
  function checkpoints(recovered=false){
   if(!t.config.enabled||!t.config.disk)return Promise.resolve();
   if(checkpointTask)return checkpointTask;

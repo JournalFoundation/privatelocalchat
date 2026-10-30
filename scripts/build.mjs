@@ -9,6 +9,8 @@ const pkg=JSON.parse(await readFile('package.json','utf8'));
 const commit=process.env.GITHUB_SHA || execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
 const branch=process.env.DEPLOY_BRANCH || process.env.GITHUB_REF_NAME || 'local';
 const build={version:pkg.version,commit,branch,environment:branch==='main'?'production':branch==='dev'?'development':'local',builtAt:new Date().toISOString()};
+const developmentNative=branch==='dev'?JSON.parse(await readFile('dev-tools/native-runtime/manifest.json','utf8')):null;
+if(developmentNative?.compilerControl)build.developmentRuntime={nativeBuildId:developmentNative.buildId,variant:developmentNative.compilerControl.id,wasmSha256:developmentNative.files['compat.wasm'].sha256};
 const releasePath='releases/'+commit;
 await mkdir(path.join(out,releasePath),{recursive:true});
 for(const item of ['local-models.js','local-models.css','conversation-messages.mjs','runtime']) await rename(path.join(out,item),path.join(out,releasePath,item));
@@ -24,7 +26,13 @@ html=html.replace('<script src="/build-info.js"></script>','<script>window.APP_B
 html=html.replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');
 if(branch==='dev') {
  const debugRuntime=path.join('dev-tools','native-runtime');
- const native=JSON.parse(await readFile(path.join(debugRuntime,'manifest.json'),'utf8'));
+ const native=developmentNative;
+ if(native.compilerControl){
+  const control=JSON.parse(await readFile(native.compilerControl.receipt,'utf8'));
+  if(createHash('sha256').update(await readFile(native.compilerControl.tool)).digest('hex')!==native.compilerControl.toolSha256)throw new Error('Compiler control tool checksum mismatch');
+  if(control.output.sha256!==native.files['compat.wasm'].sha256||control.source.sha256!==native.compilerControl.sourceSha256)throw new Error('Compiler control receipt mismatch');
+  execFileSync(process.execPath,['ops/native/compiler-control.mjs','verify',path.join(debugRuntime,'compat.wasm'),native.compilerControl.receipt],{stdio:'pipe'});
+ }
  for(const [file,pin] of Object.entries(native.files)){const bytes=await readFile(path.join(debugRuntime,file));if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Diagnostic runtime checksum mismatch: '+file);await writeFile(path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q',file),bytes);}
  const catalogFile=path.join(out,releasePath,'runtime/providers/catalog.mjs');
  await writeFile(catalogFile,(await readFile(catalogFile,'utf8')).replaceAll(native.catalogBaseBuildId||native.baseBuildId,native.buildId));

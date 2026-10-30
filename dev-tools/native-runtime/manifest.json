@@ -20,8 +20,8 @@
   },
   "files": {
     "compat.wasm": {
-      "bytes": 14430107,
-      "sha256": "a772105af5a7a0872e7461f0e33ce36b4dc979d893f651100d85cbbd80d0e6bb"
+      "bytes": 20671361,
+      "sha256": "dbaf064fbeefcae1ab86322a9e52b2fc0de2e52e1f9e00cf72a787ed1f1142fc"
     },
     "compat-worker.js": {
       "bytes": 170551,
@@ -41,5 +41,17 @@
   },
   "wrapperSource": "ops/native/base-wllama-v1q.js",
   "wrapperSourceSha256": "9d383dbc0b540407bbdaa9a1a60cf69e5cc88287f6be8bdf641eec1315664031",
-  "catalogBaseBuildId": "privatelocalchat-queue-production-20261029-v1"
+  "catalogBaseBuildId": "privatelocalchat-queue-production-20261029-v1",
+  "compilerControl": {
+    "id": "privatelocalchat-compiler-control-20261030-v1",
+    "sourceSha256": "a772105af5a7a0872e7461f0e33ce36b4dc979d893f651100d85cbbd80d0e6bb",
+    "receipt": "ops/native/compiler-control.json",
+    "tool": "ops/native/compiler-control.mjs",
+    "toolSha256": "c09cb761574d96c45e630dc052cd96e93181d21e065520a5b470226d10dbaee1",
+    "changedBodies": 51,
+    "minimumOriginalBodyBytesExclusive": 20000,
+    "maximumOriginalBodyBytesInclusive": 100000,
+    "paddedBodyBytes": 160000,
+    "diagnosticIntervention": true
+  }
 }
