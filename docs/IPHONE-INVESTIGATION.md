@@ -227,3 +227,27 @@ interfaces and all 51 skipped-body changes verify. A production UI build with de
 controls absent completed baseline and candidate turns of 7, 28 and 512 native tokens with
 identical text and attested native hashes. See [the preparation receipt](evidence/production-compiler-control-preparation.json).
 This leaves source production selection and live main unchanged; iPhone and margin gates remain.
+
+### Storage ownership and single-copy delivery follow-up
+
+The user freed phone storage; the earlier storage prerequisite is satisfied. The next
+preflight measured about 2.55 GB immediately available. Maintain project garbage collection
+rather than repeating requests for user cleanup. Server test profiles and build artifacts
+that are no longer needed must be removed or archived on bulk storage.
+
+A dedicated desktop QA profile exposed a second copy of 12 model shards (774,368,224 bytes)
+in ordinary HTTP cache alongside explicit model storage. Its HTTP cache was cleared while
+retaining OPFS. CDN weight responses now carry `no-store` through a late header transform;
+edge caching remains enabled. A real browser verified a 21,250,464-byte shard was unavailable
+through ordinary HTTP cache offline, while an explicit CacheStorage copy remained readable.
+The temporary explicit cache was deleted. See the [storage receipt](evidence/model-single-copy-storage.json).
+Previously cached responses on other devices are not retroactively purged.
+
+The fresh physical USB trial on build `4d50add` completed downloading and automatically
+entered its first model load, then stopped sending events during native construction at
+10:28:42 UTC. The source-window ledger last reported 169,681,696 touched bytes. System logs
+correlate the WebContent process termination, but do not establish a memory-limit kill:
+its memory dump fields are redacted and no new relevant crash report was found after flushing
+pending reports. Automated prompt dispatch never ran. Stop unchanged native attempts and
+preserve this trial's private telemetry and bounded system capture. Investigate the process
+lifecycle and peak construction allocations before claiming either storage or RAM as cause.
