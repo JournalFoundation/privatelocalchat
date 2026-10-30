@@ -14,7 +14,7 @@ for(let attempt=0;attempt<20;attempt++){
   if(page.headers.get('cross-origin-opener-policy')!=='same-origin'||page.headers.get('cross-origin-embedder-policy')!=='require-corp')throw Error('Browser isolation headers missing');
   const html=await page.text();
   if(html.includes('migration-warning-banner')||!html.includes('/releases/'+commit+'/local-models.js'))throw Error('Unexpected app shell');
-  if(!html.includes('issues/new/choose')||!html.includes('Source code'))throw Error('Code or feedback link missing');
+  if(!html.includes('issues/new/choose')||!html.includes('View source'))throw Error('Code or feedback link missing');
   console.log('Verified '+origin+' at '+commit+' ('+branch+')');process.exit(0);
  }catch(e){last=e;await new Promise(resolve=>setTimeout(resolve,3000));}
 }
