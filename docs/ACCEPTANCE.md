@@ -57,12 +57,19 @@ the non-flash-attention graph selected by the phone: compute reservation falls f
 94.01 MiB to 5.88 MiB and three retained turns pass. This is a resource reduction;
 iPhone startup and second-turn restart acceptance remains open until device verification.
 
-Downloads now retry recoverable network/HTTP and integrity failures per file, with
-three automatic retries after 1, 2 and 4 seconds. Verified files remain on disk;
-Cancel interrupts backoff. Permanent HTTP, quota, permission and memory failures
-remain actionable failures. Installer tests simulate a partial failed shard and prove
-that only that shard is fetched again, its checksum passes and progress is accurate.
-A saved download request now survives page restarts and retries incomplete inventory after any reported failure until completion or Cancel. It loads the model once when the download completes; the request is cleared before native loading to prevent repeated load crashes on reopen. Native load failures and generation do not automatically retry.
+Downloads have two recovery layers. Each installer attempt retries transient failures
+per file after 1, 2 and 4 seconds and retains verified files. A saved download request
+then retries any reported incomplete attempt, including quota or unrecognized errors,
+with a delay capped at 60 seconds until inventory is complete or the user cancels.
+The request survives page restarts; it resumes when the page reopens. Completed cached
+inventory can load while offline. A closed browser cannot continue downloading.
+
+Completion automatically loads the model once. The request is cleared before native
+loading so a load crash cannot trigger repeated reconstruction on reopen. Native load
+failures and generation do not automatically retry. Cancel remains available during
+recovery waits. Unit checks cover unknown failures, storage exhaustion, cross-page
+cancellation, reload recovery and lost completion acknowledgements. See
+[the download recovery receipt](evidence/download-recovery.json).
 
 The clean production queue candidate passed local real-browser generation, offline
 generation and whole-browser offline reopening, using the production artifact and
