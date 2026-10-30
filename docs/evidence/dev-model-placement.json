@@ -69,5 +69,24 @@
     },
     "offlineReply": "Hello! How can I help you today?",
     "arithmeticReply": "Five."
+  },
+  "latestPhysicalIphoneResult": {
+    "commit": "c41c9f524f9bc754639aeffa3c01df80824294e3",
+    "profile": "zero GPU-layer offload; some weights remain GPU",
+    "automaticDownloadAndLoad": "PASS: install completed 01:55:40.824Z; automatic load completed 01:55:46.532Z; same page, single load attempt",
+    "generationResult": "FAILED: page restarted during first longer generation",
+    "lastProgressAt": "2026-10-30T01:59:05.360Z",
+    "pageRestartAt": "2026-10-30T01:59:07.174Z",
+    "lastCharacters": 361,
+    "lastChunks": 100,
+    "generationDurationMs": 72498,
+    "wasmCapacityBytes": 945422336,
+    "lastQueueCheckpoint": {
+      "graphEvaluations": 192,
+      "submitted": 191,
+      "completed": 191,
+      "highWater": 1
+    },
+    "cause": "Unresolved. Streamed chunks are not an independently attested native token count. A matching iOS crash or jetsam report is requested."
   }
 }
