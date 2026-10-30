@@ -521,3 +521,61 @@ advanced. The current page predates the download timeout fix. Loading, sustained
 cancellation and offline reopening remain unverified on this candidate; do not promote it on
 this evidence alone. The retained older automation storage namespace was accessible through
 instrumentation, but its reclamation or reuse has not been established.
+
+### Production and development release
+
+At the request to serve the latest application on both domains, commit `5fc35bb` deployed to
+both production and development (Actions runs 41081605157 and 41081624775). Production serves
+clean owner-cleanup Wasm SHA-256 `065354247ab2a35b58cdfc909bfcf66367b715bee53a0e72856be89ddc235aaa`;
+development serves the instrumented compiler-control derivative `77d16dd0a2ba93b504ae2c799ed1ae4e3eebefd834dbb74ed9245287abd146af`.
+Both deployed artifacts were read back and verified. The application suite passed 64 tests;
+production diagnostic route returned 404. Earlier statements that production remained unchanged
+were accurate at their time but are superseded by this release. The iPhone gate remains open:
+the real-device trial had not yet completed model download when this release was published.
+
+### iPhone owner-cleanup trial and release reload
+
+On iPhone 15 Pro, the owned Safari session on `663646db` finished the 1,202,488,640-byte
+model download and automatically loaded the development owner-cleanup runtime in 4.7 seconds.
+It completed a short reply and a subsequent 1,998-character reply. With the dev service worker
+blocking network requests (radios remained on), a further reply completed; the cached app then
+reopened, loaded all 13 cached shards in four seconds, and completed another reply. The network
+fault was disabled afterward. These results do not establish production runtime or real airplane
+mode behavior.
+
+Navigating from that loaded offline-reopen session to the current dev release `5fc35bb` reused
+all 13 cached shards, but two load attempts returned `InvalidStateError` before construction.
+The page stayed responsive. The navigation occurred while the previous model was loaded; the
+current evidence does not identify whether an old worker, a diagnostic journal handle, or another
+resource caused the error. The earlier successful trial and this failure must both remain visible
+in release assessment. Raw diagnostic and device-memory evidence stays in the private work area.
+
+A third load on `5fc35bb` bypassed only the native construction recorder while leaving
+telemetry disk storage enabled. It passed the immediate invalid-state point and reached native
+construction, but phone telemetry stopped at 15:49:43 UTC and subsequent USB evaluations timed
+out. The device sampler last saw WebContent PID 574 at 15:49:44 UTC, with a sampled peak
+footprint of 1,969 MiB; it disappeared from later samples. PID attribution and the operating
+system's reason have not been established, so this is evidence of a high-memory process
+vanishing near the failure, not proof of a particular jetsam event. The phone test remains open.
+
+The captured native logs show that both the successful `663646db` load and the later failed
+`5fc35bb` load reached full 25-layer GPU offload and reported a 1,136.33 MiB model buffer.
+The successful run recorded two generation completions at 15:43:23 and 15:44:15 UTC. The
+matching reported buffer size does not establish equal total process memory or the cause of
+the later process disappearance.
+
+Both live domains at `5fc35bb` passed desktop Chromium smoke checks using the light model on
+Centroid's 8 GB GPU: online generation, offline generation, and a full browser reopen while
+offline followed by another reply. Development produced no page errors or unexpected
+requests. The production and development releases use different native artifacts, and neither
+of these desktop results proves the current production artifact on iPhone.
+
+### Current release iPhone check
+
+On a new iPhone automation session, current dev release `5fc35bb` downloaded the light model
+and loaded it automatically on the first attempt in about five seconds. It completed two
+consecutive prompts, including a 2,523-character second response, and then a third prompt with
+the dev service worker denying network requests. The model remained ready; network denial was
+subsequently disabled. This was an in-session simulated-offline check, not an airplane-mode or
+production-origin iPhone test. The live production and dev sites have separately passed desktop
+online, offline, and full-browser offline-reopen checks.
