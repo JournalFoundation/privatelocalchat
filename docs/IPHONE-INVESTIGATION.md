@@ -10,7 +10,7 @@ This is the living plan and decision record. Keep the current state and next act
 
 - The iPhone 15 Pro can download, load, and generate, including offline, but construction and longer generation have also caused abrupt page replacement.
 - The latest user-observed generation restart occurred on development commit `c41c9f524f9bc754639aeffa3c01df80824294e3`, during a slow Gettysburg response. The last progress event recorded 100 stream chunks, not an attested count of 100 native tokens. A replacement page started at `2026-10-30T01:59:07.174Z`.
-- The development placement experiment requests zero GPU-offloaded layers but still puts the tied embedding/output head on GPU. It is not fully CPU inference. Moving weights between CPU and GPU does not establish a reduction in total process footprint.
+- The earlier zero-layer-offload control still placed the tied embedding/output head on GPU. The deployed development default has returned to full GPU offload. Moving weights between CPU and GPU does not establish a reduction in total process footprint.
 - Read `/version.json` for the deployed identity. The verified E03 storage-fix checkpoint was `e7302bf1c5a3746e100076ff9828e8869a618233`; the subsequent remote download controls are now recorded below. Its 51-function compiler candidate remains variant `privatelocalchat-compiler-control-20261030-v1`, Wasm SHA-256 `dbaf064fbeefcae1ab86322a9e52b2fc0de2e52e1f9e00cf72a787ed1f1142fc`. E03 added full-object capture, two-way commands and failure-safe diagnostic/model-storage handling. The initial physical candidate session completed 211 native tokens; the full device gate remains open.
 - Initial E01 qualification has passed byte reconstruction, real-GPU output parity, ten retained GPU turns including 512 native tokens, cancellation/recovery, fresh-context reset without weight reload, offline generation, a 30-second hold, and all 35 repository checks. The reduced-placement profile passed a real 512-token response and a separate focused recovery/reset/offline session with a 30-second hold; its additional ten-turn stress run was intentionally stopped and is not a pass. A renewed external WebKit comparison with 30-second holds measured 1531.6 MiB after-generation peak for the baseline and 818.8 MiB for the candidate. See [the E01 receipt](evidence/dev-compiler-control.json).
 - The deployment workflow succeeded. All three published runtime files match their pins, and the published app completed the 7/28/512-token sequence with baseline-identical text. The receiver received the browser's variant and full hash. Production remains at `4d74acdc856b02212cd2a3afa18aa245bcaae189`.
@@ -19,7 +19,7 @@ This is the living plan and decision record. Keep the current state and next act
 - The user cleared device storage. A fresh unattended CPU-profile load then hit the explicitly logged 2 GB per-process limit; the [kill receipt](evidence/iphone-single-copy-load-limit.json) supersedes the earlier unknown-cause statement for this specific trial.
 - Full GPU placement completed 12 replies, including three 512-token replies, plus a streamed cancellation and subsequent recovery on one physical page/model load. A random 64 MiB canary was verified after 151 seconds. This supports restoring the GPU default; it does not close offline or production qualification.
 - The fresh `436f001` page passed checksum verification, loading and a short reply, then the same Safari process hit its 2 GB limit during the next prompt. Retained-turn success does not establish lifecycle reliability.
-- **Next action:** qualify bounded native cleanup before worker termination, then repeat physical load/unload and navigation cycles on fixed model/compiler bytes. The dev-only network-denial harness is prepared for later offline tests and is stripped from production. Production selection and release acceptance remain unchanged.
+- **Next action:** qualify the explicit native owning-context teardown candidate described below in sustained full-GPU controls, then rebuild the corresponding development candidate before physical lifecycle testing. The native-exit acknowledgement alone did not prove model destruction. Physical testing still requires reclamation of our retained automation storage; shared Safari restart approval is pending. Keep production and the diagnostic compiler-control selection unchanged until the device gate passes.
 
 ## Evidence and its limits
 
@@ -430,3 +430,55 @@ WebKit has distinct `closeBrowsingContext`, `deleteSession`, and disconnect path
 The old namespace was still accessible after an earlier corrected close. This is a controller
 cleanup fix, not proof of reclaimed old storage or a fix for native memory kills. The
 controller's loaded-model cleanup path and full phone lifecycle remain to be qualified.
+
+### Native exit acknowledged checkpoint cleanup, not destruction of the model owner
+
+The pinned clean source and its compiled `1bf7ed18…` artifact show that `wllama_exit` calls
+`app.shutdown()` and `llama_backend_free()`. `app.shutdown()` clears checkpoint state; it does
+not destroy the static server context that owns the model and inference context. An actual
+512-token full-GPU baseline control confirmed that explicit GPU destruction did not advance
+during acknowledged native exit: 1,267,992,968 created GPU-buffer bytes still had no `destroy()`
+call. Native allocator-live bytes fell from 79,907,816 to 59,675,360, consistent with clearing
+the checkpoint without releasing the owner. These are call/allocator observations, not proof
+of physical residency or the cause of a phone kill.
+
+The separate source-built candidate explicitly destroys and reconstructs that static owner
+before backend shutdown. Its Wasm is `065354247ab2a35b58cdfc909bfcf66367b715bee53a0e72856be89ddc235aaa`
+(14,417,422 bytes); it validates and preserves the baseline imports and exports. The source
+patch/profile are `ops/native/native-owner-cleanup.patch` and `ops/native/native-owner-cleanup.json`.
+They are experimental and are not selected by either deployed app.
+
+A matched zero-layer-offload control on RTX 5060 used the same cached 1,202,488,640-byte model,
+4096-token context and identical seven-token reply. Baseline exit left 909,492,736 allocator-live
+bytes and 419,445,640 GPU-buffer bytes without explicit destruction. Candidate exit left
+4,792,112 allocator-live bytes and 993,408 GPU-buffer bytes without explicit destruction.
+Cleanup completed in 66 ms. Three further load/reply/unload cycles passed, including a second
+exit call in each cycle; post-cleanup values stayed about 4.8 MB and 1 MB respectively. See
+[the matched ownership receipt](evidence/native-owner-cleanup-control.json).
+
+This is a resource-ownership correction, not full release qualification. The linear-memory
+capacity remains at its high-water mark until worker disposal; no physical RSS drop is claimed.
+Full-GPU sustained operation, repeated navigation, cancellation, offline operation and the actual
+iPhone remain to be checked. The wrapper now also recognizes the native C error receipt
+`{"error":true}` as failed cleanup rather than an acknowledgement; all 59 JavaScript checks pass.
+
+### Desktop cold-load error capture and shared GPU admission
+
+A fresh deployed preview install reproduced the load fault with an explicit Wasm `Aborted()`
+error; its temporary profile was deleted. A later instrumented fresh install completed 7 and
+512 tokens, recorded native cleanup, removed the model and deleted its profile. This does not
+retroactively establish the earlier fault's cause.
+
+A separate attested baseline control captured `VK_ERROR_OUT_OF_DEVICE_MEMORY` while creating
+`tensor_buf0`, followed by invalid-buffer errors. The selected 16 GB GPU had only about 1.1 GB
+free after the failure while shared workloads occupied it. Those workloads were left alone.
+A later baseline trial admitted with about 5.9 GB free passed 512 tokens; the first full-GPU
+candidate trial was skipped by its headroom preflight, and a bounded capacity wait ended without
+starting a browser. See [the device-error receipt](evidence/desktop-device-allocation-error.json).
+
+The raw stack was resolved using the symbol file produced with the attested native binary:
+function 7373 is the WebGPU uncaptured-error callback. The wrapper's historical embedded map
+reported a different name. Preserve raw function indices and resolve against the matching
+artifact; do not use that stale decoded name as evidence of a speculative-decoding failure.
+The captured desktop Vulkan allocation error and the phone's kernel 2 GB process-limit kills
+remain distinct observations.

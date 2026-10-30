@@ -7,7 +7,7 @@ test('native cleanup acknowledges before the owned runtime is terminated',async(
  const result=await shutdownNativeRuntime(runtime);assert.equal(result.nativeExit,'acknowledged');assert.deepEqual(order,['native-free','terminate']);assert.equal(proxy.taskId,8);
 });
 test('cleanup rejection and timeout still terminate without leaving an indefinite unload',async()=>{
- for(const [pushTask,expected]of [[async()=>{throw Error('native failed');},'failed'],[()=>new Promise(()=>{}),'timed-out'],[async()=>'{"success":false}','failed']]){
+ for(const [pushTask,expected]of [[async()=>{throw Error('native failed');},'failed'],[()=>new Promise(()=>{}),'timed-out'],[async()=>'{"success":false}','failed'],[async()=>'{"error":true}','failed'],[async()=>'{"unrelated":true}','failed'],[async()=>'not-json','failed']]){
   let terminated=0;const runtime={proxy:{taskId:1,worker:{terminate(){terminated++;}},pushTask},async exit(){this.proxy.worker.terminate();}};
   assert.equal((await shutdownNativeRuntime(runtime,{timeoutMs:5})).nativeExit,expected);assert.equal(terminated,1);
  }

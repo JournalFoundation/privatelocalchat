@@ -197,3 +197,20 @@ This preparation leaves `production-runtime.json` and shipped native files uncha
 correctness, performance, resource behavior and the physical device gate before deciding whether
 this workaround belongs in a production selection. Promoting source alone currently selects the
 clean untransformed production runtime; do not mistake a dev runtime result for that selection.
+
+## Experimental model-owner teardown
+
+`native-owner-cleanup.json` and `native-owner-cleanup.patch` prepare a separate source-built
+compatibility artifact. The patch includes the existing production queue policy and changes
+`wllama_exit` to destroy and reconstruct the static model owner after checkpoint cleanup,
+before backend shutdown. The profile also pins `cpp/wllama.cpp`, which contains that exit entry.
+Rebuild with `build-debug-runtime.py --manifest ops/native/native-owner-cleanup.json` and the
+other source/toolchain/workdir arguments above. Keep this candidate separate from selected
+production and development artifacts. No compiler padding is applied to this candidate.
+
+The matched allocator/GPU destruction control and repeated short lifecycle results are in
+[the ownership receipt](../../docs/evidence/native-owner-cleanup-control.json). They establish
+a cleanup improvement in the tested desktop control. They do not establish full-GPU endurance,
+physical GPU reclamation, safe navigation, offline behavior or an iPhone fix. Preserve native
+function indices and resolve them with the symbol file generated for the attested Wasm;
+the wrapper's inherited compressed symbol list is not a reliable map for rebuilt artifacts.
