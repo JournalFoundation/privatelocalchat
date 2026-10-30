@@ -7,7 +7,8 @@
 // immutable manifest); load() refuses with not-installed / cache-corrupt; no grammar exists in this build, so a structured request is
 // ANSWERED BY VALIDATION: the host checks the finished text against the schema and a miss is attempt-failed (output-invalid), never repaired.
 // The adapter does not rewrite the mind's prompt: the mind must put the schema instruction in the prompt itself.
-import { compareInventory, planInstall, createRateTracker, hex } from "../verify.mjs";
+import { compareInventory, planInstall, createRateTracker } from "../verify.mjs";
+import {sha256OfBlob} from '../hash-blob.mjs';
 import { preflight as webgpuPreflight } from "./webgpu.mjs";
 import {retryDownload} from '../download-retry.mjs';
 import {writeOpfsStream} from '../opfs-stream-writer.mjs';
@@ -60,8 +61,6 @@ async function inspect({ files, runtimeDir }) {
   return { ...inv, partialNoMetadata: noMeta, ms: Math.round(performance.now() - t0), engine: "wllama", where: "OPFS (wllama cache)" };
 }
 
-async function sha256OfBlob(blob) { return hex(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())); }
-
 async function verify({ files, runtimeDir, deep = false }, hooks = {}) {
   const inv = await inspect({ files, runtimeDir });
   if (!deep) return { ...inv, deep: false, hashMismatch: [] };
@@ -70,7 +69,7 @@ async function verify({ files, runtimeDir, deep = false }, hooks = {}) {
     if (hooks.signal?.aborted) throw Object.assign(new Error("cancelled"), { name: "AbortError" });
     if (inv.missing.includes(f.path) || inv.bad.some((b) => b.path === f.path)) continue;
     const blob = await cm.open(f.url); if (!blob) { hashMismatch.push({ path: f.path, why: "unreadable" }); continue; }
-    const got = await sha256OfBlob(blob);
+    const got = await sha256OfBlob(blob,{signal:hooks.signal});
     if (f.sha256 && got !== f.sha256) hashMismatch.push({ path: f.path, want: f.sha256, got, why: "sha256" });
     hooks.onProgress?.({ phase: "hash", filesDone: ++done, filesTotal: files.length });
   }
@@ -108,7 +107,7 @@ async function install({ files, runtimeDir, verifyHash = true, deep = false }, {
       if (size !== f.bytes || (m && m.originalSize && m.originalSize !== f.bytes)) throw Object.assign(new Error(`download size mismatch for ${f.path}: stored ${size} bytes, the catalogue says ${f.bytes}`), { code: "cache-corrupt" });
       if (verifyHash && f.sha256) {
         const blob = await cm.open(f.url);
-        const got = blob ? await sha256OfBlob(blob) : "unreadable";
+        const got = blob ? await sha256OfBlob(blob,{signal}) : "unreadable";
         if (got !== f.sha256) throw Object.assign(new Error(`checksum mismatch for ${f.path}: sha256 ${got}, the catalogue says ${f.sha256}`), { code: "cache-corrupt" });
       }
     } catch (e) {

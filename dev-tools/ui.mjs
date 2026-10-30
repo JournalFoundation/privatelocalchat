@@ -72,13 +72,15 @@ export async function startDiagnostics(){
  await checkpoints(true);
  const waitUntil=Date.now()+20000;while(!window.localModels&&Date.now()<waitUntil)await new Promise(r=>setTimeout(r,100));
  const host=window.__plcDebugModelHost;if(!host){lastStatus='Model controls did not initialize.';await update();return;}
- const reducedGpuProfile=/iPhone|iPad|iPod/.test(navigator.userAgent);
- let gpuLayerOverride=reducedGpuProfile?0:null;
+ const phoneProfile=/iPhone|iPad|iPod/.test(navigator.userAgent);
+ // The CPU placement control exceeded the phone's process limit during construction.
+ // Keep it available explicitly; the full GPU control completed retained long replies.
+ let gpuLayerOverride=phoneProfile?-1:null;
  const profileNotice=document.createElement('p');
  function describeProfile(){profileNotice.textContent=gpuLayerOverride===0?'iPhone resource experiment: model layers run on CPU, with some weights still on GPU. Replies may be slower. Existing downloaded files are reused.':'Resource experiment: full GPU layer offload requested. Existing downloaded files are reused.';}
- if(reducedGpuProfile){describeProfile();panel.querySelector('summary').after(profileNotice);}
+ if(phoneProfile){describeProfile();panel.querySelector('summary').after(profileNotice);}
  window.__plcDebugSetComputeProfile=async({gpuLayers})=>{if(![0,-1].includes(gpuLayers))throw Error('Unsupported GPU profile');const state=host.getState();if(state.busy||state.load.state==='ready'||state.load.state==='loading'||generating)throw Error('Unload the model before changing its profile');gpuLayerOverride=gpuLayers;describeProfile();if(!profileNotice.isConnected)panel.querySelector('summary').after(profileNotice);await record('compute-profile',{state:gpuLayers===0?'zero-layer-offload':'full-gpu-offload',memory:{requestedGpuLayers:gpuLayers}});return {gpuLayers,context:host.tierConfig().context};};
- if(reducedGpuProfile)record('compute-profile',{state:'zero-layer-offload',memory:{requestedGpuLayers:0}});
+ if(phoneProfile)record('compute-profile',{state:'full-gpu-offload',memory:{requestedGpuLayers:-1}});
  const tierConfig=host.tierConfig.bind(host);
  host.tierConfig=(...args)=>{const config=tierConfig(...args);if(config.adapter==='wllama'){config.knobs={...config.knobs,devDiagnostics:t.config.enabled,devDiagnosticsDisk:t.config.enabled&&t.config.disk};if(gpuLayerOverride!==null)config.context={...config.context,n_gpu_layers:gpuLayerOverride};}return config;};
  async function sample(){

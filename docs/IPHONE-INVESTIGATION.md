@@ -2,7 +2,7 @@
 
 Updated: 2026-10-30 UTC. Owner: the agent continuing this investigation, with John providing physical iPhone observations when a qualified experiment needs them.
 
-**Status: open.** The leading investigative path is to test whether reducing WebKit optimizing compiler allocation improves survival on the iPhone. Local controls demonstrate a substantial compiler-related allocation outside native memory counters. They do not establish the cause of the latest iPhone restart or qualify a fix.
+**Status: open.** The latest unattended iPhone load hit the kernel’s 2 GB per-process limit despite the compiler-control binary. Local controls demonstrate substantial compiler-related allocation outside native memory counters, but the mitigation alone does not qualify a fix. Full GPU placement has now passed a retained physical control with long replies and cancellation; offline recovery and clean production qualification remain open.
 
 This is the living plan and decision record. Keep the current state and next action accurate, append results to the experiment log, and preserve failed controls. [Release acceptance](ACCEPTANCE.md) remains the authority for completing the migration.
 
@@ -16,7 +16,9 @@ This is the living plan and decision record. Keep the current state and next act
 - The deployment workflow succeeded. All three published runtime files match their pins, and the published app completed the 7/28/512-token sequence with baseline-identical text. The receiver received the browser's variant and full hash. Production remains at `4d74acdc856b02212cd2a3afa18aa245bcaae189`.
 - E02 produced a completed **211-native-token** reply on the same phone page session without a user-observed restart. Native timings were 123.1 seconds of prompt processing and 172.1 seconds of decoding; 173 prompt tokens were evaluated, with zero reuse. The initial Gettysburg response was only 12 native tokens. Content-free diagnostics cannot establish the exact prompts, answer text or word counts. See [the first physical trial](evidence/iphone-compiler-first-trial.json). This supports continuing the candidate, not a completed release gate or causal proof.
 - E03 has live Chromium and normal Mac Safari command/full-stream verification, including a 512-token Safari reply. Physical USB configuration, downloads and load-failure receipts were exercised without user relay. Generic browser storage errors were resolved to kernel ENOSPC; the iPhone's immediate space metric was about 0.5 GB after our temporary test models were removed. See [the storage receipt](evidence/iphone-usb-storage-failure.json). Do not infer usable space from the misleading `TotalDataAvailable` field.
-- **Next action:** verify the new controls on the live Cloudflare deployment while waiting for at least 3 GB of real iPhone storage headroom. Then run a retained physical session with verified full request/chunk/result objects. Preserve compiler bytes and placement for that session; GPU restoration remains a separate E04 comparison. A clean production compiler artifact has passed the sampled parity check below; it remains unselected while physical qualification is open. Production selection and release acceptance remain unchanged.
+- The user cleared device storage. A fresh unattended CPU-profile load then hit the explicitly logged 2 GB per-process limit; the [kill receipt](evidence/iphone-single-copy-load-limit.json) supersedes the earlier unknown-cause statement for this specific trial.
+- Full GPU placement completed 12 replies, including three 512-token replies, plus a streamed cancellation and subsequent recovery on one physical page/model load. A random 64 MiB canary was verified after 151 seconds. This supports restoring the GPU default; it does not close offline or production qualification.
+- **Next action:** deploy and read back the new full-GPU default and bounded checksum build, reuse the isolated phone cache for fresh-page qualification, then test offline recovery and a clean production compiler preview. Production selection and release acceptance remain unchanged.
 
 ## Evidence and its limits
 
@@ -245,9 +247,50 @@ Previously cached responses on other devices are not retroactively purged.
 
 The fresh physical USB trial on build `4d50add` completed downloading and automatically
 entered its first model load, then stopped sending events during native construction at
-10:28:42 UTC. The source-window ledger last reported 169,681,696 touched bytes. System logs
-correlate the WebContent process termination, but do not establish a memory-limit kill:
-its memory dump fields are redacted and no new relevant crash report was found after flushing
-pending reports. Automated prompt dispatch never ran. Stop unchanged native attempts and
-preserve this trial's private telemetry and bounded system capture. Investigate the process
-lifecycle and peak construction allocations before claiming either storage or RAM as cause.
+10:28:42 UTC. The source-window ledger last reported 169,681,696 touched bytes. The first process lookup followed a neighboring WebContent process and missed the actual
+model process. Corrected correlation finds the kernel's explicit `ActiveHard 2048 MB (fatal)`
+and `per-process-limit` kill at 10:28:42 UTC, at 2,097,155 KB. The preceding warning reports
+1,638 MB physical footprint, 939 MB bmalloc and 695 MB Gigacage, while JavaScript GC heap
+capacity is only 3 MB. These are different accounting views, not additive allocations.
+No new relevant crash report was found after flushing pending reports; the live kernel record
+supplies the missing kill reason. Automated prompt dispatch never ran.
+
+The next controlled physical trial keeps the compiler-control Wasm and model fixed and changes
+only the requested layer profile from CPU (`0`) to full GPU (`-1`). This directly tests the
+construction footprint and restores the intended fast device path if it passes. Record native
+allocation counters and full system logs, then require multiple replies and a long response.
+Do not equate low JavaScript heap or a flat native ledger with low total process footprint.
+See the [physical kill receipt](evidence/iphone-single-copy-load-limit.json).
+
+### Full-GPU retained physical control
+
+The compiler-control Wasm stayed fixed while layer placement changed from `0` to `-1`.
+The source change between the two deployed identities contained only CDN operations and docs.
+The phone reached Ready once, retained the same page and model, completed 12 replies including
+three 512-native-token replies, stopped an additional reply after 57 native tokens, and completed
+a subsequent 427-token reply. All 2,243 captured objects were complete and each completed
+response's native stream matched its terminal text. The model was unloaded afterward.
+See the [physical retained-control receipt](evidence/iphone-full-gpu-retained.json).
+
+Full GPU placement used 134,217,728 Wasm bytes, compared with roughly 945 MB in the CPU control.
+Checkpoint high water remained 20,201,932 bytes; GPU queue high water was two batches with zero
+pending at the final sample. This does not measure total process memory. WebKit still sent
+memory-pressure warnings; no per-process-limit kill was observed in this retained trial.
+
+A separate 64 MiB allocation filled with random bytes remained readable for about 151 seconds
+through a long reply and the cancellation sequence. Its contents were verified before release.
+This is a limited stress observation, not an absolute safety margin or a chosen release threshold.
+The development default now returns to full GPU placement; the failing CPU placement stays an
+explicit diagnostic control rather than an automatic phone override.
+
+Checksum verification is prepared separately with unmodified pinned MIT-licensed noble-hashes
+2.4.0. Each checksum reads at most 1 MiB at a time in a short-lived worker, terminated on every
+exit path. The real 428,120,416-byte shard matched its pinned hash in Chromium with an OPFS File
+and in Linux WebKit with an HTTP Blob (that build lacks OPFS). Known-vector, differential,
+bounded-read and failure/cancellation checks passed. See the [checksum receipt](evidence/bounded-model-checksum.json).
+This removes an avoidable whole-shard allocation; it is not yet physical checksum qualification
+and does not prove that checksums caused the previous kill.
+
+Next: deploy and read back the new full-GPU default/checksum build, reuse this isolated phone
+cache for fresh-page qualification, then test offline recovery and a clean production compiler
+preview. Keep production unchanged until those device checks and diagnostic exclusion pass.
