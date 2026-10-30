@@ -3455,6 +3455,8 @@ const base64UrlEncode = value => {
         } catch (err) {
           console.error(err);
           generationStatus.textContent = err.name === 'AbortError' ? 'Generation stopped.' : 'Generation failed: ' + err.message;
+          // A stopped reply is kept as the assistant's message, ending exactly where Stop was pressed.
+          if (err.name === 'AbortError' && typeof err.partialText === 'string' && err.partialText.trim()) addMessage('assistant', err.partialText);
           const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
           const systemMessage = buildAuthErrorMessage('Error: ' + errorText);
           if (err.name !== 'AbortError') addMessage('system', systemMessage, true);

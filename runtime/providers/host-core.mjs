@@ -102,7 +102,7 @@ export function createHost({ adapters, storage = {}, providerId = "provider", li
   function validateRequest(r) {
     if (!Array.isArray(r.messages) || r.messages.length === 0) return { code: "bad-request", class: "invalid-request", message: "messages[] required" };
     if (!r.messages.every((m) => m && ["system", "user", "assistant"].includes(m.role) && typeof m.content === "string")) return { code: "bad-request", class: "invalid-request", message: "messages must be {role, content:string}" };
-    if (!Number.isInteger(r.maxTokens) || r.maxTokens < 1) return { code: "bad-request", class: "invalid-request", message: "maxTokens (positive integer) required" };
+    if (r.maxTokens !== undefined && (!Number.isInteger(r.maxTokens) || r.maxTokens < 1)) return { code: "bad-request", class: "invalid-request", message: "maxTokens must be a positive integer when given; omit it for no limit" };
     const t = r.responseFormat?.type;
     if (t !== undefined && !KNOWN_FORMATS.has(t)) return { code: "unsupported-structured-mode", class: "unsupported", message: `responseFormat.type ${JSON.stringify(t)} is not supported; use text, json_object or json_schema` };
     if (t === "json_schema" && (!r.responseFormat.schema || typeof r.responseFormat.schema !== "object")) return { code: "bad-request", class: "invalid-request", message: "responseFormat json_schema needs a schema object" };
@@ -247,7 +247,7 @@ export function createHost({ adapters, storage = {}, providerId = "provider", li
   }
 
   function summarizeRequest(r) {
-    return { messages: r.messages.length, maxTokens: r.maxTokens, sampling: r.sampling || null, responseFormat: r.responseFormat?.type || "text", cachePrompt: r.cachePrompt !== false, thinking: r.thinking === true };
+    return { messages: r.messages.length, maxTokens: r.maxTokens ?? null, sampling: r.sampling || null, responseFormat: r.responseFormat?.type || "text", cachePrompt: r.cachePrompt !== false, thinking: r.thinking === true };
   }
 
   // Shaped like contracts/fabric/schemas/provider/provider-capabilities.schema.json (fabric-provider-capabilities/1).
