@@ -1310,7 +1310,7 @@
             <span class="emoji-icon" aria-hidden="true">☠️</span>
             <span class="sr-only">Delete all chat history</span>
           </button>
-          <input type="file" id="importInput" accept="application/json" style="display: none;" />
+          <input type="file" id="importInput" accept=".json,.zip,application/json,application/zip" style="display: none;" />
         </div>
         <div class="action-group">
           <span class="action-label">Settings:</span>
@@ -1417,10 +1417,11 @@
           <button type="button" id="authGuideImportBtn" class="secondary">Import settings</button>
         </div>
       </div>
-      <div id="systemPromptContainer" class="system-prompt-container">
+      <details id="systemPromptContainer" class="system-prompt-container">
+        <summary>Instructions for this chat</summary>
         <label for="systemPromptInput">System prompt:</label>
         <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
-      </div>
+      </details>
       <div class="messages-wrap">
         <div id="messages" class="messages" role="log" aria-label="Conversation" aria-live="off" tabindex="0"></div>
         <button type="button" id="jumpLatest" class="jump-latest" hidden>↓ Jump to latest</button>
@@ -3420,12 +3421,22 @@ const base64UrlEncode = value => {
         const view = { ...thread, messages: thread.messages.slice(0, mode === 'continue' ? index + 1 : index) };
         // the answer being continued is already written: it is context, not a reply in progress
         if (mode === 'continue') view.messages[index] = { ...view.messages[index], status: undefined };
-        const options = (await contextOptions?.(thread, view)) || {};
+        const options = await contextOptions(thread, view);
         const messages = messagesForInference(view, options);
         if (mode === 'continue') messages.push({ role: 'user', content: CONTINUE_PROMPT });
         return messages;
       }
-      let contextOptions = null; // set by features that add instructions, memory or document text to the prompt
+      // Features that add to what the model is told register here: (thread, view) => ({ preamble?: string[], attachmentText?: { [id]: text } })
+      const contextProviders = [];
+      async function contextOptions(thread, view) {
+        const out = { preamble: [], attachmentText: {} };
+        for (const provide of contextProviders) {
+          const part = await provide(thread, view);
+          if (part?.preamble) out.preamble.push(...part.preamble);
+          if (part?.attachmentText) Object.assign(out.attachmentText, part.attachmentText);
+        }
+        return out;
+      }
 
       async function handleSendMessage(event) {
         event.preventDefault();
@@ -3899,6 +3910,12 @@ const base64UrlEncode = value => {
         openAppDialog({ title: 'Move chat to a project', content: wrap, actions: [{ label: 'Cancel' }, { label: 'Move', primary: true, run: () => { if (sel.value) thread.folderId = sel.value; else delete thread.folderId; saveThreads(); renderThreadList(); } }] });
       }
 
+      contextProviders.push(async thread => ({ preamble: [selectedFolderInstructions(thread)] }));
+      messageDecorators.push((thread, msg, index, ctx, actions) => {
+        if (!ctx.streaming && index < thread.messages.length) actions.appendChild(actionButton('branch-here', '🌿 Branch', 'Start a new chat from this point'));
+      });
+      messageActionHandlers['branch-here'] = (thread, msg) => duplicateThread(thread.id, thread.messages.indexOf(msg));
+
       function selectedFolderInstructions(thread) {
         const f = folders.find(x => x.id === thread.folderId);
         return f?.instructions?.trim() ? 'Instructions for the "' + f.name + '" project:\n' + f.instructions.trim() : '';
@@ -4195,7 +4212,8 @@ const base64UrlEncode = value => {
        * threads array as a structured JSON document.
        */
       function exportHistory() {
-        const dataStr = JSON.stringify(threads, null, 2);
+        prefs.lastExportAt = Date.now(); savePrefs();
+        const dataStr = JSON.stringify(threads.filter(t => !t.temporary), null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -4207,43 +4225,78 @@ const base64UrlEncode = value => {
         URL.revokeObjectURL(url);
       }
 
+      async function readImportFile(file) {
+        if (/\.zip$/i.test(file.name) || file.type === 'application/zip') {
+          const zip = await import(moduleBase() + 'chat/zip.mjs');
+          return zip.readConversationsJson(new Uint8Array(await file.arrayBuffer()));
+        }
+        return file.text();
+      }
+
       /**
-       * Import chat history from a selected JSON file. The file is parsed
-       * and, if valid, replaces the current threads list. Afterwards the
-       * first thread is selected or the chat area is disabled if none.
-       * @param {Event} event input change event
+       * Import chat history. The file is read and checked first, nothing changes until the person confirms a preview.
+       * Accepts this app's exports, and ChatGPT or Claude data exports (the .zip or its conversations.json).
        */
-      function importHistory(event) {
+      async function importHistory(event) {
         const file = event.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          try {
-            const imported = JSON.parse(e.target.result);
-            if (Array.isArray(imported)) {
-              threads = imported;
-              saveThreads();
-              const ensuredId = ensureThreadExists();
-              renderThreadList();
-              const firstThreadWithId = threads.find(thread => thread && typeof thread.id === 'string' && thread.id);
-              const nextId = firstThreadWithId?.id || ensuredId || null;
-              if (nextId) {
-                selectThread(nextId);
-              } else {
-                currentThreadId = null;
-                updateChatAvailability();
-              }
-              alert('Import successful');
-            } else {
-              alert('Invalid file format.');
-            }
-          } catch (err) {
-            alert('Failed to import: ' + err.message);
+        try {
+          const text = await readImportFile(file);
+          let data;
+          try { data = JSON.parse(text); } catch { throw new Error('The file is not valid JSON.'); }
+          const foreignModule = await import(moduleBase() + 'chat/foreign-import.mjs');
+          const foreign = foreignModule.convertForeign(data);
+          let incoming, note = '';
+          if (foreign) { incoming = foreign.threads; note = foreignModule.describeForeign(foreign); }
+          else {
+            const checked = M.model.validateHistory(data);
+            if (!checked.ok) throw new Error(checked.error);
+            incoming = checked.threads;
+            if (checked.skipped) note = checked.skipped + ' unusable entr' + (checked.skipped === 1 ? 'y was' : 'ies were') + ' left out.';
           }
-          // Reset input to allow re-importing same file later
+          showImportPreview(incoming, note);
+        } catch (err) {
+          openAppDialog({ title: 'Import failed', content: el('p', null, err.message + ' Nothing was changed.'), actions: [{ label: 'OK', primary: true }] });
+        } finally {
           importInput.value = '';
+        }
+      }
+
+      function showImportPreview(incoming, note) {
+        const wrap = el('div');
+        if (note) wrap.appendChild(el('p', null, note));
+        const mk = (id, text, checked) => {
+          const row = el('label', 'list-row'); const r = el('input'); r.type = 'radio'; r.name = 'importMode'; r.id = id; r.checked = checked;
+          row.append(r, el('span', null, text)); return [row, r];
         };
-        reader.readAsText(file);
+        const [mergeRow, mergeRadio] = mk('importMerge', 'Add to my current chats (recommended). Nothing already here is changed.', true);
+        const [replaceRow, replaceRadio] = mk('importReplace', 'Replace all my current chats with the imported ones.', false);
+        const backupRow = el('label', 'list-row'); const backup = el('input'); backup.type = 'checkbox'; backup.checked = true; backup.id = 'importBackup';
+        backupRow.append(backup, el('span', null, 'Download a backup of my current chats first'));
+        const summary = el('p', null); summary.id = 'importSummary'; summary.setAttribute('role', 'status');
+        const update = () => {
+          const preview = M.model.mergeThreads(threads.filter(t => !t.temporary), incoming, { replace: replaceRadio.checked });
+          summary.textContent = M.model.describeImport(preview);
+          backupRow.hidden = !replaceRadio.checked;
+          summary.classList.toggle('danger', replaceRadio.checked);
+        };
+        mergeRadio.addEventListener('change', update); replaceRadio.addEventListener('change', update);
+        wrap.append(mergeRow, replaceRow, backupRow, summary); update();
+        openAppDialog({ title: 'Import ' + incoming.length + ' conversation' + (incoming.length === 1 ? '' : 's'), content: wrap, actions: [
+          { label: 'Cancel' },
+          { label: 'Import', primary: true, run: () => {
+            const replace = replaceRadio.checked;
+            if (replace && backup.checked) exportHistory();
+            const result = M.model.mergeThreads(threads.filter(t => !t.temporary), incoming, { replace });
+            threads = result.threads;
+            saveThreads();
+            const ensuredId = ensureThreadExists();
+            const target = (replace ? M.model.listThreads(threads)[0] : getThread(currentThreadId)) || M.model.listThreads(threads)[0];
+            renderThreadList();
+            if (target) selectThread(target.id); else if (ensuredId) selectThread(ensuredId);
+            showToast(result.added ? 'Imported ' + result.added + ' conversation' + (result.added === 1 ? '' : 's') : 'Nothing new to import');
+          } }
+        ] });
       }
 
       function clearChatHistory() {

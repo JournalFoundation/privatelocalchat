@@ -12,7 +12,9 @@ test('inline application script remains valid JavaScript',()=>{
  for(const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(match[1].trim())execFileSync('node',['--check','--input-type=commonjs'],{input:match[1]});
 });
 test('local inference gates API requests and supports cancellation',async()=>{
- assert.match(html,/if \(window.localModels\?\.mode === 'local'\) \{[\s\S]*?return window.localModels.generate/);
+ const gate=html.search(/if \(window.localModels\?\.mode === 'local'\) \{[\s\S]*?window.localModels.generate[\s\S]*?return \{ text, finishReason \};\s*\}\s*if \(!config.endpoint\)/);
+ assert.ok(gate>=0,'local mode must return before any API request is prepared');
+ assert.ok(html.indexOf('fetch(chatEndpoint',gate)>gate,'the only chat fetch comes after the local-mode gate');
  assert.match(html,/generationController\?\.abort\(\)/);
  const bridge=await readFile('local-models.js','utf8');
  assert.match(bridge,/call.done/);assert.match(bridge,/attempt-completed/);
