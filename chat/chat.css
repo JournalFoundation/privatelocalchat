@@ -145,3 +145,8 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
   .message-form button { min-height: 40px; padding-top: 6px; padding-bottom: 6px; }
   #generationStatus { margin: 4px 16px; padding: 4px 8px; max-height: 3rem; }
 }
+
+.chat-area.drop-target { outline: 3px dashed var(--color-link); outline-offset: -6px; }
+.message-sources { margin-top: 6px; align-items: center; }
+.message-sources .cited { border-color: var(--color-link); font-weight: 600; }
+.side-links button { display: flex; align-items: center; gap: 6px; }

@@ -2790,7 +2790,7 @@ const base64UrlEncode = value => {
        */
       function updateSendButtonDisabled(isReady) {
         if (!sendBtn || !messageInput) return;
-        const hasContent = Boolean(messageInput.value.trim());
+        const hasContent = Boolean(messageInput.value.trim()) || Boolean(pendingAttachments?.length);
         sendBtn.disabled = !isReady || !hasContent || messageInput.disabled;
       }
 
@@ -2986,6 +2986,7 @@ const base64UrlEncode = value => {
         systemPromptInput.value = thread.systemPrompt || '';
         // Render messages
         renderMessages(thread);
+        threadSelectedHooks.forEach(fn => fn(thread));
         // Re-render thread list to highlight current
         renderThreadList();
         closeSidebar();
@@ -3189,6 +3190,7 @@ const base64UrlEncode = value => {
       }
 
       const messageDecorators = []; // later features add buttons/meta here: (thread, msg, index, ctx) => void
+      const threadSelectedHooks = []; // run after a conversation is shown
       const statusNote = msg => {
         const S = STATUS();
         if (msg.status === S.STOPPED) return ['Stopped here. You can continue from this point.', false];
@@ -3221,6 +3223,7 @@ const base64UrlEncode = value => {
         const body = el('div', 'message-body');
         fillBody(body, msg);
         div.appendChild(body);
+        if (msg.role === 'assistant' && msg.sources?.length && !streaming) div.appendChild(renderSources(msg));
         const note = statusNote(msg);
         if (note) {
           const meta = el('div', 'message-meta' + (note[1] ? ' failed' : ''));
@@ -3403,6 +3406,7 @@ const base64UrlEncode = value => {
             } else { msg.status = baseText ? S.STOPPED : S.FAILED; }
           }
         } finally {
+          if (contextSources.length) msg.sources = contextSources; else if (mode !== 'continue') delete msg.sources;
           M.model.syncActiveVersion(msg);
           gen = null; generationController = null;
           M.model.touch(thread);
@@ -3414,6 +3418,7 @@ const base64UrlEncode = value => {
           afterReply?.(thread, msg);
         }
       }
+      let contextSources = [];
       let afterReply = null; // hooks for features that react to a finished reply (titles, speech)
 
       async function buildInferenceMessages(thread, index, mode) {
@@ -3422,6 +3427,7 @@ const base64UrlEncode = value => {
         // the answer being continued is already written: it is context, not a reply in progress
         if (mode === 'continue') view.messages[index] = { ...view.messages[index], status: undefined };
         const options = await contextOptions(thread, view);
+        contextSources = options.sources;
         const messages = messagesForInference(view, options);
         if (mode === 'continue') messages.push({ role: 'user', content: CONTINUE_PROMPT });
         return messages;
@@ -3429,11 +3435,12 @@ const base64UrlEncode = value => {
       // Features that add to what the model is told register here: (thread, view) => ({ preamble?: string[], attachmentText?: { [id]: text } })
       const contextProviders = [];
       async function contextOptions(thread, view) {
-        const out = { preamble: [], attachmentText: {} };
+        const out = { preamble: [], attachmentText: {}, sources: [] };
         for (const provide of contextProviders) {
           const part = await provide(thread, view);
           if (part?.preamble) out.preamble.push(...part.preamble);
           if (part?.attachmentText) Object.assign(out.attachmentText, part.attachmentText);
+          if (part?.sources) out.sources.push(...part.sources);
         }
         return out;
       }
@@ -3484,7 +3491,8 @@ const base64UrlEncode = value => {
         if (config.token) headers['Authorization'] = `Bearer ${config.token}`;
         let chatEndpoint;
         try { chatEndpoint = deriveChatCompletionsUrl(config.endpoint); } catch (err) { throw new Error('Invalid endpoint: ' + err.message); }
-        const post = stream => fetch(chatEndpoint, { method: 'POST', headers, body: JSON.stringify({ model: config.model, messages: apiMessages(messages), ...(stream ? { stream: true } : {}) }), signal });
+        const payloadMessages = await apiMessages(messages);
+        const post = stream => fetch(chatEndpoint, { method: 'POST', headers, body: JSON.stringify({ model: config.model, messages: payloadMessages, ...(stream ? { stream: true } : {}) }), signal });
         let response = await post(true);
         if (!response.ok && (response.status === 400 || response.status === 422)) response = await post(false); // a provider that rejects streaming
         if (!response.ok) {
@@ -3498,7 +3506,7 @@ const base64UrlEncode = value => {
         const result = await M.stream.readChatStream(response, { signal, onDelta: (delta, full) => onText(full) });
         return { text: result.text, finishReason: result.finishReason };
       }
-      let apiMessages = messages => messages; // features that attach images reshape the payload here
+      let apiMessages = async messages => messages; // features that attach images reshape the payload here
 
       const EXT = { javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts', python: 'py', py: 'py', html: 'html', css: 'css', json: 'json', bash: 'sh', sh: 'sh', shell: 'sh', markdown: 'md', md: 'md', csv: 'csv', sql: 'sql', c: 'c', cpp: 'cpp', java: 'java', go: 'go', rust: 'rs', yaml: 'yml', yml: 'yml', xml: 'xml', text: 'txt' };
       const extensionFor = lang => EXT[String(lang || '').toLowerCase()] || 'txt';
@@ -3977,6 +3985,278 @@ const base64UrlEncode = value => {
         menuItem(menu, '🗑️', 'Delete', () => trashThread(threadId), 'delete');
         placeMenu(menu, anchor);
       }
+
+
+      // ---- documents: attach, read on this device, cite ------------------------------------------------------------
+      let docModules = null;
+      async function loadDocModules() {
+        if (docModules) return docModules;
+        const base = moduleBase();
+        const [docs, store, exportsModule] = await Promise.all([import(base + 'chat/documents.mjs'), import(base + 'chat/doc-store.mjs'), import(base + 'chat/exports.mjs')]);
+        docModules = { docs, store: store.docStore, exports: exportsModule };
+        return docModules;
+      }
+      const featureLinks = document.getElementById('featureLinks');
+      function addFeatureLink(emoji, label, handler, id) {
+        const b = el('button', 'secondary'); b.type = 'button'; if (id) b.id = id;
+        b.append(createEmoji(emoji), ' ', label); b.addEventListener('click', handler);
+        featureLinks.appendChild(b); return b;
+      }
+      const humanSize = n => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
+
+      function contextWindowTokens() {
+        if (window.localModels?.mode === 'local') {
+          const s = window.localModels.state;
+          return s?.tiers?.[s?.selection?.tier]?.info?.contextWindowTokens || 4096;
+        }
+        return prefs.apiContextTokens || 8192;
+      }
+      const documentBudgetTokens = () => Math.max(600, Math.floor(contextWindowTokens() * 0.45));
+
+      async function ingestFile(file, { library = false, scope = 'all', onStatus } = {}) {
+        const { docs, store } = await loadDocModules();
+        const L = docs.LIMITS, kind = docs.kindOf(file.name, file.type);
+        if (!kind) throw new Error(docs.unsupportedMessage(file.name));
+        const temporary = Boolean(currentThread()?.temporary) && !library;
+        const id = generateThreadId();
+        if (kind === 'image') {
+          if (window.localModels?.mode === 'local') throw new Error('Pictures can only go to an API provider whose model can see images. The on-device models here read text only.');
+          if (file.size > L.imageBytes) throw new Error('“' + file.name + '” is larger than ' + humanSize(L.imageBytes) + '.');
+          onStatus?.('Preparing ' + file.name + '…');
+          const img = await (await import(moduleBase() + 'chat/images.mjs')).prepareImage(file);
+          await store.put({ id, name: file.name, kind: 'image', size: img.size, addedAt: Date.now(), dataUrl: img.dataUrl, width: img.width, height: img.height, chars: 0, temporary });
+          return { id, name: file.name, kind: 'image', size: img.size };
+        }
+        if (file.size > L.fileBytes) throw new Error('“' + file.name + '” is larger than ' + humanSize(L.fileBytes) + '.');
+        let rec;
+        if (kind === 'pdf') {
+          const { extractPdf } = await import(moduleBase() + 'chat/pdf.mjs');
+          const out = await extractPdf(new Uint8Array(await file.arrayBuffer()), { onProgress: (n, total) => onStatus?.('Reading ' + file.name + ' (page ' + n + ' of ' + total + ')…') });
+          rec = docs.buildDocument({ id, name: file.name, size: file.size, kind, pages: out.pages });
+          if (out.emptyPages) rec.note = out.emptyPages + ' page' + (out.emptyPages === 1 ? '' : 's') + ' had no selectable text and were skipped.';
+        } else {
+          onStatus?.('Reading ' + file.name + '…');
+          const text = await file.text();
+          if (/\u0000/.test(text.slice(0, 4000))) throw new Error('“' + file.name + '” looks like a binary file, not text.');
+          if (!text.trim()) throw new Error('“' + file.name + '” is empty.');
+          if (text.length > L.chars) throw new Error('“' + file.name + '” has more text than can be kept on this device.');
+          rec = docs.buildDocument({ id, name: file.name, size: file.size, kind, text });
+        }
+        rec.temporary = temporary;
+        if (library) { rec.library = true; rec.scope = scope; }
+        await store.put(rec);
+        return { id, name: rec.name, kind: rec.kind, size: rec.size, pages: rec.pages, chars: rec.chars, note: rec.note };
+      }
+
+      // composer: attach button, chips, drag and drop, paste
+      pendingAttachments = [];
+      takePendingAttachments = () => { const out = pendingAttachments; pendingAttachments = []; renderChips(); updateSendButtonDisabled(getChatState().ready); return out; };
+      const chipsRow = el('div', 'message-attachments'); chipsRow.id = 'attachmentChips'; chipsRow.style.flex = '1 0 100%';
+      const chipStatus = el('span', 'muted'); chipStatus.setAttribute('role', 'status'); chipStatus.setAttribute('aria-live', 'polite'); chipStatus.id = 'attachStatus';
+      messageForm.insertBefore(chipsRow, messageForm.firstChild);
+      function renderChips() {
+        chipsRow.textContent = '';
+        pendingAttachments.forEach((a, i) => {
+          const chip = el('span', 'chip');
+          chip.append((a.kind === 'image' ? '🖼️ ' : '📎 ') + a.name + (a.pages ? ' · ' + a.pages + ' pages' : ''));
+          const x = el('button', null, '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Remove ' + a.name);
+          x.addEventListener('click', () => { pendingAttachments.splice(i, 1); renderChips(); updateSendButtonDisabled(getChatState().ready); });
+          chip.appendChild(x); chipsRow.appendChild(chip);
+        });
+        chipsRow.appendChild(chipStatus);
+        chipsRow.hidden = !pendingAttachments.length && !chipStatus.textContent;
+      }
+      async function addFiles(fileList) {
+        for (const file of [...fileList]) {
+          try {
+            const a = await ingestFile(file, { onStatus: t => { chipStatus.textContent = t; renderChips(); } });
+            pendingAttachments.push(a);
+            chipStatus.textContent = a.note || '';
+          } catch (err) {
+            chipStatus.textContent = '';
+            showToast(err.message, 8000);
+          }
+        }
+        chipStatus.textContent = chipStatus.textContent && !/Reading|Preparing/.test(chipStatus.textContent) ? chipStatus.textContent : '';
+        renderChips(); updateSendButtonDisabled(getChatState().ready);
+      }
+      const attachInput = el('input'); attachInput.type = 'file'; attachInput.multiple = true; attachInput.hidden = true; attachInput.id = 'attachInput';
+      attachInput.accept = '.pdf,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.log,.xml,.yaml,.yml,.html,.htm,.js,.mjs,.ts,.py,.java,.c,.h,.cpp,.go,.rs,.rb,.php,.sh,.sql,.css,.srt,.vtt,text/*,image/png,image/jpeg,image/webp,image/gif';
+      attachInput.addEventListener('change', () => { addFiles(attachInput.files); attachInput.value = ''; });
+      const attachBtn = el('button', null, '📎'); attachBtn.type = 'button'; attachBtn.id = 'attachBtn'; attachBtn.title = 'Attach text, Markdown, CSV, PDF or code files';
+      attachBtn.setAttribute('aria-label', 'Attach files'); attachBtn.addEventListener('click', () => attachInput.click());
+      const composerToolsEl = document.getElementById('composerTools');
+      composerToolsEl.append(attachBtn, attachInput);
+      const chatAreaEl = document.querySelector('.chat-area');
+      ['dragenter', 'dragover'].forEach(t => chatAreaEl.addEventListener(t, e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); chatAreaEl.classList.add('drop-target'); } }));
+      ['dragleave', 'drop'].forEach(t => chatAreaEl.addEventListener(t, e => { if (t === 'drop' && e.dataTransfer?.files?.length) { e.preventDefault(); if (getChatState().canType) addFiles(e.dataTransfer.files); } chatAreaEl.classList.remove('drop-target'); }));
+      messageInput.addEventListener('paste', e => { if (e.clipboardData?.files?.length) { e.preventDefault(); addFiles(e.clipboardData.files); } });
+
+      // what the model is told about the documents
+      contextProviders.push(async (thread, view) => {
+        const attachmentList = view.messages.flatMap(m => m.attachments || []);
+        const imageIds = attachmentList.filter(a => a.kind === 'image').map(a => a.id);
+        const ids = [...new Set(attachmentList.filter(a => a.kind !== 'image').map(a => a.id))];
+        const { docs, store } = await loadDocModules();
+        let attached = [], library = [];
+        try { attached = ids.length ? (await store.getMany(ids)).filter(Boolean) : []; library = await store.libraryFor(thread.folderId); } catch (err) { console.warn('Documents unavailable:', err); }
+        const missing = ids.filter(id => !attached.some(d => d.id === id));
+        if (!attached.length && !library.length && !missing.length) return {};
+        const lastUser = [...view.messages].reverse().find(m => m.role === 'user' && !m.excluded)?.content || '';
+        const budget = documentBudgetTokens();
+        const plan = docs.planContext(attached, lastUser, { budgetTokens: budget });
+        const used = plan.mode === 'full' ? docs.estimateTokens(Object.values(plan.fullText).join('').length) : plan.excerpts.reduce((n, e) => n + docs.estimateTokens(e.text.length), 0);
+        const libPlan = library.length ? docs.planContext(library, lastUser, { budgetTokens: Math.max(300, budget - used), library: true, maxExcerpts: 4 }) : { excerpts: [] };
+        const excerpts = [...plan.excerpts, ...libPlan.excerpts.map((e, i) => ({ ...e, n: plan.excerpts.length + i + 1 }))];
+        const preamble = [];
+        if (plan.mode === 'full') preamble.push(docs.FULL_TEXT_RULES);
+        if (excerpts.length) preamble.push(docs.excerptPreamble(excerpts));
+        const attachmentText = { ...plan.fullText };
+        missing.forEach(id => { attachmentText[id] = '(This file is no longer stored on this device, so its contents are not available.)'; });
+        const sources = plan.mode === 'full' ? attached.map(d => ({ docId: d.id, name: d.name })) : [];
+        sources.push(...excerpts.map(({ n, docId, chunkId, name, page }) => ({ n, docId, chunkId, name, page })));
+        return { preamble, attachmentText, sources };
+      });
+      apiMessages = async messages => {
+        const out = [];
+        for (const m of messages) {
+          if (!m.images?.length) { out.push(m.images ? { role: m.role, content: m.content } : m); continue; }
+          const { store } = await loadDocModules();
+          const parts = [{ type: 'text', text: m.content || 'Please look at the attached image.' }];
+          for (const id of m.images) { const rec = await store.get(id); if (rec?.dataUrl) parts.push({ type: 'image_url', image_url: { url: rec.dataUrl } }); }
+          out.push({ role: m.role, content: parts });
+        }
+        return out;
+      };
+
+      // sources under an answer
+      function renderSources(msg) {
+        const wrap = el('div', 'message-sources'); wrap.setAttribute('role', 'group'); wrap.setAttribute('aria-label', 'Sources used');
+        wrap.appendChild(el('span', 'muted', 'Sources: '));
+        const cited = new Set([...String(msg.content).matchAll(/\[(\d{1,2})\]/g)].map(m => Number(m[1])));
+        msg.sources.forEach((s, i) => {
+          const label = (s.n ? '[' + s.n + '] ' : '') + s.name + (s.page ? ', p. ' + s.page : '');
+          const b = el('button', cited.has(s.n) ? 'cited' : null, label); b.type = 'button'; b.dataset.action = 'open-source'; b.dataset.sourceIndex = String(i);
+          b.title = cited.has(s.n) ? 'Cited in the answer. Show the passage.' : 'Show the passage'; wrap.appendChild(b);
+        });
+        return wrap;
+      }
+      messageActionHandlers['open-source'] = async (thread, msg, btn) => {
+        const s = msg.sources?.[Number(btn.dataset.sourceIndex)]; if (!s) return;
+        const { store } = await loadDocModules();
+        const doc = await store.get(s.docId).catch(() => null);
+        const body = el('div');
+        if (!doc) body.appendChild(el('p', null, 'This document is no longer stored on this device, so the passage cannot be shown.'));
+        else {
+          const chunk = s.chunkId ? doc.chunks?.find(c => c.id === s.chunkId) : null;
+          body.appendChild(el('p', 'muted', doc.name + (chunk?.page ? ', page ' + chunk.page : '') + (chunk ? '' : ' (start of the document; the whole text was supplied)')));
+          const pre = el('pre'); pre.style.whiteSpace = 'pre-wrap'; pre.style.overflowWrap = 'anywhere';
+          pre.textContent = chunk ? chunk.text : doc.text.slice(0, 4000) + (doc.text.length > 4000 ? '\n…' : '');
+          body.appendChild(pre);
+        }
+        openAppDialog({ title: (s.n ? '[' + s.n + '] ' : '') + s.name, content: body, actions: [{ label: 'Close', primary: true }] });
+      };
+
+      function referencedDocIds() {
+        return threads.flatMap(t => t.messages.flatMap(m => (m.attachments || []).map(a => a.id)));
+      }
+      async function pruneOrphanDocs() {
+        try { const { store } = await loadDocModules(); await store.prune(referencedDocIds()); } catch { /* storage unavailable: nothing to prune */ }
+      }
+
+      // document library: files that are searched for every chat in scope
+      async function openLibrary() {
+        const { docs, store } = await loadDocModules();
+        const root = el('div'); const list = el('div'); const note = el('p', 'muted'); note.setAttribute('role', 'status');
+        root.append(el('p', 'muted', 'Files added here are read and kept on this device only. When you ask a question in a chat they apply to, the best-matching passages are supplied to the model and cited under its answer. Nothing is uploaded.'));
+        const add = el('button', 'secondary', 'Add documents…'); add.type = 'button';
+        const pick = el('input'); pick.type = 'file'; pick.multiple = true; pick.hidden = true; pick.accept = attachInput.accept.split(',').filter(x => !x.startsWith('image/')).join(',');
+        add.addEventListener('click', () => pick.click());
+        pick.addEventListener('change', async () => {
+          for (const f of [...pick.files]) { try { await ingestFile(f, { library: true, onStatus: t => { note.textContent = t; } }); note.textContent = 'Added ' + f.name + '.'; } catch (err) { note.textContent = err.message; } }
+          pick.value = ''; await refresh();
+        });
+        root.append(add, pick, note, list);
+        async function refresh() {
+          list.textContent = '';
+          const all = (await store.list()).filter(d => d.library).sort((a, b) => b.addedAt - a.addedAt);
+          if (!all.length) list.appendChild(el('p', 'muted', 'No documents yet.'));
+          let total = 0;
+          all.forEach(d => {
+            total += d.bytes || 0;
+            const row = el('div', 'list-row'); const info = el('div');
+            info.append(el('strong', null, d.name), el('div', 'muted', (d.kind === 'pdf' ? d.pages + ' pages' : humanSize(d.size)) + ' · ' + humanSize(d.bytes || 0) + ' stored'));
+            const sel = el('select'); sel.setAttribute('aria-label', 'Where ' + d.name + ' is used');
+            sel.appendChild(new Option('All chats', 'all')); folders.forEach(f => sel.appendChild(new Option('Project: ' + f.name, f.id))); sel.appendChild(new Option('Off', 'off'));
+            sel.value = [...sel.options].some(o => o.value === d.scope) ? d.scope : 'all'; sel.style.maxWidth = '11rem';
+            sel.addEventListener('change', async () => { const rec = await store.get(d.id); rec.scope = sel.value; await store.put(rec); });
+            const del = el('button', 'secondary', 'Remove'); del.type = 'button'; del.setAttribute('aria-label', 'Remove ' + d.name);
+            del.addEventListener('click', async () => { await store.remove(d.id); await refresh(); });
+            row.append(info, sel, del); list.appendChild(row);
+          });
+          if (all.length) list.appendChild(el('p', 'muted', 'Total stored: ' + humanSize(total)));
+        }
+        await refresh();
+        openAppDialog({ title: 'Documents', content: root, actions: [{ label: 'Done', primary: true }], wide: true });
+      }
+      addFeatureLink('📚', 'Documents', openLibrary, 'openLibraryBtn');
+
+      // save an answer as a file
+      messageDecorators.push((thread, msg, index, ctx, actions) => {
+        if (msg.role !== 'assistant' || !msg.content || ctx.streaming) return;
+        actions.appendChild(actionButton('save-message', '⬇ Save', 'Save this answer as a file'));
+        actions.appendChild(actionButton('open-canvas', '📝 Edit', 'Open this answer in the editor'));
+      });
+      messageActionHandlers['save-message'] = async (thread, msg) => {
+        const { exports: ex } = await loadDocModules();
+        const root = el('div');
+        ex.exportsFor(msg.content, thread.title).forEach(item => {
+          const row = el('div', 'list-row'); row.append(el('span', null, item.label));
+          const b = el('button', 'secondary', 'Save'); b.type = 'button'; b.setAttribute('aria-label', 'Save ' + item.label);
+          b.addEventListener('click', () => downloadText(item.filename, item.text, item.mime)); row.appendChild(b); root.appendChild(row);
+        });
+        openAppDialog({ title: 'Save this answer', content: root, actions: [{ label: 'Done', primary: true }] });
+      };
+
+      // a simple editor for longer drafts
+      let canvas = null;
+      function ensureCanvas() {
+        if (canvas) return canvas;
+        const pane = el('aside', 'canvas-pane'); pane.hidden = true; pane.setAttribute('aria-label', 'Draft editor'); pane.id = 'canvasPane';
+        const head = el('div', 'dialog-head'); head.appendChild(el('strong', null, 'Draft editor'));
+        const close = el('button', 'icon-action', '✕'); close.type = 'button'; close.setAttribute('aria-label', 'Close editor'); head.appendChild(close);
+        const area = el('textarea'); area.setAttribute('aria-label', 'Draft text'); area.id = 'canvasText';
+        const bar = el('div', 'dialog-actions');
+        const mk = (label, fn) => { const b = el('button', 'secondary', label); b.type = 'button'; b.addEventListener('click', fn); bar.appendChild(b); return b; };
+        mk('Copy', () => copyText(area.value, 'Draft copied'));
+        mk('Save .md', () => downloadText('draft.md', area.value, 'text/markdown'));
+        mk('Save .txt', () => downloadText('draft.txt', area.value));
+        mk('Revise with assistant…', async () => {
+          const instruction = await promptDialog('Revise with the assistant', 'What should change?', '', { confirmLabel: 'Send' });
+          if (!instruction || !instruction.trim() || gen) return;
+          messageInput.value = 'Revise the draft below. ' + instruction.trim() + '\nReturn only the revised draft.\n\n---\n' + area.value;
+          growComposer(); await handleSendMessage({ preventDefault() {} });
+        });
+        pane.append(head, area, bar); document.body.appendChild(pane);
+        let t = null;
+        area.addEventListener('input', () => { window.clearTimeout(t); t = window.setTimeout(() => { const th = currentThread(); if (!th) return; th.canvas = { text: area.value, updatedAt: Date.now() }; saveThreads(); }, 400); });
+        close.addEventListener('click', () => { pane.hidden = true; canvasBtn.setAttribute('aria-pressed', 'false'); canvasBtn.focus(); });
+        pane.addEventListener('keydown', e => { if (e.key === 'Escape') close.click(); });
+        canvas = { pane, area };
+        return canvas;
+      }
+      function openCanvas(text) {
+        const c = ensureCanvas(), th = currentThread();
+        c.area.value = text ?? th?.canvas?.text ?? '';
+        if (text != null && th) { th.canvas = { text, updatedAt: Date.now() }; saveThreads(); }
+        c.pane.hidden = false; canvasBtn.setAttribute('aria-pressed', 'true'); c.area.focus();
+      }
+      const canvasBtn = el('button', null, '📝'); canvasBtn.type = 'button'; canvasBtn.id = 'canvasBtn'; canvasBtn.title = 'Draft editor for this chat';
+      canvasBtn.setAttribute('aria-label', 'Open draft editor'); canvasBtn.setAttribute('aria-pressed', 'false');
+      canvasBtn.addEventListener('click', () => { const c = ensureCanvas(); if (c.pane.hidden) openCanvas(); else c.pane.querySelector('[aria-label="Close editor"]').click(); });
+      composerToolsEl.appendChild(canvasBtn);
+      messageActionHandlers['open-canvas'] = (thread, msg) => openCanvas(msg.content);
+      threadSelectedHooks.push(() => { if (canvas && !canvas.pane.hidden) { canvas.pane.hidden = true; canvasBtn.setAttribute('aria-pressed', 'false'); } });
 
       // ---- search ----------------------------------------------------------------------------------------------------
       let searchModule = null;
@@ -4833,6 +5113,7 @@ const base64UrlEncode = value => {
         if (!models.length && config.endpoint) {
           refreshModels({ silent: true });
         }
+        pruneOrphanDocs();
       }
       init().catch(err => {
         console.error('Failed to initialize application:', err);

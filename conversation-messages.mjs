@@ -18,7 +18,8 @@ export function messagesForInference(thread,{preamble=[],attachmentText={}}={}){
    if(blocks.length)content=blocks.join('\n\n')+'\n\n'+content;
   }
   if(role==='user'||role==='assistant')conversationStarted=true;
-  messages.push({role,content});
+  const images=role==='user'?(message.attachments||[]).filter(a=>a.kind==='image').map(a=>a.id):[];
+  messages.push(images.length?{role,content,images}:{role,content});
  }
  return system.length?[{role:'system',content:system.join('\n\n')},...messages]:messages;
 }

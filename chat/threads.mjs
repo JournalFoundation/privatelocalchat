@@ -48,6 +48,7 @@ export function normalizeThread(raw, now = Date.now()) {
   if (typeof raw.folderId === "string" && raw.folderId) t.folderId = raw.folderId;
   if (raw.summary && typeof raw.summary.text === "string" && Number.isInteger(raw.summary.upTo) && raw.summary.upTo > 0) t.summary = { text: raw.summary.text, upTo: raw.summary.upTo };
   if (typeof raw.presetId === "string" && raw.presetId) t.presetId = raw.presetId;
+  if (raw.canvas && typeof raw.canvas.text === "string") t.canvas = { text: raw.canvas.text.slice(0, 200000), updatedAt: num(raw.canvas.updatedAt, now) };
   return t;
 }
 
