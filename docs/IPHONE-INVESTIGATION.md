@@ -411,3 +411,7 @@ A second filesystem API independently reported 1,167,400,960 free bytes; Lockdow
 The 78 GB `TotalDataAvailable` field is therefore not a sound basis for starting another
 full copy. The correlated small-shard WebContent footprint stayed below 41 MB in this bounded
 trial; that does not predict the footprint of native inference.
+
+A read-only USB enumeration found zero currently inspectable tabs at the exact development
+host. Reusing a normal development tab's existing cache is therefore unavailable at this
+check; other projects' pages were neither attached to nor changed.
