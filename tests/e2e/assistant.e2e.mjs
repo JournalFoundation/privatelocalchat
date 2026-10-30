@@ -2,22 +2,22 @@ import {launch,assert} from './harness.mjs';
 const speechMocks=()=>{
  const spoken=[];window.__spoken=spoken;window.__recs=[];
  const voices=[{voiceURI:'remote-1',name:'Cloud Voice',lang:'en-US',localService:false},{voiceURI:'local-1',name:'Device Voice',lang:'en-US',localService:true}];
- Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>window.__noVoices?[voices[0]]:voices,cancel(){},addEventListener(){},removeEventListener(){},speak(u){spoken.push({text:u.text,voice:u.voice?.voiceURI});setTimeout(()=>u.onend&&u.onend(),5);}}});
+ Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>window.__voiceMode==='none'?[]:window.__voiceMode==='remote'?[voices[0]]:voices,cancel(){},addEventListener(){},removeEventListener(){},speak(u){spoken.push({text:u.text,voice:u.voice?.voiceURI});setTimeout(()=>u.onend&&u.onend(),5);}}});
  window.SpeechSynthesisUtterance=function(t){this.text=t;};
  class Rec{constructor(){this.continuous=false;this.interimResults=false;this._pl=false;window.__recs.push(this);}
-  get processLocally(){return this._pl;}set processLocally(v){this._pl=v;}
   start(){this.started=true;}stop(){this.started=false;this.onend&&this.onend();}
-  emit(text,final=true){this.onresult&&this.onresult({resultIndex:0,results:[Object.assign([{transcript:text}],{isFinal:final})]});}
-  static async available(o){window.__availableOpts=o;return window.__dictation||'available';}}
+  emit(text,final=true){this.onresult&&this.onresult({resultIndex:0,results:[Object.assign([{transcript:text}],{isFinal:final})]});}}
  window.SpeechRecognition=Rec;
 };
 const h=await launch({init:speechMocks});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
+const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};
+
 const requests=async()=>(await (await fetch(`http://127.0.0.1:${h.api.port}/__requests`)).json());
-const settle=async()=>{await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:|Answered on this device)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
+const settle=async()=>{await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted|Answered on this device)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
 const send=async text=>{await page.fill('#messageInput',text);await page.click('#sendBtn');await settle();};
-const newChat=async()=>{await page.click('#threadList .new-thread-button:not(.temp-chat-button):not(.new-project-button)');};
+const newChat=async()=>{await page.click('#newChatBtn');};
 const systemOfLast=async()=>{const r=(await requests()).at(-1).body.messages;return r[0].role==='system'?r[0].content:'';};
 try{
  await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
@@ -37,16 +37,16 @@ try{
  assert(/Reply in British English/.test(await systemOfLast()),'preferences survive a reload');
  ok('personal instructions and memory');
 
- await page.click('.temp-chat-button');await send('private question');
+ await page.click('#tempChatBtn');await send('private question');
  sys=await systemOfLast();
  assert(/standing preferences/.test(sys)&&!/Lisbon/.test(sys),'temporary chat: preferences yes, memory no');
- assert(await page.locator('.message [data-action="remember"]').count()===0,'no Remember in a temporary chat');
+ await page.locator('.message.user').last().locator('[data-action="more"]').click();assert(await page.locator('.thread-menu [data-menu-action="remember"]').count()===0,'no Remember in a temporary chat');await page.keyboard.press('Escape');
  await newChat();
  await send('/remember my cat is called Miso');
  assert(/Remembered: Miso|Remembered: my cat is called Miso/.test(await page.locator('.message.assistant').innerText()),'remember command answered locally');
  await send('who am I?');
  assert(/my cat is called Miso/.test(await systemOfLast()),'new memory used');
- await page.locator('.message.user').last().locator('[data-action="remember"]').click();
+ await more(page.locator('.message.user').last(),'remember');
  await page.fill('.app-dialog textarea','I prefer metric units');await page.click('.app-dialog button:has-text("Remember")');
  await page.click('#openPrefsBtn');
  assert(await page.locator('.app-dialog input[aria-label="Memory 3"]').inputValue()==='I prefer metric units','remember action stored an edited memory');
@@ -90,18 +90,24 @@ try{
  assert(spoken.every(s=>s.voice==='local-1'),'only the on-device voice: '+JSON.stringify(spoken));
  assert(!/[#*`]/.test(spoken.map(s=>s.text).join(' '))&&/Heading/.test(spoken[0].text),'markdown not read out');
  await page.waitForFunction(()=>document.querySelector('.message.assistant [data-action="speak"]').getAttribute('aria-pressed')==='false');
- await page.evaluate(()=>{window.__noVoices=true;window.__spoken.length=0;});
+ // only an online voice installed: it is used, because the browser offers it
+ await page.evaluate(()=>{window.__voiceMode='remote';window.__spoken.length=0;});
  await page.locator('.message.assistant [data-action="speak"]').click();
- await page.waitForFunction(()=>/No on-device voice/.test(document.querySelector('#toast').textContent));
- assert((await page.evaluate(()=>window.__spoken.length))===0,'nothing spoken with a remote voice');
- await page.evaluate(()=>{window.__noVoices=false;});
- ok('read aloud is on-device only');
+ await page.waitForFunction(()=>window.__spoken.length>0);
+ assert((await page.evaluate(()=>window.__spoken.every(s=>s.voice==='remote-1'))),'uses the voice the browser has');
+ await page.waitForFunction(()=>document.querySelector('.message.assistant [data-action="speak"]').getAttribute('aria-pressed')==='false');
+ // no voice at all: say so
+ await page.evaluate(()=>{window.__voiceMode='none';window.__spoken.length=0;});
+ await page.locator('.message.assistant [data-action="speak"]').click();
+ await page.waitForFunction(()=>/no voice installed/.test(document.querySelector('#toast').textContent));
+ await page.evaluate(()=>{window.__voiceMode='both';});
+ ok('read aloud prefers on-device voices and still works without one');
 
  // dictation
  await newChat();
  await page.click('#micBtn');
  await page.waitForFunction(()=>window.__recs.length===1&&window.__recs[0].started);
- assert(await page.evaluate(()=>window.__recs[0].processLocally===true&&window.__availableOpts.processLocally===true),'recognition forced local');
+ assert(await page.evaluate(()=>window.__recs[0].continuous===true&&window.__recs[0].interimResults===true),'continuous dictation with live text');
  await page.evaluate(()=>window.__recs[0].emit('hello wor',false));assert((await page.inputValue('#messageInput'))==='hello wor','interim text shown');
  await page.evaluate(()=>window.__recs[0].emit('hello world'));assert((await page.inputValue('#messageInput')).trim()==='hello world','final text committed');
  await page.click('#micBtn');assert(await page.getAttribute('#micBtn','aria-pressed')==='false','stopped');
@@ -127,13 +133,14 @@ try{
 }catch(e){console.error(e.message);console.error(await page.locator('#messages').innerText().catch(()=>''));console.error(h.errors);process.exitCode=1;}
 finally{await h.close();}
 
-// dictation that cannot be confirmed local stays off and says why
-const h2=await launch({build:false,port:18272,init:()=>{delete window.SpeechRecognition;window.webkitSpeechRecognition=class{};}});
+// a browser with no speech recognition or voices simply does not show the controls
+const h2=await launch({build:false,port:18272,init:()=>{delete window.SpeechRecognition;delete window.webkitSpeechRecognition;Object.defineProperty(window,'speechSynthesis',{configurable:true,value:undefined});}});
 try{
  await h2.page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
- await h2.page.click('#micBtn',{force:true});
- await h2.page.waitForFunction(()=>/can.t confirm that speech recognition stays on your device/.test(document.querySelector('#toast').textContent));
- await h2.page.click('#voiceModeBtn',{force:true});
- await h2.page.waitForFunction(()=>/can.t confirm|no on-device voice/i.test(document.querySelector('#toast').textContent));
- console.log('PASS dictation refuses without local confirmation');
+ const count=async sel=>h2.page.locator(sel).count();
+ if(await count('#micBtn')!==0||await count('#voiceModeBtn')!==0)throw new Error('mic and voice buttons should not exist without speech recognition');
+ await h2.page.fill('#messageInput','hi');await h2.page.click('#sendBtn');
+ await h2.page.waitForFunction(()=>/Response complete/.test(document.querySelector('#generationStatus').textContent));
+ if(await count('[data-action="speak"]')!==0)throw new Error('Listen should not exist without speech synthesis');
+ console.log('PASS unsupported speech controls are not shown');
 }catch(e){console.error(e.message);process.exitCode=1;}finally{await h2.close();}

@@ -34,11 +34,13 @@ writeFileSync(files.lib,'# Handbook\n\nVacation policy: employees receive twenty
 const h=await launch({});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
+const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};
+
 const requests=async()=>(await (await fetch(`http://127.0.0.1:${h.api.port}/__requests`)).json());
-const settle=async()=>{await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
+const settle=async()=>{await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
 const send=async text=>{await page.fill('#messageInput',text);await page.click('#sendBtn');await settle();};
 const attach=async f=>{await page.setInputFiles('#attachInput',f);};
-const newChat=async()=>{await page.click('#threadList .new-thread-button:not(.temp-chat-button):not(.new-project-button)');};
+const newChat=async()=>{await page.click('#newChatBtn');};
 try{
  await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
 
@@ -99,7 +101,7 @@ try{
 
  // save as a file
  await newChat();await send('markdown please');
- await page.click('.message.assistant [data-action="save-message"]');
+ await more(page.locator('.message.assistant'),'save-message');
  const labels=await page.locator('.app-dialog .list-row span').allInnerTexts();
  assert(labels.some(l=>/Markdown/.test(l))&&labels.some(l=>/CSV/.test(l))&&labels.some(l=>/js/.test(l)),'save options: '+labels);
  const [download]=await Promise.all([page.waitForEvent('download'),page.click('.app-dialog .list-row:has-text("CSV") button')]);
@@ -108,7 +110,7 @@ try{
  ok('save outputs');
 
  // editor
- await page.click('.message.assistant [data-action="open-canvas"]');
+ await more(page.locator('.message.assistant'),'open-canvas');
  assert(/# Heading/.test(await page.inputValue('#canvasText')),'answer opened in editor');
  await page.fill('#canvasText','My edited draft');await page.waitForTimeout(600);
  await page.reload();await page.waitForSelector('#messageInput');
@@ -121,7 +123,7 @@ try{
  ok('editor');
 
  // temporary chats keep documents in memory only; deleting a chat releases its documents
- await page.click('.temp-chat-button');await attach(files.txt);await page.waitForSelector('#attachmentChips .chip');
+ await page.click('#tempChatBtn');await attach(files.txt);await page.waitForSelector('#attachmentChips .chip');
  const stored=await page.evaluate(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('plc-docs',1);q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);});return new Promise(r=>{const q=db.transaction('docs').objectStore('docs').getAll();q.onsuccess=()=>r(q.result.map(d=>d.name));});});
  assert(stored.filter(n=>n==='notes.txt').length===1,'only the earlier saved chat holds notes.txt, not the temporary one: '+JSON.stringify(stored));
  ok('temporary chat documents stay in memory');

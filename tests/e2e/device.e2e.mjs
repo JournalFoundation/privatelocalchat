@@ -6,10 +6,12 @@ const dir=mkdtempSync(join(tmpdir(),'plc-dev-'));
 const h=await launch({});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
+const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};
+
 const requests=async()=>(await (await fetch(`http://127.0.0.1:${h.api.port}/__requests`)).json());
-const settle=async()=>{await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:|Answered on this device|Earlier messages summarized|Summary)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
+const settle=async()=>{await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted|Answered on this device|Earlier messages summarized|Summary)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
 const send=async text=>{await page.fill('#messageInput',text);await page.click('#sendBtn');await settle();};
-const newChat=async()=>{await page.click('#threadList .new-thread-button:not(.temp-chat-button):not(.new-project-button)');};
+const newChat=async()=>{await page.click('#newChatBtn');};
 const names=async()=>page.locator('#threadList li[data-id] .thread-name').allInnerTexts();
 try{
  await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
@@ -38,7 +40,7 @@ try{
 
  // excluded messages leave the model's view but stay on screen
  await newChat();await send('keep this one');await send('hide this one');
- await page.locator('.message.user').nth(1).locator('[data-action="toggle-context"]').click();
+ await more(page.locator('.message.user').nth(1),'toggle-context');
  await send('what did I say?');
  assert(!(await requests()).at(-1).body.messages.some(m=>m.role==='user'&&m.content==='hide this one'),'excluded message not sent');
  assert(/hide this one/.test(await page.locator('#messages').innerText()),'still shown');
@@ -49,10 +51,11 @@ try{
  await page.waitForSelector('#readiness li.no');
  assert(await page.locator('#readiness li').count()===3&&await page.locator('#readiness li.yes').count()===0,'three states, none reached');
  assert(await page.locator('#advancedModel').evaluate(d=>!d.open),'advanced controls collapsed');
- assert(await page.locator('#freeMemory').isDisabled(),'nothing to free yet');
- assert(/Set up private chat/.test(await page.locator('#setupPrivateChat').innerText()),'one clear first action');
- await page.click('.new-thread-button:not(.temp-chat-button):not(.new-project-button)');
- assert(await page.locator('#emptySetup').count()===1,'first-run call to action in the chat');
+ assert(await page.locator('#freeMemory').isHidden(),'nothing to free yet, so no Free memory button');
+ assert(await page.locator('#setupPrivateChat').isHidden()&&await page.locator('#downloadModel').isHidden(),'controls that cannot work here are not shown');
+ await page.click('#newChatBtn');
+ assert(await page.locator('#emptySetup').count()===0&&/cannot run the available on-device models/.test(await page.locator('#emptyState').innerText()),'an unsupported browser is told so instead of being offered a setup that cannot work');
+ assert(await page.locator('#emptyProvider').isVisible(),'and is offered the connected provider path');
  await page.selectOption('#inferenceMode','api');
  ok('readiness states');
 

@@ -30,6 +30,7 @@ export function normalizeMessage(raw, at = Date.now()) {
       m.content = m.versions[m.versionIndex].content;
       const vs = m.versions[m.versionIndex].status; if (vs) m.status = vs; else delete m.status;
     }
+    if (typeof raw.model === "string" && raw.model) m.model = raw.model.slice(0, 120);
     if (Array.isArray(raw.sources) && raw.sources.length) m.sources = raw.sources.filter((s) => s && typeof s === "object").slice(0, 50);
   }
   if (raw.role === "user" && Array.isArray(raw.tools) && raw.tools.length) m.tools = raw.tools.filter((t) => t && typeof t.label === "string" && typeof t.result === "string").slice(0, 6).map((t) => ({ kind: str(t.kind, "calc"), label: t.label.slice(0, 200), result: t.result.slice(0, 200) }));

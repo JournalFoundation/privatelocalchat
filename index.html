@@ -7,7 +7,20 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
   />
-  <title>Private Local Chat</title>
+  <title>PrivateLocal.Chat | Private AI chat on your device</title>
+  <meta name="description" content="Free AI chat on your device. Choose a supported model, keep on-device conversations local, or connect a provider when you choose." />
+  <meta name="theme-color" content="#F6F8FB" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#101820" media="(prefers-color-scheme: dark)" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="PrivateLocal.Chat" />
+  <meta property="og:title" content="PrivateLocal.Chat | Your thinking stays yours." />
+  <meta property="og:description" content="Private AI chat on your device." />
+  <meta property="og:url" content="https://privatelocal.chat/" />
+  <meta property="og:image" content="https://privatelocal.chat/brand/social-card-1200x630.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/brand/favicon.ico" sizes="48x48" />
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon-180.png" />
   <style>
     /* Minimal styling for the chat client UI. */
 
@@ -1121,6 +1134,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="/local-models.css" />
   <link rel="stylesheet" href="/chat/chat.css" />
+  <link rel="stylesheet" href="/chat/brand.css" />
   <script src="/build-info.js"></script>
   <script type="module" src="/local-models.js"></script>
 </head>
@@ -1162,29 +1176,34 @@
     <!-- Sidebar containing configuration and thread list -->
     <aside class="sidebar" aria-label="Settings panel" aria-hidden="true">
       <div class="sidebar-header">
-        <h2>Private Local Chat</h2>
-        <button type="button" id="closeSidebarBtn" class="sidebar-close" aria-label="Close settings">
+        <a class="brand" href="/" aria-label="PrivateLocal.Chat home"><span class="brand-logo"><img class="logo-light" src="/brand/wordmark-light.svg" alt="PrivateLocal.Chat" width="198" height="25" /><img class="logo-dark" src="/brand/wordmark-dark.svg" alt="" aria-hidden="true" width="198" height="25" /></span></a>
+        <button type="button" id="closeSidebarBtn" class="sidebar-close icon-btn" aria-label="Close navigation">
           <span class="emoji-icon" aria-hidden="true">❌</span>
         </button>
       </div>
+      <div class="new-chat-row">
+        <button type="button" id="newChatBtn" class="new-thread-button primary"><span class="emoji-icon" aria-hidden="true">➕</span><span class="btn-label">New chat</span></button>
+        <button type="button" id="tempChatBtn" class="new-thread-button temp-chat-button icon-btn" aria-label="Temporary chat" title="Temporary chat: not saved"><span class="emoji-icon" aria-hidden="true">🕶️</span></button>
+        <button type="button" id="newProjectBtn" class="new-project-button icon-btn" aria-label="New project" title="New project: group chats that share instructions"><span class="emoji-icon" aria-hidden="true">📁</span></button>
+      </div>
       <section class="chats-section" aria-labelledby="chatsHeading">
-        <div class="threads-header"><h3 id="chatsHeading">Chats</h3></div>
-        <label for="threadSearch" class="sr-only">Search chats</label>
-        <input type="search" id="threadSearch" class="thread-search" placeholder="Search all chats" autocomplete="off" />
+        <h3 id="chatsHeading" class="sr-only">Conversations</h3>
+        <label for="threadSearch" class="sr-only">Search conversations</label>
+        <input type="search" id="threadSearch" class="thread-search" placeholder="Search titles and messages" autocomplete="off" />
         <ul id="searchResults" class="search-results" role="listbox" aria-label="Search results" hidden></ul>
         <div class="thread-filter" role="group" aria-label="Which chats to show">
-          <button type="button" data-view="active" aria-pressed="true">Chats</button>
+          <button type="button" data-view="active" aria-pressed="true">Recent</button>
           <button type="button" data-view="archived" aria-pressed="false">Archived</button>
           <button type="button" data-view="trash" aria-pressed="false">Trash</button>
         </div>
         <ul id="threadList" class="thread-list"></ul>
       </section>
       <div id="featureLinks" class="side-links"></div>
-      <details id="providerSettings" class="settings-group" open>
-      <summary><strong>Model and provider</strong></summary>
+      <details id="providerSettings" class="settings-group">
+      <summary><strong>Model and connection</strong></summary>
       <div class="form-group">
-        <label for="inferenceMode">Run replies</label>
-        <select id="inferenceMode"><option value="local">On this device</option><option value="api">With an API provider</option></select>
+        <label for="inferenceMode">Where replies run</label>
+        <select id="inferenceMode"><option value="local">On this device</option><option value="api">Connected provider</option></select>
       </div>
       <section id="localModelPanel" aria-labelledby="localModelHeading">
         <h3 id="localModelHeading">On-device model</h3>
@@ -1289,12 +1308,7 @@
       </div>
       </div>
       </details>
-      <hr />
-      <p><a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">Source code</a> · <a href="https://github.com/JournalFoundation/privatelocalchat/issues/new/choose" target="_blank" rel="noopener">Feedback</a></p>
-      <p id="releaseInfo" class="hint-text"></p>
-      <p id="offlineStatus" class="hint-text" role="status">Preparing offline app…</p>
-      <button type="button" id="reloadApp" hidden>Reload updated app</button>
-
+      <details id="backupFiles" class="settings-group"><summary><strong>Export, import and settings files</strong></summary>
       <div class="actions" role="group" aria-label="Chat history and settings import and export">
         <div class="action-group">
           <span class="action-label">Chat history:</span>
@@ -1379,38 +1393,48 @@
           <input type="file" id="importConfigInput" accept="application/json" style="display: none;" />
         </div>
       </div>
+      </details>
+      <footer class="side-footer">
+        <div class="side-footer-row">
+          <button type="button" id="aboutBtn" class="link-btn about-btn" aria-haspopup="dialog" aria-expanded="false">About PrivateLocal.Chat</button>
+          <button type="button" id="themeToggleBtn" class="theme-toggle-btn icon-btn" aria-label="Toggle theme" aria-pressed="false">
+            <span class="emoji-icon" aria-hidden="true">☀️</span>
+            <span class="sr-only">Toggle theme</span>
+          </button>
+        </div>
+        <p class="footer-links"><a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">View source<span class="sr-only"> (opens in a new tab)</span></a> · <a href="https://github.com/JournalFoundation/privatelocalchat/issues/new/choose" target="_blank" rel="noopener">Report a problem<span class="sr-only"> (opens in a new tab)</span></a></p>
+        <p class="hint-text">GitHub submissions are public. Leave out API keys and private conversations.</p>
+        <p class="hint-text">Looking for AI personas? <a href="https://sonalon.com/" target="_blank" rel="noopener">Explore Sonalon<span class="sr-only"> (opens in a new tab)</span></a></p>
+        <p class="hint-text">Free to use on your device. Optional providers may charge.</p>
+        <p id="releaseInfo" class="hint-text"></p>
+        <p id="offlineStatus" class="hint-text" role="status">Preparing offline app…</p>
+        <button type="button" id="reloadApp" class="secondary" hidden>Save draft and reload</button>
+      </footer>
     </aside>
     <div id="sidebarOverlay" aria-hidden="true"></div>
 
     <!-- Main chat area -->
     <main class="chat-area">
       <div id="chatHeader" class="chat-header">
-        <button type="button" id="openSidebarBtn" class="mobile-toggle" aria-label="Open settings">
+        <button type="button" id="openSidebarBtn" class="mobile-toggle icon-btn" aria-label="Open navigation">
           <span class="emoji-icon" aria-hidden="true">☰</span>
         </button>
-        <input type="text" id="threadTitleInput" class="thread-title" placeholder="Chat title" />
-        <button
-          type="button"
-          id="themeToggleBtn"
-          class="theme-toggle-btn"
-          aria-label="Toggle theme"
-          aria-pressed="false"
-        >
-          <span class="emoji-icon" aria-hidden="true">☀️</span>
-          <span class="sr-only">Toggle theme</span>
-        </button>
-        <button
-          type="button"
-          id="aboutBtn"
-          class="about-btn"
-          aria-label="About &amp; Privacy"
-          aria-haspopup="dialog"
-          aria-expanded="false"
-        >
-          <span class="emoji-icon" aria-hidden="true">ℹ️</span>
-        </button>
+        <span class="header-mark" aria-hidden="true"><img class="logo-light" src="/brand/mark-light.svg" alt="" width="28" height="28" /><img class="logo-dark" src="/brand/mark-dark.svg" alt="" width="28" height="28" /></span>
+        <label for="threadTitleInput" class="sr-only">Conversation title</label>
+        <input type="text" id="threadTitleInput" class="thread-title" placeholder="Untitled chat" />
+        <div id="headerTools" class="header-tools"></div>
+        <button type="button" id="modeBadge" class="mode-badge local" aria-haspopup="true"><span class="mode-dot" aria-hidden="true"></span><span class="mode-badge-text">On this device</span><span class="mode-badge-provider"></span></button>
       </div>
-      <p id="generationStatus" role="status" aria-live="polite" hidden></p>
+      <details id="systemPromptContainer" class="system-prompt-container">
+        <summary>Instructions for this chat</summary>
+        <div class="preset-row">
+          <label for="presetSelect">Preset</label>
+          <select id="presetSelect"><option value="">No preset</option></select>
+          <button type="button" id="savePresetBtn" class="secondary">Save as preset</button>
+        </div>
+        <label for="systemPromptInput">System prompt:</label>
+        <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
+      </details>
       <div id="chatNotice" class="chat-notice" role="status" aria-live="polite" hidden></div>
       <div
         id="authGuidance"
@@ -1433,33 +1457,30 @@
           <button type="button" id="authGuideImportBtn" class="secondary">Import settings</button>
         </div>
       </div>
-      <details id="systemPromptContainer" class="system-prompt-container">
-        <summary>Instructions for this chat</summary>
-        <div class="preset-row">
-          <label for="presetSelect">Preset</label>
-          <select id="presetSelect"><option value="">No preset</option></select>
-          <button type="button" id="savePresetBtn" class="secondary">Save as preset</button>
-        </div>
-        <label for="systemPromptInput">System prompt:</label>
-        <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
-      </details>
       <div class="messages-wrap">
         <div id="messages" class="messages" role="log" aria-label="Conversation" aria-live="off" tabindex="0"></div>
         <button type="button" id="jumpLatest" class="jump-latest" hidden>↓ Jump to latest</button>
       </div>
+      <p id="generationStatus" role="status" aria-live="polite" hidden></p>
       <form id="messageForm" class="message-form">
-        <div class="message-input-wrapper">
-          <label for="messageInput" class="sr-only">Message</label>
-          <textarea id="messageInput" placeholder="Type your message" rows="2"></textarea>
-          <div id="messageInputOverlay" class="message-input-overlay" aria-hidden="true"></div>
+        <div class="composer-card">
+          <div class="message-input-wrapper">
+            <label for="messageInput" class="sr-only">Message</label>
+            <textarea id="messageInput" placeholder="Write a message…" rows="1"></textarea>
+            <div id="messageInputOverlay" class="message-input-overlay" aria-hidden="true"></div>
+          </div>
+          <div class="composer-bar">
+            <div id="composerTools" class="composer-tools"></div>
+            <div class="composer-actions">
+              <button type="button" id="stopGeneration" class="stop-btn" hidden><span class="emoji-icon" aria-hidden="true">⏹</span><span class="btn-label">Stop</span></button>
+              <button type="submit" id="sendBtn" class="send-btn">
+                <span class="emoji-icon" aria-hidden="true">📩</span>
+                <span class="btn-label">Send</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <div id="composerTools" class="composer-tools"></div>
-        <button type="button" id="stopGeneration" hidden>Stop generating</button>
-        <button type="submit" id="sendBtn">
-          <span class="emoji-icon" aria-hidden="true">📩</span>
-          <span class="btn-label">Send</span>
-        </button>
-        <p id="composerHint" class="composer-hint"></p>
+        <p class="accuracy-note">AI can be mistaken. Check details that matter.</p>
       </form>
     </main>
   </div>
@@ -1470,26 +1491,28 @@
   <div id="aboutModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
     <div class="sheet" role="document">
       <div class="modal-header">
-        <h2 id="aboutTitle">Private &amp; Local — About this demo</h2>
+        <h2 id="aboutTitle">About PrivateLocal.Chat</h2>
         <button type="button" class="modal-close" id="aboutCloseBtn" aria-label="Close">
           <span class="emoji-icon" aria-hidden="true">❌</span>
         </button>
       </div>
       <div class="modal-body">
-        <p><strong>The app runs in your browser.</strong> Your chats are stored locally. On-device models generate locally; choosing an API provider sends conversation context to that provider.</p>
+        <p class="lede">Private AI chat on your device.</p>
+        <p>PrivateLocal.Chat gives you a straightforward place to ask questions and work through ideas. Choose a model for your device or explicitly connect an outside provider.</p>
 
-        <h3>How to run it anywhere</h3>
-        <ul>
-          <li><strong>Desktop:</strong> Install this app from your browser, or bookmark it.</li>
-          <li><strong>iPhone (Safari):</strong> Share → <em>Add to Home Screen</em>, or Share → <em>Save to Files</em>, then open it.</li>
-        </ul>
+        <h3 id="aboutLocal">On this device</h3>
+        <p>In on-device mode, the model processes conversation content on this device.</p>
 
-        <h3>What’s stored locally</h3>
-        <ul>
-          <li><code>localStorage</code>: chat threads and messages.</li>
-          <li><code>sessionStorage</code>: settings (endpoint, token, model, theme) for the current session.</li>
-        </ul>
-        <p>Model downloads require a connection. After installation, on-device chat can work offline. API mode uses your selected provider.</p>
+        <h3>Connected provider</h3>
+        <p>A connected provider receives the messages and instructions included in your requests. Its data practices and any fees apply.</p>
+
+        <h3>Where your chats are kept</h3>
+        <p>Saved conversations are kept in browser storage. Export a backup of work you want to keep.</p>
+
+        <h3>Keep the app close at hand</h3>
+        <p>Use your browser’s install or Add to Home Screen option when available. Check offline readiness before relying on the app without a connection.</p>
+
+        <p>Free to use on your device. Optional providers may charge. You decide when you are done.</p>
 
         <div class="cta-row">
           <a id="jfSiteLink" class="cta-link" href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation.org</a>
@@ -1501,7 +1524,7 @@
             rel="noopener"
           >
             <svg class="icon" aria-hidden="true"><use href="#icon-github"></use></svg>
-            <span class="btn-label">Fork / contribute on GitHub</span>
+            <span class="btn-label">View source</span>
           </a>
         </div>
 
@@ -1613,13 +1636,21 @@
       const configQrCode = document.getElementById('configQrCode');
       const copyConfigLinkBtn = document.getElementById('copyConfigLinkBtn');
 
+      // Icons: the app's emoji are drawn as one consistent set of stroke icons once the icon module is loaded.
       const createEmoji = char => {
         const span = document.createElement('span');
         span.className = 'emoji-icon';
         span.setAttribute('aria-hidden', 'true');
-        span.textContent = char;
+        const name = typeof M !== 'undefined' && M ? M.icons.EMOJI_ICON[char] : null;
+        if (name) span.appendChild(M.icons.iconNode(name)); else span.textContent = char;
         return span;
       };
+      function upgradeStaticIcons() {
+        document.querySelectorAll('.emoji-icon').forEach(node => {
+          const name = M.icons.EMOJI_ICON[node.textContent.trim()];
+          if (name && !node.querySelector('svg')) node.replaceChildren(M.icons.iconNode(name));
+        });
+      }
 
       // Application state
       let config = {
@@ -1655,7 +1686,8 @@
         if (!themeToggleBtn) return;
         const themeIcon = themeToggleBtn.querySelector('.emoji-icon');
         if (themeIcon) {
-          themeIcon.textContent = resolvedTheme === 'dark' ? '🌙' : '☀️';
+          const glyph = resolvedTheme === 'dark' ? '🌙' : '☀️';
+          if (typeof M !== 'undefined' && M) themeIcon.replaceChildren(M.icons.iconNode(M.icons.EMOJI_ICON[glyph])); else themeIcon.textContent = glyph;
         }
         const followingSystem = preference !== 'light' && preference !== 'dark';
         const labelAction = resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
@@ -2809,10 +2841,10 @@ const base64UrlEncode = value => {
        * Enable or disable the send button depending on whether a message is ready to send.
        * @param {boolean} isReady indicates if chat conditions are met
        */
-      function updateSendButtonDisabled(isReady) {
-        if (!sendBtn || !messageInput) return;
-        const hasContent = Boolean(messageInput.value.trim()) || Boolean(pendingAttachments?.length);
-        sendBtn.disabled = !isReady || !hasContent || messageInput.disabled;
+      // Send is always available when you can reply; while an answer is being written it gives way to Stop.
+      function updateSendButtonDisabled() {
+        if (!sendBtn) return;
+        sendBtn.hidden = Boolean(gen) || generationBusy;
       }
 
       /**
@@ -2823,15 +2855,15 @@ const base64UrlEncode = value => {
       function updateChatNotice(state) {
         if (!chatNotice) return;
         const instructions = [];
-        if (state.local && !state.hasModel) instructions.push(window.localModels?.installed?'Your model is downloaded. Load it from Settings to use it in this page session.':'Download and load an on-device model in Settings to chat.');
+        if (state.local && !state.hasModel && currentThread()?.messages.length) instructions.push(window.localModels?.installed ? 'Loading the model into memory. You can write a draft while it loads.' : 'Set up on-device chat to start. You can write a draft in the meantime.');
         if (!state.hasEndpoint) {
-          instructions.push('Enter an API endpoint in Settings to send messages.');
+          instructions.push('Add a provider endpoint under Model and connection to send messages.');
         }
         if (!state.local && state.hasEndpoint && !state.hasModel) {
-          instructions.push('Refresh and select a model before chatting.');
+          instructions.push('Refresh the provider’s model list and choose a model.');
         }
         if (!state.hasThread) {
-          instructions.push('Create or select a chat from the sidebar.');
+          instructions.push('Start a new chat or open one from the conversation list.');
         }
 
         const requiresEndpoint = !state.hasEndpoint;
@@ -2876,15 +2908,10 @@ const base64UrlEncode = value => {
        */
       function updateChatAvailability() {
         const state = getChatState();
-        const placeholder = !state.hasThread
-          ? 'Select or start a chat to enable messaging'
-          : !state.hasEndpoint
-            ? 'Add an API endpoint to enable messaging'
-            : !state.hasModel
-              ? (state.local ? 'Download and load a model in Settings' : 'Select a model to enable messaging')
-              : 'Type your message';
+        const placeholder = !state.hasThread ? 'Start a new chat to write a message' : 'Write a message…';
         threadTitleInput.disabled = !state.hasThread;
         systemPromptInput.disabled = !state.hasThread;
+        updateModeBadge();
 
         // Only update the message placeholder if the input is empty. If there's
         // pre-filled text we leave it alone so that the user can see it.
@@ -2892,8 +2919,8 @@ const base64UrlEncode = value => {
           messageInput.placeholder = placeholder;
         }
         // Disable input when not ready, but leave the value alone.
-        messageInput.disabled = !state.canType;
-        if (state.canType) {
+        messageInput.disabled = !state.hasThread;
+        if (state.hasThread) {
           messageForm.classList.remove('disabled');
           messageForm.setAttribute('aria-disabled', 'false');
         } else {
@@ -3091,7 +3118,7 @@ const base64UrlEncode = value => {
         await handleSendMessage({preventDefault(){}});
         if (!messageInput.value && savedDraft) {messageInput.value=savedDraft;updateSendButtonDisabled(getChatState().ready);}
         const status = document.getElementById('generationStatus').textContent;
-        if (status.startsWith('Generation failed:')) throw new Error(status);
+        if (status.startsWith('The response was interrupted')) throw new Error(status);
         return {status,conversation:window.__plcDebugCurrentConversation()};
       };
       /* DEV_DIAGNOSTICS_END */
@@ -3121,12 +3148,43 @@ const base64UrlEncode = value => {
       const moduleBase = () => (window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/');
       async function loadChatModules() {
         const base = moduleBase();
-        const [markdown, model, stream, context] = await Promise.all([
-          import(base + 'chat/markdown.mjs'), import(base + 'chat/threads.mjs'), import(base + 'chat/stream.mjs'), import(base + 'chat/context.mjs')
+        const [markdown, model, stream, context, icons] = await Promise.all([
+          import(base + 'chat/markdown.mjs'), import(base + 'chat/threads.mjs'), import(base + 'chat/stream.mjs'), import(base + 'chat/context.mjs'), import(base + 'chat/icons.mjs')
         ]);
-        M = { markdown, model, stream, context };
+        M = { markdown, model, stream, context, icons };
       }
       const STATUS = () => M.model.STATUS;
+      function providerName() {
+        const option = findEndpointOptionForValue(config.endpoint);
+        if (option && option.id !== 'choose' && option.id !== 'custom' && option.baseUrl && option.label) return option.label.split(' \u2014 ')[0].split(' (')[0];
+        try { return new URL(config.endpoint, location.href).hostname.replace(/^api\./, '') || 'your provider'; } catch { return 'your provider'; }
+      }
+      function modelLabel() {
+        if (window.localModels?.mode === 'local') {
+          const st = window.localModels.state, name = st?.tiers?.[st.selection.tier]?.info?.modelId;
+          return (name || 'On-device model') + ' \u00B7 on this device';
+        }
+        return (config.model || 'Provider model') + ' \u00B7 ' + providerName();
+      }
+      const modeBadge = document.getElementById('modeBadge');
+      function updateModeBadge() {
+        if (!modeBadge) return;
+        const local = !window.localModels || window.localModels.mode === 'local';
+        modeBadge.classList.toggle('local', local); modeBadge.classList.toggle('connected', !local);
+        modeBadge.querySelector('.mode-badge-text').textContent = local ? 'On this device' : 'Connected';
+        modeBadge.querySelector('.mode-badge-provider').textContent = local ? '' : ' \u00B7 ' + providerName();
+        const detail = local ? 'Conversation content is processed by the model on this device.' : 'Conversation context is sent to ' + providerName() + '.';
+        modeBadge.title = detail + ' Press to change where replies run.';
+        modeBadge.setAttribute('aria-label', 'Replies run ' + (local ? 'on this device' : 'through ' + providerName()) + '. ' + detail + ' Open connection settings.');
+      }
+      function syncProviderOpen() {
+        const group = document.getElementById('providerSettings');
+        if (!group) return;
+        const needsSetup = window.localModels?.mode === 'local' ? !window.localModels?.ready : !(config.endpoint || '').trim() || !(config.model || '').trim();
+        if (needsSetup) group.open = true;
+      }
+      window.addEventListener('local-model-state', syncProviderOpen);
+      modeBadge?.addEventListener('click', () => { const group = document.getElementById('providerSettings'); if (group) group.open = true; openSidebar({ focusTarget: document.getElementById('inferenceMode') }); });
       const CONTINUE_PROMPT = 'Continue exactly where your last message stopped. Do not repeat anything you already wrote and do not add an introduction.';
 
       const PREFS_KEY = 'plc.prefs.v1';
@@ -3186,8 +3244,10 @@ const base64UrlEncode = value => {
         return node;
       };
       function actionButton(action, label, title) {
-        const b = el('button', null, label);
-        b.type = 'button'; b.dataset.action = action;
+        const b = el('button', 'act');
+        M.icons.setIconLabel(b, label);
+        const parts = M.icons.splitIcon(label);
+        b.type = 'button'; b.dataset.action = action; b.dataset.icon = parts.name || ''; b.dataset.label = parts.rest;
         if (title) { b.title = title; b.setAttribute('aria-label', title); }
         return b;
       }
@@ -3214,10 +3274,10 @@ const base64UrlEncode = value => {
       const threadSelectedHooks = []; // run after a conversation is shown
       const statusNote = msg => {
         const S = STATUS();
-        if (msg.status === S.STOPPED) return ['Stopped here. You can continue from this point.', false];
-        if (msg.status === S.LENGTH) return ['Reached the end of what fits in the model’s context window. Continue, or start a summary of the earlier conversation.', false];
-        if (msg.status === S.INTERRUPTED) return ['Interrupted before it finished (the page was closed or reloaded). What was written is kept.', false];
-        if (msg.status === S.FAILED) return ['Failed: ' + (msg.error || 'Unknown error') + (msg.content ? ' What was written before the failure is kept.' : ''), true];
+        if (msg.status === S.STOPPED) return ['Response stopped. The partial response has been kept.', false];
+        if (msg.status === S.LENGTH) return ['This response reached the model’s context limit. Continue it, or review a summary of the earlier conversation.', false];
+        if (msg.status === S.INTERRUPTED) return ['The previous response was interrupted. What was written is kept; retry or continue when you are ready.', false];
+        if (msg.status === S.FAILED) return ['The response was interrupted. ' + (msg.error || '') + (msg.content ? ' What was written is kept.' : ' Your question is still in this conversation. Retry when you are ready.'), true];
         return null;
       };
 
@@ -3235,7 +3295,7 @@ const base64UrlEncode = value => {
         const streaming = msg.status === S.STREAMING;
         const div = el('div', 'message ' + msg.role + (streaming ? ' streaming' : '') + (msg.excluded ? ' excluded' : ''));
         div.dataset.id = msg.id;
-        div.appendChild(el('span', 'sr-only', msg.role === 'user' ? 'You said: ' : msg.role === 'assistant' ? 'Assistant said: ' : 'Notice: '));
+        div.appendChild(el('div', 'speaker', msg.role === 'user' ? 'You' : msg.role === 'assistant' ? 'AI response' : 'Notice'));
         if (msg.attachments?.length) {
           const chips = el('div', 'message-attachments');
           msg.attachments.forEach(a => chips.appendChild(el('span', 'chip', '📎 ' + a.name)));
@@ -3247,6 +3307,7 @@ const base64UrlEncode = value => {
         if (msg.role === 'assistant' && msg.sources?.length && !streaming) div.appendChild(renderSources(msg));
         if (msg.role === 'user' && msg.tools?.length) div.appendChild(el('div', 'message-meta', msg.tools.map(t => '\uD83E\uDDEE ' + t.label + ' = ' + t.result).join('   \u00B7   ')));
         if (msg.role === 'assistant' && msg.local) div.appendChild(el('div', 'message-meta', 'Computed on this device, not by the model.'));
+        else if (msg.role === 'assistant' && msg.model && !streaming) div.appendChild(el('div', 'message-model', msg.model));
         const note = statusNote(msg);
         if (note) {
           const meta = el('div', 'message-meta' + (note[1] ? ' failed' : ''));
@@ -3260,62 +3321,109 @@ const base64UrlEncode = value => {
         actions.setAttribute('aria-label', (msg.role === 'user' ? 'Your' : 'Assistant') + ' message actions');
         if (!streaming && !msg.notice && msg.role !== 'system') {
           if (msg.role === 'user') {
-            const edit = actionButton('edit-message', '✏️ Edit', 'Edit this prompt and resend'); if (ctx.busy) edit.disabled = true;
-            actions.appendChild(edit);
+            if (!ctx.busy) actions.appendChild(actionButton('edit-message', '✏️ Edit', 'Edit message'));
           }
-          actions.appendChild(actionButton('copy-message', '📋 Copy', msg.role === 'assistant' ? 'Copy this answer' : 'Copy this message'));
+          actions.appendChild(actionButton('copy-message', '📋 Copy', msg.role === 'assistant' ? 'Copy response' : 'Copy message'));
           if (msg.role === 'assistant') {
             if (msg.versions?.length > 1) {
               const sw = el('span', 'version-switch');
-              const prev = actionButton('prev-version', '‹', 'Previous answer'); prev.disabled = msg.versionIndex === 0;
-              const next = actionButton('next-version', '›', 'Next answer'); next.disabled = msg.versionIndex === msg.versions.length - 1;
-              sw.append(prev, el('span', null, (msg.versionIndex + 1) + '/' + msg.versions.length), next);
-              sw.setAttribute('aria-label', 'Answer ' + (msg.versionIndex + 1) + ' of ' + msg.versions.length);
+              if (msg.versionIndex > 0) sw.appendChild(actionButton('prev-version', '‹', 'Previous response'));
+              sw.appendChild(el('span', null, (msg.versionIndex + 1) + '/' + msg.versions.length));
+              if (msg.versionIndex < msg.versions.length - 1) sw.appendChild(actionButton('next-version', '›', 'Next response'));
+              sw.setAttribute('aria-label', 'Response ' + (msg.versionIndex + 1) + ' of ' + msg.versions.length);
               actions.appendChild(sw);
             }
             if (isLast && !ctx.busy) {
-              if (msg.status === S.FAILED && !msg.content) actions.appendChild(actionButton('retry', '↻ Retry', 'Retry this request'));
+              if (msg.status === S.FAILED && !msg.content) actions.appendChild(actionButton('retry', '↻ Retry', 'Retry response'));
               else {
-                if (M.model.CONTINUABLE.has(msg.status) && msg.content) actions.appendChild(actionButton('continue', '▶ Continue', 'Continue this answer'));
-                actions.appendChild(actionButton('regenerate', '↻ Regenerate', 'Write another answer to the same prompt'));
+                if (M.model.CONTINUABLE.has(msg.status) && msg.content) actions.appendChild(actionButton('continue', '▶ Continue', 'Continue response'));
+                actions.appendChild(actionButton('regenerate', '↻ Regenerate', 'Generate another response'));
               }
             }
           }
-          const hide = actionButton('toggle-context', msg.excluded ? '➕ Include' : '➖ Leave out', msg.excluded ? 'Include this message in what the model sees' : 'Leave this message out of what the model sees');
+          const hide = actionButton('toggle-context', msg.excluded ? '➕ Include in context' : '➖ Leave out of context', msg.excluded ? 'Include this message in what the model sees' : 'Leave this message out of what the model sees');
           hide.setAttribute('aria-pressed', msg.excluded ? 'true' : 'false');
           actions.appendChild(hide);
           messageDecorators.forEach(fn => fn(thread, msg, index, ctx, actions, div));
         }
+        compactActions(actions);
         if (actions.childElementCount) div.appendChild(actions);
         return div;
       }
 
+      // The everyday actions stay in view; the rest live behind "More".
+      const PRIMARY_ACTIONS = new Set(['edit-message', 'copy-message', 'regenerate', 'retry', 'continue', 'speak', 'summarize']);
+      function compactActions(actions) {
+        const extra = [...actions.children].filter(n => n.matches?.('button[data-action]') && !PRIMARY_ACTIONS.has(n.dataset.action));
+        if (!extra.length) return;
+        extra.forEach(n => n.remove());
+        const more = actionButton('more', '⋮', 'More actions');
+        more._extra = extra;
+        actions.appendChild(more);
+      }
       function starterPrompts() {
-        return ['Explain something I’m curious about in simple terms', 'Help me draft a polite message', 'Summarize the text I paste next', 'Brainstorm ten ideas for a small project'];
+        return ['Explain an idea in plain language', 'Help me make a paragraph clearer', 'Work through a choice with me', 'Brainstorm ideas for a small project'];
       }
       function renderEmptyState(thread) {
         const box = el('div', 'empty-state');
         box.id = 'emptyState';
-        const local = window.localModels?.mode === 'local';
-        const picker = document.getElementById('localModelSelect');
-        const model = local ? (picker?.selectedOptions?.[0]?.textContent || 'the on-device model') : (config.model || 'your provider’s model');
-        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : 'What would you like to work on?'));
-        box.appendChild(el('p', null, (local ? 'Replies are written on this device by ' + model + '. ' : 'Replies come from ' + model + ' through your API provider. ')
-          + 'It’s good for drafting, summarizing, explaining and brainstorming, and it can still be wrong, so check anything important.'
-          + (thread.temporary ? ' Nothing in this chat is saved.' : '')));
+        const lm = window.localModels, local = lm?.mode === 'local';
+        const unsupported = local && lm && lm.supported === false && !lm.ready;
+        const firstUse = local && lm && !lm.installed && !lm.ready && !thread.temporary && !unsupported;
+        if (unsupported) {
+          // this browser cannot run the on-device models: say so and offer the other path, instead of a setup that cannot work
+          box.classList.add('welcome');
+          box.appendChild(el('h2', null, 'This browser cannot run the available on-device models.'));
+          box.appendChild(el('p', 'lede', 'Try a supported browser, or choose a connected provider.'));
+          const provider = el('button', 'primary', 'Choose a connected provider'); provider.type = 'button'; provider.id = 'emptyProvider';
+          provider.addEventListener('click', () => { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); openSidebar({ focusTarget: document.getElementById('endpointSelect') }); });
+          const how = el('button', 'secondary', 'How privacy works'); how.type = 'button'; how.addEventListener('click', () => openAbout());
+          const row = el('div', 'welcome-actions'); row.append(provider, how); box.appendChild(row);
+          return box;
+        }
+        if (firstUse) {
+          // condensed welcome for someone who has not set up on-device chat yet
+          box.classList.add('welcome');
+          box.appendChild(el('p', 'eyebrow', 'PRIVATE AI CHAT ON YOUR DEVICE'));
+          box.appendChild(el('h2', null, 'Your thinking stays yours.'));
+          box.appendChild(el('p', 'lede', 'Run a model on your device and keep on-device conversation content off AI providers’ servers.'));
+          const row = el('div', 'welcome-actions');
+          const setup = el('button', 'primary', 'Set up on-device chat'); setup.type = 'button'; setup.id = 'emptySetup';
+          setup.addEventListener('click', () => confirmSetup());
+          const how = el('button', 'secondary', 'How privacy works'); how.type = 'button'; how.addEventListener('click', () => openAbout());
+          row.append(setup, how); box.appendChild(row);
+          box.appendChild(el('p', 'muted', 'Free to use on your device. Optional providers may charge.'));
+          const provider = el('button', 'link-btn', 'Choose a connected provider'); provider.type = 'button';
+          provider.addEventListener('click', () => { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); openSidebar({ focusTarget: document.getElementById('endpointSelect') }); });
+          box.appendChild(provider);
+          return box;
+        }
+        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : 'What would you like to work through?'));
+        box.appendChild(el('p', 'lede', thread.temporary
+          ? 'This conversation will not be added to saved history. Copy or export anything you want to keep before closing it.'
+          : 'Ask about an idea, work through a choice, or describe the text you want to revise.'));
+        if (local && lm && !lm.ready) {
+          const loading = lm.installed;
+          const status = el('p', 'muted', loading ? 'Loading the model into memory. You can write a draft while it loads.' : 'Finish setting up on-device chat to get replies.');
+          box.appendChild(status);
+          if (!loading) { const setup = el('button', 'primary', 'Set up on-device chat'); setup.type = 'button'; setup.id = 'emptySetup'; setup.addEventListener('click', () => confirmSetup()); box.appendChild(setup); }
+        }
         const list = el('div', 'starter-prompts');
         starterPrompts().forEach(text => {
           const b = el('button', null, text); b.type = 'button';
-          b.addEventListener('click', () => { messageInput.value = text; growComposer(); persistDraftNow(); updateSendButtonDisabled(getChatState().ready); messageInput.focus(); });
+          b.addEventListener('click', () => { messageInput.value = text; growComposer(); persistDraftNow(); updateSendButtonDisabled(); messageInput.focus(); });
           list.appendChild(b);
         });
         box.appendChild(list);
-        if (local && !window.localModels?.ready) {
-          const setup = el('button', 'primary', window.localModels?.installed ? 'Load the model to start chatting' : 'Set up private chat on this device'); setup.type = 'button'; setup.id = 'emptySetup';
-          setup.addEventListener('click', () => openSidebar({ focusTarget: document.getElementById('setupPrivateChat') }));
-          box.insertBefore(setup, list);
-        }
         return box;
+      }
+      async function confirmSetup() {
+        const lm = window.localModels, st = lm?.state;
+        const item = st?.tiers?.[st.selection.tier];
+        const gb = n => (n / 1e9).toFixed(1) + ' GB';
+        const name = item?.info?.modelId || 'the model';
+        const ok = await confirmDialog('Download ' + name + '?', 'This download uses about ' + (item ? gb(item.info.downloadBytes) : 'a few GB') + ' of browser storage. The model needs about ' + (item ? gb(item.info.memory.steadyBytes) : 'a few GB') + ' of working memory while loaded. Keep this page open while the download finishes. Your internet provider\u2019s data charges may apply.', 'Download model');
+        if (ok) document.getElementById('setupPrivateChat').click();
       }
 
       function renderMessages(thread, { keepScroll = false } = {}) {
@@ -3365,6 +3473,7 @@ const base64UrlEncode = value => {
         generationBusy = on;
         document.getElementById('stopGeneration').hidden = !on;
         updateChatAvailability();
+        updateSendButtonDisabled();
       }
 
       /**
@@ -3389,7 +3498,7 @@ const base64UrlEncode = value => {
         generationController = controller;
         const generationStatus = document.getElementById('generationStatus');
         generationStatus.hidden = false;
-        generationStatus.textContent = window.localModels?.mode === 'local' ? 'Generating on this device…' : 'Waiting for the API provider…';
+        generationStatus.textContent = window.localModels?.mode === 'local' ? 'Generating on this device…' : 'Waiting for ' + providerName() + '…';
         setGenerating(true);
         M.model.touch(thread);
         saveThreads();
@@ -3401,7 +3510,7 @@ const base64UrlEncode = value => {
           streamed = full;
           msg.content = baseText + join(full) + full;
           M.model.syncActiveVersion(msg);
-          generationStatus.textContent = (window.localModels?.mode === 'local' ? 'Generating on this device… ' : 'Receiving the reply… ') + full.length + ' characters written';
+          generationStatus.textContent = (window.localModels?.mode === 'local' ? 'Generating on this device… ' : 'Receiving the response… ') + full.length + ' characters written';
           schedulePaint(threadId, msg);
           scheduleSave();
         };
@@ -3410,7 +3519,8 @@ const base64UrlEncode = value => {
           const result = await sendToApi(context, controller.signal, onText);
           msg.content = baseText + join(result.text) + result.text;
           if (result.finishReason === 'length') msg.status = S.LENGTH; else delete msg.status;
-          generationStatus.textContent = msg.status === S.LENGTH ? 'Reply reached the context limit.' : 'Reply complete.';
+          generationStatus.textContent = msg.status === S.LENGTH ? 'The response reached the context limit.' : 'Response complete.';
+          msg.model = modelLabel();
           consecutiveAuthErrors = 0;
           updateAuthGuidance();
         } catch (err) {
@@ -3419,12 +3529,12 @@ const base64UrlEncode = value => {
           msg.content = baseText + (partial ? join(partial) + partial : '');
           if (err?.name === 'AbortError') {
             msg.status = S.STOPPED;
-            generationStatus.textContent = 'Generation stopped.';
+            generationStatus.textContent = 'Response stopped. The partial response has been kept.';
           } else {
             msg.status = S.FAILED;
             const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
             msg.error = isAuthError(err) ? buildAuthErrorMessage(errorText) : errorText;
-            generationStatus.textContent = 'Generation failed: ' + errorText;
+            generationStatus.textContent = 'The response was interrupted. ' + errorText;
             consecutiveAuthErrors = isAuthError(err) ? Math.min(consecutiveAuthErrors + 1, 3) : 0;
           }
           updateAuthGuidance();
@@ -3489,7 +3599,7 @@ const base64UrlEncode = value => {
           return;
         }
         const text = messageInput.value.trim();
-        if (!text && !(pendingAttachments?.length)) { updateSendButtonDisabled(state.ready); return; }
+        if (!text && !(pendingAttachments?.length)) { messageInput.focus(); return; }
         const thread = currentThread();
         if (!thread) return;
         for (const intercept of sendInterceptors) { if (await intercept(text, thread)) return; }
@@ -3615,10 +3725,29 @@ const base64UrlEncode = value => {
         }
       }
       const messageActionHandlers = {}; // actions contributed by later features
+      messageActionHandlers['more'] = (thread, msg, btn, node) => {
+        if (openThreadMenu && openThreadMenu.anchor === btn) { closeThreadMenu(); return; }
+        closeThreadMenu();
+        const menu = el('div', 'thread-menu'); menu.setAttribute('role', 'menu');
+        btn._extra.forEach(item => {
+          const row = el('button'); row.type = 'button'; row.setAttribute('role', 'menuitem'); row.dataset.menuAction = item.dataset.action;
+          if (item.dataset.icon) row.appendChild(M.icons.iconNode(item.dataset.icon));
+          row.appendChild(el('span', 'btn-label', item.dataset.label || item.getAttribute('aria-label')));
+          row.addEventListener('click', () => { closeThreadMenu(); handleMessageAction(item.dataset.action, node.dataset.id, item, node); });
+          menu.appendChild(row);
+        });
+        placeMenu(menu, btn);
+      };
+      const canHover = () => window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
       messagesEl.addEventListener('click', event => {
+        if (!canHover() && !event.target.closest('button, a, textarea, input, .code-block, .table-wrap')) {
+          const tapped = event.target.closest('.message');
+          messagesEl.querySelectorAll('.message.show-actions').forEach(m => { if (m !== tapped) m.classList.remove('show-actions'); });
+          if (tapped) tapped.classList.toggle('show-actions');
+        }
         const btn = event.target.closest('[data-action]');
         const node = btn?.closest('.message');
-        if (btn && node && !btn.disabled) handleMessageAction(btn.dataset.action, node.dataset.id, btn, node);
+        if (btn && node) handleMessageAction(btn.dataset.action, node.dataset.id, btn, node);
       });
 
       /**
@@ -3780,7 +3909,7 @@ const base64UrlEncode = value => {
         actions.forEach(a => {
           const b = el('button', a.primary ? 'primary' : 'secondary', a.label); b.type = 'button';
           if (a.danger) b.classList.add('danger');
-          b.addEventListener('click', async () => { if (a.run) await a.run(handle, b); if (a.close !== false) close(); });
+          b.addEventListener('click', async () => { if (b.getAttribute('aria-busy') === 'true') return; if (a.run) await a.run(handle, b); if (a.close !== false) close(); });
           bar.appendChild(b);
         });
         if (actions.length) sheet.appendChild(bar);
@@ -3847,24 +3976,6 @@ const base64UrlEncode = value => {
         closeThreadMenu();
         threadList.textContent = '';
         document.querySelectorAll('.thread-filter button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === threadView)));
-        if (threadView === 'active') {
-          const makeItem = (label, emoji, handler, cls) => {
-            const li = el('li', 'new-thread-item ' + (cls || ''));
-            const b = el('button', 'new-thread-button'); b.type = 'button';
-            b.appendChild(createEmoji(emoji)); b.appendChild(el('span', 'btn-label', label));
-            b.addEventListener('click', event => { event.stopPropagation(); handler(); });
-            li.appendChild(b); return li;
-          };
-          threadList.appendChild(makeItem('Start new chat', '➕', () => newThread()));
-          const extra = el('li', 'new-thread-item thread-extra');
-          const tmp = el('button', 'new-thread-button temp-chat-button'); tmp.type = 'button';
-          tmp.append(createEmoji('🕶️'), el('span', 'btn-label', 'Temporary chat'));
-          tmp.title = 'A chat that is never saved'; tmp.addEventListener('click', event => { event.stopPropagation(); newThread({ temporary: true }); });
-          const proj = el('button', 'new-thread-button new-project-button'); proj.type = 'button';
-          proj.append(createEmoji('📁'), el('span', 'btn-label', 'New project'));
-          proj.title = 'Group chats that share instructions'; proj.addEventListener('click', event => { event.stopPropagation(); createFolder(); });
-          extra.append(tmp, proj); threadList.appendChild(extra);
-        }
         const visible = M.model.listThreads(threads, { archived: threadView === 'archived', trashed: threadView === 'trash' });
         if (threadView === 'active') {
           const groups = [{ folder: null, items: visible.filter(t => !t.folderId || !folders.some(f => f.id === t.folderId)) }];
@@ -3958,7 +4069,7 @@ const base64UrlEncode = value => {
 
       contextProviders.push(async thread => ({ preamble: [selectedFolderInstructions(thread)] }));
       messageDecorators.push((thread, msg, index, ctx, actions) => {
-        if (!ctx.streaming && index < thread.messages.length) actions.appendChild(actionButton('branch-here', '🌿 Branch', 'Start a new chat from this point'));
+        if (!ctx.streaming && index < thread.messages.length) actions.appendChild(actionButton('branch-here', '🌿 Start a branch here', 'Start a branch here'));
       });
       messageActionHandlers['branch-here'] = (thread, msg) => duplicateThread(thread.id, thread.messages.indexOf(msg));
 
@@ -4036,8 +4147,8 @@ const base64UrlEncode = value => {
       }
       const featureLinks = document.getElementById('featureLinks');
       function addFeatureLink(emoji, label, handler, id) {
-        const b = el('button', 'secondary'); b.type = 'button'; if (id) b.id = id;
-        b.append(createEmoji(emoji), ' ', label); b.addEventListener('click', handler);
+        const b = el('button', 'side-link'); b.type = 'button'; if (id) b.id = id;
+        b.append(createEmoji(emoji), el('span', 'btn-label', label)); b.addEventListener('click', handler);
         featureLinks.appendChild(b); return b;
       }
       const humanSize = n => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
@@ -4120,14 +4231,17 @@ const base64UrlEncode = value => {
       }
       const attachInput = el('input'); attachInput.type = 'file'; attachInput.multiple = true; attachInput.hidden = true; attachInput.id = 'attachInput';
       attachInput.accept = '.pdf,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.log,.xml,.yaml,.yml,.html,.htm,.js,.mjs,.ts,.py,.java,.c,.h,.cpp,.go,.rs,.rb,.php,.sh,.sql,.css,.srt,.vtt,text/*,image/png,image/jpeg,image/webp,image/gif';
+      const attachTypes = attachInput.accept, attachNoImages = attachTypes.split(',').filter(x => !x.startsWith('image/')).join(',');
+      const syncAttachAccept = () => { attachInput.accept = window.localModels?.mode === 'local' ? attachNoImages : attachTypes; };
+      window.addEventListener('local-model-state', syncAttachAccept); syncAttachAccept();
       attachInput.addEventListener('change', () => { addFiles(attachInput.files); attachInput.value = ''; });
-      const attachBtn = el('button', null, '📎'); attachBtn.type = 'button'; attachBtn.id = 'attachBtn'; attachBtn.title = 'Attach text, Markdown, CSV, PDF or code files';
+      const attachBtn = el('button', 'tool-btn'); attachBtn.appendChild(createEmoji('📎')); attachBtn.type = 'button'; attachBtn.id = 'attachBtn'; attachBtn.title = 'Attach text, Markdown, CSV, PDF or code files';
       attachBtn.setAttribute('aria-label', 'Attach files'); attachBtn.addEventListener('click', () => attachInput.click());
       const composerToolsEl = document.getElementById('composerTools');
       composerToolsEl.append(attachBtn, attachInput);
       const chatAreaEl = document.querySelector('.chat-area');
       ['dragenter', 'dragover'].forEach(t => chatAreaEl.addEventListener(t, e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); chatAreaEl.classList.add('drop-target'); } }));
-      ['dragleave', 'drop'].forEach(t => chatAreaEl.addEventListener(t, e => { if (t === 'drop' && e.dataTransfer?.files?.length) { e.preventDefault(); if (getChatState().canType) addFiles(e.dataTransfer.files); } chatAreaEl.classList.remove('drop-target'); }));
+      ['dragleave', 'drop'].forEach(t => chatAreaEl.addEventListener(t, e => { if (t === 'drop' && e.dataTransfer?.files?.length) { e.preventDefault(); if (getChatState().hasThread) addFiles(e.dataTransfer.files); } chatAreaEl.classList.remove('drop-target'); }));
       messageInput.addEventListener('paste', e => { if (e.clipboardData?.files?.length) { e.preventDefault(); addFiles(e.clipboardData.files); } });
 
       // what the model is told about the documents
@@ -4242,8 +4356,8 @@ const base64UrlEncode = value => {
       // save an answer as a file
       messageDecorators.push((thread, msg, index, ctx, actions) => {
         if (msg.role !== 'assistant' || !msg.content || ctx.streaming) return;
-        actions.appendChild(actionButton('save-message', '⬇ Save', 'Save this answer as a file'));
-        actions.appendChild(actionButton('open-canvas', '📝 Edit', 'Open this answer in the editor'));
+        actions.appendChild(actionButton('save-message', '⬇ Save as a file', 'Save this response as a file'));
+        actions.appendChild(actionButton('open-canvas', '📝 Open in editor', 'Open this response in the draft editor'));
       });
       messageActionHandlers['save-message'] = async (thread, msg) => {
         const { exports: ex } = await loadDocModules();
@@ -4286,13 +4400,15 @@ const base64UrlEncode = value => {
       function openCanvas(text) {
         const c = ensureCanvas(), th = currentThread();
         c.area.value = text ?? th?.canvas?.text ?? '';
-        if (text != null && th) { th.canvas = { text, updatedAt: Date.now() }; saveThreads(); }
+        if (text != null && th) { th.canvas = { text, updatedAt: Date.now() }; saveThreads(); syncCanvasBtn(th); }
         c.pane.hidden = false; canvasBtn.setAttribute('aria-pressed', 'true'); c.area.focus();
       }
-      const canvasBtn = el('button', null, '📝'); canvasBtn.type = 'button'; canvasBtn.id = 'canvasBtn'; canvasBtn.title = 'Draft editor for this chat';
+      const canvasBtn = el('button', 'icon-btn'); canvasBtn.appendChild(createEmoji('📝')); canvasBtn.hidden = true; canvasBtn.type = 'button'; canvasBtn.id = 'canvasBtn'; canvasBtn.title = 'Draft editor for this chat';
       canvasBtn.setAttribute('aria-label', 'Open draft editor'); canvasBtn.setAttribute('aria-pressed', 'false');
       canvasBtn.addEventListener('click', () => { const c = ensureCanvas(); if (c.pane.hidden) openCanvas(); else c.pane.querySelector('[aria-label="Close editor"]').click(); });
-      composerToolsEl.appendChild(canvasBtn);
+      document.getElementById('headerTools').appendChild(canvasBtn); // shown only for a chat that has a draft
+      const syncCanvasBtn = thread => { canvasBtn.hidden = !(thread?.canvas?.text); };
+      threadSelectedHooks.push(syncCanvasBtn);
       messageActionHandlers['open-canvas'] = (thread, msg) => openCanvas(msg.content);
       threadSelectedHooks.push(() => { if (canvas && !canvas.pane.hidden) { canvas.pane.hidden = true; canvasBtn.setAttribute('aria-pressed', 'false'); } });
 
@@ -4366,7 +4482,7 @@ const base64UrlEncode = value => {
       }
       messageDecorators.push((thread, msg, index, ctx, actions) => {
         if (msg.notice || msg.role === 'system' || ctx.streaming || thread.temporary || msg.local) return;
-        actions.appendChild(actionButton('remember', '🧠 Remember', 'Remember this in future chats'));
+        actions.appendChild(actionButton('remember', '🧠 Remember this', 'Remember this in future chats'));
       });
       messageActionHandlers['remember'] = async (thread, msg) => {
         const text = await promptDialog('Remember this', 'You can edit it before it is saved. It will be available in future chats (not temporary ones).', msg.content.slice(0, 400), { multiline: true, confirmLabel: 'Remember' });
@@ -4430,17 +4546,16 @@ const base64UrlEncode = value => {
         const voiceWrap = el('div');
         const voiceSel = el('select'); voiceSel.setAttribute('aria-label', 'Read-aloud voice');
         const rate = el('input'); rate.type = 'range'; rate.min = '0.6'; rate.max = '1.6'; rate.step = '0.1'; rate.value = String(prefs.speechRate || 1); rate.setAttribute('aria-label', 'Reading speed');
-        const speechMod = await import(moduleBase() + 'chat/speech.mjs'); await speechMod.whenVoicesReady();
-        const voices = speechMod.localVoices();
-        if (!voices.length) voiceWrap.appendChild(el('p', 'muted', 'No on-device voices were found in this browser, so read-aloud is off. Remote voices are never used.'));
-        else {
-          voices.forEach(v => voiceSel.appendChild(new Option(v.name + ' (' + v.lang + ')', v.voiceURI)));
-          voiceSel.value = speechMod.bestVoice(prefs.voiceURI)?.voiceURI || voices[0].voiceURI;
+        const speechModule = await loadSpeech(); await speechModule.whenVoicesReady();
+        const voiceList = speechModule.voices();
+        if (speechAvailable.synth && voiceList.length) {
+          voiceList.forEach(v => voiceSel.appendChild(new Option(v.name + ' (' + v.lang + ')' + (v.localService ? '' : ' \u00B7 online'), v.voiceURI)));
+          voiceSel.value = speechModule.bestVoice(prefs.voiceURI)?.voiceURI || voiceList[0].voiceURI;
           voiceSel.addEventListener('change', () => { prefs.voiceURI = voiceSel.value; savePrefs(); });
           rate.addEventListener('change', () => { prefs.speechRate = Number(rate.value); savePrefs(); });
-          voiceWrap.append(el('p', 'muted', 'Only voices that run on this device are listed.'), voiceSel, el('div', 'muted', 'Speed'), rate);
+          voiceWrap.append(el('p', 'muted', 'Replies are read with your browser\u2019s voices.'), voiceSel, el('div', 'muted', 'Speed'), rate);
         }
-        sec('Read aloud', voiceWrap);
+        if (voiceWrap.childElementCount) sec('Read aloud', voiceWrap);
         openAppDialog({ title: 'Memory & preferences', content: root, wide: true, actions: [{ label: 'Done', primary: true, run: () => { prefs.instructions = instr.value.trim().slice(0, 4000); savePrefs(); } }] });
       }
       addFeatureLink('🧠', 'Memory & preferences', openPreferences, 'openPrefsBtn');
@@ -4463,11 +4578,17 @@ const base64UrlEncode = value => {
       userMessageHooks.push(retool);
       afterReplyHooks.push((thread, msg) => { if (voiceMode.on) voiceMode.afterReply(thread, msg); });
 
-      // speech: read aloud, dictation, voice conversation
+      // speech: read aloud, dictation, hands-free conversation. These use the browser's own speech services (Apple's on an iPhone).
+      // A control the browser cannot support is not shown.
+      const speechAvailable = {
+        synth: Boolean(window.speechSynthesis && window.SpeechSynthesisUtterance),
+        recognition: Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
+      };
       let speechMod = null;
       const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
       let speaking = null;
-      function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => { b.setAttribute('aria-pressed', 'false'); b.textContent = '🔊 Listen'; }); } }
+      const setListenButton = (btn, on) => { btn.setAttribute('aria-pressed', String(on)); M.icons.setIconLabel(btn, on ? '⏹ Stop' : '🔊 Listen'); };
+      function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => setListenButton(b, false)); } }
       async function speakText(text, onDone) {
         const sp = await loadSpeech();
         stopSpeaking();
@@ -4476,76 +4597,60 @@ const base64UrlEncode = value => {
         speaking = { handle };
         try { await handle.done; } catch (err) { showToast(err.message, 8000); } finally { if (speaking?.handle === handle) speaking = null; onDone?.(); }
       }
-      messageDecorators.push((thread, msg, index, ctx, actions) => {
-        if (msg.role !== 'assistant' || !msg.content || ctx.streaming) return;
-        actions.appendChild(actionButton('speak', '🔊 Listen', 'Read this answer aloud'));
-      });
-      messageActionHandlers['speak'] = async (thread, msg, btn) => {
-        if (btn.getAttribute('aria-pressed') === 'true') { stopSpeaking(); return; }
-        stopSpeaking(); btn.setAttribute('aria-pressed', 'true'); btn.textContent = '⏹ Stop';
-        await speakText(msg.content, () => { if (btn.isConnected) { btn.setAttribute('aria-pressed', 'false'); btn.textContent = '🔊 Listen'; } });
-      };
-      threadSelectedHooks.push(() => stopSpeaking());
-
-      const micBtn = el('button', null, '🎙️'); micBtn.type = 'button'; micBtn.id = 'micBtn'; micBtn.setAttribute('aria-label', 'Dictate'); micBtn.setAttribute('aria-pressed', 'false'); micBtn.hidden = false;
-      const voiceBtn = el('button', null, '🎧'); voiceBtn.type = 'button'; voiceBtn.id = 'voiceModeBtn'; voiceBtn.setAttribute('aria-label', 'Voice conversation'); voiceBtn.setAttribute('aria-pressed', 'false');
-      composerToolsEl.append(micBtn, voiceBtn);
-      const voiceStatus = el('p', 'composer-hint'); voiceStatus.id = 'voiceStatus'; voiceStatus.setAttribute('role', 'status'); voiceStatus.hidden = true;
-      messageForm.appendChild(voiceStatus);
-      // Nothing is probed at start-up: whether dictation can run on this device is checked when it is first asked for.
-      let dictation = { state: 'unknown', reason: '' }, voices = false;
-      micBtn.title = 'Dictate (only if this browser can do it on your device)';
-      voiceBtn.title = 'Talk with the assistant hands-free (only if this browser can do it on your device)';
-      async function refreshSpeechSupport() {
-        const sp = await loadSpeech();
-        dictation = await sp.dictationAvailability();
-        await sp.whenVoicesReady(800); voices = sp.localVoices().length > 0;
-        micBtn.title = dictation.state === 'available' ? 'Dictate (on this device)' : dictation.state === 'downloadable' ? 'Download the on-device speech pack, then dictate' : 'Dictation is off: ' + dictation.reason;
-        micBtn.classList.toggle('unavailable', dictation.state === 'unavailable');
-        micBtn.setAttribute('aria-disabled', String(dictation.state === 'unavailable'));
-        const reason = dictation.state === 'unavailable' ? dictation.reason : !voices ? 'No on-device voice is available for replies.' : '';
-        voiceBtn.title = reason ? 'Voice conversation is off: ' + reason : 'Talk with the assistant hands-free (on this device)';
-        voiceBtn.setAttribute('aria-disabled', String(Boolean(reason)));
+      if (speechAvailable.synth) {
+        messageDecorators.push((thread, msg, index, ctx, actions) => {
+          if (msg.role !== 'assistant' || !msg.content || ctx.streaming) return;
+          actions.appendChild(actionButton('speak', '🔊 Listen', 'Read this answer aloud'));
+        });
+        messageActionHandlers['speak'] = async (thread, msg, btn) => {
+          if (btn.getAttribute('aria-pressed') === 'true') { stopSpeaking(); return; }
+          stopSpeaking(); setListenButton(btn, true);
+          await speakText(msg.content, () => { if (btn.isConnected) setListenButton(btn, false); });
+        };
+        threadSelectedHooks.push(() => stopSpeaking());
       }
+
+      const toolButton = (id, icon, label) => {
+        const b = el('button', 'tool-btn'); b.type = 'button'; b.id = id; b.title = label; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', 'false');
+        b.appendChild(createEmoji(icon === 'mic' ? '🎙️' : '🎧')); return b;
+      };
+      const micBtn = speechAvailable.recognition ? toolButton('micBtn', 'mic', 'Dictate') : null;
+      const voiceBtn = speechAvailable.recognition && speechAvailable.synth ? toolButton('voiceModeBtn', 'headphones', 'Voice conversation') : null;
+      [micBtn, voiceBtn].forEach(b => b && composerToolsEl.append(b));
+      const setPressed = (btn, on) => btn?.setAttribute('aria-pressed', String(on));
+      const voiceStatus = el('p', 'voice-status'); voiceStatus.id = 'voiceStatus'; voiceStatus.setAttribute('role', 'status'); voiceStatus.hidden = true;
+      messageForm.appendChild(voiceStatus);
+
       let dictating = null;
-      function stopDictation() { dictating?.stop(); dictating = null; micBtn.setAttribute('aria-pressed', 'false'); }
+      function stopDictation() { dictating?.stop(); dictating = null; setPressed(micBtn, false); }
       async function startDictating({ onFinal } = {}) {
+        if (!speechAvailable.recognition) return false;
         const sp = await loadSpeech();
-        await refreshSpeechSupport();
-        if (dictation.state === 'unavailable') { showToast(dictation.reason, 9000); return false; }
-        if (dictation.state === 'downloadable') {
-          if (!await confirmDialog('Download speech pack?', 'Dictation runs entirely on this device but needs a language pack first. Download it now?', 'Download')) return false;
-          try { await sp.installDictation(); await refreshSpeechSupport(); } catch (err) { showToast('The speech pack could not be installed: ' + err.message, 9000); return false; }
-          if (dictation.state !== 'available') { showToast('Dictation is not ready yet. Try again in a moment.', 6000); return false; }
-        }
         const base = messageInput.value ? messageInput.value.replace(/\s*$/, ' ') : '';
-        let committed = base, last = '';
+        let committed = base;
         messageInput.focus();
-        micBtn.setAttribute('aria-pressed', 'true');
+        setPressed(micBtn, true);
         dictating = sp.startDictation({
-          onText: ({ final, interim }) => { if (final) { committed += final.trim() + ' '; last = final; onFinal?.(final); } messageInput.value = committed + interim; growComposer(); updateSendButtonDisabled(getChatState().ready); scheduleDraftSave(); },
-          onEnd: () => { if (messageInput.value.startsWith(committed.trimEnd())) messageInput.value = committed.trimEnd(); micBtn.setAttribute('aria-pressed', 'false'); dictating = null; updateSendButtonDisabled(getChatState().ready); voiceMode.onDictationEnd?.(); },
-          onError: err => { showToast(err.message, 8000); stopDictation(); }
+          onText: ({ final, interim }) => { if (final) { committed += final.trim() + ' '; onFinal?.(final); } messageInput.value = committed + interim; growComposer(); updateSendButtonDisabled(); scheduleDraftSave(); },
+          onEnd: () => { if (messageInput.value.startsWith(committed.trimEnd())) messageInput.value = committed.trimEnd(); setPressed(micBtn, false); dictating = null; updateSendButtonDisabled(); voiceMode.onDictationEnd?.(); },
+          onError: err => { showToast(err.message, 8000); stopDictation(); voiceMode.stop?.(); }
         });
         return true;
       }
-      micBtn.addEventListener('click', async () => { if (dictating) { stopDictation(); return; } await startDictating(); });
+      micBtn?.addEventListener('click', async () => { if (dictating) { stopDictation(); return; } await startDictating(); });
 
       // hands-free: listen -> send -> speak the reply -> listen again
       const voiceMode = {
         on: false, timer: null,
         async start() {
-          await refreshSpeechSupport();
-          if (dictation.state === 'unavailable') { showToast(dictation.reason, 9000); return; }
-          if (!voices) { showToast('Voice conversation needs an on-device voice for the replies, and this browser has none.', 9000); return; }
-          if (!getChatState().canType) { showToast('Load a model or choose a provider first.'); return; }
-          this.on = true; voiceBtn.setAttribute('aria-pressed', 'true'); this.listen();
+          if (!getChatState().ready) { showToast('The model is not ready yet.'); return; }
+          this.on = true; setPressed(voiceBtn, true); this.listen();
         },
-        stop(message) { this.on = false; clearTimeout(this.timer); stopDictation(); stopSpeaking(); voiceBtn.setAttribute('aria-pressed', 'false'); voiceStatus.hidden = true; if (message) showToast(message); },
-        say(t) { voiceStatus.hidden = false; voiceStatus.textContent = '🎧 ' + t + ' (press 🎧 to end)'; },
+        stop(message) { this.on = false; clearTimeout(this.timer); stopDictation(); stopSpeaking(); setPressed(voiceBtn, false); voiceStatus.hidden = true; if (message) showToast(message); },
+        say(t) { voiceStatus.hidden = false; voiceStatus.textContent = t + ' Press the headphones to end.'; },
         async listen() {
           if (!this.on || gen) return;
-          this.say('Listening… pause when you’re done');
+          this.say('Listening. Pause when you are done.');
           const ok = await startDictating({ onFinal: () => { clearTimeout(this.timer); this.timer = setTimeout(() => this.submit(), 1600); } });
           if (!ok) this.stop();
         },
@@ -4554,23 +4659,23 @@ const base64UrlEncode = value => {
           clearTimeout(this.timer); if (!this.on || gen) return;
           stopDictation();
           const text = messageInput.value.trim(); if (!text) { this.listen(); return; }
-          this.say('Thinking…');
+          this.say('Generating a reply.');
           await handleSendMessage({ preventDefault() {} });
         },
         afterReply(thread, msg) {
           if (!this.on) return;
           if (!msg.content || msg.status === 'failed' || msg.status === 'stopped') { this.stop('Voice conversation ended.'); return; }
-          this.say('Speaking…');
+          this.say('Reading the reply aloud.');
           speakText(msg.content, () => { if (this.on) this.listen(); });
         }
       };
-      voiceBtn.addEventListener('click', () => { if (voiceMode.on) voiceMode.stop('Voice conversation ended.'); else voiceMode.start(); });
+      voiceBtn?.addEventListener('click', () => { if (voiceMode.on) voiceMode.stop('Voice conversation ended.'); else voiceMode.start(); });
       document.getElementById('stopGeneration').addEventListener('click', () => { if (voiceMode.on) voiceMode.stop(); });
 
       // ---- context: how full the model's window is, and condensing older messages ----------------------------------
       const meterRow = el('div', 'context-meter'); meterRow.id = 'contextMeter'; meterRow.hidden = true;
       const meterText = el('span'); meterText.setAttribute('role', 'status');
-      const meterBar = el('meter'); meterBar.min = 0; meterBar.max = 1; meterBar.setAttribute('aria-hidden', 'true');
+      const meterBar = el('meter'); meterBar.min = 0; meterBar.max = 1; meterBar.low = 0.75; meterBar.high = 0.95; meterBar.optimum = 0; meterBar.setAttribute('aria-hidden', 'true');
       const meterBtn = el('button', 'secondary', 'Summarize earlier messages'); meterBtn.type = 'button'; meterBtn.id = 'summarizeBtn'; meterBtn.hidden = true;
       meterRow.append(meterText, meterBar, meterBtn);
       messageForm.parentNode.insertBefore(meterRow, messageForm);
@@ -4724,7 +4829,7 @@ const base64UrlEncode = value => {
         openAppDialog({ title: 'Encrypted backup', content: root, actions: [{ label: 'Cancel' }, { label: 'Create backup', primary: true, close: false, run: async (d, button) => {
           if (p1.value.length < 8) { msg.textContent = 'Use at least 8 characters.'; return; }
           if (p1.value !== p2.value) { msg.textContent = 'The two passphrases do not match.'; return; }
-          button.disabled = true; msg.textContent = 'Encrypting…';
+          button.setAttribute('aria-busy', 'true'); msg.textContent = 'Encrypting…';
           try {
             const c = await loadCrypto();
             const backup = await buildBackup(docs.checked);
@@ -4732,7 +4837,7 @@ const base64UrlEncode = value => {
             downloadText('private-local-chat-' + new Date().toISOString().slice(0, 10) + '.encrypted.json', JSON.stringify(envelope), 'application/json');
             prefs.lastExportAt = Date.now(); savePrefs(); updateBackupNudge();
             d.close(); showToast('Encrypted backup saved. Keep the passphrase safe: it cannot be recovered.', 7000);
-          } catch (err) { msg.textContent = 'The backup could not be created: ' + err.message; button.disabled = false; }
+          } catch (err) { msg.textContent = 'The backup could not be created: ' + err.message; button.removeAttribute('aria-busy'); }
         } }] });
       }
       async function askPassphrase(envelope) {
@@ -4803,9 +4908,10 @@ const base64UrlEncode = value => {
         const c = await loadCrypto();
         const wait = Math.ceil((lockedUntil - Date.now()) / 1000);
         if (wait > 0) { lockMsg.textContent = 'Too many tries. Wait ' + wait + ' seconds.'; return; }
-        lockGo.disabled = true;
+        if (lockGo.getAttribute('aria-busy') === 'true') return;
+        lockGo.setAttribute('aria-busy', 'true');
         const ok = await c.verifyLock(lockCfg, lockPass.value);
-        lockGo.disabled = false;
+        lockGo.removeAttribute('aria-busy');
         if (ok) { failures = 0; setLockedUi(false); armIdle(); messageInput.focus(); return; }
         failures++; const delay = c.lockDelaySeconds(failures); lockedUntil = Date.now() + delay * 1000;
         lockMsg.textContent = 'That passphrase is not right.' + (delay ? ' Wait ' + delay + ' seconds before trying again.' : '');
@@ -4828,10 +4934,10 @@ const base64UrlEncode = value => {
         if (document.hidden) hiddenAt = Date.now();
         else if (lockCfg.autoMinutes && hiddenAt && Date.now() - hiddenAt > lockCfg.autoMinutes * 60000) lockNow();
       });
-      const lockBtn = el('button', 'icon-btn', '🔒'); lockBtn.type = 'button'; lockBtn.id = 'lockNowBtn'; lockBtn.title = 'Lock now'; lockBtn.setAttribute('aria-label', 'Lock now');
+      const lockBtn = el('button', 'icon-btn'); lockBtn.appendChild(createEmoji('🔒')); lockBtn.type = 'button'; lockBtn.id = 'lockNowBtn'; lockBtn.title = 'Lock now'; lockBtn.setAttribute('aria-label', 'Lock now');
       lockBtn.addEventListener('click', lockNow);
       function syncLockUi() {
-        if (lockCfg && !lockBtn.isConnected) themeToggleBtn.before(lockBtn); else if (!lockCfg) lockBtn.remove();
+        if (lockCfg && !lockBtn.isConnected) document.getElementById('headerTools').appendChild(lockBtn); else if (!lockCfg) lockBtn.remove();
         if (!lockCfg) setLockedUi(false);
       }
       async function openLockSettings() {
@@ -4848,7 +4954,7 @@ const base64UrlEncode = value => {
           openAppDialog({ title: 'Set an app lock', content: root, actions: [{ label: 'Cancel' }, { label: 'Turn on lock', primary: true, close: false, run: async (d, button) => {
             if (pa.value.length < 6) { msg.textContent = 'Use at least 6 characters.'; return; }
             if (pa.value !== pb.value) { msg.textContent = 'The two passphrases do not match.'; return; }
-            button.disabled = true; msg.textContent = 'Setting up…';
+            button.setAttribute('aria-busy', 'true'); msg.textContent = 'Setting up…';
             lockCfg = { ...(await c.createLock(pa.value)), autoMinutes: Number(auto.value) };
             writeJson(localStorage, LOCK_KEY, lockCfg); syncLockUi(); armIdle(); d.close(); showToast('Lock is on.');
           } }] });
@@ -5025,7 +5131,7 @@ const base64UrlEncode = value => {
           persistConfig();
         }
 
-        refreshModelsBtn.disabled = true;
+        refreshModelsBtn.setAttribute('aria-busy', 'true');
         const refreshLabelTarget = refreshModelsBtn.querySelector('.btn-label');
         const originalLabel = refreshLabelTarget ? refreshLabelTarget.textContent : refreshModelsBtn.textContent;
         if (refreshLabelTarget) {
@@ -5087,7 +5193,7 @@ const base64UrlEncode = value => {
           }
           updateAuthGuidance();
         } finally {
-          refreshModelsBtn.disabled = false;
+          refreshModelsBtn.removeAttribute('aria-busy');
           if (refreshLabelTarget) {
             refreshLabelTarget.textContent = originalLabel;
           } else {
@@ -5693,7 +5799,12 @@ const base64UrlEncode = value => {
        */
       async function init() {
         await loadChatModules();
+        upgradeStaticIcons();
         updateComposerHint();
+        syncProviderOpen();
+        document.getElementById('newChatBtn').addEventListener('click', () => newThread());
+        document.getElementById('tempChatBtn').addEventListener('click', () => newThread({ temporary: true }));
+        document.getElementById('newProjectBtn').addEventListener('click', () => createFolder());
         populateEndpointSelect();
         loadModels();
         loadConfig();
@@ -5808,7 +5919,7 @@ const base64UrlEncode = value => {
         const wantsSend = enterSends() ? !event.shiftKey && !event.altKey : event.ctrlKey || event.metaKey;
         if (!wantsSend) return;
         event.preventDefault();
-        if (!sendBtn.disabled) messageForm.requestSubmit();
+        if (!gen) messageForm.requestSubmit();
       });
       window.addEventListener('pagehide', () => { persistDraftNow(); if (gen) flushSave(); });
       document.addEventListener('visibilitychange', () => { if (document.hidden) { persistDraftNow(); if (gen) flushSave(); } });

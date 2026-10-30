@@ -16,11 +16,18 @@ What the chat experience does beyond running a model, where each part lives, wha
 | Outputs | Save an answer as `.md` / `.txt`, a table as CSV, a code block as a file; edit longer drafts in a side editor and ask the assistant to revise them. | `chat/exports.mjs` |
 | Personalisation | Standing instructions, assistant presets, an explicit and editable memory (never used in temporary chats). | `index.html` (assistant block) |
 | Exact answers | Arithmetic, unit conversion and date questions are computed by a small parser (no `eval`). `/calc`, `/convert`, `/date` answer immediately; the same questions inside normal messages are computed and handed to the model as given. | `chat/tools.mjs` |
-| Speech | Read-aloud uses only voices the browser marks local. Dictation and the hands-free voice loop run only when the browser confirms recognition stays on the device, and explain why when it cannot. Availability is checked on first use, never at start-up. | `chat/speech.mjs` |
+| Speech | Read-aloud, dictation and the hands-free voice loop use the browser's own speech services (Apple's on an iPhone). Voices on the device are preferred. A browser without speech recognition or voices simply does not show the matching buttons. | `chat/speech.mjs` |
+| Brand and layout | PrivateLocal.Chat identity from the brand packet (`brand/`, `chat/brand.css`): wordmark, tokens, light/dark, an "On this device" / "Connected" badge on every chat. Phones get finger-sized targets, a tap-to-reveal action row and Enter-adds-a-line; desktops get hover actions and Enter-sends. Enter behaviour lives in Memory & preferences. | `chat/brand.css`, `chat/icons.mjs` |
 | Device readiness | Downloaded / Loaded / Ready for offline use are shown separately; one button performs the next step. Repair, restart, removal and diagnostics are under Advanced. Free memory unloads the model and keeps the download. | `local-models.js`, `index.html` |
 | Context | A meter shows how full the model's window is. Older messages can be condensed into a summary that replaces them *in what the model sees only*; the saved conversation is never shortened. | `chat/context.mjs` |
 | Storage and backups | One screen for models, conversations, attachments, the library, browser persistence and the last backup, with a backup reminder. Encrypted full backups (PBKDF2-SHA-256, AES-256-GCM). | `chat/crypto.mjs`, `index.html` |
 | App lock | A passphrase screen over the app, auto-lock when idle or away, throttled retries. | `chat/crypto.mjs` |
+
+## Controls that cannot be used are not shown
+
+No button is ever shown disabled. If an action is unavailable (a model already downloaded, nothing to free, no speech recognition, pictures with an on-device model) the control is hidden instead, and in-flight work uses `aria-busy`. `tests/e2e/mobile.e2e.mjs` fails if a visible button is disabled.
+
+A downloaded model loads by itself when the app opens or when on-device chat is chosen (`runtime/auto-load.mjs`), unless the person freed memory this session.
 
 ## Where data lives
 
@@ -40,7 +47,7 @@ Everything stays in the browser. Documents are read, indexed and searched on the
 * **The lock is a screen lock.** It stops casual access. It does not encrypt `localStorage` or IndexedDB, so someone with access to the browser's files can still read them. An encrypted backup is the protected copy. A forgotten passphrase cannot be recovered: the only way back in is to erase the app's data and restore a backup.
 * **Pictures need a vision-capable API provider.** The on-device models here read text only, and the app says so instead of pretending.
 * **Scanned PDFs** have no text to read and are refused with an explanation; OCR is not available offline yet.
-* **Dictation and voice conversation are browser-dependent.** They stay off unless the browser can prove recognition is local, which today means recent Chromium with an installed on-device language pack. Safari/iOS does not currently expose that, so they stay off there.
+* **Speech depends on the browser.** Dictation and voice conversation appear only where the browser has speech recognition, and may send audio to that browser's speech service (Apple's on iPhone). That is an accepted trade-off for an app that also lets people connect their own providers; it is not a claim that voice never leaves the device.
 * **Exact-answer detection is conservative.** It acts on clear arithmetic, unit and date questions and ignores things that merely look like them (`2026-03-05`, `pages 10-20`).
 * **Local performance is untested here.** Browser tests use a scripted provider, so response quality and speed on a real iPhone or WebGPU device still need the existing acceptance scripts.
 

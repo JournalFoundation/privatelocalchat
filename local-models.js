@@ -1,4 +1,5 @@
 import {createDownloadRecovery} from './runtime/download-recovery.mjs';
+import {shouldAutoLoad} from './runtime/auto-load.mjs';
 import {createOfflineStatusProbe} from './runtime/offline-status.mjs';
 import {createModelHost} from './runtime/providers/model-host.mjs';
 import {gatherEnv} from './runtime/providers/capability-probe.mjs';
@@ -17,13 +18,15 @@ window.__plcDiagnosticsStarted=diagnosticsStarted;
 let state, env, downloadRecovery, activeGeneration = false;
 let resetPromptAfterAbort=false;
 const modeKey = 'plc.inferenceMode.v1';
-let offlineAppReady = false;
+let updatePending = false, quality = null, qualityAvailable = true, offlineAppReady = false, autoLoadTried = false, userFreed = false;
 let existingApi = false;
 try {existingApi = Boolean(JSON.parse(sessionStorage.getItem('chatConfig') || '{}').endpoint);} catch {}
 let mode = existingApi ? 'api' : 'local';
 try {mode=localStorage.getItem(modeKey)||mode;} catch(e) {console.warn('Mode storage unavailable:',e.name);}
 if (!['local','api'].includes(mode)) mode = 'local';
 const gb = n => (n/1e9).toFixed(2)+' GB';
+// A control that cannot be used right now is not shown at all.
+const show = (id,on) => {$(id).hidden=!on;};
 const notify = () => window.dispatchEvent(new Event('local-model-state'));
 function showError(error) {
   $('modelStatus').textContent = (error?.message || String(error)) + (error?.advice ? ' '+error.advice : ' Try Verify / repair or reload the model.');
@@ -36,33 +39,30 @@ function render(s) {
   $('localModelSelect').value=tier;
   $('modelDetails').textContent=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':'Smaller model; lower memory use.');
   $('modelStatus').dataset.error='false';
-  if(s.busy) $('modelStatus').textContent=t ? `${s.busy}: ${gb(t.bytesDone || 0)} / ${gb(t.bytesTotal || item.info.downloadBytes)}${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy+'…';
+  const modelName=item.info.modelId||'the model';
+  if(s.busy) $('modelStatus').textContent=t ? `Downloading ${modelName}: ${gb(t.bytesDone || 0)} of ${gb(t.bytesTotal || item.info.downloadBytes)} downloaded${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy==='load'?`Loading ${modelName} into memory…`:s.busy==='install'?`Downloading ${modelName}…`:s.busy==='repair'?'Repairing the model download…':s.busy==='remove'?'Removing model files…':s.busy+'…';
   else if(s.lastError) showError(s.lastError);
-  else if(s.load.state==='ready') $('modelStatus').textContent='Ready — replies run on this device.';
-  else $('modelStatus').textContent=item.install.ok?'Model files are downloaded. Load the model into memory for this page session.':`Download: ${item.install.state}. Model: ${s.load.state}.`;
+  else if(s.load.state==='ready') $('modelStatus').textContent='Loaded \u00B7 ready on this device';
+  else $('modelStatus').textContent=item.install.ok?'Downloaded \u00B7 not loaded':'Download a model to use on-device chat.';
   if(s.busy&&t?.phase==='retry-wait') $('modelStatus').textContent+=` · Retrying download ${t.retryAttempt}/${t.retryLimit} in ${t.retryDelayMs/1000}s. Saved files are kept.`;
   const ready=s.load.state==='ready';
   const supported=!!env?.webgpu.available && (tier!=='light'||env.webgpu.shaderF16);
   if(env&&!supported&&!s.busy) showError(new Error(tier==='light'?'The 2B runtime needs GPU shader-f16 support. This browser does not expose it. Choose the 9B model if this device has enough memory, or explicitly choose API mode.':'WebGPU is unavailable in this browser.'));
   $('modelProgress').hidden=!t;
   if(t) $('modelProgress').value=(t.bytesDone || 0)/Math.max(1,t.bytesTotal || 1);
-  $('downloadModel').disabled=!supported||Boolean(s.busy)||activeGeneration||item.install.ok===true;
-  $('loadModel').disabled=!supported||Boolean(s.busy)||activeGeneration||item.install.ok!==true||ready;
-  $('repairModel').disabled=Boolean(s.busy)||activeGeneration;
-  $('restartModel').disabled=Boolean(s.busy)||activeGeneration;
-  $('removeModel').disabled=Boolean(s.busy)||activeGeneration;
-  $('localModelSelect').disabled=Boolean(s.busy)||activeGeneration;
-  $('inferenceMode').disabled=Boolean(s.busy)||activeGeneration;
-  $('reloadApp').disabled=Boolean(s.busy)||activeGeneration;
-  const recovery=downloadRecovery?.state;
+  const recovery=downloadRecovery?.state, idle=!s.busy&&!activeGeneration&&!recovery?.pending;
+  show('downloadModel',supported&&idle&&item.install.ok!==true);
+  show('loadModel',supported&&idle&&item.install.ok===true&&!ready);
+  show('repairModel',idle);
+  show('restartModel',idle);
+  show('removeModel',idle&&(item.install.ok===true||(item.install.bytesPresent||0)>0));
+  $('reloadApp').hidden=!(updatePending&&idle);
   $('cancelModel').hidden=!['install','repair'].includes(s.busy)&&!recovery?.pending;
   if(recovery?.pending&&!s.busy)$('modelStatus').textContent+=(recovery.phase==='offline'?' · Download will continue when connected.':' · Download will continue automatically; completed files are kept.');
   if(recovery?.pending&&!recovery.remembered)$('modelStatus').textContent+=' Keep this page open: the browser could not save the download request yet.';
-  $('localModelSelect').disabled||=!!recovery?.pending;
-  $('inferenceMode').disabled||=!!recovery?.pending;
-  $('loadModel').disabled||=!!recovery?.pending;
-  const quality=$('localModelSelect').querySelector('[value="default"]');
-  quality.disabled=!env?.webgpu.available || (env.deviceMemoryGB !== null && env.deviceMemoryGB < 8) || /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
+  quality=quality||$('localModelSelect').querySelector('[value="default"]');
+  qualityAvailable=!(!env?.webgpu.available || (env.deviceMemoryGB !== null && env.deviceMemoryGB < 8) || /iPhone|iPad|iPod|Android/.test(navigator.userAgent));
+  if(qualityAvailable&&!quality.isConnected)$('localModelSelect').appendChild(quality);else if(!qualityAvailable&&quality.isConnected&&tier!=='default')quality.remove();
   $('modelDiagnostics').textContent=JSON.stringify({device:env,selection:s.selection,variant:s.variant,storage:s.storage,host:s.host,load:s.load,lastError:s.lastError},null,2);
   renderReadiness(s,supported,ready);
   notify();
@@ -75,19 +75,30 @@ function renderReadiness(s,supported,ready) {
   const step=!downloaded?'download':!ready?'load':'ready', recovery=downloadRecovery?.state;
   const button=$('setupPrivateChat'), hint=$('setupHint');
   button.dataset.step=step;
-  button.textContent=step==='download'?'Set up private chat on this device':step==='load'?'Load the model':'Ready \u2014 replies run on this device';
-  button.disabled=step==='ready'||!supported||Boolean(s.busy)||activeGeneration||Boolean(recovery?.pending);
+  button.textContent=step==='download'?'Set up on-device chat':step==='load'?'Load model':'Loaded \u00B7 ready on this device';
+  button.hidden=step==='ready'||!supported||Boolean(s.busy)||activeGeneration||Boolean(recovery?.pending);
   hint.textContent=step==='download'?'Downloads '+gb(item.info.downloadBytes)+' once. After that, chatting needs no connection.'
     :step==='load'?'Loads the downloaded model into memory (about '+gb(item.info.memory.steadyBytes)+') so it can answer.'
     :downloaded&&offlineAppReady?'Everything needed is saved on this device. You can use it without a connection.':'The model is saved. Reload the app once while online so the app itself is saved for offline use too.';
-  $('freeMemory').disabled=!ready||Boolean(s.busy)||activeGeneration;
+  show('freeMemory',ready&&!s.busy&&!activeGeneration);
+}
+const isSupported=s=>{const tier=s.selection.tier;return !!env?.webgpu.available&&(tier!=='light'||env.webgpu.shaderF16);};
+// A downloaded model loads by itself when the app opens (or when on-device chat is chosen), so chatting just works.
+function maybeAutoLoad() {
+  if(!state)return;
+  const s=host.getState(), item=s.tiers[s.selection.tier];
+  if(!shouldAutoLoad({mode,alreadyTried:autoLoadTried,userFreed,supported:isSupported(s),busy:s.busy,generating:activeGeneration,installed:item.install.ok,loadState:s.load.state,downloadPending:Boolean(downloadRecovery?.state?.pending)}))return;
+  autoLoadTried=true;
+  action(()=>host.load());
 }
 function applyMode() {
   $('inferenceMode').value=mode;
   $('localModelPanel').hidden=mode!=='local';
   $('apiSettings').hidden=mode!=='api';
   try {localStorage.setItem(modeKey,mode);} catch(e) {showError(new Error('The browser cannot save settings: '+e.name));}
+  if(mode==='local')autoLoadTried=false;
   notify();
+  maybeAutoLoad();
 }
 async function action(fn) {try {await fn();} catch(e) {showError(e);} }
 downloadRecovery=createDownloadRecovery({host,
@@ -124,7 +135,8 @@ window.localModels={
   get installed(){return state?.tiers[state.selection.tier].install.ok===true;},
   get state(){return state;},
   get offlineReady(){return offlineAppReady;},
-  async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');await host.unload();await host.inspect();},
+  get supported(){return state?isSupported(state):undefined;},
+  async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');userFreed=true;await host.unload();await host.inspect();},
   async refreshStorage(){await host.refreshStorage();return state?.storage;},
   async requestPersist(){return host.requestPersist();},
   async generate(messages,{signal,onToken,onFinish}={}) {
@@ -164,7 +176,7 @@ if('serviceWorker' in navigator) {
     onResult:current=>{
       offlineAppReady=Boolean(current);if(state)renderReadiness(state,!!env?.webgpu.available,state.load.state==='ready');
       $('offlineStatus').textContent=current?'Offline app ready. Downloaded models can be loaded without a connection.':'An updated app is ready. Reload while online before the offline test.';
-      $('reloadApp').hidden=current;
+      updatePending=!current;$('reloadApp').hidden=!updatePending;
     }
   });
   navigator.serviceWorker.addEventListener('controllerchange',checkOffline);
@@ -179,5 +191,6 @@ try {
   env=await gatherEnv();
   host.subscribe(render);
   await host.init({autoLoad:false});
+  maybeAutoLoad();
   if(!env.webgpu.available) showError(new Error('This runtime needs WebGPU. Update your browser or explicitly choose API mode.'));
 } catch(e){showError(e);} finally {downloadRecovery.resume();}

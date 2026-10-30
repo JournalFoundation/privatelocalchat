@@ -30,16 +30,16 @@ try{
  await page.locator('#loadModel').click();const loaded=await idle();if(loaded.load.state!=='ready')throw Error('Load failed: '+JSON.stringify(loaded.lastError));
  await record('real model loaded',{load:loaded.load});
  await page.getByRole('button',{name:/start new chat/i}).click();await page.locator('#messageInput').fill('Reply with one short sentence: what is two plus three?');await page.locator('#sendBtn').click();
- await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
- if(await page.locator('#generationStatus').textContent()!=='Reply complete.')throw Error(await page.locator('#generationStatus').textContent());
+ await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
+ if(await page.locator('#generationStatus').textContent()!=='Response complete.')throw Error(await page.locator('#generationStatus').textContent());
  await record('online generation',{reply:await page.locator('#messages').innerText()});
  await page.evaluate(()=>navigator.serviceWorker.ready.then(()=>new Promise(r=>{if(navigator.serviceWorker.controller)r();else navigator.serviceWorker.addEventListener('controllerchange',r,{once:true});})));
  await page.waitForFunction(()=>document.querySelector('#offlineStatus')?.textContent.startsWith('Offline app ready'),null,{timeout:120000});
  await record('offline shell ready',{status:await page.locator('#offlineStatus').innerText()});
  await context.setOffline(true);
  await page.locator('#messageInput').fill('Say one brief hello.');await page.locator('#sendBtn').click();
- await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
- if(await page.locator('#generationStatus').textContent()!=='Reply complete.')throw Error(await page.locator('#generationStatus').textContent());
+ await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
+ if(await page.locator('#generationStatus').textContent()!=='Response complete.')throw Error(await page.locator('#generationStatus').textContent());
  await record('offline generation',{reply:await page.locator('#messages').innerText()});
  await context.close();
  context=await chromium.launchPersistentContext(process.env.BROWSER_PROOF_PROFILE || 'work/browser-profile',{headless:true,executablePath:process.env.CHROME_EXECUTABLE,env:process.env,args:JSON.parse(process.env.BROWSER_ARGS || '[]')});
@@ -48,8 +48,8 @@ try{
  await page.goto(origin);await page.waitForFunction(()=>window.localModels?.state?.host.state==='running',null,{timeout:120000});await idle();
  await page.locator('#loadModel').click();const reopened=await idle();if(reopened.load.state!=='ready')throw Error('Offline reload failed: '+JSON.stringify(reopened.lastError));
  await page.locator('#messageInput').fill('In one short sentence, say that you are ready.');await page.locator('#sendBtn').click();
- await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
- if(await page.locator('#generationStatus').textContent()!=='Reply complete.')throw Error(await page.locator('#generationStatus').textContent());
+ await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:180000});
+ if(await page.locator('#generationStatus').textContent()!=='Response complete.')throw Error(await page.locator('#generationStatus').textContent());
  await record('offline full browser reopen and generation',{reply:await page.locator('#messages').innerText(),unexpectedRequests:evidence.unexpectedRequests});
  await page.screenshot({path:'work/evidence/live-offline-generation.png',fullPage:true});
 }catch(e){await record('FAILED',{message:e.message});throw e;}

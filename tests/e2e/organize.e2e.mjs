@@ -5,8 +5,10 @@ import {join} from 'node:path';
 const h=await launch({});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
-const send=async text=>{await page.fill('#messageInput',text);await page.click('#sendBtn');await page.waitForFunction(()=>/^(Reply complete\.|Generation failed:)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
-const newChat=async()=>{await page.click('#threadList .new-thread-button:not(.temp-chat-button):not(.new-project-button)');};
+const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};
+
+const send=async text=>{await page.fill('#messageInput',text);await page.click('#sendBtn');await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
+const newChat=async()=>{await page.click('#newChatBtn');};
 const names=async()=>page.locator('#threadList li[data-id] .thread-name').allInnerTexts();
 const menu=async(title,item)=>{await page.locator('#threadList li[data-id]').filter({hasText:title}).locator('.thread-menu-btn').click();await page.locator('.thread-menu button',{hasText:item}).click();};
 try{
@@ -73,7 +75,7 @@ try{
  ok('trash, undo, restore');
 
  // temporary chats are not saved
- await page.click('.temp-chat-button');
+ await page.click('#tempChatBtn');
  assert(/Temporary chat/.test(await page.locator('#messages').innerText()),'banner');
  await send('this must not be saved');
  assert(!(await page.evaluate(()=>localStorage.getItem('chatThreads'))).includes('this must not be saved'),'not in storage');
@@ -82,7 +84,7 @@ try{
  ok('temporary chat');
 
  // projects: grouping and instructions reach the model
- await page.click('.new-project-button');
+ await page.click('#newProjectBtn');
  await page.fill('.app-dialog input','Museums');await page.click('.app-dialog button:has-text("Create")');
  assert(/museums/i.test(await page.locator('#threadList').innerText()),'project heading');
  await page.locator('#threadList li.folder-heading .thread-menu-btn').click();
@@ -99,7 +101,7 @@ try{
  // duplicate and branch
  await menu('Hermitage','Duplicate');
  assert((await names()).filter(n=>n.includes('Hermitage')).length===2,'duplicate listed');
- await page.locator('.message.user').first().locator('[data-action="branch-here"]').click();
+ await more(page.locator('.message.user').first(),'branch-here');
  await page.waitForFunction(()=>document.querySelectorAll('.message').length===1);
  assert(/branch/.test(await page.inputValue('#threadTitleInput')),'branch titled');
  ok('duplicate and branch');
