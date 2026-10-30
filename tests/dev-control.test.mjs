@@ -47,3 +47,17 @@ test('stop is delivered while a prompt is running and revocation prevents result
  let began;const secondStarted=new Promise(r=>began=r);c.execute=async action=>{if(action==='prompt'){began();return new Promise(r=>finish=r);}if(action==='stop'){stops++;finish({stopped:true});return {};}};
  const next={...cmd,id:crypto.randomUUID()};await r.admin('',next);const task=c.run((await(await r.admin('/'+next.id)).json()).command);await secondStarted;const before=recorded.filter(k=>k==='remote-result').length;t.config.enabled=false;t.config.url='';await c.tick();await task;assert.equal(stops,2);assert.equal(recorded.filter(k=>k==='remote-result').length,before);
 });
+
+test('download controls use bounded commands and the same claimed execution path',async()=>{
+ const r=rig(),values=new Map(),settings={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)},executed=[];
+ const telemetry={page:crypto.randomUUID(),config:{url:host+'/api/debug/'+r.id,enabled:true,captureContent:true,remoteControl:true},recordObject:async()=>({payloadId:crypto.randomUUID()}),configure(c){Object.assign(this.config,c);}};
+ const c=new RemoteControl({telemetry,settings,locks:null,fetchImpl:r.fetchImpl,buildId:commit,execute:async action=>{executed.push(action);return {recovery:{pending:action==='download'}};}});c.prepare(false);
+ for(const action of ['download','cancel-download']){
+  const command={id:crypto.randomUUID(),action,args:{},expectedCommit:commit};
+  assert.equal((await r.admin('',{...command,args:{url:'https://unexpected.example/model'}})).status,400);
+  assert.equal((await r.admin('',command)).status,202);
+  const issued=(await(await r.admin('/'+command.id)).json()).command;
+  await c.run(issued);await c.run(issued);await c.tick();assert.equal(c.ledger[command.id].status,'completed');
+ }
+ assert.deepEqual(executed,['download','cancel-download']);
+});

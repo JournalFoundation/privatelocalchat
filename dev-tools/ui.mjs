@@ -23,7 +23,7 @@ export async function startDiagnostics(){
  const runtime=window.APP_BUILD.developmentRuntime;
  const runtimeIdentity=runtime?{nativeBuildId:runtime.nativeBuildId,runtimeVariant:runtime.variant,runtimeSha256:runtime.wasmSha256}:{};
  if(runtime){const identity=document.createElement('p');identity.id='debugRuntime';identity.textContent='Runtime experiment: '+runtime.variant+' · Wasm '+runtime.wasmSha256.slice(0,12);panel.querySelector('summary').after(identity);}
- let snapshotSent=false,policyTask=null,policyUrl='';
+ let snapshotSent=false,policyTask=null,policyUrl='',lastPolicyAt=0;
  async function captureSnapshot(){
   if(snapshotSent||!t.config.enabled||!t.config.captureContent||!window.__plcDebugCurrentConversation)return;
   const snapshot=window.__plcDebugCurrentConversation();if(!snapshot)return;snapshotSent=true;
@@ -31,7 +31,7 @@ export async function startDiagnostics(){
  }
  function refreshContentPolicy(){
   if(policyTask)return policyUrl===t.config.url?policyTask:policyTask.then(()=>refreshContentPolicy());
-  policyUrl=t.config.url;
+  policyUrl=t.config.url;lastPolicyAt=Date.now();
   policyTask=(async()=>{await t.refreshPolicy();$('debugCapture').checked=t.config.captureContent;$('debugRemote').checked=t.config.remoteControl;await captureSnapshot();await update();})().finally(()=>{policyTask=null;});return policyTask;
  }
  $('debugCapture').addEventListener('change',async()=>{t.configure({captureContent:$('debugCapture').checked,contentConsent:'local',...(!$('debugCapture').checked?{remoteControl:false,controlConsent:'local'}:{})});$('debugRemote').checked=t.config.remoteControl;snapshotSent=false;await record('content-capture-setting',{state:t.config.captureContent?'enabled':'disabled',source:'local'});await captureSnapshot();update();});
@@ -53,7 +53,7 @@ export async function startDiagnostics(){
  $('debugSend').onclick=async()=>{applySettings();await refreshContentPolicy();await captureSnapshot();t.flush({force:true});};
  $('debugExport').onclick=async()=>{const data=await t.export();const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='private-local-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
  $('debugClear').onclick=async()=>{if(confirm('Clear saved diagnostic events? Your chats and models will be kept.')){await t.clear();update();}};
- for(const event of ['online','offline','pageshow','pagehide'])window.addEventListener(event,()=>{record(event,{online:navigator.onLine,visibility:document.visibilityState});if(event==='online')t.flush();});
+ for(const event of ['online','offline','pageshow','pagehide'])window.addEventListener(event,()=>{record(event,{online:navigator.onLine,visibility:document.visibilityState});if(event==='online'){refreshContentPolicy();t.flush();}});
  document.addEventListener('visibilitychange',()=>record('visibility',{visibility:document.visibilityState}));
  window.addEventListener('error',event=>{let source='';try{source=new URL(event.filename).pathname;}catch{}record('page-error',{errorName:event.error?.name||'Error',source,line:event.lineno,column:event.colno});});
  window.addEventListener('unhandledrejection',event=>record('page-error',{errorName:event.reason?.name||'Error',code:event.reason?.code||'unhandled-rejection'}));
@@ -117,7 +117,7 @@ export async function startDiagnostics(){
  };
  window.__plcDiagnosticsStarted?.();
  setInterval(async()=>{
-  if(!t.config.enabled)return;const s=host.getState(),now=Date.now(),active=Boolean(s.busy)||generating;
+  if(!t.config.enabled)return;if(Date.now()-lastPolicyAt>=5000)void refreshContentPolicy();const s=host.getState(),now=Date.now(),active=Boolean(s.busy)||generating;
   if(now-lastHeartbeat>=(active?250:1000)){lastHeartbeat=now;await record('heartbeat',{host:s.host.state,load:s.load.state,busy:s.busy,phase:generating?'generate':s.busy,online:navigator.onLine,visibility:document.visibilityState,memory:performance.memory?{jsHeapUsed:performance.memory.usedJSHeapSize,jsHeapTotal:performance.memory.totalJSHeapSize}:undefined});}
   if(now-lastSample>=(active?250:1000)){lastSample=now;sample();}
   t.flush();update();

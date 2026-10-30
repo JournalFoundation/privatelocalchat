@@ -1,5 +1,5 @@
 const KEY='plc.dev.control.v1';
-const ACTIONS=new Set(['state','new-chat','prompt','load','unload','profile','stop']);
+const ACTIONS=new Set(['state','new-chat','prompt','load','unload','profile','stop','download','cancel-download']);
 export class RemoteControl{
  constructor({telemetry,execute,buildId,settings=globalThis.localStorage,fetchImpl=(...args)=>fetch(...args),locks=globalThis.navigator?.locks,onStatus=()=>{}}){
   Object.assign(this,{telemetry,execute,buildId,settings,fetch:fetchImpl,locks,onStatus});this.pageId=telemetry.page;this.polling=false;this.active=null;this.owns=false;this.acquiring=false;this.pendingAcks=new Map();this.revoked=false;

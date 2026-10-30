@@ -82,6 +82,21 @@ downloadRecovery=createDownloadRecovery({host,
  window.dispatchEvent(new CustomEvent('download-recovery',{detail}));
 /* DEV_DIAGNOSTICS_END */
  }});
+/* DEV_DIAGNOSTICS_START */
+window.__plcDebugDownloadControl = action => {
+  if (action === 'cancel-download') {
+    const cancelled = downloadRecovery.state.pending;
+    if (cancelled) downloadRecovery.cancel();
+    return {cancelled,recovery:downloadRecovery.state};
+  }
+  if (action !== 'download' || mode !== 'local' || activeGeneration) throw new Error('Model downloading is unavailable now');
+  const current = host.getState();
+  if (current.tiers[current.selection.tier].install.ok) return {requested:false,installed:true,recovery:downloadRecovery.state};
+  if (current.busy && !downloadRecovery.state.pending) throw new Error('A model operation is already running');
+  downloadRecovery.start(current.selection.tier);
+  return {requested:true,installed:false,recovery:downloadRecovery.state};
+};
+/* DEV_DIAGNOSTICS_END */
 window.addEventListener('online',()=>downloadRecovery.wake());
 window.addEventListener('pageshow',()=>downloadRecovery.synchronize());
 window.addEventListener('storage',event=>{if(event.key==='plc.downloadIntent.v1')downloadRecovery.synchronize();});

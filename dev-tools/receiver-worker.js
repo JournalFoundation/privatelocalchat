@@ -3,7 +3,7 @@ const uuid=/^[a-f0-9-]{36}$/;
 const headers=origin=>({'Content-Type':'application/json','Cache-Control':'no-store',...(origin==='https://'+HOST?{'Access-Control-Allow-Origin':origin,'Vary':'Origin','Access-Control-Allow-Methods':'GET, POST, PATCH, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization'}:{})});
 const json=(value,status=200,origin)=>new Response(JSON.stringify(value),{status,headers:headers(origin)});
 const authorized=(request,env)=>Boolean(env.DEBUG_READ_TOKEN)&&request.headers.get('Authorization')==='Bearer '+env.DEBUG_READ_TOKEN;
-const actions=new Set(['state','new-chat','prompt','load','unload','profile','stop']);
+const actions=new Set(['state','new-chat','prompt','load','unload','profile','stop','download','cancel-download']);
 const statuses=['claimed','completed','failed','interrupted'];
 export default {
  async fetch(request,env){

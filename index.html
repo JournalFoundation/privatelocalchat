@@ -3093,11 +3093,12 @@ const base64UrlEncode = value => {
         return thread ? structuredClone({id:thread.id,systemPrompt:thread.systemPrompt,messages:thread.messages}) : null;
       };
       window.__plcDebugControl = async (action, args = {}) => {
-        if (action === 'state') return {conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,status:document.getElementById('generationStatus').textContent};
+        if (action === 'state') return {conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,downloadRecovery:window.localModels?.downloadRecovery,status:document.getElementById('generationStatus').textContent};
         if (action === 'stop') {generationController?.abort();return {stopped:true};}
         if (generationBusy) throw new Error('A response is already running');
         if (action === 'new-chat') {newThread();return window.__plcDebugCurrentConversation();}
         if (window.localModels?.mode !== 'local') throw new Error('Remote generation is restricted to local mode');
+        if (action === 'download' || action === 'cancel-download') return window.__plcDebugDownloadControl(action);
         if (action === 'load') return window.localModels.ready ? window.localModels.state.load.info : window.__plcDebugModelHost.load();
         if (action === 'unload') {await window.__plcDebugModelHost.restartHost();return window.localModels.state;}
         if (action === 'profile') return window.__plcDebugSetComputeProfile(args);

@@ -20,7 +20,9 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Validate
-        run: npm test
+        run: |
+          npm test
+          python3 -m unittest discover -s dev-tools/tests -v
       - name: Build exact commit
         run: npm run build
         env:

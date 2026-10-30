@@ -116,7 +116,7 @@ receiver. Clear the URL or uncheck remote control to revoke device execution. Th
 also use `control-off`; the device learns that revocation on its next successful poll. A custom
 receiver must implement this policy, command and receipt protocol to support control.
 
-`operator-control.py` supports state, new-chat, load, unload, profile, prompt and stop. Commands
+`operator-control.py` supports state, new-chat, download, cancel-download, load, unload, profile, prompt and stop. Commands
 require the expected full deployment commit and expire after 30 minutes. Prompts use the normal
 local chat path; they cannot execute arbitrary JavaScript or access unrelated apps. Profile
 changes accept GPU layers 0 or -1 and require the model to be unloaded. They are explicit
@@ -138,3 +138,21 @@ channel continues with a bounded memory queue and reports that local saving is u
 It periodically retries storage. This fallback cannot survive page loss while offline. Existing
 version-1 journals are read without forcing a schema upgrade; retention also works without the
 new optional index. A late database open is closed, preventing leaked connections after timeout.
+
+The device refreshes receiver policy while diagnostics are active, including after reconnecting.
+An authorized owner can enable controls after the URL was entered, without asking for a reload.
+Local opt-outs still take precedence. A completed `download` command receipt means the durable
+download request was registered; inspect `state.downloadRecovery` and `state.model` for actual
+progress and Ready. Downloads reuse the normal resumable installer and automatically load once
+complete. `cancel-download` clears the request and keeps verified files. Already-installed files
+are not downloaded again. These controls are stripped from production with the other dev hooks.
+
+For USB testing, run `operator-device-storage.py` with a trusted Mac SSH target or an existing
+local usbmux socket before a model download. It requires `pymobiledevice3` in the operator's
+Python environment and existing device trust; it does not request new pairing or install device
+software. The helper reads exactly one USB device, checks `AmountDataAvailable`, and exits 2
+below the requested reserve (3 GiB by default). Missing immediate metrics fail closed. Its
+short-lived SSH forward and device connection are closed on success or failure. The value is
+an advisory observation, not a guarantee that subsequent writes succeed. Do not substitute
+`TotalDataAvailable` or a browser's origin quota for immediately writable device storage.
+Run its regression checks with `python3 -m unittest discover -s dev-tools/tests -v`.
