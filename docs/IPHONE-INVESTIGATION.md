@@ -569,3 +569,13 @@ Centroid's 8 GB GPU: online generation, offline generation, and a full browser r
 offline followed by another reply. Development produced no page errors or unexpected
 requests. The production and development releases use different native artifacts, and neither
 of these desktop results proves the current production artifact on iPhone.
+
+### Current release iPhone check
+
+On a new iPhone automation session, current dev release `5fc35bb` downloaded the light model
+and loaded it automatically on the first attempt in about five seconds. It completed two
+consecutive prompts, including a 2,523-character second response, and then a third prompt with
+the dev service worker denying network requests. The model remained ready; network denial was
+subsequently disabled. This was an in-session simulated-offline check, not an airplane-mode or
+production-origin iPhone test. The live production and dev sites have separately passed desktop
+online, offline, and full-browser offline-reopen checks.
