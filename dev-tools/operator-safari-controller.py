@@ -89,7 +89,7 @@ async def main(args):
                 # Cleanup must run while the inspector transport is still connected.
                 if driver:
                     try:
-                        script='if(location.hostname!=="dev.privatelocal.chat")throw Error("Unexpected origin");return (async()=>{window.localModels?.cancelDownload?.();const host=window.__plcDebugModelHost;if(!host)return {available:false};await host.remove("light",{confirmed:true});const after=await host.inspect("light");return {available:true,bytesPresent:after.bytesPresent};})();'
+                        script='if(location.hostname!=="dev.privatelocal.chat")throw Error("Unexpected origin");return (async()=>{window.__plcDebugDownloadControl?.("cancel-download");const host=window.__plcDebugModelHost;if(!host)return {available:false};await host.remove("light",{confirmed:true});const after=await host.inspect("light");return {available:true,bytesPresent:after.bytesPresent};})();'
                         shutdown['modelCleanup']=await asyncio.wait_for(driver.execute_script(script),20)
                     except Exception as e:shutdown['modelCleanupError']=type(e).__name__
                 if driver:
