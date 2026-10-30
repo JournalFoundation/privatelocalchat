@@ -8,7 +8,7 @@
   "offlineRetest": "User confirmed offline generation after reloading the downloaded model; subsequent generation caused a white page",
   "browserVersionAndCommit": "94b44a3387a2fddc1f6f7b12ea4f8e9c51448721 in first received trace; new eager trace under review",
   "followup": "Investigating with a configurable opt-in dev-only durable telemetry harness. This crash is not accepted as resolved.",
-  "acceptance": "OPEN: queue-limited native v2 still restarted during streamed generation. Do not accept this as resolved.",
+  "acceptance": "OPEN: zero-layer offload still restarted during streamed generation; automatic download and loading passed.",
   "traceSummary": {
     "loadThenNewPage": true,
     "generationStartedAt": "2026-10-29T16:41:53.447Z",
@@ -43,5 +43,24 @@
       "highWater": 2
     },
     "cause": "Unresolved. These counters are not physical memory or an OS termination report."
+  },
+  "latestPhysicalIphoneResult": {
+    "commit": "c41c9f524f9bc754639aeffa3c01df80824294e3",
+    "profile": "zero GPU-layer offload; some weights remain GPU",
+    "automaticDownloadAndLoad": "PASS: install completed 01:55:40.824Z; automatic load completed 01:55:46.532Z; same page, single load attempt",
+    "generationResult": "FAILED: page restarted during first longer generation",
+    "lastProgressAt": "2026-10-30T01:59:05.360Z",
+    "pageRestartAt": "2026-10-30T01:59:07.174Z",
+    "lastCharacters": 361,
+    "lastChunks": 100,
+    "generationDurationMs": 72498,
+    "wasmCapacityBytes": 945422336,
+    "lastQueueCheckpoint": {
+      "graphEvaluations": 192,
+      "submitted": 191,
+      "completed": 191,
+      "highWater": 1
+    },
+    "cause": "Unresolved. Streamed chunks are not an independently attested native token count. A matching iOS crash or jetsam report is requested."
   }
 }
