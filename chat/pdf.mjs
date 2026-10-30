@@ -4,6 +4,8 @@ import { LIMITS } from "./documents.mjs";
 let lib = null;
 async function load() {
   if (lib) return lib;
+  // PDF.js 4 uses Promise.withResolvers, which Safari before 17.4 lacks
+  if (typeof Promise.withResolvers !== "function") Promise.withResolvers = function () { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
   lib = await import("./vendor/pdfjs/pdf.min.mjs");
   lib.GlobalWorkerOptions.workerSrc = new URL("./vendor/pdfjs/pdf.worker.min.mjs", import.meta.url).href;
   return lib;
