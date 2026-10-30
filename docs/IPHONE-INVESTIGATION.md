@@ -353,3 +353,33 @@ restarting shared iPhone Safari because the user has another agent observing a d
 project there; a restart is a proposed reclamation attempt, not proven cleanup. Clear the
 new empty session's own caches before closing it and prevent another model copy until the
 retained test data is reclaimed. Do not ask the user to clear unrelated personal data.
+
+### Independent release qualification while phone restart is pending
+
+The development cleanup candidate passed three real Chromium/Vulkan page-reopen cycles with
+512 native tokens per cycle and cached-model reuse. Normal Mac Safari 27.0 / Metal passed
+three 512-token cycles across page navigation, with exact text reconstruction, 1,598 complete
+captured objects and cleanup acknowledgements of 31–37 ms. Its test model was removed. See
+[the Chrome receipt](evidence/native-cleanup-page-reopen.json) and
+[the Safari receipt](evidence/mac-safari-native-cleanup.json). Neither attests iPhone behavior.
+
+The separate draft release branch selects the clean `ea9d2414…` compiler artifact, verifies
+its reconstructed baseline during builds, and leaves the native wrapper/worker clean. Its
+production-mode artifact passed desktop online generation, long replies after page reload,
+offline generation and whole-browser offline reopening/loading/generation. See
+[the artifact receipt](evidence/selected-production-lifecycle-offline.json). The preview at
+`https://cb3639ba.privatelocalchat.pages.dev` has independently verified native hashes and no
+diagnostic endpoints/modules or network-fault harness; canonical production remains at
+`4d74acd`. See [the preview receipt](evidence/clean-production-preview.json).
+
+Do not conflate the release branch's provisional selection with this development branch's
+production selection. If qualified, carry the exact clean pin and production build-verification
+change back into the promotion source before merging to main. Keep PR 51 draft.
+
+An initial fresh deployed install faulted at automatic loading without preserved error detail.
+The corrected second attempt verified all 13 CDN files and completed 7- and 512-token replies
+then verified model removal and deleted its temporary profile. Its observer assertion failed
+on 13 aborted weight requests; their role was not established. Preserve both the
+[initial failure](evidence/preview-initial-cold-load-failure.json) and
+[later observations](evidence/deployed-clean-preview-inference.json). The initial failure
+remains unexplained; the preview and physical-device release gates remain open.
