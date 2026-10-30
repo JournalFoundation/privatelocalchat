@@ -3087,6 +3087,33 @@ const base64UrlEncode = value => {
         return lines.join('\n');
       }
 
+      /* DEV_DIAGNOSTICS_START */
+      window.__plcDebugCurrentConversation = () => {
+        const thread = getThread(currentThreadId);
+        return thread ? structuredClone({id:thread.id,systemPrompt:thread.systemPrompt,messages:thread.messages}) : null;
+      };
+      window.__plcDebugControl = async (action, args = {}) => {
+        if (action === 'state') return {conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,status:document.getElementById('generationStatus').textContent};
+        if (action === 'stop') {generationController?.abort();return {stopped:true};}
+        if (generationBusy) throw new Error('A response is already running');
+        if (action === 'new-chat') {newThread();return window.__plcDebugCurrentConversation();}
+        if (window.localModels?.mode !== 'local') throw new Error('Remote generation is restricted to local mode');
+        if (action === 'load') return window.localModels.ready ? window.localModels.state.load.info : window.__plcDebugModelHost.load();
+        if (action === 'unload') {await window.__plcDebugModelHost.restartHost();return window.localModels.state;}
+        if (action === 'profile') return window.__plcDebugSetComputeProfile(args);
+        if (action !== 'prompt' || typeof args.text !== 'string' || !args.text.trim() || args.text.length > 16000) throw new Error('Invalid remote prompt');
+        if (!window.localModels.ready) throw new Error('Load the saved model before sending a prompt');
+        if (!currentThreadId) newThread();
+        const savedDraft = messageInput.value;
+        messageInput.value = args.text;
+        await handleSendMessage({preventDefault(){}});
+        if (!messageInput.value && savedDraft) {messageInput.value=savedDraft;updateSendButtonDisabled(getChatState().ready);}
+        const status = document.getElementById('generationStatus').textContent;
+        if (status.startsWith('Generation failed:')) throw new Error(status);
+        return {status,conversation:window.__plcDebugCurrentConversation()};
+      };
+      /* DEV_DIAGNOSTICS_END */
+
       function exportThreadMarkdown(threadId = currentThreadId) {
         if (!threadId) return;
         const thread = getThread(threadId);

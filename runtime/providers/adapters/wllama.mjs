@@ -227,6 +227,7 @@ export class WllamaAdapter {
       try{await this.w.flightMark(10,op,edge,debugChunks,0);}catch(error){this._native(['Development generation checkpoint unavailable: '+error.name]);}
     };
     await debugFence(1,1);
+    if(req.debugCapture&&this.cfg?.knobs?.devDiagnostics)emit({diagnostic:{kind:'native-request',object:{...params,abortSignal:{aborted:signal?.aborted===true}}}});
     try {
     /* DEV_DIAGNOSTICS_END */
     const gen = await this.w.createChatCompletion(params);
@@ -236,6 +237,9 @@ export class WllamaAdapter {
     for (;;) {
       const { value: chunk, done } = await it.next();
       if (done) break;
+      /* DEV_DIAGNOSTICS_START */
+      if(req.debugCapture&&this.cfg?.knobs?.devDiagnostics)emit({diagnostic:{kind:'native-chunk',object:chunk}});
+      /* DEV_DIAGNOSTICS_END */
       const choice = chunk?.choices?.[0];
       const delta = choice?.delta?.content ?? choice?.text ?? "";
       if (delta) {

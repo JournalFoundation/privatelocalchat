@@ -9,15 +9,15 @@ persist across reloads and browser restarts. There is no separate Start button o
 turnoff. Clear the URL to stop; saved events remain available for export or later upload.
 Every event triggers an immediate upload attempt. Active loading and generation are sampled
 up to four times per second, with one-second idle sampling. Numeric runtime memory requests
-are coalesced so a slow provider cannot accumulate pending probes. Conversations and API
-credentials are excluded. State transitions, timing, numeric memory, download progress,
+are coalesced so a slow provider cannot accumulate pending probes. Conversation content is excluded unless full-content capture is explicitly enabled locally or
+by the authorized session owner. API settings and authorization headers are excluded. State transitions, timing, numeric memory, download progress,
 filtered construction logs and page lifecycle events are recorded.
 
 With local saving enabled, events are committed to IndexedDB before load/generation actions.
 The bounded queue survives offline operation and page reopening. Events upload in batches when
 connectivity returns and are removed only after acknowledgement. A failed upload keeps them.
-The queue is bounded to 2,000 events, approximately 4 MB maximum plus an optional 1 MiB native ring; the oldest events are dropped
-when full. Browser storage may still be evicted or unavailable. An OS process kill cannot emit a
+The queue is bounded to 2,000 events, approximately 4 MB maximum plus an optional 1 MiB native ring; metadata is dropped before conversation frames when full. Content loss is counted and reported;
+this bounded journal cannot guarantee retention when storage is full or the OS kills a pending write. Browser storage may still be evicted or unavailable. An OS process kill cannot emit a
 final event; the last committed events provide the lead-up, and the next page-start marks a new
 page session. Memory metrics are observations, not a confirmed OS termination diagnosis.
 
@@ -94,4 +94,41 @@ adds a separate runtime variant and Wasm SHA-256 to `version.json`, the diagnost
 panel, and startup/configuration events. These identifiers distinguish transformed
 bytes that retain the baseline native build string. See the
 [living investigation](IPHONE-INVESTIGATION.md) for qualification and rollout status.
-Diagnostic sampling cadence and the conversation-content exclusion are unchanged.
+The compiler experiment preserved sampling and content policy. The subsequent E03 observability
+change adds opt-in content capture and commands, as described below.
+
+## Full conversation capture and two-way control
+
+These features are development-only. Existing sessions remain metadata-only until the tester
+checks the content box or the authorized owner enables content for that specific session.
+Full capture includes the selected saved chat, provider request, exact native inference request,
+every native streamed chunk and terminal response/usage. Native chunks are not necessarily one
+token each. Capture does not change the model, sampling, output limit or GPU placement.
+
+Objects are JSON encoded, split into bounded frames, assigned a SHA-256 and persisted before
+upload when local saving is enabled. Reassembly verifies the digest and reports missing frames;
+counts alone are not proof of complete text. Individual objects above 1 MiB report an explicit
+capture error. Offline frames remain queued for acknowledged upload after reconnecting.
+
+The remote-control box also enables content capture. The session owner can use
+`operator-session.py control-on --session-file PRIVATE_FILE` for the explicitly authorized
+receiver. Clear the URL or uncheck remote control to revoke device execution. The operator can
+also use `control-off`; the device learns that revocation on its next successful poll. A custom
+receiver must implement this policy, command and receipt protocol to support control.
+
+`operator-control.py` supports state, new-chat, load, unload, profile, prompt and stop. Commands
+require the expected full deployment commit and expire after 30 minutes. Prompts use the normal
+local chat path; they cannot execute arbitrary JavaScript or access unrelated apps. Profile
+changes accept GPU layers 0 or -1 and require the model to be unloaded. They are explicit
+experiments, not automatic recovery. Unsaved drafts and existing conversations are preserved.
+
+A server-side conditional claim assigns each command to one page, and a durable device ledger
+prevents replay. A claimed command interrupted by a page replacement is reported as interrupted,
+not automatically retried. Stop and state remain available during generation. Terminal receipts
+refer to captured result objects. Use a separate receiver session for each independently
+controlled browser to avoid competing consumers.
+
+Read raw events into ignored `work/` files, then run
+`node dev-tools/decode-conversations.mjs INPUT OUTPUT` to reconstruct private objects. Keep
+receiver URLs, raw prompts/replies, command files and device identifiers out of Git. Public
+evidence contains only build identities, counts, timings, checks and limitations.

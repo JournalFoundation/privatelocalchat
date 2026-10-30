@@ -18,8 +18,11 @@ test('production artefact contains no diagnostic UI, modules, receiver or disk j
  execFileSync('node',['scripts/build.mjs'],{env:{...process.env,DEPLOY_BRANCH:'main'},stdio:'pipe'});
  const build=JSON.parse(await readFile('dist/version.json','utf8'));const html=await readFile('dist/index.html','utf8');const app=await readFile('dist/releases/'+build.commit+'/local-models.js','utf8');
  assert.equal(build.developmentRuntime,undefined);assert.ok(!html.includes('compiler-control-20261030'));
+ assert.ok(!html.includes('__plcDebugCurrentConversation'));
+ assert.ok(!html.includes('__plcDebugControl'));
  assert.ok(!html.includes('dev-tools'));assert.ok(!app.includes('__plcDebugModelHost'));assert.ok(!app.includes('plc.diagnostic.generations'));
  const adapter=await readFile('dist/releases/'+build.commit+'/runtime/providers/adapters/wllama.mjs','utf8');assert.ok(!adapter.includes('devDiagnostics'));assert.ok(!adapter.includes('enableFlightRecorder'));assert.ok(!adapter.includes('debugFence'));execFileSync('node',['--check','dist/releases/'+build.commit+'/runtime/providers/adapters/wllama.mjs']);
+ assert.ok(!adapter.includes('debugCapture'));const core=await readFile('dist/releases/'+build.commit+'/runtime/providers/host-core.mjs','utf8');assert.ok(!core.includes('debug-object'));execFileSync('node',['--check','dist/releases/'+build.commit+'/runtime/providers/host-core.mjs']);
  const wasm=await readFile('dist/releases/'+build.commit+'/runtime/providers/vendor/wllama/v1q/compat.wasm');const production=JSON.parse(await readFile('ops/native/production-runtime.json','utf8'));assert.equal(createHash('sha256').update(wasm).digest('hex'),production.files['compat.wasm'].sha256);assert.ok(!wasm.includes(Buffer.from('webGpuQueue')));assert.match(await readFile('dist/releases/'+build.commit+'/runtime/providers/catalog.mjs','utf8'),new RegExp(production.buildId));assert.match(await readFile('dist/sw.js','utf8'),/const DEVELOPMENT_NATIVE=false/);
  const files=await readdir('dist');assert.ok(!files.includes('_worker.js'));assert.ok(!files.includes('_routes.json'));assert.ok(!(await readdir('dist/releases/'+build.commit)).includes('dev-tools'));
 });

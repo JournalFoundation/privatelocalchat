@@ -38,12 +38,13 @@ if(branch==='dev') {
  await writeFile(catalogFile,(await readFile(catalogFile,'utf8')).replaceAll(native.catalogBaseBuildId||native.baseBuildId,native.buildId));
 
  await mkdir(path.join(out,releasePath,'dev-tools'),{recursive:true});
- for(const file of ['start.js','ui.mjs','telemetry-core.mjs','native-journal.mjs'])await cp(path.join('dev-tools',file),path.join(out,releasePath,'dev-tools',file));
+ for(const file of ['start.js','ui.mjs','telemetry-core.mjs','native-journal.mjs','conversation-capture.mjs','remote-control.mjs'])await cp(path.join('dev-tools',file),path.join(out,releasePath,'dev-tools',file));
  await cp('dev-tools/receiver-worker.js',path.join(out,'_worker.js'));
  await writeFile(path.join(out,'_routes.json'),JSON.stringify({version:1,include:['/api/debug/*','/'+releasePath+'/dev-tools/*','/'+releasePath+'/runtime/providers/vendor/wllama/v1q/*'],exclude:[]}));
  html=html.replace('</head>','<script type="module" src="/'+releasePath+'/dev-tools/start.js"></script></head>');
 } else {
- for(const relative of ['local-models.js','runtime/providers/adapters/wllama.mjs']){
+ html=html.replace(/\/\* DEV_DIAGNOSTICS_START \*\/[\s\S]*?\/\* DEV_DIAGNOSTICS_END \*\//g,'');
+ for(const relative of ['local-models.js','runtime/providers/adapters/wllama.mjs','runtime/providers/host-core.mjs']){
  const appFile=path.join(out,releasePath,relative);
  const app=await readFile(appFile,'utf8');
  await writeFile(appFile,app.replace(/\/\* DEV_DIAGNOSTICS_START \*\/[\s\S]*?\/\* DEV_DIAGNOSTICS_END \*\//g,''));

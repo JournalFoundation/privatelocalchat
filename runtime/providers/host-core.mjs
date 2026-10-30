@@ -183,6 +183,9 @@ export function createHost({ adapters, storage = {}, providerId = "provider", li
     let index = 0; let finishReason = null;
     try {
       const onPart = (part) => {
+        /* DEV_DIAGNOSTICS_START */
+        if(part.diagnostic){emit(attempt,'debug-object',part.diagnostic);return;}
+        /* DEV_DIAGNOSTICS_END */
         if (attempt.controller.signal.aborted) return;
         if (part.delta) {
           const t = now();
