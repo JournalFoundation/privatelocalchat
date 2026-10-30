@@ -505,3 +505,19 @@ production promotion and overall acceptance remain open. The Mac/phone disconnec
 restoring our SSH USB forward; fresh trusted pairing, inspector listing and an iPhone JavaScript
 evaluation succeeded afterward. The earlier namespace inspection timed out and did not prove
 that the retained model cache was reclaimed or reusable.
+
+### Deployment and renewed iPhone trial
+
+The owner-cleanup candidate deployed to dev in commit `663646db` (Actions run 41072165946).
+The subsequent download-read timeout fix deployed in `94265041` (run 41078969621); all 64
+JavaScript tests passed. The timeout bounds an otherwise indefinite stream read and lets the
+existing recovery loop retry. Its test simulates a stalled stream; it does not prove the cause
+of the slow iPhone transfer.
+
+After the authorized device restart, the phone reported 2,412,232,704 bytes immediately
+available. An owned Safari automation session loaded `663646db`, enabled diagnostics, and began
+one model download with device memory recording. The transfer has been unusually slow but has
+advanced. The current page predates the download timeout fix. Loading, sustained generation,
+cancellation and offline reopening remain unverified on this candidate; do not promote it on
+this evidence alone. The retained older automation storage namespace was accessible through
+instrumentation, but its reclamation or reuse has not been established.
