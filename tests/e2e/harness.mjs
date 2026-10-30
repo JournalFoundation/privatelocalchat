@@ -4,7 +4,7 @@ import {createRequire} from 'node:module';
 const {chromium}=createRequire(import.meta.url)('playwright');
 import {startFakeApi} from './fake-api.mjs';
 import {setTimeout as sleep} from 'node:timers/promises';
-export async function launch({build=true,port=18271,viewport={width:1280,height:800},storage={}}={}){
+export async function launch({build=true,port=18271,viewport={width:1280,height:800},storage={},init=null}={}){
  if(build)execFileSync('node',['scripts/build.mjs'],{stdio:'pipe',env:{...process.env,DEPLOY_BRANCH:'local'}});
  const web=spawn('node',['scripts/serve.mjs'],{env:{...process.env,PORT:String(port)},stdio:'pipe'});
  const api=await startFakeApi();
@@ -19,6 +19,7 @@ export async function launch({build=true,port=18271,viewport={width:1280,height:
   if(!localStorage.getItem('plc.inferenceMode.v1'))localStorage.setItem('plc.inferenceMode.v1','api');
   for(const [k,v] of Object.entries(storage))if(!localStorage.getItem(k))localStorage.setItem(k,v);
  },{endpoint:`http://127.0.0.1:${api.port}/v1`,storage});
+ if(init)await page.addInitScript(init);
  await page.goto(`http://127.0.0.1:${port}/`);
  await page.waitForSelector('#messageInput');
  const close=async()=>{await browser.close();web.kill();await api.close();};

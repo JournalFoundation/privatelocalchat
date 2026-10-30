@@ -17,6 +17,7 @@ export function messagesForInference(thread,{preamble=[],attachmentText={}}={}){
    const blocks=message.attachments.filter(a=>typeof attachmentText[a.id]==='string').map(a=>attachmentBlock(a,attachmentText[a.id]));
    if(blocks.length)content=blocks.join('\n\n')+'\n\n'+content;
   }
+  if(role==='user'&&message.tools?.length)content+='\n\n'+message.tools.map(t=>`[Exact result computed by the app: ${t.label} = ${t.result}. Use this result as given.]`).join('\n');
   if(role==='user'||role==='assistant')conversationStarted=true;
   const images=role==='user'?(message.attachments||[]).filter(a=>a.kind==='image').map(a=>a.id):[];
   messages.push(images.length?{role,content,images}:{role,content});

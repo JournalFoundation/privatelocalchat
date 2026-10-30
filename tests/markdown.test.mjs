@@ -50,3 +50,10 @@ test('raw HTML stays text in the AST',()=>{
  assert.deepEqual(types(b),['p','p']);
  assert.equal(b[0].c[0].v,'<script>alert(1)</script>');
 });
+test('asterisks in arithmetic are not emphasis, real emphasis still is',()=>{
+ const flat=n=>n.map(x=>x.t==='text'?x.v:'<'+x.t+'>'+(x.c?flat(x.c):x.v)+'</'+x.t+'>').join('');
+ assert.equal(flat(parseInline('12*(3+4) = **84**')),'12*(3+4) = <strong>84</strong>');
+ assert.equal(flat(parseInline('a * b * c and 5 * 6')),'a * b * c and 5 * 6');
+ assert.equal(flat(parseInline('**bold**, *it* and _also_ (**x**)')),'<strong>bold</strong>, <em>it</em> and <em>also</em> (<strong>x</strong>)');
+ assert.equal(flat(parseInline('snake_case_name')),'snake_case_name');
+});

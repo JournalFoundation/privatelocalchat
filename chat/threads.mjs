@@ -32,6 +32,8 @@ export function normalizeMessage(raw, at = Date.now()) {
     }
     if (Array.isArray(raw.sources) && raw.sources.length) m.sources = raw.sources.filter((s) => s && typeof s === "object").slice(0, 50);
   }
+  if (raw.role === "user" && Array.isArray(raw.tools) && raw.tools.length) m.tools = raw.tools.filter((t) => t && typeof t.label === "string" && typeof t.result === "string").slice(0, 6).map((t) => ({ kind: str(t.kind, "calc"), label: t.label.slice(0, 200), result: t.result.slice(0, 200) }));
+  if (raw.role === "assistant" && raw.local === true) m.local = true; // answered on this device by a built-in tool, not by the model
   if (Array.isArray(raw.attachments) && raw.attachments.length) m.attachments = raw.attachments.filter((a) => a && typeof a === "object" && typeof a.name === "string").slice(0, 50).map((a) => ({ ...a, name: a.name.slice(0, 200) }));
   return m;
 }

@@ -51,7 +51,7 @@ export function parseInline(src) {
       const double = src[i + 1] === c && (c !== "~" || true);
       const marks = double ? c + c : c;
       if (c === "~" && !double) { text += c; i++; continue; }
-      const closeAt = findClose(src, i + marks.length, marks);
+      const closeAt = leftFlanking(src, i, marks.length) ? findClose(src, i + marks.length, marks) : -1;
       const inner = closeAt === -1 ? null : src.slice(i + marks.length, closeAt);
       const wordy = c === "_" && i > 0 && /\w/.test(src[i - 1]);
       if (inner && inner.trim() && !/^\s/.test(inner) && !/\s$/.test(inner) && !wordy) {
@@ -66,11 +66,23 @@ export function parseInline(src) {
   return out.reduce((merged, n) => { const last = merged[merged.length - 1]; if (n.t === "text" && last?.t === "text") last.v += n.v; else merged.push(n); return merged; }, []);
 }
 
+// CommonMark flanking rules: "12*(3+4) = 6*7" has no emphasis in it, "a * b" neither, "**84**" and "*word*" do.
+const isSpace = (ch) => ch === undefined || /\s/.test(ch);
+const isPunct = (ch) => ch !== undefined && /[\p{P}\p{S}]/u.test(ch);
+function leftFlanking(src, at, len) {
+  const prev = src[at - 1], next = src[at + len];
+  return !isSpace(next) && (!isPunct(next) || isSpace(prev) || isPunct(prev));
+}
+function rightFlanking(src, at, len) {
+  const prev = src[at - 1], next = src[at + len];
+  return !isSpace(prev) && (!isPunct(prev) || isSpace(next) || isPunct(next));
+}
+
 function findClose(src, from, marks) {
   for (let j = from; j <= src.length - marks.length; j++) {
     if (src[j] === "\\") { j++; continue; }
     if (src[j] === "`") { const e = src.indexOf("`", j + 1); if (e === -1) return -1; j = e; continue; }
-    if (src.startsWith(marks, j) && j > from && !/\s/.test(src[j - 1])) {
+    if (src.startsWith(marks, j) && j > from && rightFlanking(src, j, marks.length)) {
       if (marks.length === 1 && src[j + 1] === marks) { j++; continue; }
       if (marks[0] === "_" && /\w/.test(src[j + marks.length] || "")) continue;
       return j;

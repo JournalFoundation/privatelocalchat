@@ -1419,6 +1419,11 @@
       </div>
       <details id="systemPromptContainer" class="system-prompt-container">
         <summary>Instructions for this chat</summary>
+        <div class="preset-row">
+          <label for="presetSelect">Preset</label>
+          <select id="presetSelect"><option value="">No preset</option></select>
+          <button type="button" id="savePresetBtn" class="secondary">Save as preset</button>
+        </div>
         <label for="systemPromptInput">System prompt:</label>
         <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
       </details>
@@ -3224,6 +3229,8 @@ const base64UrlEncode = value => {
         fillBody(body, msg);
         div.appendChild(body);
         if (msg.role === 'assistant' && msg.sources?.length && !streaming) div.appendChild(renderSources(msg));
+        if (msg.role === 'user' && msg.tools?.length) div.appendChild(el('div', 'message-meta', msg.tools.map(t => '\uD83E\uDDEE ' + t.label + ' = ' + t.result).join('   \u00B7   ')));
+        if (msg.role === 'assistant' && msg.local) div.appendChild(el('div', 'message-meta', 'Computed on this device, not by the model.'));
         const note = statusNote(msg);
         if (note) {
           const meta = el('div', 'message-meta' + (note[1] ? ' failed' : ''));
@@ -3415,11 +3422,13 @@ const base64UrlEncode = value => {
           if (threadId === currentThreadId) renderMessages(thread, { keepScroll: true });
           setGenerating(false);
           renderThreadList();
-          afterReply?.(thread, msg);
+          afterReplyHooks.forEach(fn => fn(thread, msg));
         }
       }
       let contextSources = [];
-      let afterReply = null; // hooks for features that react to a finished reply (titles, speech)
+      const afterReplyHooks = []; // features that react to a finished reply (speech)
+      const sendInterceptors = []; // (text, thread) => handled?  — e.g. slash commands answered without the model
+      const userMessageHooks = []; // run on a prompt before it is sent (exact tools)
 
       async function buildInferenceMessages(thread, index, mode) {
         const { messagesForInference } = await import(moduleBase() + 'conversation-messages.mjs');
@@ -3458,8 +3467,10 @@ const base64UrlEncode = value => {
         if (!text && !(pendingAttachments?.length)) { updateSendButtonDisabled(state.ready); return; }
         const thread = currentThread();
         if (!thread) return;
+        for (const intercept of sendInterceptors) { if (await intercept(text, thread)) return; }
         const extra = pendingAttachments?.length ? { attachments: takePendingAttachments() } : {};
         const userMessage = M.model.makeMessage('user', text, extra);
+        for (const hook of userMessageHooks) await hook(userMessage);
         thread.messages.push(userMessage);
         if (thread.messages.filter(m => m.role === 'user').length === 1 && M.model.hasDefaultTitle(thread)) {
           thread.title = M.model.deriveTitle(text) || thread.title;
@@ -3527,17 +3538,19 @@ const base64UrlEncode = value => {
         if (actions) actions.hidden = true;
         area.focus();
         cancel.addEventListener('click', () => renderMessages(thread, { keepScroll: true }));
-        save.addEventListener('click', () => {
+        save.addEventListener('click', async () => {
           const text = area.value.trim();
           if (!text) return;
           const previous = M.model.editPrompt(thread, index, text);
           if (!previous) return;
+          for (const hook of userMessageHooks) await hook(thread.messages[index]);
           M.model.touch(thread);
           saveThreads();
           renderMessages(thread);
           const undo = async () => {
             if (gen && gen.threadId === thread.id) { gen.controller.abort(); while (gen) await new Promise(r => window.setTimeout(r, 20)); }
             M.model.undoEditPrompt(thread, index, previous);
+            for (const hook of userMessageHooks) await hook(thread.messages[index]);
             M.model.touch(thread); saveThreads(); renderThreadList();
             if (thread.id === currentThreadId) renderMessages(thread);
             showToast('Edit undone');
@@ -4257,6 +4270,277 @@ const base64UrlEncode = value => {
       composerToolsEl.appendChild(canvasBtn);
       messageActionHandlers['open-canvas'] = (thread, msg) => openCanvas(msg.content);
       threadSelectedHooks.push(() => { if (canvas && !canvas.pane.hidden) { canvas.pane.hidden = true; canvasBtn.setAttribute('aria-pressed', 'false'); } });
+
+      // ---- assistant: preferences, presets, memory, exact tools, speech ---------------------------------------------
+      const MEMORY_KEY = 'plc.memory.v1', PRESETS_KEY = 'plc.presets.v1';
+      let memory = readJson(localStorage, MEMORY_KEY, { enabled: true, items: [] });
+      if (!memory || !Array.isArray(memory.items)) memory = { enabled: true, items: [] };
+      const saveMemory = () => writeJson(localStorage, MEMORY_KEY, memory);
+      let customPresets = readJson(localStorage, PRESETS_KEY, []);
+      if (!Array.isArray(customPresets)) customPresets = [];
+      const savePresets = () => writeJson(localStorage, PRESETS_KEY, customPresets);
+      const BUILTIN_PRESETS = [
+        { id: 'builtin-writing', name: 'Writing helper', prompt: 'You are a careful writing assistant. Improve clarity and flow while keeping the author’s own voice and meaning. Give the revised text first, then briefly list what you changed.' },
+        { id: 'builtin-tutor', name: 'Study tutor', prompt: 'You are a patient tutor. Explain step by step in plain language, use small examples, and end with one short question that checks understanding. For exercises, guide the student instead of simply giving the answer.' },
+        { id: 'builtin-brainstorm', name: 'Brainstorm partner', prompt: 'You are a creative brainstorming partner. Offer a varied list of distinct ideas, including a couple of unusual ones, and say in a few words why each could work. Ask one question that would help narrow them down.' },
+        { id: 'builtin-summary', name: 'Faithful summarizer', prompt: 'Summarize the text you are given faithfully as short bullet points, then add a one-sentence takeaway. Do not add information that is not in the text, and say so when something is unclear.' },
+        { id: 'builtin-concise', name: 'Brief answers', prompt: 'Answer as briefly as possible while staying correct. Prefer one to three sentences. Offer more detail only if asked.' },
+        { id: 'builtin-code', name: 'Code helper', prompt: 'You are a careful programmer. Ask for missing details when needed, show complete runnable code in fenced blocks with the language named, explain the key idea briefly, and point out edge cases and risks.' }
+      ];
+      const allPresets = () => [...BUILTIN_PRESETS, ...customPresets];
+
+      // standing preferences and memory travel with every question
+      contextProviders.push(async thread => {
+        const preamble = [];
+        if (prefs.instructions?.trim()) preamble.push('The user’s standing preferences for how you respond (follow them unless the conversation says otherwise):\n' + prefs.instructions.trim());
+        if (memory.enabled && memory.items.length && !thread.temporary) {
+          const lines = []; let used = 0;
+          for (const item of [...memory.items].reverse()) { if (used + item.text.length > 2000 || lines.length >= 40) break; lines.push('- ' + item.text); used += item.text.length; }
+          preamble.push('Things the user asked you to remember (use them when relevant; do not bring them up otherwise):\n' + lines.reverse().join('\n'));
+        }
+        return { preamble };
+      });
+
+      // chat-level preset picker
+      const presetSelect = document.getElementById('presetSelect');
+      function renderPresetOptions(thread) {
+        presetSelect.textContent = '';
+        presetSelect.appendChild(new Option('No preset', ''));
+        allPresets().forEach(p => presetSelect.appendChild(new Option(p.name, p.id)));
+        presetSelect.value = thread?.presetId && allPresets().some(p => p.id === thread.presetId) ? thread.presetId : '';
+      }
+      presetSelect.addEventListener('change', () => {
+        const thread = currentThread(); if (!thread) return;
+        const preset = allPresets().find(p => p.id === presetSelect.value);
+        if (preset) { thread.presetId = preset.id; thread.systemPrompt = preset.prompt; systemPromptInput.value = preset.prompt; }
+        else delete thread.presetId;
+        saveThreads(); showToast(preset ? 'Preset “' + preset.name + '” applied to this chat' : 'Preset cleared');
+      });
+      document.getElementById('savePresetBtn').addEventListener('click', async () => {
+        const thread = currentThread(); const prompt = systemPromptInput.value.trim();
+        if (!thread || !prompt) { showToast('Write the instructions first, then save them as a preset.'); return; }
+        const name = await promptDialog('Save as preset', 'Preset name', thread.title && thread.title !== 'New chat' ? thread.title : '', { confirmLabel: 'Save preset' });
+        if (!name || !name.trim()) return;
+        const preset = { id: 'preset-' + generateThreadId(), name: name.trim(), prompt };
+        customPresets.push(preset); savePresets(); thread.presetId = preset.id; saveThreads(); renderPresetOptions(thread); showToast('Preset saved');
+      });
+      systemPromptInput.addEventListener('input', () => { const t = currentThread(); if (t?.presetId && allPresets().find(p => p.id === t.presetId)?.prompt !== systemPromptInput.value.trim()) { delete t.presetId; presetSelect.value = ''; } });
+      threadSelectedHooks.push(thread => renderPresetOptions(thread));
+
+      // exact tools
+      let toolsModule = null;
+      const loadTools = async () => (toolsModule ||= await import(moduleBase() + 'chat/tools.mjs'));
+      const retool = async msg => { if (msg.role !== 'user') return; const t = await loadTools(); const found = t.detectTools(msg.content); if (found.length) msg.tools = found; else delete msg.tools; };
+
+      // memory
+      function addMemory(text) {
+        const clean = text.replace(/\s+/g, ' ').trim().slice(0, 400);
+        if (!clean) return false;
+        if (memory.items.some(i => i.text.toLowerCase() === clean.toLowerCase())) return false;
+        memory.items.push({ id: generateThreadId(), text: clean, at: Date.now() }); saveMemory(); return true;
+      }
+      messageDecorators.push((thread, msg, index, ctx, actions) => {
+        if (msg.notice || msg.role === 'system' || ctx.streaming || thread.temporary || msg.local) return;
+        actions.appendChild(actionButton('remember', '🧠 Remember', 'Remember this in future chats'));
+      });
+      messageActionHandlers['remember'] = async (thread, msg) => {
+        const text = await promptDialog('Remember this', 'You can edit it before it is saved. It will be available in future chats (not temporary ones).', msg.content.slice(0, 400), { multiline: true, confirmLabel: 'Remember' });
+        if (text === null) return;
+        showToast(addMemory(text) ? 'Remembered. Manage it under Memory & preferences.' : 'Nothing new to remember.');
+      };
+
+      async function openPreferences() {
+        const root = el('div');
+        const sec = (title, ...nodes) => { const d = el('section'); d.appendChild(el('h3', null, title)); nodes.forEach(n => d.appendChild(n)); root.appendChild(d); return d; };
+        // standing instructions
+        const instr = el('textarea'); instr.value = prefs.instructions || ''; instr.id = 'prefInstructions'; instr.placeholder = 'For example: Reply in British English. Keep answers short. I am a nurse, not a programmer.';
+        const instrLabel = el('label', 'sr-only', 'How should the assistant respond?'); instrLabel.htmlFor = 'prefInstructions';
+        sec('How should replies be written?', el('p', 'muted', 'Applied to every chat, on top of that chat’s own instructions. Kept on this device.'), instrLabel, instr);
+        // memory
+        const memList = el('div'); const memToggle = el('label', 'list-row'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = memory.enabled;
+        memToggle.append(cb, el('span', null, 'Use memory in new questions (never in temporary chats)'));
+        cb.addEventListener('change', () => { memory.enabled = cb.checked; saveMemory(); });
+        const addRow = el('div', 'list-row'); const addIn = el('input'); addIn.type = 'text'; addIn.placeholder = 'Something to remember…'; addIn.setAttribute('aria-label', 'New memory');
+        const addBtn = el('button', 'secondary', 'Add'); addBtn.type = 'button';
+        const renderMemory = () => {
+          memList.textContent = '';
+          if (!memory.items.length) memList.appendChild(el('p', 'muted', 'Nothing remembered yet. Use “Remember” on any message, or type /remember followed by a fact.'));
+          memory.items.forEach((item, i) => {
+            const row = el('div', 'list-row'); const t = el('input'); t.type = 'text'; t.value = item.text; t.setAttribute('aria-label', 'Memory ' + (i + 1));
+            t.addEventListener('change', () => { item.text = t.value.trim().slice(0, 400); if (!item.text) memory.items.splice(i, 1); saveMemory(); renderMemory(); });
+            const del = el('button', 'secondary', 'Forget'); del.type = 'button'; del.setAttribute('aria-label', 'Forget: ' + item.text.slice(0, 40));
+            del.addEventListener('click', () => { memory.items.splice(i, 1); saveMemory(); renderMemory(); });
+            row.append(t, del); memList.appendChild(row);
+          });
+        };
+        addBtn.addEventListener('click', () => { if (addMemory(addIn.value)) { addIn.value = ''; renderMemory(); } });
+        addIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); } });
+        addRow.append(addIn, addBtn); renderMemory();
+        sec('Memory', el('p', 'muted', 'Short facts the assistant is reminded of in later chats. You decide what goes in, and you can edit or remove anything.'), memToggle, memList, addRow);
+        // presets
+        const presetList = el('div');
+        const renderPresets = () => {
+          presetList.textContent = '';
+          allPresets().forEach(p => {
+            const row = el('div', 'list-row'); const info = el('div'); info.append(el('strong', null, p.name), el('div', 'muted', p.prompt.slice(0, 140) + (p.prompt.length > 140 ? '…' : '')));
+            row.appendChild(info);
+            if (!p.id.startsWith('builtin-')) {
+              const edit = el('button', 'secondary', 'Edit'); edit.type = 'button';
+              edit.addEventListener('click', async () => { const prompt = await promptDialog('Edit preset “' + p.name + '”', 'Instructions', p.prompt, { multiline: true }); if (prompt && prompt.trim()) { p.prompt = prompt.trim(); savePresets(); renderPresets(); renderPresetOptions(currentThread()); } });
+              const del = el('button', 'secondary', 'Delete'); del.type = 'button';
+              del.addEventListener('click', () => { customPresets = customPresets.filter(x => x.id !== p.id); savePresets(); renderPresets(); renderPresetOptions(currentThread()); });
+              row.append(edit, del);
+            }
+            presetList.appendChild(row);
+          });
+        };
+        renderPresets();
+        sec('Assistant presets', el('p', 'muted', 'Pick one under “Instructions for this chat”. Write instructions there and press “Save as preset” to add your own.'), presetList);
+        // typing
+        const enter = el('label', 'list-row'); const ecb = el('input'); ecb.type = 'checkbox'; ecb.checked = enterSends();
+        enter.append(ecb, el('span', null, 'Enter sends the message (Shift+Enter adds a new line)'));
+        ecb.addEventListener('change', () => { prefs.enterSends = ecb.checked; savePrefs(); updateComposerHint(); });
+        sec('Typing', enter);
+        // speech
+        const voiceWrap = el('div');
+        const voiceSel = el('select'); voiceSel.setAttribute('aria-label', 'Read-aloud voice');
+        const rate = el('input'); rate.type = 'range'; rate.min = '0.6'; rate.max = '1.6'; rate.step = '0.1'; rate.value = String(prefs.speechRate || 1); rate.setAttribute('aria-label', 'Reading speed');
+        const speechMod = await import(moduleBase() + 'chat/speech.mjs'); await speechMod.whenVoicesReady();
+        const voices = speechMod.localVoices();
+        if (!voices.length) voiceWrap.appendChild(el('p', 'muted', 'No on-device voices were found in this browser, so read-aloud is off. Remote voices are never used.'));
+        else {
+          voices.forEach(v => voiceSel.appendChild(new Option(v.name + ' (' + v.lang + ')', v.voiceURI)));
+          voiceSel.value = speechMod.bestVoice(prefs.voiceURI)?.voiceURI || voices[0].voiceURI;
+          voiceSel.addEventListener('change', () => { prefs.voiceURI = voiceSel.value; savePrefs(); });
+          rate.addEventListener('change', () => { prefs.speechRate = Number(rate.value); savePrefs(); });
+          voiceWrap.append(el('p', 'muted', 'Only voices that run on this device are listed.'), voiceSel, el('div', 'muted', 'Speed'), rate);
+        }
+        sec('Read aloud', voiceWrap);
+        openAppDialog({ title: 'Memory & preferences', content: root, wide: true, actions: [{ label: 'Done', primary: true, run: () => { prefs.instructions = instr.value.trim().slice(0, 4000); savePrefs(); } }] });
+      }
+      addFeatureLink('🧠', 'Memory & preferences', openPreferences, 'openPrefsBtn');
+
+      // slash commands are answered here, without the model; exact results are attached to ordinary questions
+      sendInterceptors.push(async (text, thread) => {
+        if (!text.startsWith('/')) return false;
+        const tools = await loadTools();
+        const remember = /^\/remember\s+([\s\S]+)$/i.exec(text);
+        const reply = remember
+          ? { text: thread.temporary ? 'Temporary chats don\u2019t add to memory.' : addMemory(remember[1]) ? 'Remembered: **' + remember[1].trim() + '**' : 'I already had that, or there was nothing to remember.' }
+          : tools.runCommand(text);
+        if (!reply) return false;
+        thread.messages.push(M.model.makeMessage('user', text), M.model.makeMessage('assistant', reply.text, { local: true }));
+        if (thread.messages.length === 2 && M.model.hasDefaultTitle(thread)) { thread.title = M.model.deriveTitle(text) || thread.title; threadTitleInput.value = thread.title; }
+        messageInput.value = ''; growComposer(); persistDraftNow(thread.id); M.model.touch(thread); saveThreads(); renderThreadList(); renderMessages(thread);
+        const status = document.getElementById('generationStatus'); status.hidden = false; status.textContent = 'Answered on this device.';
+        return true;
+      });
+      userMessageHooks.push(retool);
+      afterReplyHooks.push((thread, msg) => { if (voiceMode.on) voiceMode.afterReply(thread, msg); });
+
+      // speech: read aloud, dictation, voice conversation
+      let speechMod = null;
+      const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
+      let speaking = null;
+      function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => { b.setAttribute('aria-pressed', 'false'); b.textContent = '🔊 Listen'; }); } }
+      async function speakText(text, onDone) {
+        const sp = await loadSpeech();
+        stopSpeaking();
+        const { stripMarkdown } = (await loadDocModules()).exports;
+        const handle = sp.speak(stripMarkdown(text), { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1 });
+        speaking = { handle };
+        try { await handle.done; } catch (err) { showToast(err.message, 8000); } finally { if (speaking?.handle === handle) speaking = null; onDone?.(); }
+      }
+      messageDecorators.push((thread, msg, index, ctx, actions) => {
+        if (msg.role !== 'assistant' || !msg.content || ctx.streaming) return;
+        actions.appendChild(actionButton('speak', '🔊 Listen', 'Read this answer aloud'));
+      });
+      messageActionHandlers['speak'] = async (thread, msg, btn) => {
+        if (btn.getAttribute('aria-pressed') === 'true') { stopSpeaking(); return; }
+        stopSpeaking(); btn.setAttribute('aria-pressed', 'true'); btn.textContent = '⏹ Stop';
+        await speakText(msg.content, () => { if (btn.isConnected) { btn.setAttribute('aria-pressed', 'false'); btn.textContent = '🔊 Listen'; } });
+      };
+      threadSelectedHooks.push(() => stopSpeaking());
+
+      const micBtn = el('button', null, '🎙️'); micBtn.type = 'button'; micBtn.id = 'micBtn'; micBtn.setAttribute('aria-label', 'Dictate'); micBtn.setAttribute('aria-pressed', 'false'); micBtn.hidden = false;
+      const voiceBtn = el('button', null, '🎧'); voiceBtn.type = 'button'; voiceBtn.id = 'voiceModeBtn'; voiceBtn.setAttribute('aria-label', 'Voice conversation'); voiceBtn.setAttribute('aria-pressed', 'false');
+      composerToolsEl.append(micBtn, voiceBtn);
+      const voiceStatus = el('p', 'composer-hint'); voiceStatus.id = 'voiceStatus'; voiceStatus.setAttribute('role', 'status'); voiceStatus.hidden = true;
+      messageForm.appendChild(voiceStatus);
+      // Nothing is probed at start-up: whether dictation can run on this device is checked when it is first asked for.
+      let dictation = { state: 'unknown', reason: '' }, voices = false;
+      micBtn.title = 'Dictate (only if this browser can do it on your device)';
+      voiceBtn.title = 'Talk with the assistant hands-free (only if this browser can do it on your device)';
+      async function refreshSpeechSupport() {
+        const sp = await loadSpeech();
+        dictation = await sp.dictationAvailability();
+        await sp.whenVoicesReady(800); voices = sp.localVoices().length > 0;
+        micBtn.title = dictation.state === 'available' ? 'Dictate (on this device)' : dictation.state === 'downloadable' ? 'Download the on-device speech pack, then dictate' : 'Dictation is off: ' + dictation.reason;
+        micBtn.classList.toggle('unavailable', dictation.state === 'unavailable');
+        micBtn.setAttribute('aria-disabled', String(dictation.state === 'unavailable'));
+        const reason = dictation.state === 'unavailable' ? dictation.reason : !voices ? 'No on-device voice is available for replies.' : '';
+        voiceBtn.title = reason ? 'Voice conversation is off: ' + reason : 'Talk with the assistant hands-free (on this device)';
+        voiceBtn.setAttribute('aria-disabled', String(Boolean(reason)));
+      }
+      let dictating = null;
+      function stopDictation() { dictating?.stop(); dictating = null; micBtn.setAttribute('aria-pressed', 'false'); }
+      async function startDictating({ onFinal } = {}) {
+        const sp = await loadSpeech();
+        await refreshSpeechSupport();
+        if (dictation.state === 'unavailable') { showToast(dictation.reason, 9000); return false; }
+        if (dictation.state === 'downloadable') {
+          if (!await confirmDialog('Download speech pack?', 'Dictation runs entirely on this device but needs a language pack first. Download it now?', 'Download')) return false;
+          try { await sp.installDictation(); await refreshSpeechSupport(); } catch (err) { showToast('The speech pack could not be installed: ' + err.message, 9000); return false; }
+          if (dictation.state !== 'available') { showToast('Dictation is not ready yet. Try again in a moment.', 6000); return false; }
+        }
+        const base = messageInput.value ? messageInput.value.replace(/\s*$/, ' ') : '';
+        let committed = base, last = '';
+        messageInput.focus();
+        micBtn.setAttribute('aria-pressed', 'true');
+        dictating = sp.startDictation({
+          onText: ({ final, interim }) => { if (final) { committed += final.trim() + ' '; last = final; onFinal?.(final); } messageInput.value = committed + interim; growComposer(); updateSendButtonDisabled(getChatState().ready); scheduleDraftSave(); },
+          onEnd: () => { if (messageInput.value.startsWith(committed.trimEnd())) messageInput.value = committed.trimEnd(); micBtn.setAttribute('aria-pressed', 'false'); dictating = null; updateSendButtonDisabled(getChatState().ready); voiceMode.onDictationEnd?.(); },
+          onError: err => { showToast(err.message, 8000); stopDictation(); }
+        });
+        return true;
+      }
+      micBtn.addEventListener('click', async () => { if (dictating) { stopDictation(); return; } await startDictating(); });
+
+      // hands-free: listen -> send -> speak the reply -> listen again
+      const voiceMode = {
+        on: false, timer: null,
+        async start() {
+          await refreshSpeechSupport();
+          if (dictation.state === 'unavailable') { showToast(dictation.reason, 9000); return; }
+          if (!voices) { showToast('Voice conversation needs an on-device voice for the replies, and this browser has none.', 9000); return; }
+          if (!getChatState().canType) { showToast('Load a model or choose a provider first.'); return; }
+          this.on = true; voiceBtn.setAttribute('aria-pressed', 'true'); this.listen();
+        },
+        stop(message) { this.on = false; clearTimeout(this.timer); stopDictation(); stopSpeaking(); voiceBtn.setAttribute('aria-pressed', 'false'); voiceStatus.hidden = true; if (message) showToast(message); },
+        say(t) { voiceStatus.hidden = false; voiceStatus.textContent = '🎧 ' + t + ' (press 🎧 to end)'; },
+        async listen() {
+          if (!this.on || gen) return;
+          this.say('Listening… pause when you’re done');
+          const ok = await startDictating({ onFinal: () => { clearTimeout(this.timer); this.timer = setTimeout(() => this.submit(), 1600); } });
+          if (!ok) this.stop();
+        },
+        onDictationEnd() { if (this.on && !gen && messageInput.value.trim()) this.submit(); else if (this.on && !gen && !speaking) setTimeout(() => this.listen(), 300); },
+        async submit() {
+          clearTimeout(this.timer); if (!this.on || gen) return;
+          stopDictation();
+          const text = messageInput.value.trim(); if (!text) { this.listen(); return; }
+          this.say('Thinking…');
+          await handleSendMessage({ preventDefault() {} });
+        },
+        afterReply(thread, msg) {
+          if (!this.on) return;
+          if (!msg.content || msg.status === 'failed' || msg.status === 'stopped') { this.stop('Voice conversation ended.'); return; }
+          this.say('Speaking…');
+          speakText(msg.content, () => { if (this.on) this.listen(); });
+        }
+      };
+      voiceBtn.addEventListener('click', () => { if (voiceMode.on) voiceMode.stop('Voice conversation ended.'); else voiceMode.start(); });
+      document.getElementById('stopGeneration').addEventListener('click', () => { if (voiceMode.on) voiceMode.stop(); });
 
       // ---- search ----------------------------------------------------------------------------------------------------
       let searchModule = null;
