@@ -47,7 +47,7 @@
     "sourceSha256": "a772105af5a7a0872e7461f0e33ce36b4dc979d893f651100d85cbbd80d0e6bb",
     "receipt": "ops/native/compiler-control.json",
     "tool": "ops/native/compiler-control.mjs",
-    "toolSha256": "c09cb761574d96c45e630dc052cd96e93181d21e065520a5b470226d10dbaee1",
+    "toolSha256": "c9573a5ed6ae8b6b468481a7669b14aaa0ad96a527f6865680818ed5755c5f22",
     "changedBodies": 51,
     "minimumOriginalBodyBytesExclusive": 20000,
     "maximumOriginalBodyBytesInclusive": 100000,

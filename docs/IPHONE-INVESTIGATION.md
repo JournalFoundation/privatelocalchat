@@ -9,13 +9,14 @@ This is the living plan and decision record. Keep the current state and next act
 ## Current state and next action
 
 - The iPhone 15 Pro can download, load, and generate, including offline, but construction and longer generation have also caused abrupt page replacement.
-- The latest recorded failure occurred on development commit `c41c9f524f9bc754639aeffa3c01df80824294e3`, during a slow Gettysburg response. The last progress event recorded 100 stream chunks, not an attested count of 100 native tokens. A replacement page started at `2026-10-30T01:59:07.174Z`.
+- The latest user-observed generation restart occurred on development commit `c41c9f524f9bc754639aeffa3c01df80824294e3`, during a slow Gettysburg response. The last progress event recorded 100 stream chunks, not an attested count of 100 native tokens. A replacement page started at `2026-10-30T01:59:07.174Z`.
 - The development placement experiment requests zero GPU-offloaded layers but still puts the tied embedding/output head on GPU. It is not fully CPU inference. Moving weights between CPU and GPU does not establish a reduction in total process footprint.
-- The 51-function compiler candidate is live on development at commit `eb8a16d6b1cb24efb9c4a8b73e5e156c3140d4a3`, variant `privatelocalchat-compiler-control-20261030-v1`, Wasm SHA-256 `dbaf064fbeefcae1ab86322a9e52b2fc0de2e52e1f9e00cf72a787ed1f1142fc`. Physical iPhone comparison remains pending. Its reproducible transform and receipt are in `ops/native/compiler-control.mjs` and `ops/native/compiler-control.json`.
+- Development currently serves `e7302bf1c5a3746e100076ff9828e8869a618233`. Its 51-function compiler candidate remains variant `privatelocalchat-compiler-control-20261030-v1`, Wasm SHA-256 `dbaf064fbeefcae1ab86322a9e52b2fc0de2e52e1f9e00cf72a787ed1f1142fc`. E03 added full-object capture, two-way commands and failure-safe diagnostic/model-storage handling. The initial physical candidate session completed 211 native tokens; the full device gate remains open.
 - Initial E01 qualification has passed byte reconstruction, real-GPU output parity, ten retained GPU turns including 512 native tokens, cancellation/recovery, fresh-context reset without weight reload, offline generation, a 30-second hold, and all 35 repository checks. The reduced-placement profile passed a real 512-token response and a separate focused recovery/reset/offline session with a 30-second hold; its additional ten-turn stress run was intentionally stopped and is not a pass. A renewed external WebKit comparison with 30-second holds measured 1531.6 MiB after-generation peak for the baseline and 818.8 MiB for the candidate. See [the E01 receipt](evidence/dev-compiler-control.json).
 - The deployment workflow succeeded. All three published runtime files match their pins, and the published app completed the 7/28/512-token sequence with baseline-identical text. The receiver received the browser's variant and full hash. Production remains at `4d74acdc856b02212cd2a3afa18aa245bcaae189`.
 - E02 produced a completed **211-native-token** reply on the same phone page session without a user-observed restart. Native timings were 123.1 seconds of prompt processing and 172.1 seconds of decoding; 173 prompt tokens were evaluated, with zero reuse. The initial Gettysburg response was only 12 native tokens. Content-free diagnostics cannot establish the exact prompts, answer text or word counts. See [the first physical trial](evidence/iphone-compiler-first-trial.json). This supports continuing the candidate, not a completed release gate or causal proof.
-- **Next action:** E03 adds verified full local request/response objects, saved active-chat capture, and bounded two-way commands through the opted-in dev channel. Preserve compiler bytes and placement. Use the connected Mac as an additional inspection route. Subsequent GPU-offload restoration is a separate E04 experiment, with the observation policy held fixed across that comparison. Production promotion remains outside these experiments.
+- E03 has live Chromium and normal Mac Safari command/full-stream verification, including a 512-token Safari reply. Physical USB configuration, downloads and load-failure receipts were exercised without user relay. Generic browser storage errors were resolved to kernel ENOSPC; the iPhone's immediate space metric was about 0.5 GB after our temporary test models were removed. See [the storage receipt](evidence/iphone-usb-storage-failure.json). Do not infer usable space from the misleading `TotalDataAvailable` field.
+- **Next action:** finish remote download/cancel and background policy-refresh qualification while waiting for at least 3 GB of real iPhone storage headroom. Then run a retained physical session with verified full request/chunk/result objects. Preserve compiler bytes and placement for that session; GPU restoration remains a separate E04 comparison. A clean production compiler artifact is being prepared separately so promotion can retain a qualified mitigation while excluding development hooks. Production selection and release acceptance remain unchanged.
 
 ## Evidence and its limits
 
@@ -208,3 +209,21 @@ E03 has live Chromium and normal macOS Safari command/full-stream proof. Physica
 commands, receiver configuration, downloads and load-failure capture were exercised unattended,
 but remote physical generation and durable offline qualification remain open. Production stays
 at its previously deployed commit; do not promote this work based on desktop success.
+
+### Unattended-control and clean-production preparation follow-up
+
+The remote channel now exposes download and cancel-download using the ordinary recovery flow.
+A real HTTPS/Chromium test learned an owner grant without reload in 3.195 seconds, preserved
+428,120,416 verified bytes after cancellation, resumed all 13 files, automatically reached Ready
+and completed 512 native tokens. Request, stream and final text matched; stop and unload passed.
+See [the control receipt](evidence/dev-download-control.json). The short-lived browser profile
+was removed. The USB preflight helper independently rechecked only 417,796,096 immediately
+available phone bytes, and its temporary connection/tunnel were closed. No phone download ran.
+
+A separate compiler control was prepared from the clean production queue baseline, SHA-256
+`1bf7ed18c5cf0071d5ce2651c952778103c65d75f658b8b9638f2988912ab1b8`. Its candidate is
+`ea9d24143b3c1ba6a0c73213be7dbc7fc57c0472b8e55d6cf7206807ad1fe0fd`. Reconstruction,
+interfaces and all 51 skipped-body changes verify. A production UI build with development
+controls absent completed baseline and candidate turns of 7, 28 and 512 native tokens with
+identical text and attested native hashes. See [the preparation receipt](evidence/production-compiler-control-preparation.json).
+This leaves source production selection and live main unchanged; iPhone and margin gates remain.

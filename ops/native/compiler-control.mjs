@@ -13,6 +13,12 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 
+// Each allowed input is an independently pinned artifact. Preparation does not select it for release.
+const BASELINES=new Set([
+  "a772105af5a7a0872e7461f0e33ce36b4dc979d893f651100d85cbbd80d0e6bb",
+  "1bf7ed18c5cf0071d5ce2651c952778103c65d75f658b8b9638f2988912ab1b8",
+]);
+
 function fail(message) {
   console.error(message);
   process.exit(2);
@@ -158,7 +164,7 @@ function verifyControl(bytes, manifest) {
     bodies[change.definedFunction] = Buffer.concat([body.subarray(0,split),body.subarray(split+extra)]);
   }
   const restored = replaceSection(bytes,code,codePayload(bodies));
-  if (sha256(restored) !== manifest.source.sha256 || restored.length !== manifest.source.bytes || manifest.source.sha256 !== "a772105af5a7a0872e7461f0e33ce36b4dc979d893f651100d85cbbd80d0e6bb") fail("restored source differs from pinned baseline");
+  if (sha256(restored) !== manifest.source.sha256 || restored.length !== manifest.source.bytes || !BASELINES.has(manifest.source.sha256)) fail("restored source differs from pinned baseline");
   if (!WebAssembly.validate(bytes) || interfaceOf(restored) !== interfaceOf(bytes)) fail("invalid or changed module interface");
   return {sourceSha256:sha256(restored),candidateSha256:sha256(bytes),changedBodies:51,onlySkippedPadding:true};
 }
@@ -180,7 +186,7 @@ if (command === "verify" && positional.length === 2) {
   const [input, output] = positional;
   const body = options.body ?? 160_000;
   const original = fs.readFileSync(input);
-  if (sha256(original) !== "a772105af5a7a0872e7461f0e33ce36b4dc979d893f651100d85cbbd80d0e6bb") fail("compiler control requires the pinned v2 baseline");
+  if (!BASELINES.has(sha256(original))) fail("compiler control requires a pinned development or clean production baseline");
   const targets = inspect(original, 100000).largest.filter(body => body.bytes > 20000 && body.bytes <= 100000);
   if (targets.length !== 51) fail("expected exactly 51 candidate bodies");
   const padded = pad(original, targets, body);

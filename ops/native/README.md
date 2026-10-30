@@ -177,3 +177,23 @@ directory. Development uses a separate instrumented artifact.
 
 See `docs/evidence/production-queue-candidate.json` for local real-browser checks.
 Those checks do not establish iPhone reliability or a production deployment.
+
+## Clean compiler-control preparation
+
+`production-compiler-control.json` records an experimental transform of the independently pinned
+clean production queue artifact. It is **prepared, not selected or deployed**. The native wrapper
+and worker remain the clean production versions, and the changed module reconstructs exactly
+to their 1bf7ed18 baseline. The development transform still reconstructs to its a772105a baseline;
+the tool accepts only these two pinned sources. Both select 51 bodies with unchanged interfaces.
+
+Reproduce the clean candidate outside served build output:
+
+```sh
+node ops/native/compiler-control.mjs pad runtime/providers/vendor/wllama/v1q/compat.wasm work/production-compiler-control/compat.wasm
+node ops/native/compiler-control.mjs verify work/production-compiler-control/compat.wasm ops/native/production-compiler-control.json
+```
+
+This preparation leaves `production-runtime.json` and shipped native files unchanged. Qualify
+correctness, performance, resource behavior and the physical device gate before deciding whether
+this workaround belongs in a production selection. Promoting source alone currently selects the
+clean untransformed production runtime; do not mistake a dev runtime result for that selection.

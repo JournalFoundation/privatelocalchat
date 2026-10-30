@@ -80,3 +80,18 @@ pinned native bytes. See [the candidate receipt](evidence/production-queue-candi
 The service-worker status probe now retains the active channel and ignores stale
 controller replies; registration starts before model initialization. iPhone validation
 and production promotion remain pending.
+
+## Latest investigation status
+
+The compiler-control phone trial completed a 211-native-token reply without an observed restart,
+but this was not a matched-prompt comparison or a complete device gate. Development now has
+full request/chunk/result capture and bounded two-way controls, including remote download and
+cancellation. A live normal Mac Safari session completed 512 native tokens with exact stream
+reconstruction. Later USB phone trials encountered real APFS ENOSPC; the temporary test models
+were removed and trials await device headroom. See the living investigation and its receipts.
+
+A clean production compiler candidate passed independently attested 7/28/512-token output parity
+with its clean baseline. It is prepared only: the native selection used by production builds
+has not changed, and live main remains at its previous deployment. Qualified runtime mitigation
+and the exclusion of development machinery must both survive a future source promotion.
+Neither this candidate nor the desktop control checks closes the physical device requirement.
