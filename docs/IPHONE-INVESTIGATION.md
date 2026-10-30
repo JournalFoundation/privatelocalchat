@@ -532,3 +532,28 @@ Both deployed artifacts were read back and verified. The application suite passe
 production diagnostic route returned 404. Earlier statements that production remained unchanged
 were accurate at their time but are superseded by this release. The iPhone gate remains open:
 the real-device trial had not yet completed model download when this release was published.
+
+### iPhone owner-cleanup trial and release reload
+
+On iPhone 15 Pro, the owned Safari session on `663646db` finished the 1,202,488,640-byte
+model download and automatically loaded the development owner-cleanup runtime in 4.7 seconds.
+It completed a short reply and a subsequent 1,998-character reply. With the dev service worker
+blocking network requests (radios remained on), a further reply completed; the cached app then
+reopened, loaded all 13 cached shards in four seconds, and completed another reply. The network
+fault was disabled afterward. These results do not establish production runtime or real airplane
+mode behavior.
+
+Navigating from that loaded offline-reopen session to the current dev release `5fc35bb` reused
+all 13 cached shards, but two load attempts returned `InvalidStateError` before construction.
+The page stayed responsive. The navigation occurred while the previous model was loaded; the
+current evidence does not identify whether an old worker, a diagnostic journal handle, or another
+resource caused the error. The earlier successful trial and this failure must both remain visible
+in release assessment. Raw diagnostic and device-memory evidence stays in the private work area.
+
+A third load on `5fc35bb` bypassed only the native construction recorder while leaving
+telemetry disk storage enabled. It passed the immediate invalid-state point and reached native
+construction, but phone telemetry stopped at 15:49:43 UTC and subsequent USB evaluations timed
+out. The device sampler last saw WebContent PID 574 at 15:49:44 UTC, with a sampled peak
+footprint of 1,969 MiB; it disappeared from later samples. PID attribution and the operating
+system's reason have not been established, so this is evidence of a high-memory process
+vanishing near the failure, not proof of a particular jetsam event. The phone test remains open.
