@@ -383,3 +383,31 @@ on 13 aborted weight requests; their role was not established. Preserve both the
 [initial failure](evidence/preview-initial-cold-load-failure.json) and
 [later observations](evidence/deployed-clean-preview-inference.json). The initial failure
 remains unexplained; the preview and physical-device release gates remain open.
+
+### Download observer controls and bounded physical storage probe
+
+Small-shard Chromium controls reproduced `net::ERR_ABORTED` after valid downloads even with
+service workers blocked and without Playwright routing. Plain fetch-to-buffer and raw
+fetch-to-OPFS controls finished normally; wrapping the response stream reproduced the observer
+event. A proposed alternate downloader passed unit checks but still reproduced the event
+in all three complete SDK trials. It was rejected and the tested source restored. See the
+[negative-control receipt](evidence/download-stream-negative-control.json). This does not
+establish data corruption or an iPhone memory cause, and the initial cold-load fault remains open.
+
+The physical iPhone then installed one 21,250,464-byte pinned shard using published build
+`9f4805b`, deep-verified it without mismatch, removed it, and inspected zero model bytes.
+The small static entry page started neither the app nor a service worker; its own CacheStorage
+and registrations were cleared before closing only the owned tab. USB kernel messages identify
+the WebContent PID touching that shard, allowing direct footprint correlation. See the
+[phone storage receipt](evidence/iphone-small-shard-storage.json). No native model was loaded.
+
+Post-test immediately available disk space is 956,436,480 bytes, below the full model size.
+Do not create another full model copy. The prior retained automation files still need
+reclamation, and the shared Safari restart question remains unanswered. Production and the
+draft promotion gate remain unchanged.
+
+A second filesystem API independently reported 1,167,400,960 free bytes; Lockdown reported
+957,689,856 available plus 209,715,200 reserved bytes. Both are below the complete model size.
+The 78 GB `TotalDataAvailable` field is therefore not a sound basis for starting another
+full copy. The correlated small-shard WebContent footprint stayed below 41 MB in this bounded
+trial; that does not predict the footprint of native inference.
