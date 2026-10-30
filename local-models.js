@@ -106,7 +106,7 @@ window.localModels={
   get ready(){return state?.load.state==='ready';},
   get installed(){return state?.tiers[state.selection.tier].install.ok===true;},
   get state(){return state;},
-  async generate(messages,{signal,onToken}={}) {
+  async generate(messages,{signal,onToken,onFinish}={}) {
     if(mode!=='local'||state?.load.state!=='ready') throw new Error('Load an on-device model before sending.');
     activeGeneration=true; render(state);
     try {
@@ -115,7 +115,8 @@ window.localModels={
       resetPromptAfterAbort=false;
       const end=await call.done;
       if(end.type==='attempt-aborted') throw Object.assign(new DOMException('Generation stopped.','AbortError'),{partialText:streamed});
-      if(end.type!=='attempt-completed') throw Object.assign(new Error(end.error?.message || 'Model generation failed.'),end.error);
+      if(end.type!=='attempt-completed') throw Object.assign(new Error(end.error?.message || 'Model generation failed.'),end.error,{partialText:streamed});
+      onFinish?.({finishReason:end.finishReason});
       return end.text;
     } catch(e) {if(e.name==='AbortError')resetPromptAfterAbort=true;throw e;} finally {activeGeneration=false;render(host.getState());}
   }

@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   />
   <title>Private Local Chat</title>
   <style>
@@ -1119,6 +1119,7 @@
   </style>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="/local-models.css" />
+  <link rel="stylesheet" href="/chat/chat.css" />
   <script src="/build-info.js"></script>
   <script type="module" src="/local-models.js"></script>
 </head>
@@ -1160,11 +1161,26 @@
     <!-- Sidebar containing configuration and thread list -->
     <aside class="sidebar" aria-label="Settings panel" aria-hidden="true">
       <div class="sidebar-header">
-        <h2>Settings</h2>
+        <h2>Private Local Chat</h2>
         <button type="button" id="closeSidebarBtn" class="sidebar-close" aria-label="Close settings">
           <span class="emoji-icon" aria-hidden="true">❌</span>
         </button>
       </div>
+      <section class="chats-section" aria-labelledby="chatsHeading">
+        <div class="threads-header"><h3 id="chatsHeading">Chats</h3></div>
+        <label for="threadSearch" class="sr-only">Search chats</label>
+        <input type="search" id="threadSearch" class="thread-search" placeholder="Search all chats" autocomplete="off" />
+        <ul id="searchResults" class="search-results" role="listbox" aria-label="Search results" hidden></ul>
+        <div class="thread-filter" role="group" aria-label="Which chats to show">
+          <button type="button" data-view="active" aria-pressed="true">Chats</button>
+          <button type="button" data-view="archived" aria-pressed="false">Archived</button>
+          <button type="button" data-view="trash" aria-pressed="false">Trash</button>
+        </div>
+        <ul id="threadList" class="thread-list"></ul>
+      </section>
+      <div id="featureLinks" class="side-links"></div>
+      <details id="providerSettings" class="settings-group" open>
+      <summary><strong>Model and provider</strong></summary>
       <div class="form-group">
         <label for="inferenceMode">Run replies</label>
         <select id="inferenceMode"><option value="local">On this device</option><option value="api">With an API provider</option></select>
@@ -1256,15 +1272,13 @@
         </div>
       </div>
       </div>
+      </details>
       <hr />
       <p><a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">Source code</a> · <a href="https://github.com/JournalFoundation/privatelocalchat/issues/new/choose" target="_blank" rel="noopener">Feedback</a></p>
       <p id="releaseInfo" class="hint-text"></p>
       <p id="offlineStatus" class="hint-text" role="status">Preparing offline app…</p>
       <button type="button" id="reloadApp" hidden>Reload updated app</button>
-      <div class="threads-header">
-        <h3>Chats</h3>
-      </div>
-      <ul id="threadList" class="thread-list"></ul>
+
       <div class="actions" role="group" aria-label="Chat history and settings import and export">
         <div class="action-group">
           <span class="action-label">Chat history:</span>
@@ -1407,17 +1421,23 @@
         <label for="systemPromptInput">System prompt:</label>
         <textarea id="systemPromptInput" placeholder="You are a helpful assistant."></textarea>
       </div>
-      <div id="messages" class="messages"></div>
+      <div class="messages-wrap">
+        <div id="messages" class="messages" role="log" aria-label="Conversation" aria-live="off" tabindex="0"></div>
+        <button type="button" id="jumpLatest" class="jump-latest" hidden>↓ Jump to latest</button>
+      </div>
       <form id="messageForm" class="message-form">
         <div class="message-input-wrapper">
-          <textarea id="messageInput" placeholder="Type your message" rows="3"></textarea>
+          <label for="messageInput" class="sr-only">Message</label>
+          <textarea id="messageInput" placeholder="Type your message" rows="2"></textarea>
           <div id="messageInputOverlay" class="message-input-overlay" aria-hidden="true"></div>
         </div>
+        <div id="composerTools" class="composer-tools"></div>
         <button type="button" id="stopGeneration" hidden>Stop generating</button>
         <button type="submit" id="sendBtn">
           <span class="emoji-icon" aria-hidden="true">📩</span>
           <span class="btn-label">Send</span>
         </button>
+        <p id="composerHint" class="composer-hint"></p>
       </form>
     </main>
   </div>
@@ -2528,11 +2548,19 @@ const base64UrlEncode = value => {
         }
       };
 
+      let storageWarned = false;
       const writeJson = (store, key, value) => {
         try {
           store.setItem(key, JSON.stringify(value));
+          storageWarned = false;
+          return true;
         } catch (err) {
           console.error(`Failed to write ${key}:`, err);
+          if (!storageWarned && store === localStorage) {
+            storageWarned = true;
+            showToast('This browser could not save your changes (storage is full or blocked). Export your chats now so nothing is lost.', 9000);
+          }
+          return false;
         }
       };
 
@@ -2675,27 +2703,33 @@ const base64UrlEncode = value => {
 
       function loadThreads() {
         const storedThreads = readJson(localStorage, THREAD_KEY, []);
-        threads = Array.isArray(storedThreads) ? storedThreads : [];
+        const list = Array.isArray(storedThreads) ? storedThreads : [];
+        threads = M.model.purgeExpired(list.map(t => M.model.normalizeThread(t)).filter(Boolean));
       }
 
+      // Temporary chats are never written down.
       function saveThreads() {
-        writeJson(localStorage, THREAD_KEY, threads);
+        return writeJson(localStorage, THREAD_KEY, threads.filter(t => !t.temporary));
       }
 
       function generateThreadId() {
         return `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
       }
 
-      function createThread({ title = 'New chat', systemPrompt = '', messages = [] } = {}) {
+      function createThread({ title = 'New chat', systemPrompt = '', messages = [], temporary = false } = {}) {
         const id = generateThreadId();
         const normalizedTitle = typeof title === 'string' ? title : 'New chat';
         const normalizedSystemPrompt = typeof systemPrompt === 'string' ? systemPrompt : '';
+        const now = Date.now();
         const thread = {
           id,
           title: normalizedTitle,
           systemPrompt: normalizedSystemPrompt,
-          messages: Array.isArray(messages) ? [...messages] : []
+          messages: (Array.isArray(messages) ? messages : []).map(m => M.model.normalizeMessage(m, now)).filter(Boolean),
+          createdAt: now,
+          updatedAt: now
         };
+        if (temporary) thread.temporary = true;
         threads.push(thread);
         saveThreads();
         return id;
@@ -2730,11 +2764,11 @@ const base64UrlEncode = value => {
       document.getElementById('stopGeneration').addEventListener('click', () => generationController?.abort());
 
       function getChatState() {
-        if (!window.localModels) return {local:true,hasThread:Boolean(currentThread()),hasEndpoint:true,hasModel:false,ready:false};
+        if (!window.localModels) return {local:true,hasThread:Boolean(currentThread()),hasEndpoint:true,hasModel:false,canType:false,ready:false};
         if (window.localModels?.mode === 'local') {
           const hasThread = Boolean(currentThread());
           const hasModel = window.localModels.ready;
-          return { local: true, hasThread, hasEndpoint: true, hasModel, ready: hasThread && hasModel && !generationBusy };
+          return { local: true, hasThread, hasEndpoint: true, hasModel, canType: hasThread && hasModel, ready: hasThread && hasModel && !generationBusy };
         }
         const thread = currentThread();
         const hasThread = Boolean(thread);
@@ -2744,6 +2778,7 @@ const base64UrlEncode = value => {
           hasThread,
           hasEndpoint,
           hasModel,
+          canType: hasThread && hasEndpoint && hasModel,
           ready: hasThread && hasEndpoint && hasModel && !generationBusy
         };
       }
@@ -2835,8 +2870,8 @@ const base64UrlEncode = value => {
           messageInput.placeholder = placeholder;
         }
         // Disable input when not ready, but leave the value alone.
-        messageInput.disabled = !state.ready;
-        if (state.ready || generationBusy) {
+        messageInput.disabled = !state.canType;
+        if (state.canType) {
           messageForm.classList.remove('disabled');
           messageForm.setAttribute('aria-disabled', 'false');
         } else {
@@ -2862,13 +2897,19 @@ const base64UrlEncode = value => {
         }, 180);
       }
 
-      function showToast(message, duration = 3200) {
+      function showToast(message, duration = 3200, action = null) {
         if (!toast) return;
         if (toastHideTimer) {
           window.clearTimeout(toastHideTimer);
           toastHideTimer = null;
         }
         toast.textContent = message;
+        if (action) {
+          const run = document.createElement('button');
+          run.type = 'button'; run.className = 'toast-action'; run.textContent = action.label;
+          run.addEventListener('click', event => { event.stopPropagation(); hideToast(); action.run(); });
+          toast.append(' ', run);
+        }
         toast.hidden = false;
         toast.setAttribute('aria-hidden', 'false');
         toast.classList.remove('visible');
@@ -2917,65 +2958,21 @@ const base64UrlEncode = value => {
       }
 
       /**
-       * Render the list of chat threads in the sidebar. Each entry is clickable
-       * and optionally exposes a menu for renaming or deleting the thread.
-       */
-      function renderThreadList() {
-        closeThreadMenu();
-        threadList.innerHTML = '';
-        const createLi = document.createElement('li');
-        createLi.classList.add('new-thread-item');
-        const createBtn = document.createElement('button');
-        createBtn.type = 'button';
-        createBtn.classList.add('new-thread-button');
-        createBtn.appendChild(createEmoji('➕'));
-        const createLabel = document.createElement('span');
-        createLabel.classList.add('btn-label');
-        createLabel.textContent = 'Start new chat';
-        createBtn.appendChild(createLabel);
-        createBtn.addEventListener('click', event => {
-          event.stopPropagation();
-          newThread();
-        });
-        createLi.appendChild(createBtn);
-        threadList.appendChild(createLi);
-        threads.forEach(thread => {
-          const threadName = thread.title && thread.title.trim() ? thread.title.trim() : 'Untitled';
-          const li = document.createElement('li');
-          li.dataset.id = thread.id;
-          if (thread.id === currentThreadId) {
-            li.classList.add('selected');
-          }
-          const nameSpan = document.createElement('span');
-          nameSpan.classList.add('thread-name');
-          nameSpan.textContent = threadName;
-          li.appendChild(nameSpan);
-
-          const menuBtn = document.createElement('button');
-          menuBtn.type = 'button';
-          menuBtn.classList.add('thread-menu-btn');
-          menuBtn.setAttribute('aria-label', `Options for ${threadName}`);
-          menuBtn.appendChild(createEmoji('⋮'));
-          menuBtn.addEventListener('click', event => {
-            event.stopPropagation();
-            toggleThreadMenu(thread.id, menuBtn);
-          });
-          li.appendChild(menuBtn);
-
-          li.addEventListener('click', () => selectThread(thread.id));
-          threadList.appendChild(li);
-        });
-
-        updateThreadListMinHeight();
-      }
-
-      /**
        * Select a thread by ID, updating UI and state accordingly. If the
        * thread doesn't exist, the chat inputs are disabled.
        * @param {string} id thread identifier
        */
       function selectThread(id) {
         closeThreadMenu();
+        const previousId = currentThreadId;
+        if (previousId && previousId !== id) {
+          persistDraftNow(previousId);
+          messageInput.value = drafts[id] || '';
+          growComposer();
+        } else if (!previousId && !messageInput.value) {
+          messageInput.value = drafts[id] || '';
+          growComposer();
+        }
         currentThreadId = id;
         const thread = getThread(id);
         if (!thread) {
@@ -2995,54 +2992,15 @@ const base64UrlEncode = value => {
       }
 
       /**
-       * Create a new chat thread. This generates a unique id and inserts
-       * an empty conversation into the list. The new thread becomes the
-       * currently selected one.
-       */
-      function newThread() {
-        const id = createThread();
-        renderThreadList();
-        selectThread(id);
-      }
-
-      /**
-       * Delete a chat thread by id. After deletion the next available thread
-       * becomes current. If none remain, the chat area is cleared and
-       * disabled.
-       * @param {string} targetId id to delete
-       */
-      function deleteThread(targetId = currentThreadId) {
-        if (!targetId) return;
-        const index = threads.findIndex(t => t.id === targetId);
-        if (index === -1) return;
-        const confirmed = window.confirm('Delete this chat thread?');
-        if (!confirmed) return;
-        threads.splice(index, 1);
-        saveThreads();
-        const ensuredId = ensureThreadExists();
-        const firstThreadWithId = threads.find(thread => thread && typeof thread.id === 'string' && thread.id);
-        currentThreadId = firstThreadWithId?.id || ensuredId || null;
-        if (currentThreadId) {
-          selectThread(currentThreadId);
-          return;
-        }
-        threadTitleInput.value = '';
-        systemPromptInput.value = '';
-        messagesEl.innerHTML = '';
-        renderThreadList();
-        updateChatAvailability();
-      }
-
-      /**
        * Rename the given thread by prompting the user for a new title. The
        * current thread title input updates along with the list.
        * @param {string} threadId id of the thread to rename
        */
-      function renameThread(threadId) {
+      async function renameThread(threadId) {
         const thread = getThread(threadId);
         if (!thread) return;
         const currentName = thread.title && thread.title.trim() ? thread.title.trim() : 'Untitled';
-        const newName = window.prompt('Rename chat', currentName);
+        const newName = await promptDialog('Rename chat', 'Title', currentName);
         if (newName === null) return;
         thread.title = newName.trim() || 'Untitled';
         saveThreads();
@@ -3135,33 +3093,476 @@ const base64UrlEncode = value => {
         URL.revokeObjectURL(url);
       }
 
-      /**
-       * Render all messages for a given thread. This simply loops over the
-       * stored messages and creates elements for each role.
-       * @param {object} thread chat thread
-       */
-      function renderMessages(thread) {
-        messagesEl.innerHTML = '';
-        thread.messages.forEach(msg => {
-          const div = document.createElement('div');
-          div.classList.add('message', msg.role);
-          div.textContent = msg.content;
-          messagesEl.appendChild(div);
+      // ---- chat core: answers are rendered, streamed and controlled per message -----------------------------------
+      let M = null; // { markdown, model, stream }: the pure modules under /chat/
+      const moduleBase = () => (window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/');
+      async function loadChatModules() {
+        const base = moduleBase();
+        const [markdown, model, stream] = await Promise.all([
+          import(base + 'chat/markdown.mjs'), import(base + 'chat/threads.mjs'), import(base + 'chat/stream.mjs')
+        ]);
+        M = { markdown, model, stream };
+      }
+      const STATUS = () => M.model.STATUS;
+      const CONTINUE_PROMPT = 'Continue exactly where your last message stopped. Do not repeat anything you already wrote and do not add an introduction.';
+
+      const PREFS_KEY = 'plc.prefs.v1';
+      const prefs = { enterSends: null, ...readJson(localStorage, PREFS_KEY, {}) };
+      const savePrefs = () => writeJson(localStorage, PREFS_KEY, prefs);
+      const isTouchDevice = () => Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+      const enterSends = () => (typeof prefs.enterSends === 'boolean' ? prefs.enterSends : !isTouchDevice());
+      const composerHint = document.getElementById('composerHint');
+      function updateComposerHint() {
+        if (!composerHint) return;
+        composerHint.textContent = '';
+        composerHint.append(enterSends() ? 'Enter sends · Shift+Enter adds a new line · ' : 'Ctrl/⌘+Enter sends · Enter adds a new line · ');
+        const toggle = document.createElement('button');
+        toggle.type = 'button'; toggle.className = 'link-btn'; toggle.id = 'toggleEnterSends';
+        toggle.textContent = enterSends() ? 'Make Enter add a new line' : 'Make Enter send';
+        toggle.addEventListener('click', () => { prefs.enterSends = !enterSends(); savePrefs(); updateComposerHint(); });
+        composerHint.append(toggle);
+      }
+
+      // Each conversation keeps its own unsent draft.
+      const DRAFTS_KEY = 'plc.drafts.v1';
+      let drafts = readJson(localStorage, DRAFTS_KEY, {});
+      if (!drafts || typeof drafts !== 'object' || Array.isArray(drafts)) drafts = {};
+      let draftTimer = null;
+      function persistDraftNow(threadId = currentThreadId) {
+        window.clearTimeout(draftTimer); draftTimer = null;
+        if (!threadId) return;
+        if (messageInput.value) drafts[threadId] = messageInput.value; else delete drafts[threadId];
+        writeJson(localStorage, DRAFTS_KEY, drafts);
+      }
+      const scheduleDraftSave = () => { window.clearTimeout(draftTimer); draftTimer = window.setTimeout(() => persistDraftNow(), 250); };
+      function growComposer() {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = Math.min(messageInput.scrollHeight + 2, window.innerHeight * 0.4) + 'px';
+      }
+
+      // One reply at a time, always bound to the conversation and message that asked for it.
+      let gen = null; // { threadId, messageId, controller }
+      const jumpLatestBtn = document.getElementById('jumpLatest');
+      let followLatest = true;
+      const nearBottom = () => messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
+      function scrollToLatest(force = false) {
+        if (force) followLatest = true;
+        if (followLatest) messagesEl.scrollTop = messagesEl.scrollHeight;
+        if (jumpLatestBtn) jumpLatestBtn.hidden = followLatest || messagesEl.scrollHeight <= messagesEl.clientHeight;
+      }
+      messagesEl.addEventListener('scroll', () => {
+        followLatest = nearBottom();
+        if (jumpLatestBtn) jumpLatestBtn.hidden = followLatest;
+      }, { passive: true });
+      if (jumpLatestBtn) jumpLatestBtn.addEventListener('click', () => { scrollToLatest(true); messagesEl.focus({ preventScroll: true }); });
+
+      const el = (tag, cls, text) => {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text != null) node.textContent = text;
+        return node;
+      };
+      function actionButton(action, label, title) {
+        const b = el('button', null, label);
+        b.type = 'button'; b.dataset.action = action;
+        if (title) { b.title = title; b.setAttribute('aria-label', title); }
+        return b;
+      }
+      async function copyText(text, done = 'Copied') {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (err) {
+          const area = el('textarea'); area.value = text; area.setAttribute('readonly', '');
+          area.style.position = 'fixed'; area.style.opacity = '0'; document.body.appendChild(area); area.select();
+          let ok = false; try { ok = document.execCommand('copy'); } catch { /* handled below */ }
+          area.remove();
+          if (!ok) { window.prompt('Copy this text:', text); return; }
+        }
+        showToast(done);
+      }
+      function downloadText(filename, text, type = 'text/plain') {
+        const url = URL.createObjectURL(new Blob([text], { type: type + ';charset=utf-8' }));
+        const link = el('a'); link.href = url; link.download = filename;
+        document.body.appendChild(link); link.click(); link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+
+      const messageDecorators = []; // later features add buttons/meta here: (thread, msg, index, ctx) => void
+      const statusNote = msg => {
+        const S = STATUS();
+        if (msg.status === S.STOPPED) return ['Stopped here. You can continue from this point.', false];
+        if (msg.status === S.LENGTH) return ['Reached the end of what fits in the model’s context window. Continue, or start a summary of the earlier conversation.', false];
+        if (msg.status === S.INTERRUPTED) return ['Interrupted before it finished (the page was closed or reloaded). What was written is kept.', false];
+        if (msg.status === S.FAILED) return ['Failed: ' + (msg.error || 'Unknown error') + (msg.content ? ' What was written before the failure is kept.' : ''), true];
+        return null;
+      };
+
+      function fillBody(body, msg) {
+        if (msg.role === 'assistant' && M) {
+          body.replaceChildren(M.markdown.renderMarkdown(msg.content, document));
+        } else {
+          body.textContent = msg.content;
+        }
+      }
+
+      function createMessageEl(thread, msg, index, lastIndex) {
+        const S = STATUS();
+        const isLast = index === lastIndex;
+        const streaming = msg.status === S.STREAMING;
+        const div = el('div', 'message ' + msg.role + (streaming ? ' streaming' : '') + (msg.excluded ? ' excluded' : ''));
+        div.dataset.id = msg.id;
+        div.appendChild(el('span', 'sr-only', msg.role === 'user' ? 'You said: ' : msg.role === 'assistant' ? 'Assistant said: ' : 'Notice: '));
+        if (msg.attachments?.length) {
+          const chips = el('div', 'message-attachments');
+          msg.attachments.forEach(a => chips.appendChild(el('span', 'chip', '📎 ' + a.name)));
+          div.appendChild(chips);
+        }
+        const body = el('div', 'message-body');
+        fillBody(body, msg);
+        div.appendChild(body);
+        const note = statusNote(msg);
+        if (note) {
+          const meta = el('div', 'message-meta' + (note[1] ? ' failed' : ''));
+          meta.appendChild(el('span', 'badge', note[0]));
+          div.appendChild(meta);
+        }
+        if (msg.excluded) div.appendChild(el('div', 'message-meta', 'Left out of what the model sees. It stays in the saved conversation.'));
+        const ctx = { isLast, streaming, busy: Boolean(gen) };
+        const actions = el('div', 'message-actions');
+        actions.setAttribute('role', 'group');
+        actions.setAttribute('aria-label', (msg.role === 'user' ? 'Your' : 'Assistant') + ' message actions');
+        if (!streaming && !msg.notice && msg.role !== 'system') {
+          if (msg.role === 'user') {
+            const edit = actionButton('edit-message', '✏️ Edit', 'Edit this prompt and resend'); if (ctx.busy) edit.disabled = true;
+            actions.appendChild(edit);
+          }
+          actions.appendChild(actionButton('copy-message', '📋 Copy', msg.role === 'assistant' ? 'Copy this answer' : 'Copy this message'));
+          if (msg.role === 'assistant') {
+            if (msg.versions?.length > 1) {
+              const sw = el('span', 'version-switch');
+              const prev = actionButton('prev-version', '‹', 'Previous answer'); prev.disabled = msg.versionIndex === 0;
+              const next = actionButton('next-version', '›', 'Next answer'); next.disabled = msg.versionIndex === msg.versions.length - 1;
+              sw.append(prev, el('span', null, (msg.versionIndex + 1) + '/' + msg.versions.length), next);
+              sw.setAttribute('aria-label', 'Answer ' + (msg.versionIndex + 1) + ' of ' + msg.versions.length);
+              actions.appendChild(sw);
+            }
+            if (isLast && !ctx.busy) {
+              if (msg.status === S.FAILED && !msg.content) actions.appendChild(actionButton('retry', '↻ Retry', 'Retry this request'));
+              else {
+                if (M.model.CONTINUABLE.has(msg.status) && msg.content) actions.appendChild(actionButton('continue', '▶ Continue', 'Continue this answer'));
+                actions.appendChild(actionButton('regenerate', '↻ Regenerate', 'Write another answer to the same prompt'));
+              }
+            }
+          }
+          const hide = actionButton('toggle-context', msg.excluded ? '➕ Include' : '➖ Leave out', msg.excluded ? 'Include this message in what the model sees' : 'Leave this message out of what the model sees');
+          hide.setAttribute('aria-pressed', msg.excluded ? 'true' : 'false');
+          actions.appendChild(hide);
+          messageDecorators.forEach(fn => fn(thread, msg, index, ctx, actions, div));
+        }
+        if (actions.childElementCount) div.appendChild(actions);
+        return div;
+      }
+
+      function starterPrompts() {
+        return ['Explain something I’m curious about in simple terms', 'Help me draft a polite message', 'Summarize the text I paste next', 'Brainstorm ten ideas for a small project'];
+      }
+      function renderEmptyState(thread) {
+        const box = el('div', 'empty-state');
+        box.id = 'emptyState';
+        const local = window.localModels?.mode === 'local';
+        const picker = document.getElementById('localModelSelect');
+        const model = local ? (picker?.selectedOptions?.[0]?.textContent || 'the on-device model') : (config.model || 'your provider’s model');
+        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : 'What would you like to work on?'));
+        box.appendChild(el('p', null, (local ? 'Replies are written on this device by ' + model + '. ' : 'Replies come from ' + model + ' through your API provider. ')
+          + 'It’s good for drafting, summarizing, explaining and brainstorming, and it can still be wrong, so check anything important.'
+          + (thread.temporary ? ' Nothing in this chat is saved.' : '')));
+        const list = el('div', 'starter-prompts');
+        starterPrompts().forEach(text => {
+          const b = el('button', null, text); b.type = 'button';
+          b.addEventListener('click', () => { messageInput.value = text; growComposer(); persistDraftNow(); updateSendButtonDisabled(getChatState().ready); messageInput.focus(); });
+          list.appendChild(b);
         });
-        messagesEl.scrollTop = messagesEl.scrollHeight;
+        box.appendChild(list);
+        return box;
+      }
+
+      function renderMessages(thread, { keepScroll = false } = {}) {
+        const previousTop = messagesEl.scrollTop;
+        messagesEl.textContent = '';
+        if (!thread) return;
+        if (thread.temporary) messagesEl.appendChild(el('div', 'temp-banner', 'Temporary chat: it isn’t saved and is forgotten when you close or reload the page.'));
+        const lastIndex = (() => { for (let i = thread.messages.length - 1; i >= 0; i--) if (!thread.messages[i].notice) return i; return -1; })();
+        if (!thread.messages.length) messagesEl.appendChild(renderEmptyState(thread));
+        thread.messages.forEach((msg, index) => messagesEl.appendChild(createMessageEl(thread, msg, index, lastIndex)));
+        if (keepScroll && !followLatest) { messagesEl.scrollTop = previousTop; if (jumpLatestBtn) jumpLatestBtn.hidden = nearBottom(); }
+        else scrollToLatest(true);
+        updateContextMeter?.(thread);
+      }
+      let updateContextMeter = null; // set by the context-budget feature
+
+      function addMessage(role, content, notice = false) {
+        const thread = updateThread(t => t.messages.push(M.model.makeMessage(role, content, notice ? { notice: true } : {})));
+        if (thread) renderMessages(thread, { keepScroll: true });
+      }
+
+      const nodeFor = id => messagesEl.querySelector('[data-id="' + (window.CSS?.escape ? CSS.escape(id) : id) + '"]');
+      let paintPending = null;
+      function paintBubble(threadId, msg) {
+        if (threadId !== currentThreadId) return;
+        const node = nodeFor(msg.id);
+        if (!node) return;
+        fillBody(node.querySelector('.message-body'), msg);
+        scrollToLatest();
+      }
+      function schedulePaint(threadId, msg) {
+        const idle = paintPending === null;
+        paintPending = { threadId, msg };
+        if (!idle) return;
+        const run = () => { const p = paintPending; paintPending = null; if (p) paintBubble(p.threadId, p.msg); };
+        if (document.hidden) run(); else requestAnimationFrame(run);
+      }
+      let saveTimer = null;
+      const scheduleSave = () => { if (saveTimer) return; saveTimer = window.setTimeout(() => { saveTimer = null; saveThreads(); }, 800); };
+      const flushSave = () => { if (saveTimer) { window.clearTimeout(saveTimer); saveTimer = null; } saveThreads(); };
+
+      function setGenerating(on) {
+        generationBusy = on;
+        document.getElementById('stopGeneration').hidden = !on;
+        updateChatAvailability();
       }
 
       /**
-       * Helper to append a message to the current thread, saving and re-rendering.
-       * @param {string} role message role ('user', 'assistant', 'system')
-       * @param {string} content message content
+       * Write one assistant reply for a conversation.
+       *  new         a fresh assistant message after the last prompt
+       *  regenerate  another answer to the same prompt; the earlier one stays as a version
+       *  retry       the same request again, in place (nothing was produced the first time)
+       *  continue    append to a stopped, cut-off or failed answer
        */
-      function addMessage(role, content, notice = false) {
-        const thread = updateThread(t => t.messages.push(notice ? { role, content, notice: true } : { role, content }));
-        if (thread) {
-          renderMessages(thread);
+      async function runReply(threadId, { mode = 'new', message = null } = {}) {
+        const thread = getThread(threadId);
+        if (!thread || gen) return;
+        const S = STATUS();
+        let msg = message, baseText = '';
+        if (mode === 'continue') baseText = msg.content;
+        else if (mode === 'regenerate') M.model.beginNewVersion(msg);
+        else if (mode === 'retry') { msg.content = ''; M.model.syncActiveVersion(msg); }
+        else { msg = M.model.makeMessage('assistant', '', { status: S.STREAMING }); thread.messages.push(msg); }
+        msg.status = S.STREAMING; delete msg.error;
+        const controller = new AbortController();
+        gen = { threadId, messageId: msg.id, controller };
+        generationController = controller;
+        const generationStatus = document.getElementById('generationStatus');
+        generationStatus.hidden = false;
+        generationStatus.textContent = window.localModels?.mode === 'local' ? 'Generating on this device…' : 'Waiting for the API provider…';
+        setGenerating(true);
+        M.model.touch(thread);
+        saveThreads();
+        if (threadId === currentThreadId) renderMessages(thread, { keepScroll: false });
+        const index = thread.messages.indexOf(msg);
+        const join = next => (baseText && next && !/\s$/.test(baseText) && !/^\s/.test(next) && /[.!?:;,)\]]$/.test(baseText) && /^[\p{L}\p{N}]/u.test(next) ? ' ' : '');
+        let streamed = '';
+        const onText = full => {
+          streamed = full;
+          msg.content = baseText + join(full) + full;
+          M.model.syncActiveVersion(msg);
+          generationStatus.textContent = (window.localModels?.mode === 'local' ? 'Generating on this device… ' : 'Receiving the reply… ') + full.length + ' characters written';
+          schedulePaint(threadId, msg);
+          scheduleSave();
+        };
+        try {
+          const context = await buildInferenceMessages(thread, index, mode);
+          const result = await sendToApi(context, controller.signal, onText);
+          msg.content = baseText + join(result.text) + result.text;
+          if (result.finishReason === 'length') msg.status = S.LENGTH; else delete msg.status;
+          generationStatus.textContent = msg.status === S.LENGTH ? 'Reply reached the context limit.' : 'Reply complete.';
+          consecutiveAuthErrors = 0;
+          updateAuthGuidance();
+        } catch (err) {
+          if (err?.name !== 'AbortError') console.error(err);
+          const partial = typeof err?.partialText === 'string' ? err.partialText : streamed;
+          msg.content = baseText + (partial ? join(partial) + partial : '');
+          if (err?.name === 'AbortError') {
+            msg.status = S.STOPPED;
+            generationStatus.textContent = 'Generation stopped.';
+          } else {
+            msg.status = S.FAILED;
+            const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
+            msg.error = isAuthError(err) ? buildAuthErrorMessage(errorText) : errorText;
+            generationStatus.textContent = 'Generation failed: ' + errorText;
+            consecutiveAuthErrors = isAuthError(err) ? Math.min(consecutiveAuthErrors + 1, 3) : 0;
+          }
+          updateAuthGuidance();
+          // A stop that produced nothing leaves nothing behind.
+          if (msg.status === S.STOPPED && !msg.content.trim()) {
+            if (mode === 'regenerate' && msg.versions) {
+              msg.versions.pop();
+              if (msg.versions.length > 1) M.model.selectVersion(msg, msg.versions.length - 1); else { const v = msg.versions[0]; msg.content = v.content; if (v.status) msg.status = v.status; else delete msg.status; delete msg.versions; delete msg.versionIndex; }
+            } else if (mode === 'new') {
+              thread.messages.splice(thread.messages.indexOf(msg), 1);
+            } else { msg.status = baseText ? S.STOPPED : S.FAILED; }
+          }
+        } finally {
+          M.model.syncActiveVersion(msg);
+          gen = null; generationController = null;
+          M.model.touch(thread);
+          if (saveTimer) { window.clearTimeout(saveTimer); saveTimer = null; }
+          saveThreads();
+          if (threadId === currentThreadId) renderMessages(thread, { keepScroll: true });
+          setGenerating(false);
+          renderThreadList();
+          afterReply?.(thread, msg);
         }
       }
+      let afterReply = null; // hooks for features that react to a finished reply (titles, speech)
+
+      async function buildInferenceMessages(thread, index, mode) {
+        const { messagesForInference } = await import(moduleBase() + 'conversation-messages.mjs');
+        const view = { ...thread, messages: thread.messages.slice(0, mode === 'continue' ? index + 1 : index) };
+        // the answer being continued is already written: it is context, not a reply in progress
+        if (mode === 'continue') view.messages[index] = { ...view.messages[index], status: undefined };
+        const options = (await contextOptions?.(thread, view)) || {};
+        const messages = messagesForInference(view, options);
+        if (mode === 'continue') messages.push({ role: 'user', content: CONTINUE_PROMPT });
+        return messages;
+      }
+      let contextOptions = null; // set by features that add instructions, memory or document text to the prompt
+
+      async function handleSendMessage(event) {
+        event.preventDefault();
+        if (gen) return;
+        const state = getChatState();
+        if (!state.ready) {
+          if (!state.hasEndpoint) triggerEndpointGuidance();
+          updateChatAvailability();
+          return;
+        }
+        const text = messageInput.value.trim();
+        if (!text && !(pendingAttachments?.length)) { updateSendButtonDisabled(state.ready); return; }
+        const thread = currentThread();
+        if (!thread) return;
+        const extra = pendingAttachments?.length ? { attachments: takePendingAttachments() } : {};
+        const userMessage = M.model.makeMessage('user', text, extra);
+        thread.messages.push(userMessage);
+        if (thread.messages.filter(m => m.role === 'user').length === 1 && M.model.hasDefaultTitle(thread)) {
+          thread.title = M.model.deriveTitle(text) || thread.title;
+          threadTitleInput.value = thread.title;
+        }
+        messageInput.value = '';
+        growComposer();
+        persistDraftNow(thread.id);
+        M.model.touch(thread);
+        saveThreads();
+        renderThreadList();
+        renderMessages(thread);
+        await runReply(thread.id);
+      }
+      let pendingAttachments = null;
+      let takePendingAttachments = () => [];
+
+      /** Send the conversation to the chosen engine and resolve with { text, finishReason }. */
+      async function sendToApi(messages, signal, onText) {
+        if (!window.localModels) throw new Error('Inference controls have not initialized. Reload the app before sending.');
+        if (window.localModels?.mode === 'local') {
+          let finishReason = 'stop';
+          const text = await window.localModels.generate(messages, { signal, onToken: onText, onFinish: info => { finishReason = info?.finishReason || 'stop'; } });
+          return { text, finishReason };
+        }
+        if (!config.endpoint) throw new Error('Endpoint is not configured.');
+        if (!config.model) throw new Error('Model is not selected.');
+        const headers = { 'Content-Type': 'application/json' };
+        if (config.token) headers['Authorization'] = `Bearer ${config.token}`;
+        let chatEndpoint;
+        try { chatEndpoint = deriveChatCompletionsUrl(config.endpoint); } catch (err) { throw new Error('Invalid endpoint: ' + err.message); }
+        const post = stream => fetch(chatEndpoint, { method: 'POST', headers, body: JSON.stringify({ model: config.model, messages: apiMessages(messages), ...(stream ? { stream: true } : {}) }), signal });
+        let response = await post(true);
+        if (!response.ok && (response.status === 400 || response.status === 422)) response = await post(false); // a provider that rejects streaming
+        if (!response.ok) {
+          let detail = '';
+          try { const data = await response.clone().json(); detail = data?.error?.message || data?.message || ''; } catch { /* body is not JSON */ }
+          const error = new Error('API responded with status ' + response.status + (detail ? ': ' + String(detail).slice(0, 300) : ''));
+          error.status = response.status;
+          if (response.status === 401 || response.status === 403) error.isAuthError = true;
+          throw error;
+        }
+        const result = await M.stream.readChatStream(response, { signal, onDelta: (delta, full) => onText(full) });
+        return { text: result.text, finishReason: result.finishReason };
+      }
+      let apiMessages = messages => messages; // features that attach images reshape the payload here
+
+      const EXT = { javascript: 'js', js: 'js', typescript: 'ts', ts: 'ts', python: 'py', py: 'py', html: 'html', css: 'css', json: 'json', bash: 'sh', sh: 'sh', shell: 'sh', markdown: 'md', md: 'md', csv: 'csv', sql: 'sql', c: 'c', cpp: 'cpp', java: 'java', go: 'go', rust: 'rs', yaml: 'yml', yml: 'yml', xml: 'xml', text: 'txt' };
+      const extensionFor = lang => EXT[String(lang || '').toLowerCase()] || 'txt';
+
+      function beginEdit(thread, msg, node) {
+        if (gen) { showToast('Wait for the reply to finish, or press Stop.'); return; }
+        const body = node.querySelector('.message-body');
+        const actions = node.querySelector('.message-actions');
+        const index = thread.messages.indexOf(msg);
+        const box = el('div', 'edit-box');
+        const area = el('textarea'); area.value = msg.content; area.setAttribute('aria-label', 'Edit your prompt');
+        const row = el('div', 'row');
+        const cancel = el('button', null, 'Cancel'); cancel.type = 'button';
+        const save = el('button', null, 'Save and resend'); save.type = 'button';
+        if (index < thread.messages.length - 1) row.appendChild(el('span', 'muted', 'Everything after this prompt is replaced by the new reply. You can undo.'));
+        row.append(cancel, save); box.append(area, row);
+        body.replaceChildren(box);
+        if (actions) actions.hidden = true;
+        area.focus();
+        cancel.addEventListener('click', () => renderMessages(thread, { keepScroll: true }));
+        save.addEventListener('click', () => {
+          const text = area.value.trim();
+          if (!text) return;
+          const previous = M.model.editPrompt(thread, index, text);
+          if (!previous) return;
+          M.model.touch(thread);
+          saveThreads();
+          renderMessages(thread);
+          const undo = async () => {
+            if (gen && gen.threadId === thread.id) { gen.controller.abort(); while (gen) await new Promise(r => window.setTimeout(r, 20)); }
+            M.model.undoEditPrompt(thread, index, previous);
+            M.model.touch(thread); saveThreads(); renderThreadList();
+            if (thread.id === currentThreadId) renderMessages(thread);
+            showToast('Edit undone');
+          };
+          showToast('Prompt updated', 9000, { label: 'Undo', run: undo });
+          runReply(thread.id);
+        });
+      }
+
+      async function handleMessageAction(action, id, btn, node) {
+        const thread = currentThread();
+        if (!thread) return;
+        if (action === 'copy-code' || action === 'download-code') {
+          const block = btn.closest('.code-block');
+          const code = block?.querySelector('pre code')?.textContent ?? '';
+          if (action === 'copy-code') copyText(code, 'Code copied');
+          else downloadText('code.' + extensionFor(block?.querySelector('.code-lang')?.textContent), code);
+          return;
+        }
+        const msg = M.model.findMessage(thread, id);
+        if (!msg) return;
+        const S = STATUS();
+        switch (action) {
+          case 'copy-message': copyText(msg.content, msg.role === 'assistant' ? 'Answer copied' : 'Copied'); break;
+          case 'edit-message': beginEdit(thread, msg, node); break;
+          case 'regenerate': if (!gen) runReply(thread.id, { mode: 'regenerate', message: msg }); break;
+          case 'retry': if (!gen) runReply(thread.id, { mode: 'retry', message: msg }); break;
+          case 'continue': if (!gen) runReply(thread.id, { mode: 'continue', message: msg }); break;
+          case 'prev-version': case 'next-version':
+            if (M.model.selectVersion(msg, msg.versionIndex + (action === 'next-version' ? 1 : -1))) { saveThreads(); renderMessages(thread, { keepScroll: true }); }
+            break;
+          case 'toggle-context':
+            msg.excluded = !msg.excluded; if (!msg.excluded) delete msg.excluded;
+            saveThreads(); renderMessages(thread, { keepScroll: true });
+            break;
+          default: if (messageActionHandlers[action]) await messageActionHandlers[action](thread, msg, btn, node);
+        }
+      }
+      const messageActionHandlers = {}; // actions contributed by later features
+      messagesEl.addEventListener('click', event => {
+        const btn = event.target.closest('[data-action]');
+        const node = btn?.closest('.message');
+        if (btn && node && !btn.disabled) handleMessageAction(btn.dataset.action, node.dataset.id, btn, node);
+      });
 
       /**
        * Open the sidebar. Adds a class to the body that triggers the CSS
@@ -3300,249 +3701,317 @@ const base64UrlEncode = value => {
         openThreadMenu = null;
       }
 
-      /**
-       * Toggle the thread action menu for a given thread. The menu appears
-       * anchored to the provided element and is removed when clicking outside
-       * or pressing escape.
-       * @param {string} threadId id of the thread
-       * @param {HTMLElement} anchor element to anchor the menu to
-       */
-      function toggleThreadMenu(threadId, anchor) {
-        if (openThreadMenu && openThreadMenu.anchor === anchor) {
-          closeThreadMenu();
-          return;
+      // ---- dialogs ---------------------------------------------------------------------------------------------------
+      /** A modal dialog: titled, focus-trapped, Escape closes, focus returns to what opened it. */
+      function openAppDialog({ title, content, actions = [], wide = false }) {
+        const opener = document.activeElement;
+        const root = el('div', 'app-dialog');
+        const sheet = el('div', 'sheet');
+        sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-modal', 'true');
+        const heading = el('h2', null, title); heading.id = 'dlg-' + Math.random().toString(36).slice(2);
+        sheet.setAttribute('aria-labelledby', heading.id);
+        if (wide) sheet.style.width = 'min(60rem, 100%)';
+        const head = el('div', 'dialog-head'); head.appendChild(heading);
+        const x = el('button', 'icon-action', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Close');
+        head.appendChild(x);
+        sheet.appendChild(head);
+        const body = el('div', 'dialog-body');
+        [].concat(content).forEach(node => body.append(node));
+        sheet.appendChild(body);
+        const bar = el('div', 'dialog-actions');
+        const handle = { root, body, close };
+        actions.forEach(a => {
+          const b = el('button', a.primary ? 'primary' : 'secondary', a.label); b.type = 'button';
+          if (a.danger) b.classList.add('danger');
+          b.addEventListener('click', async () => { if (a.run) await a.run(handle, b); if (a.close !== false) close(); });
+          bar.appendChild(b);
+        });
+        if (actions.length) sheet.appendChild(bar);
+        root.appendChild(sheet); document.body.appendChild(root);
+        const focusables = () => [...sheet.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(n => !n.disabled && !n.hidden);
+        function onKey(event) {
+          if (event.key === 'Escape') { event.stopPropagation(); close(); return; }
+          if (event.key !== 'Tab') return;
+          const f = focusables(); if (!f.length) return;
+          const first = f[0], last = f[f.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
         }
+        function close() { document.removeEventListener('keydown', onKey, true); root.remove(); handle.closed = true; handle.onClose?.(); if (opener && opener.focus) try { opener.focus(); } catch { /* gone */ } }
+        document.addEventListener('keydown', onKey, true);
+        x.addEventListener('click', close);
+        root.addEventListener('mousedown', event => { if (event.target === root) close(); });
+        const target = focusables().find(n => n !== x) || x;
+        window.setTimeout(() => target.focus(), 0);
+        return handle;
+      }
+      function confirmDialog(title, message, confirmLabel, { danger = false } = {}) {
+        return new Promise(resolve => {
+          let settled = false;
+          const finish = value => { if (!settled) { settled = true; resolve(value); } };
+          const d = openAppDialog({ title, content: el('p', null, message), actions: [
+            { label: 'Cancel', run: () => finish(false) },
+            { label: confirmLabel, primary: true, danger, run: () => finish(true) }
+          ] });
+          d.onClose = () => finish(false);
+        });
+      }
+      function promptDialog(title, label, value = '', { multiline = false, confirmLabel = 'Save' } = {}) {
+        return new Promise(resolve => {
+          let settled = false;
+          const finish = v => { if (!settled) { settled = true; resolve(v); } };
+          const wrap = el('div'); const lab = el('label', null, label);
+          const input = multiline ? el('textarea') : el('input'); if (!multiline) input.type = 'text';
+          input.value = value; const id = 'p-' + Math.random().toString(36).slice(2); input.id = id; lab.htmlFor = id;
+          wrap.append(lab, input);
+          const d = openAppDialog({ title, content: wrap, actions: [
+            { label: 'Cancel', run: () => finish(null) },
+            { label: confirmLabel, primary: true, run: () => finish(input.value) }
+          ] });
+          d.onClose = () => finish(null);
+          if (!multiline) input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); finish(input.value); d.close(); } });
+          window.setTimeout(() => { input.focus(); input.select?.(); }, 0);
+        });
+      }
+
+      // ---- conversation list -----------------------------------------------------------------------------------------
+      const FOLDERS_KEY = 'plc.folders.v1';
+      let folders = readJson(localStorage, FOLDERS_KEY, []);
+      if (!Array.isArray(folders)) folders = [];
+      folders = folders.filter(f => f && typeof f.id === 'string' && typeof f.name === 'string');
+      const saveFolders = () => writeJson(localStorage, FOLDERS_KEY, folders);
+      let threadView = 'active'; // active | archived | trash
+      const threadSearchInput = document.getElementById('threadSearch');
+      const searchResultsEl = document.getElementById('searchResults');
+
+      function threadTitle(thread) { return thread.title && thread.title.trim() ? thread.title.trim() : 'Untitled'; }
+
+      function renderThreadList() {
         closeThreadMenu();
-        const menu = document.createElement('div');
-        menu.classList.add('thread-menu');
+        threadList.textContent = '';
+        document.querySelectorAll('.thread-filter button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === threadView)));
+        if (threadView === 'active') {
+          const makeItem = (label, emoji, handler, cls) => {
+            const li = el('li', 'new-thread-item ' + (cls || ''));
+            const b = el('button', 'new-thread-button'); b.type = 'button';
+            b.appendChild(createEmoji(emoji)); b.appendChild(el('span', 'btn-label', label));
+            b.addEventListener('click', event => { event.stopPropagation(); handler(); });
+            li.appendChild(b); return li;
+          };
+          threadList.appendChild(makeItem('Start new chat', '➕', () => newThread()));
+          const extra = el('li', 'new-thread-item thread-extra');
+          const tmp = el('button', 'new-thread-button temp-chat-button'); tmp.type = 'button';
+          tmp.append(createEmoji('🕶️'), el('span', 'btn-label', 'Temporary chat'));
+          tmp.title = 'A chat that is never saved'; tmp.addEventListener('click', event => { event.stopPropagation(); newThread({ temporary: true }); });
+          const proj = el('button', 'new-thread-button new-project-button'); proj.type = 'button';
+          proj.append(createEmoji('📁'), el('span', 'btn-label', 'New project'));
+          proj.title = 'Group chats that share instructions'; proj.addEventListener('click', event => { event.stopPropagation(); createFolder(); });
+          extra.append(tmp, proj); threadList.appendChild(extra);
+        }
+        const visible = M.model.listThreads(threads, { archived: threadView === 'archived', trashed: threadView === 'trash' });
+        if (threadView === 'active') {
+          const groups = [{ folder: null, items: visible.filter(t => !t.folderId || !folders.some(f => f.id === t.folderId)) }];
+          folders.forEach(f => groups.push({ folder: f, items: visible.filter(t => t.folderId === f.id) }));
+          groups.forEach(g => {
+            if (g.folder) {
+              const h = el('li', 'folder-heading'); h.setAttribute('role', 'presentation');
+              h.appendChild(el('span', 'thread-name', '📁 ' + g.folder.name));
+              const mb = el('button', 'thread-menu-btn'); mb.type = 'button'; mb.setAttribute('aria-label', 'Options for project ' + g.folder.name); mb.appendChild(createEmoji('⋮'));
+              mb.addEventListener('click', event => { event.stopPropagation(); toggleFolderMenu(g.folder.id, mb); });
+              h.appendChild(mb); threadList.appendChild(h);
+            }
+            g.items.forEach(t => threadList.appendChild(threadItem(t)));
+          });
+        } else {
+          if (!visible.length) threadList.appendChild(el('li', 'folder-heading', threadView === 'trash' ? 'Trash is empty. Deleted chats stay here for ' + M.model.TRASH_DAYS + ' days.' : 'Nothing archived.'));
+          visible.forEach(t => threadList.appendChild(threadItem(t)));
+        }
+        updateThreadListMinHeight();
+      }
 
-        const renameBtn = document.createElement('button');
-        renameBtn.type = 'button';
-        renameBtn.appendChild(createEmoji('✏️'));
-        const renameLabel = document.createElement('span');
-        renameLabel.classList.add('btn-label');
-        renameLabel.textContent = 'Rename';
-        renameBtn.appendChild(renameLabel);
-        renameBtn.addEventListener('click', () => {
-          closeThreadMenu();
-          renameThread(threadId);
-        });
-        menu.appendChild(renameBtn);
+      function threadItem(thread) {
+        const name = threadTitle(thread);
+        const li = el('li'); li.dataset.id = thread.id;
+        if (thread.id === currentThreadId) li.classList.add('selected');
+        const pick = el('button', 'thread-name'); pick.type = 'button';
+        if (thread.pinned) pick.appendChild(el('span', 'pin-mark', '📌'));
+        if (thread.temporary) pick.appendChild(el('span', 'pin-mark', '🕶️'));
+        pick.append(name);
+        pick.title = name;
+        if (thread.id === currentThreadId) pick.setAttribute('aria-current', 'true');
+        pick.addEventListener('click', event => { event.stopPropagation(); selectThread(thread.id); });
+        li.appendChild(pick);
+        const menuBtn = el('button', 'thread-menu-btn'); menuBtn.type = 'button';
+        menuBtn.setAttribute('aria-label', 'Options for ' + name); menuBtn.setAttribute('aria-haspopup', 'menu');
+        menuBtn.appendChild(createEmoji('⋮'));
+        menuBtn.addEventListener('click', event => { event.stopPropagation(); toggleThreadMenu(thread.id, menuBtn); });
+        li.appendChild(menuBtn);
+        li.addEventListener('click', () => selectThread(thread.id));
+        return li;
+      }
 
-        const exportThreadBtn = document.createElement('button');
-        exportThreadBtn.type = 'button';
-        exportThreadBtn.appendChild(createEmoji('📤'));
-        const exportLabel = document.createElement('span');
-        exportLabel.classList.add('btn-label');
-        exportLabel.textContent = 'Export (.md)';
-        exportThreadBtn.appendChild(exportLabel);
-        exportThreadBtn.addEventListener('click', () => {
-          closeThreadMenu();
-          exportThreadMarkdown(threadId);
-        });
-        menu.appendChild(exportThreadBtn);
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.type = 'button';
-        deleteBtn.appendChild(createEmoji('🗑️'));
-        const deleteLabel = document.createElement('span');
-        deleteLabel.classList.add('btn-label');
-        deleteLabel.textContent = 'Delete';
-        deleteBtn.appendChild(deleteLabel);
-        deleteBtn.classList.add('delete');
-        deleteBtn.addEventListener('click', () => {
-          closeThreadMenu();
-          deleteThread(threadId);
-        });
-        menu.appendChild(deleteBtn);
-
-        const copyLinkBtn = document.createElement('button');
-        copyLinkBtn.type = 'button';
-        copyLinkBtn.appendChild(createEmoji('🔗'));
-        const copyLabel = document.createElement('span');
-        copyLabel.classList.add('btn-label');
-        copyLabel.textContent = 'Copy link with current title/system/prompt';
-        copyLinkBtn.appendChild(copyLabel);
-        copyLinkBtn.addEventListener('click', async () => {
-          const url = buildPreloadUrl();
-          try {
-            await navigator.clipboard.writeText(url);
-            showToast('Link copied to clipboard');
-          } catch (err) {
-            window.prompt('Copy this link:', url);
-          } finally {
-            closeThreadMenu();
-          }
-        });
-        menu.appendChild(copyLinkBtn);
-
+      function menuItem(menu, emoji, label, run, cls) {
+        const b = el('button'); b.type = 'button'; b.setAttribute('role', 'menuitem');
+        b.appendChild(createEmoji(emoji)); b.appendChild(el('span', 'btn-label', label));
+        if (cls) b.classList.add(cls);
+        b.addEventListener('click', () => { closeThreadMenu(); run(); });
+        menu.appendChild(b); return b;
+      }
+      function placeMenu(menu, anchor) {
         document.body.appendChild(menu);
         const rect = anchor.getBoundingClientRect();
         menu.style.top = `${window.scrollY + rect.bottom + 4}px`;
         menu.style.left = `${window.scrollX + rect.left}px`;
-        const menuRect = menu.getBoundingClientRect();
-        const viewportWidth = document.documentElement.clientWidth;
-        if (menuRect.right > viewportWidth) {
-          const adjustedLeft = Math.max(8, viewportWidth - menuRect.width - 8);
-          menu.style.left = `${window.scrollX + adjustedLeft}px`;
-        }
-
-        const outsideHandler = event => {
-          if (menu.contains(event.target) || anchor.contains(event.target)) {
-            return;
-          }
-          closeThreadMenu();
-        };
-        const keyHandler = event => {
-          if (event.key === 'Escape') {
-            closeThreadMenu();
-          }
-        };
-        document.addEventListener('mousedown', outsideHandler);
-        document.addEventListener('keydown', keyHandler);
-        openThreadMenu = {
-          menuEl: menu,
-          anchor,
-          outsideHandler,
-          keyHandler
-        };
+        const menuRect = menu.getBoundingClientRect(); const viewportWidth = document.documentElement.clientWidth;
+        if (menuRect.right > viewportWidth) menu.style.left = `${window.scrollX + Math.max(8, viewportWidth - menuRect.width - 8)}px`;
+        if (menuRect.bottom > window.innerHeight) menu.style.top = `${window.scrollY + Math.max(8, rect.top - menuRect.height - 4)}px`;
+        const outsideHandler = event => { if (menu.contains(event.target) || anchor.contains(event.target)) return; closeThreadMenu(); };
+        const keyHandler = event => { if (event.key === 'Escape') { closeThreadMenu(); anchor.focus(); } };
+        document.addEventListener('mousedown', outsideHandler); document.addEventListener('keydown', keyHandler);
+        openThreadMenu = { menuEl: menu, anchor, outsideHandler, keyHandler };
+        menu.querySelector('button')?.focus();
+      }
+      function toggleFolderMenu(folderId, anchor) {
+        if (openThreadMenu && openThreadMenu.anchor === anchor) { closeThreadMenu(); return; }
+        closeThreadMenu();
+        const menu = el('div', 'thread-menu'); menu.setAttribute('role', 'menu');
+        menuItem(menu, '✏️', 'Rename project', async () => { const f = folders.find(x => x.id === folderId); const n = await promptDialog('Rename project', 'Name', f.name); if (n && n.trim()) { f.name = n.trim(); saveFolders(); renderThreadList(); } });
+        menuItem(menu, '📝', 'Project instructions', async () => { const f = folders.find(x => x.id === folderId); const n = await promptDialog('Project instructions', 'Added to the instructions of every chat in this project', f.instructions || '', { multiline: true }); if (n !== null) { f.instructions = n.trim(); saveFolders(); showToast('Project instructions saved'); } });
+        menuItem(menu, '🗑️', 'Delete project (keeps its chats)', async () => {
+          if (!await confirmDialog('Delete project?', 'The chats inside stay in your list; only the grouping and its instructions are removed.', 'Delete project', { danger: true })) return;
+          folders = folders.filter(x => x.id !== folderId); threads.forEach(t => { if (t.folderId === folderId) delete t.folderId; });
+          saveFolders(); saveThreads(); renderThreadList();
+        }, 'delete');
+        placeMenu(menu, anchor);
+      }
+      async function createFolder() {
+        const name = await promptDialog('New project', 'Project name', '', { confirmLabel: 'Create' });
+        if (!name || !name.trim()) return;
+        folders.push({ id: generateThreadId(), name: name.trim(), instructions: '' }); saveFolders(); renderThreadList();
+      }
+      async function moveToFolder(threadId) {
+        const thread = getThread(threadId); if (!thread) return;
+        if (!folders.length) { showToast('Create a project first (New project).'); return; }
+        const sel = el('select'); sel.id = 'folderPick'; sel.appendChild(new Option('No project', ''));
+        folders.forEach(f => sel.appendChild(new Option(f.name, f.id))); sel.value = thread.folderId || '';
+        const label = el('label', null, 'Project'); label.htmlFor = 'folderPick';
+        const wrap = el('div'); wrap.append(label, sel);
+        openAppDialog({ title: 'Move chat to a project', content: wrap, actions: [{ label: 'Cancel' }, { label: 'Move', primary: true, run: () => { if (sel.value) thread.folderId = sel.value; else delete thread.folderId; saveThreads(); renderThreadList(); } }] });
       }
 
-      /**
-       * Send the current message to the API. This prevents default form
-       * submission behaviour, validates chat readiness and content, then
-       * appends the user message, sends the request and appends the reply.
-       * It also shows a loading indicator while the API call is in flight.
-       * @param {Event} event form submit event
-       */
-      async function handleSendMessage(event) {
-        event.preventDefault();
-        const state = getChatState();
-        if (!state.ready) {
-          if (!state.hasEndpoint) {
-            triggerEndpointGuidance();
-          }
-          updateChatAvailability();
-          return;
-        }
-        const message = messageInput.value.trim();
-        if (!message) {
-          updateSendButtonDisabled(state.ready);
-          return;
-        }
-        generationBusy = true;
-        generationController = new AbortController();
-        document.getElementById('stopGeneration').hidden = false;
-        const generationStatus = document.getElementById('generationStatus');
-        generationStatus.hidden = false;
-        generationStatus.textContent = window.localModels?.mode === 'local' ? 'Generating on this device…' : 'Waiting for the API provider…';
-        addMessage('user', message);
-        messageInput.value = '';
-        updateSendButtonDisabled(state.ready);
-
-        // Show loading indicator
-        const loadingIndicator = document.createElement('div');
-        loadingIndicator.classList.add('loading');
-        messagesEl.appendChild(loadingIndicator);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-
-        try {
-          const reply = await sendToApi(generationController.signal);
-          consecutiveAuthErrors = 0;
-          updateAuthGuidance();
-          addMessage('assistant', reply);
-          generationStatus.textContent = 'Reply complete.';
-        } catch (err) {
-          console.error(err);
-          generationStatus.textContent = err.name === 'AbortError' ? 'Generation stopped.' : 'Generation failed: ' + err.message;
-          // A stopped reply is kept as the assistant's message, ending exactly where Stop was pressed.
-          if (err.name === 'AbortError' && typeof err.partialText === 'string' && err.partialText.trim()) addMessage('assistant', err.partialText);
-          const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
-          const systemMessage = buildAuthErrorMessage('Error: ' + errorText);
-          if (err.name !== 'AbortError') addMessage('system', systemMessage, true);
-          if (isAuthError(err)) {
-            consecutiveAuthErrors = Math.min(consecutiveAuthErrors + 1, 3);
-          } else {
-            consecutiveAuthErrors = 0;
-          }
-          updateAuthGuidance();
-        } finally {
-          generationBusy = false;
-          generationController = null;
-          document.getElementById('stopGeneration').hidden = true;
-          updateChatAvailability();
-          if (loadingIndicator.parentNode) {
-            loadingIndicator.parentNode.removeChild(loadingIndicator);
-          }
-        }
+      function selectedFolderInstructions(thread) {
+        const f = folders.find(x => x.id === thread.folderId);
+        return f?.instructions?.trim() ? 'Instructions for the "' + f.name + '" project:\n' + f.instructions.trim() : '';
       }
 
-      /**
-       * Send the conversation to the configured API endpoint. Uses the current
-       * model and thread messages. Throws if required fields are missing or
-       * the response status is not ok.
-       */
-      async function sendToApi(signal) {
-        if (!window.localModels) throw new Error('Inference controls have not initialized. Reload the app before sending.');
-        const historyModule = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/conversation-messages.mjs' : '/conversation-messages.mjs';
-        const {messagesForInference} = await import(historyModule);
-        if (window.localModels?.mode === 'local') {
-          const thread = currentThread();
-          const messages = messagesForInference(thread);
-          return window.localModels.generate(messages, {signal, onToken: text => {
-            document.getElementById('generationStatus').textContent = 'Generating on this device… ' + text;
-          }});
-        }
-        if (!config.endpoint) {
-          throw new Error('Endpoint is not configured.');
-        }
-        const thread = currentThread();
-        if (!thread) {
-          throw new Error('No thread selected.');
-        }
-        if (!config.model) {
-          throw new Error('Model is not selected.');
-        }
-        const messagesForRequest = messagesForInference(thread);
-        // Compose request payload. Adjust this object to match the API expected schema.
-        const body = {
-          model: config.model,
-          messages: messagesForRequest
-        };
-        const headers = {
-          'Content-Type': 'application/json'
-        };
-        // Include authorization header if token is provided
-        if (config.token) {
-          headers['Authorization'] = `Bearer ${config.token}`;
-        }
-        let chatEndpoint;
-        try {
-          chatEndpoint = deriveChatCompletionsUrl(config.endpoint);
-        } catch (err) {
-          throw new Error('Invalid endpoint: ' + err.message);
-        }
+      function newThread({ temporary = false } = {}) {
+        const id = createThread({ temporary });
+        if (threadView !== 'active') threadView = 'active';
+        renderThreadList();
+        selectThread(id);
+        messageInput.focus();
+      }
 
-        const response = await fetch(chatEndpoint, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-          signal
+      function trashThread(threadId) {
+        const thread = getThread(threadId); if (!thread) return;
+        if (gen && gen.threadId === threadId) gen.controller.abort();
+        if (thread.temporary) { threads.splice(threads.indexOf(thread), 1); }
+        else { thread.deletedAt = Date.now(); delete thread.pinned; }
+        saveThreads();
+        if (threadId === currentThreadId) {
+          const next = M.model.listThreads(threads)[0];
+          currentThreadId = null;
+          if (next) selectThread(next.id); else { const id = createThread(); renderThreadList(); selectThread(id); }
+        } else renderThreadList();
+        renderThreadList();
+        if (!thread.temporary) showToast('Moved to Trash', 8000, { label: 'Undo', run: () => { delete thread.deletedAt; saveThreads(); renderThreadList(); } });
+      }
+      function deleteThread(targetId = currentThreadId) { if (targetId) trashThread(targetId); }
+      async function deleteForever(threadId) {
+        const thread = getThread(threadId); if (!thread) return;
+        if (!await confirmDialog('Delete permanently?', 'This chat will be erased and cannot be recovered.', 'Delete permanently', { danger: true })) return;
+        threads.splice(threads.indexOf(thread), 1); saveThreads(); renderThreadList();
+      }
+
+      function duplicateThread(threadId, upToIndex) {
+        const thread = getThread(threadId); if (!thread) return;
+        const copy = M.model.branchThread(thread, upToIndex ?? thread.messages.length - 1);
+        threads.push(copy); saveThreads(); renderThreadList(); selectThread(copy.id);
+        showToast(upToIndex == null ? 'Chat duplicated' : 'Branched into a new chat');
+      }
+
+      function toggleThreadMenu(threadId, anchor) {
+        const thread = getThread(threadId); if (!thread) return;
+        if (openThreadMenu && openThreadMenu.anchor === anchor) { closeThreadMenu(); return; }
+        closeThreadMenu();
+        const menu = el('div', 'thread-menu'); menu.setAttribute('role', 'menu');
+        if (thread.deletedAt != null) {
+          menuItem(menu, '♻️', 'Restore', () => { delete thread.deletedAt; saveThreads(); renderThreadList(); });
+          menuItem(menu, '🗑️', 'Delete permanently', () => deleteForever(threadId), 'delete');
+          placeMenu(menu, anchor); return;
+        }
+        menuItem(menu, '✏️', 'Rename', () => renameThread(threadId));
+        menuItem(menu, thread.pinned ? '📍' : '📌', thread.pinned ? 'Unpin' : 'Pin to top', () => { if (thread.pinned) delete thread.pinned; else thread.pinned = true; saveThreads(); renderThreadList(); });
+        menuItem(menu, '🗄️', thread.archived ? 'Unarchive' : 'Archive', () => { if (thread.archived) delete thread.archived; else thread.archived = true; saveThreads(); renderThreadList(); showToast(thread.archived ? 'Archived' : 'Moved back to your chats'); });
+        menuItem(menu, '📁', 'Move to project…', () => moveToFolder(threadId));
+        menuItem(menu, '🧬', 'Duplicate', () => duplicateThread(threadId));
+        menuItem(menu, '📤', 'Export (.md)', () => exportThreadMarkdown(threadId));
+        menuItem(menu, '🔗', 'Copy link with current title/system/prompt', async () => { const url = buildPreloadUrl(); try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (err) { window.prompt('Copy this link:', url); } });
+        menuItem(menu, '🗑️', 'Delete', () => trashThread(threadId), 'delete');
+        placeMenu(menu, anchor);
+      }
+
+      // ---- search ----------------------------------------------------------------------------------------------------
+      let searchModule = null;
+      async function runSearch() {
+        const query = threadSearchInput.value.trim();
+        searchResultsEl.textContent = '';
+        if (!query) { searchResultsEl.hidden = true; threadList.hidden = false; return; }
+        searchModule ||= await import(moduleBase() + 'chat/search.mjs');
+        const results = searchModule.searchThreads(threads, query);
+        threadList.hidden = true; searchResultsEl.hidden = false;
+        if (!results.length) { searchResultsEl.appendChild(el('li', 'snippet', 'No chats or messages match “' + query + '”.')); return; }
+        results.forEach(r => {
+          const li = el('li'); li.tabIndex = 0; li.setAttribute('role', 'option');
+          li.append(el('strong', null, r.title || 'Untitled'));
+          if (r.archived) li.append(el('span', 'muted', ' (archived)'));
+          const sn = el('span', 'snippet'); sn.append(r.snippet.before); sn.append(el('mark', 'search-hit', r.snippet.match)); sn.append(r.snippet.after);
+          li.appendChild(sn);
+          const open = () => { openSearchResult(r, query); };
+          li.addEventListener('click', open);
+          li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+          searchResultsEl.appendChild(li);
         });
-        if (!response.ok) {
-          const error = new Error('API responded with status ' + response.status);
-          error.status = response.status;
-          if (response.status === 401 || response.status === 403) {
-            error.isAuthError = true;
-          }
-          throw error;
-        }
-        // Parse JSON response. We expect a property `choices[0].message.content` similar to OpenAI.
-        const data = await response.json();
-        const choice = Array.isArray(data?.choices) && data.choices.length ? data.choices[0] : null;
-        const reply = choice?.message?.content || choice?.text || (typeof data?.answer === 'string' ? data.answer : '');
-        return reply || JSON.stringify(data);
       }
+      function highlightTerms(root, terms) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const targets = []; while (walker.nextNode()) targets.push(walker.currentNode);
+        targets.forEach(node => {
+          const ranges = searchModule.matchRanges(node.nodeValue, terms); if (!ranges.length) return;
+          const frag = document.createDocumentFragment(); let last = 0;
+          ranges.forEach(([a, b]) => { frag.append(node.nodeValue.slice(last, a)); frag.append(el('mark', 'search-hit', node.nodeValue.slice(a, b))); last = b; });
+          frag.append(node.nodeValue.slice(last)); node.replaceWith(frag);
+        });
+      }
+      function openSearchResult(result, query) {
+        const thread = getThread(result.threadId); if (!thread) return;
+        if (thread.deletedAt != null) return;
+        if (thread.archived && threadView !== 'archived') threadView = 'archived'; else if (!thread.archived && threadView !== 'active') threadView = 'active';
+        selectThread(thread.id);
+        if (result.messageId) {
+          const node = nodeFor(result.messageId);
+          if (node) {
+            followLatest = false;
+            highlightTerms(node.querySelector('.message-body'), searchModule.parseQuery(query));
+            node.scrollIntoView({ block: 'center' }); node.classList.add('flash');
+            window.setTimeout(() => node.classList.remove('flash'), 2500);
+            if (jumpLatestBtn) jumpLatestBtn.hidden = false;
+          }
+        }
+      }
+      threadSearchInput.addEventListener('input', () => { window.clearTimeout(threadSearchInput._t); threadSearchInput._t = window.setTimeout(runSearch, 120); });
+      threadSearchInput.addEventListener('keydown', event => { if (event.key === 'Escape') { threadSearchInput.value = ''; runSearch(); } });
+      document.querySelectorAll('.thread-filter button').forEach(b => b.addEventListener('click', () => { threadView = b.dataset.view; renderThreadList(); }));
 
       /**
        * Given an endpoint (possibly relative) derive the URL for the models
@@ -4273,6 +4742,8 @@ const base64UrlEncode = value => {
        * silently if an endpoint is provided without cached models.
        */
       async function init() {
+        await loadChatModules();
+        updateComposerHint();
         populateEndpointSelect();
         loadModels();
         loadConfig();
@@ -4376,7 +4847,18 @@ const base64UrlEncode = value => {
       messageForm.addEventListener('submit', handleSendMessage);
       messageInput.addEventListener('input', () => {
         updateSendButtonDisabled(getChatState().ready);
+        growComposer();
+        scheduleDraftSave();
       });
+      messageInput.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
+        const wantsSend = enterSends() ? !event.shiftKey && !event.altKey : event.ctrlKey || event.metaKey;
+        if (!wantsSend) return;
+        event.preventDefault();
+        if (!sendBtn.disabled) messageForm.requestSubmit();
+      });
+      window.addEventListener('pagehide', () => { persistDraftNow(); if (gen) flushSave(); });
+      document.addEventListener('visibilitychange', () => { if (document.hidden) { persistDraftNow(); if (gen) flushSave(); } });
       if (messageInputOverlay) {
         messageInputOverlay.addEventListener('click', () => {
           if (!messageInput || !messageInput.disabled) {
