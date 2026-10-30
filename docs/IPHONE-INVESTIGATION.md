@@ -415,3 +415,18 @@ trial; that does not predict the footprint of native inference.
 A read-only USB enumeration found zero currently inspectable tabs at the exact development
 host. Reusing a normal development tab's existing cache is therefore unavailable at this
 check; other projects' pages were neither attached to nor changed.
+
+### Fix operator teardown before further storage-heavy trials
+
+Inspection found that the private bridge's outer `finally` attempted tab cleanup after its
+WebInspector context manager had closed the connection. The new versioned operator controller
+performs cleanup inside that connection, explicitly deletes its own automation session, and
+checks session disappearance. An actual empty-page phone trial confirmed both owned-window
+closure and session removal. Five Python operator checks pass. See the
+[controller receipt](evidence/usb-controller-session-cleanup.json).
+
+WebKit has distinct `closeBrowsingContext`, `deleteSession`, and disconnect paths; see the
+[upstream implementation](https://github.com/WebKit/WebKit/blob/main/Source/WebKit/UIProcess/Automation/WebAutomationSession.cpp).
+The old namespace was still accessible after an earlier corrected close. This is a controller
+cleanup fix, not proof of reclaimed old storage or a fix for native memory kills. The
+controller's loaded-model cleanup path and full phone lifecycle remain to be qualified.

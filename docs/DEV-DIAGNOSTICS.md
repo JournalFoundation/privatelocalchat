@@ -193,3 +193,22 @@ on completion or failure. Timestamps are host receive times. Physical footprint,
 bytes and compressed bytes are distinct accounting views and must not be added. Correlate
 process identity with USB lifecycle logs before attributing a sample to the model page.
 A real-device smoke check produced positive footprint samples and closed the tunnel afterward.
+
+## Owned USB Safari controller
+
+Run `dev-tools/operator-safari-controller.py` in the optional device-tools environment with
+`--usbmux-socket`, `--pairing-cache`, and an `--ipc-directory` under ignored `work/`. It requires
+an already trusted device with Remote Automation enabled. The default start path is the small
+`/404.html` page; use `--start-path /` for the actual application. The controller creates its own
+automation context and accepts local JSON `eval`, `navigate`, `recover`, and `close` commands
+under `commands/`, with corresponding private `results/`. Navigation and execution are restricted
+to the exact development hostname. An exclusive lock prevents duplicate local controllers;
+unfinished commands are retired on startup rather than replayed into a new session.
+
+Runtime is bounded by `--duration-seconds` (maximum 7200). Shutdown attempts cancellation and
+removal of the owned light-model copy, then closes the owned tab, sends explicit session deletion
+and checks that its identifier disappears. This happens before the inspector transport closes.
+Inspect `ready.json` for the resulting cleanup receipt, including errors; do not infer successful
+model removal or disk reclamation from a close command acknowledgement. The empty-page physical
+check confirms window closure and session removal; loaded-model teardown remains unqualified.
+The operator script is never copied into deployed browser artifacts.
