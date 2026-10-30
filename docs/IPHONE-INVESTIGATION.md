@@ -521,3 +521,14 @@ advanced. The current page predates the download timeout fix. Loading, sustained
 cancellation and offline reopening remain unverified on this candidate; do not promote it on
 this evidence alone. The retained older automation storage namespace was accessible through
 instrumentation, but its reclamation or reuse has not been established.
+
+### Production and development release
+
+At the request to serve the latest application on both domains, commit `5fc35bb` deployed to
+both production and development (Actions runs 41081605157 and 41081624775). Production serves
+clean owner-cleanup Wasm SHA-256 `065354247ab2a35b58cdfc909bfcf66367b715bee53a0e72856be89ddc235aaa`;
+development serves the instrumented compiler-control derivative `77d16dd0a2ba93b504ae2c799ed1ae4e3eebefd834dbb74ed9245287abd146af`.
+Both deployed artifacts were read back and verified. The application suite passed 64 tests;
+production diagnostic route returned 404. Earlier statements that production remained unchanged
+were accurate at their time but are superseded by this release. The iPhone gate remains open:
+the real-device trial had not yet completed model download when this release was published.
