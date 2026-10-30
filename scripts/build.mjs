@@ -3,6 +3,14 @@ import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 const root=process.cwd(), out=path.join(root,'dist');
+async function verifyCompilerControl(native,directory){
+ if(!native.compilerControl)return;
+ const selected=native.compilerControl;
+ const receipt=JSON.parse(await readFile(selected.receipt,'utf8'));
+ if(createHash('sha256').update(await readFile(selected.tool)).digest('hex')!==selected.toolSha256)throw new Error('Compiler control tool checksum mismatch');
+ if(receipt.output.sha256!==native.files['compat.wasm'].sha256||receipt.source.sha256!==selected.sourceSha256)throw new Error('Compiler control receipt mismatch');
+ execFileSync(process.execPath,[selected.tool,'verify',path.join(directory,'compat.wasm'),selected.receipt],{stdio:'pipe'});
+}
 await rm(out,{recursive:true,force:true});await mkdir(out,{recursive:true});
 for(const p of ['index.html','local-models.js','local-models.css','conversation-messages.mjs','runtime']) await cp(p,path.join(out,p),{recursive:true});
 const pkg=JSON.parse(await readFile('package.json','utf8'));
@@ -21,18 +29,14 @@ for(const [file,pin] of Object.entries(productionNative.files)){
  const bytes=await readFile(path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q',file));
  if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Production runtime checksum mismatch: '+file);
 }
+await verifyCompilerControl(productionNative,path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q'));
 let html=await readFile(path.join(out,'index.html'),'utf8');
 html=html.replace('<script src="/build-info.js"></script>','<script>window.APP_BUILD='+JSON.stringify(build)+';</script>');
 html=html.replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');
 if(branch==='dev') {
  const debugRuntime=path.join('dev-tools','native-runtime');
  const native=developmentNative;
- if(native.compilerControl){
-  const control=JSON.parse(await readFile(native.compilerControl.receipt,'utf8'));
-  if(createHash('sha256').update(await readFile(native.compilerControl.tool)).digest('hex')!==native.compilerControl.toolSha256)throw new Error('Compiler control tool checksum mismatch');
-  if(control.output.sha256!==native.files['compat.wasm'].sha256||control.source.sha256!==native.compilerControl.sourceSha256)throw new Error('Compiler control receipt mismatch');
-  execFileSync(process.execPath,['ops/native/compiler-control.mjs','verify',path.join(debugRuntime,'compat.wasm'),native.compilerControl.receipt],{stdio:'pipe'});
- }
+ await verifyCompilerControl(native,debugRuntime);
  for(const [file,pin] of Object.entries(native.files)){const bytes=await readFile(path.join(debugRuntime,file));if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Diagnostic runtime checksum mismatch: '+file);await writeFile(path.join(out,releasePath,'runtime/providers/vendor/wllama/v1q',file),bytes);}
  const catalogFile=path.join(out,releasePath,'runtime/providers/catalog.mjs');
  await writeFile(catalogFile,(await readFile(catalogFile,'utf8')).replaceAll(native.catalogBaseBuildId||native.baseBuildId,native.buildId));

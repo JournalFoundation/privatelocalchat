@@ -178,10 +178,11 @@ directory. Development uses a separate instrumented artifact.
 See `docs/evidence/production-queue-candidate.json` for local real-browser checks.
 Those checks do not establish iPhone reliability or a production deployment.
 
-## Clean compiler-control preparation
+## Clean compiler-control qualification candidate
 
 `production-compiler-control.json` records an experimental transform of the independently pinned
-clean production queue artifact. It is **prepared, not selected or deployed**. The native wrapper
+clean production queue artifact. This draft qualification branch selects its transformed Wasm;
+**live main is unchanged and physical qualification remains open**. The native wrapper
 and worker remain the clean production versions, and the changed module reconstructs exactly
 to their 1bf7ed18 baseline. The development transform still reconstructs to its a772105a baseline;
 the tool accepts only these two pinned sources. Both select 51 bodies with unchanged interfaces.
@@ -189,11 +190,18 @@ the tool accepts only these two pinned sources. Both select 51 bodies with uncha
 Reproduce the clean candidate outside served build output:
 
 ```sh
-node ops/native/compiler-control.mjs pad runtime/providers/vendor/wllama/v1q/compat.wasm work/production-compiler-control/compat.wasm
+node ops/native/compiler-control.mjs pad /path/to/pinned-untransformed/compat.wasm work/production-compiler-control/compat.wasm
 node ops/native/compiler-control.mjs verify work/production-compiler-control/compat.wasm ops/native/production-compiler-control.json
 ```
 
-This preparation leaves `production-runtime.json` and shipped native files unchanged. Qualify
-correctness, performance, resource behavior and the physical device gate before deciding whether
-this workaround belongs in a production selection. Promoting source alone currently selects the
-clean untransformed production runtime; do not mistake a dev runtime result for that selection.
+The source hash for that input must be
+`1bf7ed18c5cf0071d5ce2651c952778103c65d75f658b8b9638f2988912ab1b8`.
+The qualification selection is
+`ea9d24143b3c1ba6a0c73213be7dbc7fc57c0472b8e55d6cf7206807ad1fe0fd`.
+Site builds check the tool pin and transformation receipt, reconstruct the baseline, and
+validate interfaces for the production selection as well as the separate dev overlay.
+No development instrumentation is added to the clean worker, wrapper or Wasm.
+
+Keep this branch draft until repeated lifecycle, offline recovery, resource behavior and
+physical-device checks pass. Copy an actually qualified selection into the promotion source;
+do not mistake the dev artifact for the independently pinned clean production artifact.

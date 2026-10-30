@@ -97,8 +97,9 @@ and a bounded randomized-memory probe. See [the physical receipt](evidence/iphon
 Offline recovery and the clean production artifact still require device qualification.
 
 A clean production compiler candidate passed independently attested 7/28/512-token output parity
-with its clean baseline. It is prepared only: the native selection used by production builds
-has not changed, and live main remains at its previous deployment. Qualified runtime mitigation
+with its clean baseline. This draft qualification branch now selects that clean transformed
+artifact and verifies its reconstruction during builds. Live main remains at its previous
+deployment; this is a qualification selection, not production acceptance. Qualified runtime mitigation
 and the exclusion of development machinery must both survive a future source promotion.
 Neither this candidate nor the desktop control checks closes the physical device requirement.
 
