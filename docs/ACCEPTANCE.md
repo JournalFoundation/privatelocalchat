@@ -62,7 +62,7 @@ three automatic retries after 1, 2 and 4 seconds. Verified files remain on disk;
 Cancel interrupts backoff. Permanent HTTP, quota, permission and memory failures
 remain actionable failures. Installer tests simulate a partial failed shard and prove
 that only that shard is fetched again, its checksum passes and progress is accurate.
-Model loading and generation do not automatically retry.
+A saved download request now survives page restarts and retries incomplete inventory after any reported failure until completion or Cancel. It loads the model once when the download completes; the request is cleared before native loading to prevent repeated load crashes on reopen. Native load failures and generation do not automatically retry.
 
 The clean production queue candidate passed local real-browser generation, offline
 generation and whole-browser offline reopening, using the production artifact and

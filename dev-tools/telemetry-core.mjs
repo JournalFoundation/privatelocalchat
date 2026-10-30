@@ -1,6 +1,6 @@
 const SETTINGS='plc.dev.telemetry.v1';
 const LIMIT=2000;
-const allowed=new Set(['model','tier','host','load','busy','phase','state','code','reason','durationMs','characters','chunks','online','visibility','memory','deviceMemoryGB','shaderF16','files','filesDone','filesTotal','bytesDone','bytesTotal','outcome','previousPhase','pageRestart','version','commit','browser','received','saved','lost','quota','usage','loadAttempt','source','line','column','errorName']);
+const allowed=new Set(['model','tier','host','load','busy','phase','state','code','reason','durationMs','characters','chunks','online','visibility','memory','deviceMemoryGB','shaderF16','files','filesDone','filesTotal','bytesDone','bytesTotal','outcome','previousPhase','pageRestart','version','commit','browser','received','saved','lost','quota','usage','loadAttempt','source','line','column','errorName','pending','retryInMs','remembered']);
 function numbers(value,depth=0){if(depth>5)return null;if(typeof value==='number')return Number.isFinite(value)?value:null;if(!value||typeof value!=='object')return undefined;const result={};for(const [k,v]of Object.entries(value)){const n=numbers(v,depth+1);if(n!==undefined)result[k.slice(0,80)]=n;}return result;}
 export function safeData(data={}){
  const result={};for(const [key,value]of Object.entries(data)){

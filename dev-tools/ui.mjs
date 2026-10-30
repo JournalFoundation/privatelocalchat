@@ -36,6 +36,7 @@ export async function startDiagnostics(){
  document.addEventListener('visibilitychange',()=>record('visibility',{visibility:document.visibilityState}));
  window.addEventListener('error',event=>{let source='';try{source=new URL(event.filename).pathname;}catch{}record('page-error',{errorName:event.error?.name||'Error',source,line:event.lineno,column:event.colno});});
  window.addEventListener('unhandledrejection',event=>record('page-error',{errorName:event.reason?.name||'Error',code:event.reason?.code||'unhandled-rejection'}));
+ window.addEventListener('download-recovery',event=>record('download-recovery',event.detail));
  await record('page-start',{online:navigator.onLine,browser:navigator.userAgent,pageRestart:true});
  function checkpoints(recovered=false){
   if(!t.config.enabled||!t.config.disk)return Promise.resolve();
@@ -80,6 +81,7 @@ export async function startDiagnostics(){
   catch(e){await record(e.name==='AbortError'?'generation-cancelled':'generation-failed',{code:e.code||e.name,phase:e.phase,reason:e.reason,durationMs:Math.round(performance.now()-started)});throw e;}
   finally{generating=false;sample();}
  };
+ window.__plcDiagnosticsStarted?.();
  setInterval(async()=>{
   if(!t.config.enabled)return;const s=host.getState(),now=Date.now(),active=Boolean(s.busy)||generating;
   if(now-lastHeartbeat>=(active?250:1000)){lastHeartbeat=now;await record('heartbeat',{host:s.host.state,load:s.load.state,busy:s.busy,phase:generating?'generate':s.busy,online:navigator.onLine,visibility:document.visibilityState,memory:performance.memory?{jsHeapUsed:performance.memory.usedJSHeapSize,jsHeapTotal:performance.memory.totalJSHeapSize}:undefined});}

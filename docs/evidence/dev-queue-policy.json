@@ -247,7 +247,7 @@
     "Desktop results do not establish iPhone survival.",
     "The change preserves the existing output limit and does not add segmentation or substitute a model."
   ],
-  "iphoneRetest": "pending",
+  "iphoneRetest": "FAILED: first longer generation restarted the page on iPhone 15 Pro; queue bound and graph-end drainage were active.",
   "cancellation": {
     "abort": "AbortError",
     "partialCharacters": 4,
@@ -271,5 +271,19 @@
       "queueWaitMicroseconds": 566825,
       "queueWaits": 224
     }
+  },
+  "iphoneFailure": {
+    "commit": "b5e747e995c6f87123b4f33ac0fe16c6c9b95803",
+    "lastProgressAt": "2026-10-30T00:41:55.439Z",
+    "pageRestartAt": "2026-10-30T00:41:56.348Z",
+    "characters": 396,
+    "chunks": 94,
+    "lastQueueCheckpoint": {
+      "graphEvaluations": 96,
+      "submitted": 2114,
+      "completed": 2114,
+      "highWater": 2
+    },
+    "cause": "Unresolved. These counters are not physical memory or an OS termination report."
   }
 }
