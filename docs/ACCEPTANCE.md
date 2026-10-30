@@ -3,6 +3,9 @@
 The migration remains **in progress** because the real iPhone path has an unresolved abrupt
 page restart. Hosting and desktop inference are verified; they do not close the device gate.
 
+The [living iPhone investigation plan](IPHONE-INVESTIGATION.md) tracks the current evidence,
+prioritized experiments, and decisions. Its laboratory compiler controls do not close this device gate.
+
 | Requirement | Current evidence | Result |
 | --- | --- | --- |
 | 1. Cloudflare production, canonical redirects, GitHub Pages disabled | `evidence/hosting-and-releases.json`; canonical 2B browser test blocked homelab requests and completed offline generation/reopen | Passed |
