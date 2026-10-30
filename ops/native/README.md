@@ -115,6 +115,8 @@ and requires its full hash to match the baseline. It also checks Wasm validity
 and unchanged imports/exports. This verifies that data, exports, and unrelated
 code were preserved. The script derives from the upstream MIT-licensed compiler
 reproduction; its license and attribution are retained beside it.
+Function indices remain stable, but code offsets change; baseline offset-based
+source maps must not be treated as accurate for the transformed artifact.
 
 The native rebuild script applies the same transform after compiling the baseline
 when the manifest selects this control, and rejects a different output hash. Site
@@ -146,6 +148,9 @@ it does not emulate iOS. Both graph profiles explicitly disable flash attention
 to exercise the phone's non-flash path. `PLC_LIVE=1` uses the deployed site;
 otherwise the tool serves `dist/` through Playwright routes on the dev origin.
 Raw results default to ignored `work/evidence/`; `PLC_QA_OUTPUT` can change that.
+Published parity uses the previously qualified local baseline receipt, selected
+by `PLC_BASELINE_RECEIPT` or `work/evidence/compiler-candidate-parity.json`. It
+refuses a missing baseline and compares live output to that independent record.
 
 ## Production native runtime
 

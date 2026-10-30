@@ -3,9 +3,33 @@
   "experiment": "E01",
   "status": "Initial independent qualification passed; physical iPhone comparison remains open.",
   "deployment": {
-    "state": "qualified-not-yet-deployed",
+    "state": "deployed-to-development",
     "branch": "dev",
-    "site": "https://dev.privatelocal.chat"
+    "site": "https://dev.privatelocal.chat",
+    "commit": "eb8a16d6b1cb24efb9c4a8b73e5e156c3140d4a3",
+    "workflow": "https://github.com/JournalFoundation/privatelocalchat/actions/runs/41012496116",
+    "workflowConclusion": "success",
+    "verifiedRuntimeFiles": [
+      {
+        "name": "compat.wasm",
+        "bytes": 20671361,
+        "sha256": "dbaf064fbeefcae1ab86322a9e52b2fc0de2e52e1f9e00cf72a787ed1f1142fc"
+      },
+      {
+        "name": "compat-worker.js",
+        "bytes": 170551,
+        "sha256": "a7322bc937acb8544b2ea9efb6468df56ba84e492fd53b63380ab8e3d1c35606"
+      },
+      {
+        "name": "wllama.js",
+        "bytes": 414504,
+        "sha256": "5eafd996c2acf17a5e8a945c043440d37785f58ef78611fa3b30632d00ddfe9f"
+      }
+    ],
+    "production": {
+      "commit": "4d74acdc856b02212cd2a3afa18aa245bcaae189",
+      "compilerMetadataAbsent": true
+    }
   },
   "nativeIdentity": {
     "buildId": "privatelocalchat-queue-20261029-v2",
@@ -412,5 +436,32 @@
       "sha256": "5f059d6adf60c63c9b159c33ce429346fa9b97a735dc8cc71cd3f062b0dc1b7b"
     }
   ],
-  "next": "Deploy the qualified dev candidate, verify published bytes and startup provenance, then perform E02 on the actual iPhone. No production promotion."
+  "next": "E02 on the actual iPhone. Candidate is live and independently checked; production promotion and iPhone qualification remain open.",
+  "publishedBrowserCheck": {
+    "completed": true,
+    "nativeCompletionTokens": [
+      7,
+      28,
+      512
+    ],
+    "textMatchesIndependentBaseline": true,
+    "pageErrors": [],
+    "wasmSha256": "dbaf064fbeefcae1ab86322a9e52b2fc0de2e52e1f9e00cf72a787ed1f1142fc",
+    "source": "work/evidence/compiler-candidate-published-parity.json",
+    "sha256": "88ab560cea04d06ff1780fd34d49032ff302ac41a3ff92654cde7f21d9abe7c3",
+    "independentBaselineEnforcedByHelper": true,
+    "assetWarnings": []
+  },
+  "receiverProvenance": {
+    "type": "diagnostics-configured",
+    "at": "2026-10-30T06:11:48.413Z",
+    "commit": "eb8a16d6b1cb24efb9c4a8b73e5e156c3140d4a3",
+    "runtimeVariant": "privatelocalchat-compiler-control-20261030-v1",
+    "runtimeSha256": "dbaf064fbeefcae1ab86322a9e52b2fc0de2e52e1f9e00cf72a787ed1f1142fc",
+    "nativeBuildId": "privatelocalchat-queue-20261029-v2"
+  },
+  "phoneTrial": {
+    "status": "awaiting physical candidate session",
+    "instructions": "Reload once, keep diagnostics configured, load cached model once, send three short messages then a long Gettysburg response, hold 30 seconds and stop at first unexpected restart."
+  }
 }

@@ -13,9 +13,11 @@ const profile=process.env.PLC_QA_PROFILE;
 if(!profile)throw Error('Set PLC_QA_PROFILE to an owned Chromium profile with the verified 2B model already installed');
 const baselineFile=process.env.PLC_BASELINE_WASM||'work/compiler-baseline/compat.wasm';
 const mode=process.env.PLC_QA_MODE||'parity',live=process.env.PLC_LIVE==='1';
+const comparisonBaseline=live&&mode==='parity'?JSON.parse(await readFile(process.env.PLC_BASELINE_RECEIPT||'work/evidence/compiler-candidate-parity.json','utf8')).records.find(r=>r.arm==='baseline'&&r.wasmSha256===baselineHash):null;
+if(live&&mode==='parity'&&!comparisonBaseline)throw Error('Published parity requires a separately qualified baseline receipt');
 if(!['parity','endurance','phone-profile'].includes(mode))throw Error('Unknown PLC_QA_MODE');
 const output=process.env.PLC_QA_OUTPUT||'work/evidence/compiler-candidate-'+(live?'published-':'')+mode+'.json';
-const records=[],errors=[];
+const records=[],errors=[],assetWarnings=[];
 const digest=b=>createHash('sha256').update(b).digest('hex');
 const prompts=mode==='parity'?[
  'Reply with one short sentence: what is two plus three?',
@@ -33,11 +35,12 @@ const prompts=mode==='parity'?[
  'What is ten minus one? Reply briefly.',
  'Reply with one word: ready.'
 ];
-const save=()=>writeFile(output,JSON.stringify({mode,live,records,errors},null,2));
+const save=()=>writeFile(output,JSON.stringify({mode,live,records,errors,assetWarnings},null,2));
 for(const arm of live?['candidate']:mode==='parity'?['baseline','candidate']:['candidate']){
  let observedHash=null;const config=mode==='phone-profile'?{n_gpu_layers:0,flash_attn_policy:0}:{n_gpu_layers:-1,flash_attn_policy:0};
  const c=await chromium.launchPersistentContext(profile,{headless:true,serviceWorkers:'block',executablePath:process.env.PLC_QA_BROWSER||chromium.executablePath(),env:{...process.env,MESA_VK_DEVICE_SELECT:process.env.PLC_QA_GPU||process.env.MESA_VK_DEVICE_SELECT||''},args:['--no-sandbox','--ignore-gpu-blocklist','--enable-unsafe-webgpu','--enable-features=Vulkan','--use-angle=vulkan','--disable-vulkan-surface','--enable-dawn-features=vulkan_enable_f16_on_nvidia']});
  const p=await c.newPage();p.setDefaultTimeout(120000);
+ c.on('response',response=>{const url=new URL(response.url());if(response.status()>=400&&url.origin==='https://dev.privatelocal.chat'&&!url.pathname.startsWith('/api/debug/'))assetWarnings.push({path:url.pathname,status:response.status()});});
  p.on('pageerror',e=>errors.push(e.message));
  p.on('console',m=>{if(m.type()==='error')console.log('BROWSER ERROR',m.text().slice(0,300));});
  if(!live)await c.route(url=>url.origin==='https://dev.privatelocal.chat',async route=>{
@@ -85,9 +88,10 @@ for(const arm of live?['candidate']:mode==='parity'?['baseline','candidate']:['c
    await save();
   }
   if(mode==='parity'){
+   const baselineRecord=live?comparisonBaseline:records[0];
    if(arm==='candidate')for(let i=0;i<r.turns.length;i++){
-    if(r.turns[i].text!==records[0].turns[i].text)throw Error('Baseline text differs on turn '+(i+1));
-    if(r.turns[i].diagnostics.usage.completionTokens!==records[0].turns[i].diagnostics.usage.completionTokens)throw Error('Native usage differs');
+    if(r.turns[i].text!==baselineRecord.turns[i].text)throw Error('Baseline text differs on turn '+(i+1));
+    if(r.turns[i].diagnostics.usage.completionTokens!==baselineRecord.turns[i].diagnostics.usage.completionTokens)throw Error('Native usage differs');
    }
   }else{
    if(!r.turns.some(t=>t.diagnostics?.usage?.completionTokens===512))throw Error('No actual 512-token completion');
