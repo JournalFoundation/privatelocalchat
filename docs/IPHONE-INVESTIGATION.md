@@ -353,3 +353,24 @@ restarting shared iPhone Safari because the user has another agent observing a d
 project there; a restart is a proposed reclamation attempt, not proven cleanup. Clear the
 new empty session's own caches before closing it and prevent another model copy until the
 retained test data is reclaimed. Do not ask the user to clear unrelated personal data.
+
+### Clean production-mode qualification preview
+
+The draft release branch reconciles current development changes and selects the independent
+clean transformed Wasm `ea9d24143b3c1ba6a0c73213be7dbc7fc57c0472b8e55d6cf7206807ad1fe0fd`.
+Its worker and wrapper remain clean; builds verify the transform and reconstructed 1bf7ed18
+baseline. The artifact passed real desktop online generation, a 512-token reply after page
+reload, offline generation, and loading/generation after whole-browser offline reopening.
+Native cleanup acknowledged in all three cycles.
+
+The Cloudflare preview at `https://cb3639ba.privatelocalchat.pages.dev` serves commit `e3f9520`
+in production mode. Its native files match all three pins; diagnostics routes/modules return
+404 and the service worker excludes the network-denial harness. The Cloudflare canonical
+deployment pointer and public production version remain at `4d74acd`. See the preview and
+selected-production lifecycle receipts. A fresh deployed browser/CDN inference test is running
+separately; the physical iPhone lifecycle, offline and margin gates remain open.
+
+The dev cleanup candidate also passed three load/generate/unload cycles with page reload
+after each cycle and verified reuse of the 1,202,488,640-byte model cache. See
+[evidence/native-cleanup-page-reopen.json](evidence/native-cleanup-page-reopen.json). These are
+desktop observations; the harness did not attest renderer OS process identity.
