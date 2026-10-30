@@ -49,3 +49,13 @@ test('receiver policy changes require administrator auth and preserve unrelated 
  const policy=await(await receiver.fetch(new Request(base+'/api/debug/'+id),env)).json();assert.deepEqual(policy,{format:'plc-dev-policy/1',captureContent:true,remoteControl:false,commands:[]});
  assert.equal((await receiver.fetch(new Request(base+'/api/debug/'+id,{headers:{Origin:'https://elsewhere.example'}}),env)).status,403);
 });
+
+test('a stalled browser database cannot block streaming from the memory fallback',async()=>{
+ const {DiskJournal}=await import('../dev-tools/telemetry-core.mjs');let opens=0,closed=0;const pending=[];
+ const store=new DiskJournal({timeoutMs:10,retryMs:30000,factory:{open(...args){assert.equal(args.length,1);opens++;const req={};pending.push(req);return req;}}});
+ let uploaded=0;const values=new Map();const settings={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
+ const t=new Telemetry({store,settings,fetchImpl:async(url,opt)=>{uploaded+=JSON.parse(opt.body).events.length;return {ok:true,json:async()=>({accepted:JSON.parse(opt.body).events.length})};}});
+ t.configure({url:'https://receiver.example/session',disk:true});await t.record('page-start');await t.flush();while(t.sending)await new Promise(r=>setImmediate(r));assert.equal(uploaded,1);assert.equal(t.memory.length,0);assert.equal(opens,1);
+ pending[0].result={close(){closed++;}};pending[0].onsuccess();assert.equal(closed,1);
+ await t.record('heartbeat');await t.flush();while(t.sending)await new Promise(r=>setImmediate(r));assert.equal(uploaded,2);assert.equal(opens,1);
+});

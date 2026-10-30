@@ -12,12 +12,39 @@ export function safeData(data={}){
   else if(typeof value==='string')result[key]=value.slice(0,180);
  }return result;
 }
-function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open('plc-dev-telemetry',2);req.onupgradeneeded=()=>{const s=req.result.objectStoreNames.contains('events')?req.transaction.objectStore('events'):req.result.createObjectStore('events',{keyPath:'id'});if(!s.indexNames.contains('at'))s.createIndex('at','at');if(!s.indexNames.contains('retention')){s.createIndex('retention',['retention','at']);const cursor=s.openCursor();cursor.onsuccess=()=>{const c=cursor.result;if(c){c.update({...c.value,retention:0});c.continue();}};}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);req.onblocked=()=>reject(new Error('Diagnostic database upgrade is blocked by another page'));});}
+function openDB({factory=globalThis.indexedDB,timeoutMs=2500}={}){
+ return new Promise((resolve,reject)=>{
+  let settled=false;const timer=setTimeout(()=>finish(new Error('Diagnostic database open timed out')),timeoutMs);
+  const finish=(error,db)=>{if(settled){db?.close();return;}settled=true;clearTimeout(timer);error?reject(error):resolve(db);};
+  let req;try{req=factory.open('plc-dev-telemetry');}catch(e){finish(e);return;}
+  req.onupgradeneeded=()=>{if(settled){req.transaction.abort();return;}const s=req.result.createObjectStore('events',{keyPath:'id'});s.createIndex('at','at');s.createIndex('retention',['retention','at']);};
+  req.onsuccess=()=>finish(null,req.result);req.onerror=()=>finish(req.error);req.onblocked=()=>finish(new Error('Diagnostic database is blocked by another page'));
+ });
+}
 export class DiskJournal{
- constructor({limit=LIMIT}={}){this.limit=limit;}
- async transaction(mode,fn){const db=await openDB();try{return await new Promise((resolve,reject)=>{const tx=db.transaction('events',mode),store=tx.objectStore('events');let value;fn(store,v=>{value=v;});tx.oncomplete=()=>resolve(value);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Diagnostic storage aborted'));});}finally{db.close();}}
- async add(event){return this.transaction('readwrite',(store,set)=>{store.put({...event,retention:event.type==='conversation-object'?1:0});const count=store.count();count.onsuccess=()=>{let extra=count.result-this.limit,contentLost=0;if(extra<=0){set({contentLost});return;}const cursor=store.index('retention').openCursor();cursor.onsuccess=()=>{const c=cursor.result;if(c&&extra-->0){if(c.value.type==='conversation-object')contentLost++;c.delete();if(extra>0)c.continue();else set({contentLost});}else set({contentLost});};};});}
- async list(limit=100,{includeContent=true}={}){return this.transaction('readonly',(store,set)=>{const r=includeContent?store.index('at').getAll(null,limit):store.index('retention').getAll(IDBKeyRange.bound([0,''],[0,'\uffff']),limit);r.onsuccess=()=>set(r.result);});}
+ constructor({limit=LIMIT,factory=globalThis.indexedDB,timeoutMs=2500,retryMs=30000}={}){Object.assign(this,{limit,factory,timeoutMs,retryMs});this.unavailableUntil=0;}
+ async transaction(mode,fn){
+  if(Date.now()<this.unavailableUntil)throw new Error('Diagnostic storage is waiting to recover');
+  let db;
+  try{db=await openDB(this);return await new Promise((resolve,reject)=>{
+   const tx=db.transaction('events',mode),store=tx.objectStore('events');let value,settled=false;
+   const timer=setTimeout(()=>{try{tx.abort();}catch{}finish(new Error('Diagnostic storage transaction timed out'));},this.timeoutMs);
+   const finish=error=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve(value);};
+   tx.oncomplete=()=>finish();tx.onerror=()=>finish(tx.error);tx.onabort=()=>finish(tx.error||new Error('Diagnostic storage aborted'));
+   try{fn(store,v=>{value=v;});}catch(e){try{tx.abort();}catch{}finish(e);}
+  });}catch(e){this.unavailableUntil=Date.now()+this.retryMs;throw e;}finally{db?.close();}
+ }
+ async add(event){return this.transaction('readwrite',(store,set)=>{
+  store.put({...event,retention:event.type==='conversation-object'?1:0});const count=store.count();
+  count.onsuccess=()=>{let extra=count.result-this.limit,contentLost=0;if(extra<=0){set({contentLost});return;}
+   if(store.indexNames.contains('retention')){const cursor=store.index('retention').openCursor();cursor.onsuccess=()=>{const c=cursor.result;if(c&&extra-->0){if(c.value.type==='conversation-object')contentLost++;c.delete();if(extra>0)c.continue();else set({contentLost});}else set({contentLost});};}
+   else{const all=store.getAll();all.onsuccess=()=>{const sorted=all.result.sort((a,b)=>(a.type==='conversation-object')-(b.type==='conversation-object')||a.at.localeCompare(b.at));for(const old of sorted.slice(0,extra)){if(old.type==='conversation-object')contentLost++;store.delete(old.id);}set({contentLost});};}
+  };
+ });}
+ async list(limit=100,{includeContent=true}={}){return this.transaction('readonly',(store,set)=>{
+  const indexed=!includeContent&&store.indexNames.contains('retention');const r=indexed?store.index('retention').getAll(IDBKeyRange.bound([0,''],[0,'\uffff']),limit):store.index('at').getAll(null,includeContent?limit:this.limit);
+  r.onsuccess=()=>set(r.result.filter(e=>includeContent||e.type!=='conversation-object').slice(0,limit));
+ });}
  async remove(ids){return this.transaction('readwrite',store=>ids.forEach(id=>store.delete(id)));}
  async clear(){return this.transaction('readwrite',store=>store.clear());}
  async count(){return this.transaction('readonly',(store,set)=>{const r=store.count();r.onsuccess=()=>set(r.result);});}
@@ -60,13 +87,13 @@ export class Telemetry{
   this.sending=true;
   try{
    for(;;){
-    const disk=await this.store.list(50,{includeContent:this.config.captureContent});const events=[...disk,...this.memory].filter(e=>this.config.captureContent||e.type!=='conversation-object').slice(0,50);if(!events.length)break;
+    const disk=await this.store.list(50,{includeContent:this.config.captureContent}).catch(()=>[]);const events=[...disk,...this.memory].filter(e=>this.config.captureContent||e.type!=='conversation-object').slice(0,50);if(!events.length)break;
     const id=events[0].id+'_'+events.at(-1).id;
     const controller=this.controller=new AbortController();const timer=setTimeout(()=>controller.abort(),10000);
     let response;try{response=await this.fetch(this.config.url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',body:JSON.stringify({format:'plc-dev-telemetry/1',id,events}),signal:controller.signal});}finally{clearTimeout(timer);}
     if(!response.ok)throw new Error('Receiver HTTP '+response.status);
     const ack=await response.json();if(ack.accepted!==events.length)throw new Error('Receiver did not acknowledge the complete batch');
-    const ids=new Set(events.map(e=>e.id));await this.store.remove([...ids]);this.memory=this.memory.filter(e=>!ids.has(e.id));this.onStatus('Uploaded '+events.length+' diagnostic events.');
+    const ids=new Set(events.map(e=>e.id));await this.store.remove([...ids]).catch(()=>{});this.memory=this.memory.filter(e=>!ids.has(e.id));this.onStatus('Uploaded '+events.length+' diagnostic events.');
     if(!this.config.url||(!this.config.enabled&&!force))break;
    }
   }catch(error){this.onStatus('Upload pending: '+error.message+'. Saved events will be retried when online.');}

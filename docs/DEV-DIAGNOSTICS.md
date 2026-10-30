@@ -132,3 +132,9 @@ Read raw events into ignored `work/` files, then run
 `node dev-tools/decode-conversations.mjs INPUT OUTPUT` to reconstruct private objects. Keep
 receiver URLs, raw prompts/replies, command files and device identifiers out of Git. Public
 evidence contains only build identities, counts, timings, checks and limitations.
+
+Diagnostic storage opens and transactions have bounded deadlines. If IndexedDB stalls, the
+channel continues with a bounded memory queue and reports that local saving is unavailable.
+It periodically retries storage. This fallback cannot survive page loss while offline. Existing
+version-1 journals are read without forcing a schema upgrade; retention also works without the
+new optional index. A late database open is closed, preventing leaked connections after timeout.

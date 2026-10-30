@@ -49,3 +49,18 @@ Use a dedicated browser profile with diagnostics disabled for the acceptance har
 It creates a test conversation, generates online and offline, closes the whole browser,
 and reopens the same profile offline to load the model and generate again. Model files
 remain cached. Receipts and screenshots are written under `work/evidence/`.
+
+## Local test storage
+
+Check free space before model downloads, native rebuilds or new browser profiles on Centroid,
+Boiler and Brutus. Reserve at least 20 GiB on a system disk; defer large work if it would cross
+that reserve. Brutus had only about 15 GiB free at the October 30 check and should receive no
+large project artifacts. This is a project operating reserve, not a guarantee about other jobs.
+
+Use Centroid's 2 TB Vivarium volume for active model/browser test data. Move inactive build
+sources, toolchains and browser profiles to Atelier bulk storage and preserve their original
+paths with symlinks. The October 30 archive is under
+`/media/Atelier/privatelocalchat-archive/2026-10-30/`; the private relocation receipt is under
+ignored `work/evidence/`. Preserve native provenance and diagnostic evidence. Remove redundant
+installation archives after verifying the installed browser. Do not clean shared browser caches,
+other projects' profiles, user Downloads or active test directories indiscriminately.
