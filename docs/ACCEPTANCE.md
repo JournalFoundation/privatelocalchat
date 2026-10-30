@@ -108,3 +108,12 @@ reply, but the same Safari process hit its fatal 2 GB limit during a subsequent 
 See [the lifecycle failure](evidence/iphone-current-build-reload-limit.json). The retained pass
 is preserved as evidence, not treated as release qualification. Bounded native cleanup is
 the next control; production remains unchanged.
+
+The clean selected compiler candidate on the draft qualification branch passed real desktop
+online generation, a retained 512-token reply, page reload plus another 512-token reply,
+offline generation, and whole-browser offline reopen followed by loading and generation.
+Native cleanup acknowledged in all three cycles. See [the artifact receipt](evidence/selected-production-lifecycle-offline.json).
+A production-mode Cloudflare preview serves the independently verified clean native pins and
+returns 404 for diagnostic endpoints/modules; its service worker excludes the network-fault
+harness. See [the deployed preview receipt](evidence/clean-production-preview.json). Canonical
+production remains on its earlier commit. These checks do not close the physical iPhone gate.
