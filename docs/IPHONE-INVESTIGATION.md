@@ -187,3 +187,24 @@ See [the Safari receipt](evidence/dev-safari-two-way-control.json). This is real
 evidence, not physical iPhone acceptance. Separately, 51 content frames survived an actual
 desktop browser close/reopen offline, stayed queued after an invalid acknowledgement and
 drained after a valid acknowledgement with exact object reconstruction.
+
+### Physical storage finding and correction
+
+The fresh writer still encountered failures. A bounded USB system-log capture then recorded
+APFS ENOSPC (errno 28) for WebKit.Networking and other iOS services. A tiny independent OPFS
+probe returned the generic UnknownError text suggesting an unknown reason, for example memory;
+that JavaScript wording did not reveal the actual no-space failure. Preserve reason-agnostic
+retry and cleanup rather than inferring the cause from that message.
+
+**Correction:** the earlier 76.5 GB `TotalDataAvailable` reading was not usable immediate
+headroom. After removing this isolated automation session’s 564,402,176 model bytes, the device
+reported only 505,454,592 bytes in `AmountDataAvailable`. Its normal browser chats/model files
+were not touched. The test download intent was cancelled and zero model bytes remained in the
+isolated session. Ask for at least 3 GB of real headroom before another model download.
+The [storage receipt](evidence/iphone-usb-storage-failure.json) records this finding and scope.
+This explains the observed write failures, not all previous generation-time restarts.
+
+E03 has live Chromium and normal macOS Safari command/full-stream proof. Physical iPhone
+commands, receiver configuration, downloads and load-failure capture were exercised unattended,
+but remote physical generation and durable offline qualification remain open. Production stays
+at its previously deployed commit; do not promote this work based on desktop success.
