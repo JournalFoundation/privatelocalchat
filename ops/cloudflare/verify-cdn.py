@@ -45,12 +45,19 @@ for file in samples:
 
 for key in ['params_shard_0.bin', '-00001-of-00013.gguf']:
     file = next(file for file in manifest['files'] if file['path'].endswith(key))
-    status, headers, body = request(file['url'], '0-63')
+    for attempt in range(5):
+        status, headers, body = request(file['url'], '0-63')
+        if headers.get('cf-cache-status') == 'HIT':
+            break
+        time.sleep(1)
     assert status == 206 and len(body) == 64
+    assert headers.get('cache-control') == 'no-store'
+    assert headers.get('cf-cache-status') == 'HIT', headers
     assert headers.get('content-range') == 'bytes 0-63/' + str(file['bytes'])
     assert headers.get('access-control-allow-origin') == '*'
     assert 'Content-Range' in headers.get('access-control-expose-headers', '')
-    checks.append({'url': file['url'], 'status': status, 'range': headers['content-range'], 'cors': True})
+    checks.append({'url': file['url'], 'status': status, 'range': headers['content-range'],
+                   'cors': True, 'cacheControl': headers['cache-control'], 'cacheStatus': 'HIT'})
 
 cached = samples[0]['url']
 for attempt in range(5):

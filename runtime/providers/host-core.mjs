@@ -183,6 +183,9 @@ export function createHost({ adapters, storage = {}, providerId = "provider", li
     let index = 0; let finishReason = null;
     try {
       const onPart = (part) => {
+        /* DEV_DIAGNOSTICS_START */
+        if(part.diagnostic){emit(attempt,'debug-object',part.diagnostic);return;}
+        /* DEV_DIAGNOSTICS_END */
         if (attempt.controller.signal.aborted) return;
         if (part.delta) {
           const t = now();
@@ -271,7 +274,7 @@ export function createHost({ adapters, storage = {}, providerId = "provider", li
     setState("unloading");
     for (const a of [...queue]) abortAttempt(a.attemptId, { by: "supervisor", reason: "provider-unload" });
     if (running) abortAttempt(running.attemptId, { by: "supervisor", reason: "provider-unload" });
-    try { await adapter?.unload(); adapter = null; loadedInfo = null; loadedConfig = null; setState("unloaded"); send(port, { id, type: "result", value: { unloaded: true } }); }
+    try { const cleanup=await adapter?.unload(); adapter = null; loadedInfo = null; loadedConfig = null; setState("unloaded"); send(port, { id, type: "result", value: { unloaded: true, ...(cleanup?{cleanup}:{}) } }); }
     catch (err) { setState("faulted", { phase: "unload", message: String(err?.message || err) }); send(port, { id, type: "error", error: { ...serializeError(err), class: "runtime-fault" } }); }
   }
 

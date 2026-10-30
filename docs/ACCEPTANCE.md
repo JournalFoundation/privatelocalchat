@@ -1,7 +1,12 @@
 # Release acceptance
 
-The migration remains **in progress** because the real iPhone path has an unresolved abrupt
-page restart. Hosting and desktop inference are verified; they do not close the device gate.
+The migration remains **in progress** because iPhone release qualification is incomplete.
+A full-GPU development control survived retained long replies but failed a later page/model cycle. Offline recovery and
+qualification of the clean production artifact remain open. Hosting and desktop inference
+are verified; they do not close the device gate.
+
+The [living iPhone investigation plan](IPHONE-INVESTIGATION.md) tracks the current evidence,
+prioritized experiments, and decisions. Its laboratory compiler controls do not close this device gate.
 
 | Requirement | Current evidence | Result |
 | --- | --- | --- |
@@ -49,3 +54,73 @@ including offline reopening, pass on this device without the unresolved restart.
 that selecting a new conversation updates the saved selection, and that a real model can reply
 with a legacy internal error notice preserved in the visible transcript. Internal notices are
 excluded from model/API context; original saved messages are retained.
+
+The dev light-model profile now separates logical batch 128 from microbatch 32 while
+keeping the full 4096-token context. The real-GPU comparison in
+[evidence/iphone-resource-profile.json](evidence/iphone-resource-profile.json) exercises
+the non-flash-attention graph selected by the phone: compute reservation falls from
+94.01 MiB to 5.88 MiB and three retained turns pass. This is a resource reduction;
+iPhone startup and second-turn restart acceptance remains open until device verification.
+
+Downloads have two recovery layers. Each installer attempt retries transient failures
+per file after 1, 2 and 4 seconds and retains verified files. A saved download request
+then retries any reported incomplete attempt, including quota or unrecognized errors,
+with a delay capped at 60 seconds until inventory is complete or the user cancels.
+The request survives page restarts; it resumes when the page reopens. Completed cached
+inventory can load while offline. A closed browser cannot continue downloading.
+
+Completion automatically loads the model once. The request is cleared before native
+loading so a load crash cannot trigger repeated reconstruction on reopen. Native load
+failures and generation do not automatically retry. Cancel remains available during
+recovery waits. Unit checks cover unknown failures, storage exhaustion, cross-page
+cancellation, reload recovery and lost completion acknowledgements. See
+[the download recovery receipt](evidence/download-recovery.json).
+
+The clean production queue candidate passed local real-browser generation, offline
+generation and whole-browser offline reopening, using the production artifact and
+pinned native bytes. See [the candidate receipt](evidence/production-queue-candidate.json).
+The service-worker status probe now retains the active channel and ignores stale
+controller replies; registration starts before model initialization. iPhone validation
+and production promotion remain pending.
+
+## Latest investigation status
+
+The compiler-control phone trial completed a 211-native-token reply without an observed restart,
+but this was not a matched-prompt comparison or a complete device gate. Development now has
+full request/chunk/result capture and bounded two-way controls, including remote download and
+cancellation. A live normal Mac Safari session completed 512 native tokens with exact stream
+reconstruction. Later USB phone trials encountered real APFS ENOSPC; temporary test models
+were removed and the user cleared storage. A subsequent complete download reached native
+construction but hit the kernel's explicit 2 GB per-process limit. A separate full-GPU control
+completed 12 replies including three 512-token responses, a streamed cancellation and recovery,
+and a bounded randomized-memory probe. See [the physical receipt](evidence/iphone-full-gpu-retained.json).
+Offline recovery and the clean production artifact still require device qualification.
+
+A clean production compiler candidate passed independently attested 7/28/512-token output parity
+with its clean baseline. This draft qualification branch now selects that clean transformed
+artifact and verifies its reconstruction during builds. Live main remains at its previous
+deployment; this is a qualification selection, not production acceptance. Qualified runtime mitigation
+and the exclusion of development machinery must both survive a future source promotion.
+Neither this candidate nor the desktop control checks closes the physical device requirement.
+
+A fresh page on `436f001` verified the entire cached model and completed loading and a short
+reply, but the same Safari process hit its fatal 2 GB limit during a subsequent prompt.
+See [the lifecycle failure](evidence/iphone-current-build-reload-limit.json). The retained pass
+is preserved as evidence, not treated as release qualification. Bounded native cleanup is
+the next control; production remains unchanged.
+
+The clean selected compiler candidate on the draft qualification branch passed real desktop
+online generation, a retained 512-token reply, page reload plus another 512-token reply,
+offline generation, and whole-browser offline reopen followed by loading and generation.
+Native cleanup acknowledged in all three cycles. See [the artifact receipt](evidence/selected-production-lifecycle-offline.json).
+A production-mode Cloudflare preview serves the independently verified clean native pins and
+returns 404 for diagnostic endpoints/modules; its service worker excludes the network-fault
+harness. See [the deployed preview receipt](evidence/clean-production-preview.json). Canonical
+production remains on its earlier commit. These checks do not close the physical iPhone gate.
+
+Normal Mac Safari passed three 512-token reload cycles with exact stream reconstruction
+and acknowledged native cleanup; its model files were then removed. A fresh deployed
+preview install later completed short and 512-token replies and verified model removal,
+but an earlier cold-load failure remains unexplained, and the corrected observer recorded
+aborted weight requests. These limited observations are preserved in the living investigation
+and do not establish complete deployed or physical-device reliability.

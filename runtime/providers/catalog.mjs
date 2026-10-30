@@ -115,9 +115,11 @@ export function loadConfigFor(tier, { sources = OFFICIAL_SOURCES, runtimeDir = n
   const files = tierFiles("light", sources);
   return {
     adapter: "wllama", tier, modelId: t.modelId, modelUrl: files[0].url, quantization: t.quantization, license: t.license, files,
-    runtime: { dir: runtimeDir, buildId: "retained-v1q-chat-stable-slim-20260901", cls: "compat" },
+    runtime: { dir: runtimeDir, buildId: "privatelocalchat-queue-production-20261029-v1", cls: "compat" },
     context: {
-      n_ctx: t.contextWindowTokens, n_batch: 512, n_ubatch: 512, flash_attn_policy: -1, fused_gdn_auto: true, fused_gdn_ar: true, fused_gdn_ch: true,
+      // Keep the full conversation window; bound temporary prefill graphs separately.
+      // The non-flash-attention path used on iPhone otherwise reserves ~94 MiB at 512.
+      n_ctx: t.contextWindowTokens, n_batch: 128, n_ubatch: 32, flash_attn_policy: -1, fused_gdn_auto: true, fused_gdn_ar: true, fused_gdn_ch: true,
       sched_max_splits_hint: 128, ctx_checkpoints: 1, checkpoint_every_n_tokens: 64, checkpoint_clear_policy: "replace-on-reset-and-terminate"
     },
     knobs: { initialMemoryMiB: 128, offloadTiedEmbedding: true, progressiveSourceRelease: true, recycleWindowBytes: 96 * MiB }

@@ -359,8 +359,9 @@ export function createModelHost({
 
     async unload() {
       const c = client; if (!c || state.host.state !== "running") { state.load = { ...state.load, state: "unloaded", info: null }; emit(); return; }
-      await c.unload();
+      const result=await c.unload();
       state.load = { ...state.load, state: "unloaded", progress: null, info: null, loadedAt: null }; emit();
+      return result;
     },
 
     /** After the host died (or any time): a new Worker, nothing loaded. The next load() is a new load attempt. */

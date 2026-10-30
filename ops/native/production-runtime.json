@@ -1,0 +1,56 @@
+{
+  "buildId": "privatelocalchat-queue-production-20261029-v1",
+  "baseBuildId": "retained-v1q-chat-stable-slim-20260901",
+  "compiler": "Emscripten 4.0.20-git",
+  "compilerReleaseCommit": "c387d7a7e9537d0041d2c3ae71b7538cc978104e",
+  "loadRequestFields": 69,
+  "loadResponseFields": 23,
+  "compatOnly": true,
+  "patchSha256": "5601feff5b4f9eea695a2c5cf0779b9c4171f896557071f16c2b6577da107ab0",
+  "baseSourceSha256": {
+    "cpp/wllama-build-id.h": "fb7d01b88873b7df626edcf0f41bdc56cff14ca86b88ec4e81db070c80809f68",
+    "cpp/wllama-context.h": "1aa52f2acfd825f0c33ad827f39822905ad3a2cebe14ec5ba1bf7c285efe07c8",
+    "llama.cpp/common/common.cpp": "e3d3839319794e706287e32936ecfb4554606fe34912edc18d11929bd3f039d5",
+    "llama.cpp/tools/server/server-context.cpp": "fd633652c66a9187283f34102b28aee708faf4692d64791067498ef113c2b3fc",
+    "llama.cpp/ggml/src/ggml-backend.cpp": "6dcf439d2d49e4df07c72b6730d86ca3978fdb7e95999e0492d7c281ffa17b74",
+    "CMakeLists.txt": "c52c9029029cea19cc397bf897d1ba8e5eab18a25af37c41a052adffdf8ad9f5",
+    "cpp/checkpoint-diagnostics.cpp": "e8bc79eac400a712d6b53d591df48dd2a986c90655c5f22484177f9f61f1201a",
+    "scripts/patch_native_action_guard.mjs": "201657e0845d6daa2dc2e80e9bc1d6edead861402e1a5fd09b0eaff940b7b131",
+    "llama.cpp/ggml/src/ggml-webgpu/ggml-webgpu.cpp": "70062cc4e7f14fe87d4b0c363a2489054bec256cdb3b1fb18a073c8390198daf"
+  },
+  "files": {
+    "compat.wasm": {
+      "bytes": 20661291,
+      "sha256": "ea9d24143b3c1ba6a0c73213be7dbc7fc57c0472b8e55d6cf7206807ad1fe0fd"
+    },
+    "compat-worker.js": {
+      "bytes": 170426,
+      "sha256": "928e8b1647bc320ca7e3c65e73205e4f113c292caa17d1eb51e2b913e2646970"
+    },
+    "wllama.js": {
+      "bytes": 414526,
+      "sha256": "4221d59dcc1dd190433898922af7093cba53596bc43261cf99abd63b6665d99c"
+    }
+  },
+  "developmentDiagnostics": false,
+  "patchPath": "ops/native/production-queue-bound.patch",
+  "queuePolicy": {
+    "maxInFlightBatches": 2,
+    "commandSubmitBatchSize": 32,
+    "drainAtGraphEnd": true
+  },
+  "wrapperSource": "ops/native/base-wllama-v1q.js",
+  "wrapperSourceSha256": "9d383dbc0b540407bbdaa9a1a60cf69e5cc88287f6be8bdf641eec1315664031",
+  "compilerControl": {
+    "id": "privatelocalchat-production-compiler-control-20261030-v1",
+    "sourceSha256": "1bf7ed18c5cf0071d5ce2651c952778103c65d75f658b8b9638f2988912ab1b8",
+    "receipt": "ops/native/production-compiler-control.json",
+    "tool": "ops/native/compiler-control.mjs",
+    "toolSha256": "c9573a5ed6ae8b6b468481a7669b14aaa0ad96a527f6865680818ed5755c5f22",
+    "changedBodies": 51,
+    "minimumOriginalBodyBytesExclusive": 20000,
+    "maximumOriginalBodyBytesInclusive": 100000,
+    "paddedBodyBytes": 160000,
+    "diagnosticIntervention": true
+  }
+}
