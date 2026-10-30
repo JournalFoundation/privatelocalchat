@@ -117,3 +117,10 @@ A production-mode Cloudflare preview serves the independently verified clean nat
 returns 404 for diagnostic endpoints/modules; its service worker excludes the network-fault
 harness. See [the deployed preview receipt](evidence/clean-production-preview.json). Canonical
 production remains on its earlier commit. These checks do not close the physical iPhone gate.
+
+Normal Mac Safari passed three 512-token reload cycles with exact stream reconstruction
+and acknowledged native cleanup; its model files were then removed. A fresh deployed
+preview install later completed short and 512-token replies and verified model removal,
+but an earlier cold-load failure remains unexplained, and the corrected observer recorded
+aborted weight requests. These limited observations are preserved in the living investigation
+and do not establish complete deployed or physical-device reliability.

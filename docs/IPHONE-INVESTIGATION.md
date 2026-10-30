@@ -367,10 +367,31 @@ The Cloudflare preview at `https://cb3639ba.privatelocalchat.pages.dev` serves c
 in production mode. Its native files match all three pins; diagnostics routes/modules return
 404 and the service worker excludes the network-denial harness. The Cloudflare canonical
 deployment pointer and public production version remain at `4d74acd`. See the preview and
-selected-production lifecycle receipts. A fresh deployed browser/CDN inference test is running
-separately; the physical iPhone lifecycle, offline and margin gates remain open.
+selected-production lifecycle receipts. The deployed fresh-install observations are recorded below; physical iPhone lifecycle,
+offline and margin gates remain open.
 
 The dev cleanup candidate also passed three load/generate/unload cycles with page reload
 after each cycle and verified reuse of the 1,202,488,640-byte model cache. See
 [evidence/native-cleanup-page-reopen.json](evidence/native-cleanup-page-reopen.json). These are
 desktop observations; the harness did not attest renderer OS process identity.
+
+### Safari lifecycle and deployed fresh-install follow-up
+
+Normal macOS Safari 27.0 completed three 512-token cycles with page navigation between
+cycles, exact reconstruction of all streamed text, and native cleanup acknowledgements of
+31–37 ms. All 1,598 captured objects were complete. Its test model was removed afterward.
+See [the Safari receipt](evidence/mac-safari-native-cleanup.json). This is desktop Metal
+evidence, not a physical iPhone result.
+
+The first fresh Chromium install from the deployed clean preview entered automatic loading
+then reported `faulted`. The initial harness removed its temporary profile without preserving
+the detailed error. Preserve this failed observation; it is not explained by later success.
+See [the initial failure](evidence/preview-initial-cold-load-failure.json).
+
+The corrected harness's second fresh CDN install verified all 13 files, automatically reached
+Ready and completed 7- and 512-token replies. Model removal reached zero bytes, and its
+temporary browser profile was removed. The strict observer assertion failed on 13
+`net::ERR_ABORTED` events for weight-file URLs despite successful hashes and generation.
+Their timing and role were not established; they are not grounds to reclassify the first
+load failure. See [the deployed inference observations](evidence/deployed-clean-preview-inference.json).
+The preview is not fully qualified, and the iPhone release gate remains open.
