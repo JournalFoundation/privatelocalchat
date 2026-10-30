@@ -17,6 +17,7 @@ window.__plcDiagnosticsStarted=diagnosticsStarted;
 let state, env, downloadRecovery, activeGeneration = false;
 let resetPromptAfterAbort=false;
 const modeKey = 'plc.inferenceMode.v1';
+let offlineAppReady = false;
 let existingApi = false;
 try {existingApi = Boolean(JSON.parse(sessionStorage.getItem('chatConfig') || '{}').endpoint);} catch {}
 let mode = existingApi ? 'api' : 'local';
@@ -63,7 +64,23 @@ function render(s) {
   const quality=$('localModelSelect').querySelector('[value="default"]');
   quality.disabled=!env?.webgpu.available || (env.deviceMemoryGB !== null && env.deviceMemoryGB < 8) || /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
   $('modelDiagnostics').textContent=JSON.stringify({device:env,selection:s.selection,variant:s.variant,storage:s.storage,host:s.host,load:s.load,lastError:s.lastError},null,2);
+  renderReadiness(s,supported,ready);
   notify();
+}
+function setRow(id,yes) {const row=$(id);row.classList.toggle('yes',yes);row.classList.toggle('no',!yes);row.setAttribute('aria-label',row.textContent+': '+(yes?'yes':'not yet'));}
+// Downloaded, loaded and ready-for-offline are different facts; one button always does the next useful step.
+function renderReadiness(s,supported,ready) {
+  const tier=s.selection.tier, item=s.tiers[tier], downloaded=item.install.ok===true;
+  setRow('readyDownloaded',downloaded);setRow('readyLoaded',ready);setRow('readyOffline',downloaded&&offlineAppReady);
+  const step=!downloaded?'download':!ready?'load':'ready', recovery=downloadRecovery?.state;
+  const button=$('setupPrivateChat'), hint=$('setupHint');
+  button.dataset.step=step;
+  button.textContent=step==='download'?'Set up private chat on this device':step==='load'?'Load the model':'Ready \u2014 replies run on this device';
+  button.disabled=step==='ready'||!supported||Boolean(s.busy)||activeGeneration||Boolean(recovery?.pending);
+  hint.textContent=step==='download'?'Downloads '+gb(item.info.downloadBytes)+' once. After that, chatting needs no connection.'
+    :step==='load'?'Loads the downloaded model into memory (about '+gb(item.info.memory.steadyBytes)+') so it can answer.'
+    :downloaded&&offlineAppReady?'Everything needed is saved on this device. You can use it without a connection.':'The model is saved. Reload the app once while online so the app itself is saved for offline use too.';
+  $('freeMemory').disabled=!ready||Boolean(s.busy)||activeGeneration;
 }
 function applyMode() {
   $('inferenceMode').value=mode;
@@ -106,6 +123,10 @@ window.localModels={
   get ready(){return state?.load.state==='ready';},
   get installed(){return state?.tiers[state.selection.tier].install.ok===true;},
   get state(){return state;},
+  get offlineReady(){return offlineAppReady;},
+  async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');await host.unload();await host.inspect();},
+  async refreshStorage(){await host.refreshStorage();return state?.storage;},
+  async requestPersist(){return host.requestPersist();},
   async generate(messages,{signal,onToken,onFinish}={}) {
     if(mode!=='local'||state?.load.state!=='ready') throw new Error('Load an on-device model before sending.');
     activeGeneration=true; render(state);
@@ -127,6 +148,8 @@ $('inferenceMode').addEventListener('change',()=>{mode=$('inferenceMode').value;
 $('localModelSelect').addEventListener('change',()=>action(()=>host.selectTier($('localModelSelect').value,{confirmed:true})));
 $('downloadModel').addEventListener('click',()=>action(()=>downloadRecovery.start(host.getState().selection.tier)));
 $('loadModel').addEventListener('click',()=>action(()=>host.load()));
+$('setupPrivateChat').addEventListener('click',()=>{const step=$('setupPrivateChat').dataset.step;if(step==='download')action(()=>downloadRecovery.start(host.getState().selection.tier));else if(step==='load')action(()=>host.load());});
+$('freeMemory').addEventListener('click',()=>action(()=>window.localModels.freeMemory()));
 $('cancelModel').addEventListener('click',()=>downloadRecovery.cancel());
 $('restartModel').addEventListener('click',()=>action(async()=>{await host.restartHost();await host.inspect();}));
 $('repairModel').addEventListener('click',()=>{downloadRecovery.cancel();action(()=>host.repair());});
@@ -139,6 +162,7 @@ if('serviceWorker' in navigator) {
     getController:()=>navigator.serviceWorker.controller,
     expectedCache:'plc-shell-'+window.APP_BUILD.commit,
     onResult:current=>{
+      offlineAppReady=Boolean(current);if(state)renderReadiness(state,!!env?.webgpu.available,state.load.state==='ready');
       $('offlineStatus').textContent=current?'Offline app ready. Downloaded models can be loaded without a connection.':'An updated app is ready. Reload while online before the offline test.';
       $('reloadApp').hidden=current;
     }

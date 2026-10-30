@@ -107,7 +107,7 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
 .readiness li.no::before { content: '✗ '; color: var(--color-danger); }
 
 /* ---- dialogs ----------------------------------------------------------------------------------------------------- */
-.app-dialog { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 12px; background: var(--color-overlay); }
+.app-dialog { position: fixed; inset: 0; z-index: 4000; display: flex; align-items: center; justify-content: center; padding: 12px; background: var(--color-overlay); }
 .app-dialog[hidden] { display: none; }
 .app-dialog .sheet { background: var(--color-modal-bg); color: var(--color-text); border: 1px solid var(--color-modal-border); border-radius: 10px; width: min(44rem, 100%); max-height: 92vh; max-height: 92dvh; overflow: auto; padding: 16px; }
 .app-dialog .sheet h2 { margin: 0 0 8px; }
@@ -154,3 +154,12 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
 .preset-row label { margin: 0; display: inline; }
 .preset-row select { flex: 1 1 8rem; min-height: 36px; }
 .composer-tools button.unavailable, #voiceModeBtn[aria-disabled='true'] { opacity: 0.5; }
+
+html.locked #app { visibility: hidden; }
+html.locked .lock-screen { display: flex; }
+.context-divider { margin: 8px auto 12px; padding: 6px 10px; max-width: 46rem; border-top: 1px dashed var(--color-border-strong); border-bottom: 1px dashed var(--color-border-strong); color: var(--color-muted-text); font-size: 0.8rem; text-align: center; }
+.chats-section { display: flex; flex-direction: column; min-height: 12rem; }
+.settings-group > summary { cursor: pointer; margin: 8px 0; }
+.model-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.sidebar > * { flex-shrink: 0; }
+.chats-section .thread-list { max-height: min(45vh, 28rem); overflow-y: auto; min-height: 0 !important; }
