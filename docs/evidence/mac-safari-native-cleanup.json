@@ -39,5 +39,8 @@
   "limitations": [
     "Desktop Safari result only; iPhone lifecycle and margin checks remain open.",
     "Renderer OS process identity and physical footprint were not attested in this test."
-  ]
+  ],
+  "modelBytesAfterCleanup": 0,
+  "receiverClearedAfterQueuedEventsDrained": true,
+  "remoteControlDisabledAfterTrial": true
 }
