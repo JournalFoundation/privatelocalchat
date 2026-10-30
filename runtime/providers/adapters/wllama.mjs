@@ -10,6 +10,7 @@
 import { compareInventory, planInstall, createRateTracker, hex } from "../verify.mjs";
 import { preflight as webgpuPreflight } from "./webgpu.mjs";
 import {retryDownload} from '../download-retry.mjs';
+import {writeOpfsStream} from '../opfs-stream-writer.mjs';
 export async function preflight() {
   await webgpuPreflight();
   const adapter=await navigator.gpu.requestAdapter();
@@ -29,6 +30,10 @@ async function cacheManagerFor(runtimeDir) {
   if (!w) {
     const { base, Wllama } = await openRuntime(runtimeDir);
     w = new Wllama({ default: base + "default.wasm", "single-thread/wllama.wasm": base + "default.wasm" }, { useMultiThread: false, allowOffline: true, logger: { debug() {}, log() {}, warn() {}, error() {} } });
+    // Keep the pinned cache keys/metadata while owning failure-safe writer cleanup.
+    // The vendored writer can retain a Worker when opening or closing a file rejects.
+    const backend=w.cacheManager.sb.priv;
+    backend.write=(key,stream)=>writeOpfsStream(key,stream);
     wllamaCache.set(runtimeDir, w);
   }
   return w.cacheManager;

@@ -149,3 +149,41 @@ Keep raw device reports, private telemetry, receiver URLs/capabilities, credenti
 - [Independent compiler reproduction](https://github.com/frankhinek/webkit-wasm-compiler-memory-repro), inspected at revision `16fb14700468a866bee731666060af274eb91d85`.
 - Local historical sources: `/srv/speechtest-lab-data/`, `/srv/speechtest-recovered/docs/`, `/srv/speechtest-cleanroom/WAVE2-CHANGES.md`, and `/srv/vitruvian/docs/residency-execution-plan.md`. Their conclusions apply to their attested configurations, not automatically to this app.
 - Detailed local synthesis and original receipt hashes: `work/evidence/iphone-memory-research.json`. Experiment harnesses and raw samples remain under `work/`.
+
+### USB automation scope
+
+The USB WebDriver route creates an isolated Safari automation session. Its storage starts empty
+and is discarded when that session ends; it cannot certify ordinary PWA persistence across
+new automation sessions. Keep a single session alive for download, load and conversation trials.
+The normal Safari window on the Mac is a separate comparison, with its own diagnostic receiver.
+See [WebKit’s iOS WebDriver isolation description](https://webkit.org/blog/9395/webdriver-is-coming-to-safari-in-ios-13/).
+
+On build 997bf35, physical remote state/chat/load commands received acknowledged receipts. Two
+loads with the native recorder enabled returned InvalidStateError before native construction.
+Disabling that recorder allowed model parsing to progress, but subsequent telemetry and USB
+responses stopped. No new relevant iOS crash report was available at inspection time. This
+localizes a recorder-sensitive startup failure without proving the reason for the later loss.
+The app reports the unavailable IndexedDB fallback explicitly; it cannot promise durable offline
+capture while that fallback is active. A fresh uninterrupted automation-session trial is next.
+
+### Storage-worker cleanup follow-up
+
+The fresh USB session repeatedly retained 3 verified files (564,402,176 bytes) while later writes
+reported `Failed to write to file`. The model-download request retried automatically. Stop that
+unchanged repetition to investigate cleanup. The device identifies as iPhone16,1 on iOS 26.6.2
+build 23G90 and reports roughly 76.5 GB data space available.
+
+Inspection found a concrete vendored-writer lifetime defect: an open rejection occurs before
+the returned close function exists; a close rejection skips `worker.terminate()`. The application
+now owns model-cache writes with unconditional worker termination, input cancellation and
+bounded operation waits. Cache keys, metadata, model hashes and pinned native bytes are retained.
+The [cleanup receipt](evidence/opfs-writer-cleanup.json) records fault tests and actual browser
+cache-manager integration. A causal role in historical phone failures remains unproven.
+
+The normal Mac Safari window completed 7- and 512-native-token replies through the live command
+channel. All 550 captured objects were complete; stream text, terminal text, requests and saved
+chat matched. The long reply took about 1.05 seconds of prefill and 20.39 seconds of decoding.
+See [the Safari receipt](evidence/dev-safari-two-way-control.json). This is real WebKit/Metal
+evidence, not physical iPhone acceptance. Separately, 51 content frames survived an actual
+desktop browser close/reopen offline, stayed queued after an invalid acknowledgement and
+drained after a valid acknowledgement with exact object reconstruction.

@@ -13,6 +13,7 @@ test('installer retries only the failed shard and keeps verified files and accur
   const entries=new Map([[first,{size:5,metadata:{originalURL:first,originalSize:5}}]]);
   let failures=1;
   globalThis.__plcFixtureCache={
+    sb:{priv:{write(){}}},
     list:async()=>[...entries].map(([name,e])=>({name,...e})),getNameFromURL:async url=>url,
     delete:async url=>entries.delete(url),getMetadata:async url=>entries.get(url)?.metadata,
     getSize:async url=>entries.get(url)?.size??-1,open:async()=>new Blob([payload]),
