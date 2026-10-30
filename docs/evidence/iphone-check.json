@@ -62,5 +62,10 @@
       "highWater": 1
     },
     "cause": "Unresolved. Streamed chunks are not an independently attested native token count. A matching iOS crash or jetsam report is requested."
+  },
+  "historicalOsEvidence": {
+    "receipt": "iphone-jetsam-150503.json",
+    "finding": "Earlier DuckDuckGo-associated WebContent processes terminated for per-process-limit at approximately 2 GiB.",
+    "latestGenerationCause": "Still unresolved; report timestamp is 15:05 Eastern, latest test restarted at 21:59 Eastern."
   }
 }
