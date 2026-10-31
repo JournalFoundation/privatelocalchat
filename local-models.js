@@ -1,5 +1,6 @@
 import {createDownloadRecovery} from './runtime/download-recovery.mjs';
 import {shouldAutoLoad} from './runtime/auto-load.mjs';
+import {explainGpu} from './runtime/gpu-help.mjs';
 import {createOfflineStatusProbe} from './runtime/offline-status.mjs';
 import {createModelHost} from './runtime/providers/model-host.mjs';
 import {gatherEnv} from './runtime/providers/capability-probe.mjs';
@@ -47,7 +48,7 @@ function render(s) {
   if(s.busy&&t?.phase==='retry-wait') $('modelStatus').textContent+=` · Retrying download ${t.retryAttempt}/${t.retryLimit} in ${t.retryDelayMs/1000}s. Saved files are kept.`;
   const ready=s.load.state==='ready';
   const supported=!!env?.webgpu.available && (tier!=='light'||env.webgpu.shaderF16);
-  if(env&&!supported&&!s.busy) showError(new Error(tier==='light'?'The 2B runtime needs GPU shader-f16 support. This browser does not expose it. Choose the 9B model if this device has enough memory, or explicitly choose API mode.':'WebGPU is unavailable in this browser.'));
+  renderGpuHelp(s,supported);
   $('modelProgress').hidden=!t;
   if(t) $('modelProgress').value=(t.bytesDone || 0)/Math.max(1,t.bytesTotal || 1);
   const recovery=downloadRecovery?.state, idle=!s.busy&&!activeGeneration&&!recovery?.pending;
@@ -66,6 +67,17 @@ function render(s) {
   $('modelDiagnostics').textContent=JSON.stringify({device:env,selection:s.selection,variant:s.variant,storage:s.storage,host:s.host,load:s.load,lastError:s.lastError},null,2);
   renderReadiness(s,supported,ready);
   notify();
+}
+// Say what is actually wrong with the graphics support, and what to try, instead of one blanket message.
+function renderGpuHelp(s,supported) {
+  const box=$('gpuHelp'), g=env?explainGpu(env,{tier:s.selection.tier}):null;
+  const blocked=Boolean(env&&!supported&&!s.busy&&g&&g.kind!=='ok');
+  box.hidden=!blocked;
+  if(!blocked)return;
+  box.querySelector('.gpu-help-lead').textContent=g.headline+(g.detail?' '+g.detail:'');
+  const list=box.querySelector('ol');list.textContent='';
+  g.steps.forEach(step=>{const li=document.createElement('li');li.textContent=step;list.appendChild(li);});
+  $('modelStatus').textContent=g.headline;$('modelStatus').dataset.error='true';
 }
 function setRow(id,yes) {const row=$(id);row.classList.toggle('yes',yes);row.classList.toggle('no',!yes);row.setAttribute('aria-label',row.textContent+': '+(yes?'yes':'not yet'));}
 // Downloaded, loaded and ready-for-offline are different facts; one button always does the next useful step.
@@ -136,6 +148,7 @@ window.localModels={
   get state(){return state;},
   get offlineReady(){return offlineAppReady;},
   get supported(){return state?isSupported(state):undefined;},
+  get gpuHelp(){return env&&state?explainGpu(env,{tier:state.selection.tier}):null;},
   async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');userFreed=true;await host.unload();await host.inspect();},
   async refreshStorage(){await host.refreshStorage();return state?.storage;},
   async requestPersist(){return host.requestPersist();},
@@ -160,6 +173,7 @@ $('inferenceMode').addEventListener('change',()=>{mode=$('inferenceMode').value;
 $('localModelSelect').addEventListener('change',()=>action(()=>host.selectTier($('localModelSelect').value,{confirmed:true})));
 $('downloadModel').addEventListener('click',()=>action(()=>downloadRecovery.start(host.getState().selection.tier)));
 $('loadModel').addEventListener('click',()=>action(()=>host.load()));
+$('copyDiagnostics').addEventListener('click',async()=>{const text=$('modelDiagnostics').textContent;try{await navigator.clipboard.writeText(text);$('copyDiagnostics').textContent='Copied';}catch{window.prompt('Copy these device details:',text);}setTimeout(()=>{$('copyDiagnostics').textContent='Copy device details';},2000);});
 $('setupPrivateChat').addEventListener('click',()=>{const step=$('setupPrivateChat').dataset.step;if(step==='download')action(()=>downloadRecovery.start(host.getState().selection.tier));else if(step==='load')action(()=>host.load());});
 $('freeMemory').addEventListener('click',()=>action(()=>window.localModels.freeMemory()));
 $('cancelModel').addEventListener('click',()=>downloadRecovery.cancel());
@@ -192,5 +206,4 @@ try {
   host.subscribe(render);
   await host.init({autoLoad:false});
   maybeAutoLoad();
-  if(!env.webgpu.available) showError(new Error('This runtime needs WebGPU. Update your browser or explicitly choose API mode.'));
 } catch(e){showError(e);} finally {downloadRecovery.resume();}

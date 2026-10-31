@@ -54,7 +54,7 @@ try{
  assert(await page.locator('#freeMemory').isHidden(),'nothing to free yet, so no Free memory button');
  assert(await page.locator('#setupPrivateChat').isHidden()&&await page.locator('#downloadModel').isHidden(),'controls that cannot work here are not shown');
  await page.click('#newChatBtn');
- assert(await page.locator('#emptySetup').count()===0&&/cannot run the available on-device models/.test(await page.locator('#emptyState').innerText()),'an unsupported browser is told so instead of being offered a setup that cannot work');
+ assert(await page.locator('#emptySetup').count()===0&&/WebGPU|graphics card|software renderer/.test(await page.locator('#emptyState').innerText()),'an unsupported browser is told so instead of being offered a setup that cannot work');
  assert(await page.locator('#emptyProvider').isVisible(),'and is offered the connected provider path');
  await page.selectOption('#inferenceMode','api');
  ok('readiness states');

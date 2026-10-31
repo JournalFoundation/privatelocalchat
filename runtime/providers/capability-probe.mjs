@@ -9,15 +9,22 @@ export const PROFILE_FORMAT = "cfp-capability-profile/1";
 
 /** Read what the browser says about itself. `nav` is injectable. Every field states "unavailable" rather than guessing. */
 export async function gatherEnv(nav = globalThis.navigator) {
-  const env = { webgpu: { available: false }, deviceMemoryGB: nav?.deviceMemory ?? null, storage: null, userAgentMemory: "unavailable", crossOriginIsolated: !!globalThis.crossOriginIsolated };
+  const env = { webgpu: { available: false }, deviceMemoryGB: nav?.deviceMemory ?? null, storage: null, userAgentMemory: "unavailable", crossOriginIsolated: !!globalThis.crossOriginIsolated, secureContext: globalThis.isSecureContext ?? null, userAgent: nav?.userAgent ?? null, platform: nav?.userAgentData?.platform ?? nav?.platform ?? null };
   try {
-    if (!nav?.gpu) env.webgpu.reason = "navigator.gpu is undefined";
+    if (!nav?.gpu) env.webgpu = { available: false, hasApi: false, reason: "navigator.gpu is undefined" };
     else {
-      const a = await nav.gpu.requestAdapter();
-      if (!a) env.webgpu.reason = "requestAdapter() returned no adapter";
-      else env.webgpu = { available: true, shaderF16: a.features?.has?.("shader-f16") ?? false, maxBufferSize: a.limits?.maxBufferSize ?? null, maxStorageBufferBindingSize: a.limits?.maxStorageBufferBindingSize ?? null };
+      let a = await nav.gpu.requestAdapter();
+      // a machine with two GPUs may hand back the weaker one first: ask for the faster one before judging
+      if (!a || a.isFallbackAdapter || !a.features?.has?.("shader-f16")) { try { const hp = await nav.gpu.requestAdapter({ powerPreference: "high-performance" }); if (hp && (!a || (a.isFallbackAdapter && !hp.isFallbackAdapter) || (!a.features?.has?.("shader-f16") && hp.features?.has?.("shader-f16")))) a = hp; } catch { /* keep what we have */ } }
+      if (!a) {
+        let software = false; try { software = Boolean(await nav.gpu.requestAdapter({ forceFallbackAdapter: true })); } catch { /* none */ }
+        env.webgpu = { available: false, hasApi: true, reason: "requestAdapter() returned no adapter", softwareAdapterExists: software };
+      } else {
+        let info = a.info; if (!info && typeof a.requestAdapterInfo === "function") { try { info = await a.requestAdapterInfo(); } catch { /* not offered */ } }
+        env.webgpu = { available: true, hasApi: true, shaderF16: a.features?.has?.("shader-f16") ?? false, isFallbackAdapter: Boolean(a.isFallbackAdapter), adapter: info ? { vendor: info.vendor || null, architecture: info.architecture || null, device: info.device || null, description: info.description || null } : null, features: [...(a.features || [])].sort(), maxBufferSize: a.limits?.maxBufferSize ?? null, maxStorageBufferBindingSize: a.limits?.maxStorageBufferBindingSize ?? null };
+      }
     }
-  } catch (e) { env.webgpu = { available: false, reason: `requestAdapter threw: ${e?.message || e}` }; }
+  } catch (e) { env.webgpu = { available: false, hasApi: Boolean(nav?.gpu), reason: `requestAdapter threw: ${e?.message || e}` }; }
   try { const e = await nav?.storage?.estimate?.(); env.storage = e ? { usage: e.usage ?? null, quota: e.quota ?? null } : null; } catch (e) { env.storage = { error: String(e?.message || e) }; }
   if (typeof globalThis.performance?.measureUserAgentSpecificMemory === "function") {
     env.userAgentMemory = "measurement pending";

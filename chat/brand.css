@@ -348,3 +348,10 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .modal .modal-body p { margin: 0.25rem 0 0.75rem; }
 .modal .modal-header { border-bottom: 1px solid var(--plc-border); }
 .mode-badge-provider { margin-left: -0.4rem; }
+
+.gpu-help { border: 1px solid var(--plc-border); border-left: 3px solid var(--plc-warning); background: var(--plc-warning-tint); color: var(--plc-ink); border-radius: var(--plc-radius-control); padding: 0.75rem; margin: 0.5rem 0; font-size: 0.88rem; }
+.gpu-help p { margin: 0 0 0.4rem; }
+.gpu-help ol, .gpu-steps { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+.gpu-help li, .gpu-steps li { margin: 0.3rem 0; overflow-wrap: anywhere; }
+.gpu-steps { text-align: left; max-width: 34rem; margin: 0 auto 1rem; color: var(--plc-muted); }
+.gpu-help code, .gpu-steps code { font-size: 0.85em; }

@@ -1220,6 +1220,7 @@
         <select id="localModelSelect"><option value="light">Qwen3.5-2B — smaller download</option><option value="default">Qwen3.5-9B — higher quality</option></select>
         <p id="modelDetails"></p>
         <p id="modelStatus" role="status" aria-live="polite">Checking device capabilities…</p>
+        <div id="gpuHelp" class="gpu-help" hidden><p class="gpu-help-lead"></p><p class="muted">Things to try:</p><ol></ol></div>
         <progress id="modelProgress" max="1" value="0" hidden aria-label="Model download progress"></progress>
         <div class="model-actions">
           <button type="button" id="downloadModel">Download model</button>
@@ -1233,6 +1234,7 @@
             <button type="button" id="repairModel">Verify / repair</button>
             <button type="button" id="removeModel">Remove download</button>
           </div>
+          <button type="button" id="copyDiagnostics" class="secondary">Copy device details</button>
           <pre id="modelDiagnostics"></pre>
           <button type="button" id="persistModels">Keep models on this device</button>
         </details>
@@ -3368,13 +3370,15 @@ const base64UrlEncode = value => {
         const box = el('div', 'empty-state');
         box.id = 'emptyState';
         const lm = window.localModels, local = lm?.mode === 'local';
-        const unsupported = local && lm && lm.supported === false && !lm.ready;
+        const unsupported = local && lm && lm.supported === false && !lm.ready && Boolean(lm.gpuHelp && lm.gpuHelp.kind !== 'ok');
+        const help = unsupported ? lm.gpuHelp : null;
         const firstUse = local && lm && !lm.installed && !lm.ready && !thread.temporary && !unsupported;
         if (unsupported) {
           // this browser cannot run the on-device models: say so and offer the other path, instead of a setup that cannot work
           box.classList.add('welcome');
-          box.appendChild(el('h2', null, 'This browser cannot run the available on-device models.'));
-          box.appendChild(el('p', 'lede', 'Try a supported browser, or choose a connected provider.'));
+          box.appendChild(el('h2', null, help?.headline || 'This browser cannot run the available on-device models.'));
+          box.appendChild(el('p', 'lede', (help?.detail ? help.detail + ' ' : '') + 'Try a supported browser, or choose a connected provider.'));
+          if (help?.steps?.length) { const steps = el('ol', 'gpu-steps'); help.steps.slice(0, 3).forEach(t => steps.appendChild(el('li', null, t))); box.appendChild(steps); }
           const provider = el('button', 'primary', 'Choose a connected provider'); provider.type = 'button'; provider.id = 'emptyProvider';
           provider.addEventListener('click', () => { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); openSidebar({ focusTarget: document.getElementById('endpointSelect') }); });
           const how = el('button', 'secondary', 'How privacy works'); how.type = 'button'; how.addEventListener('click', () => openAbout());
