@@ -27,6 +27,10 @@ What the chat experience does beyond running a model, where each part lives, wha
 
 No button is ever shown disabled. If an action is unavailable (a model already downloaded, nothing to free, no speech recognition, pictures with an on-device model) the control is hidden instead, and in-flight work uses `aria-busy`. `tests/e2e/mobile.e2e.mjs` fails if a visible button is disabled.
 
+## First message, no setup
+
+Sending a message (or pressing the welcome button) is all it takes. `runtime/prepare.mjs` picks a model for the device (`runtime/auto-tier.mjs`: phones and tablets get the 2B model, a capable desktop gets the 9B model, an installed or explicitly chosen model always wins), downloads it, loads it, and the message is answered automatically. While that happens the reply bubble (or the welcome screen) shows a progress card: stage, percent, size, time left, and one reassuring paragraph. There is no confirmation dialog; the size is stated on the card, and on a desktop there is a "use the smaller model" link. Stop during setup removes the empty reply but leaves the question; a failed download says why and Retry does not duplicate the message. `tests/e2e/firstrun.e2e.mjs` drives this with a scripted model bridge, since headless browsers have no GPU.
+
 A downloaded model loads by itself when the app opens or when on-device chat is chosen (`runtime/auto-load.mjs`), unless the person freed memory this session.
 
 ## Where data lives

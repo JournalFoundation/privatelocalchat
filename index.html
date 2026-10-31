@@ -2816,14 +2816,14 @@ const base64UrlEncode = value => {
        */
       let generationController = null;
       let generationBusy = false;
-      window.addEventListener('local-model-state', () => { updateChatAvailability(); const t = currentThread(); if (t && !t.messages.length && M) renderMessages(t); });
+      window.addEventListener('local-model-state', () => { updateChatAvailability(); const t = currentThread(); if (t && !t.messages.length && M && !welcomeSetup?.card) renderMessages(t); });
       document.getElementById('stopGeneration').addEventListener('click', () => generationController?.abort());
 
       function getChatState() {
         if (!window.localModels) return {local:true,hasThread:Boolean(currentThread()),hasEndpoint:true,hasModel:false,canType:false,ready:false};
         if (window.localModels?.mode === 'local') {
           const hasThread = Boolean(currentThread());
-          const hasModel = window.localModels.ready;
+          const hasModel = window.localModels.ready || window.localModels.canPrepare !== false;
           return { local: true, hasThread, hasEndpoint: true, hasModel, canType: hasThread && hasModel, ready: hasThread && hasModel && !generationBusy };
         }
         const thread = currentThread();
@@ -3283,7 +3283,54 @@ const base64UrlEncode = value => {
         return null;
       };
 
+      // ---- getting on-device chat ready: a calm progress card, shown where the answer will appear ----------------------------
+      let prep = null; // { messageId, progress, card } for the reply that is waiting on the model
+      const fmtBytes = n => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 1e6)) + ' MB');
+      const fmtEta = sec => (!Number.isFinite(sec) || sec <= 0 ? '' : sec < 90 ? 'less than a minute left' : 'about ' + Math.round(sec / 60) + ' min left');
+      function buildPrepCard({ intro }) {
+        const lm = window.localModels, info = lm?.prepareInfo?.() || {};
+        const card = el('div', 'prep-card'); card.setAttribute('role', 'status');
+        const head = el('div', 'prep-head'); const spin = el('span', 'prep-spinner'); spin.setAttribute('aria-hidden', 'true');
+        head.append(spin, el('strong', null, 'Getting on-device chat ready'));
+        const phase = el('p', 'prep-phase', 'Starting\u2026');
+        const bar = el('div', 'prep-bar'); bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-label', 'Model download progress'); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100');
+        const fill = el('div', 'prep-fill'); bar.appendChild(fill);
+        const detail = el('p', 'prep-detail');
+        const size = info.downloadBytes ? fmtBytes(info.downloadBytes) : 'a few GB';
+        const calm = el('p', 'prep-calm', intro + ' This runs on your device, so the model downloads once (about ' + size + ') and then works without a connection.');
+        const actions = el('div', 'prep-actions');
+        card.append(head, phase, bar, detail, calm, actions);
+        let lastPhase = '';
+        const api = { el: card, update(p) {
+          const key = p.phase + (p.phase === 'offline' ? '' : '');
+          if (key !== lastPhase) {
+            lastPhase = key;
+            phase.textContent = { starting: 'Starting\u2026', download: 'Downloading the model', check: 'Checking the download\u2026', load: 'Loading the model into memory\u2026', offline: 'Waiting for a connection. Your progress is saved and the download will continue.', retrying: 'The download was interrupted. Trying again\u2026', 'another-tab': 'Another tab is downloading the model. This one continues when it finishes.', ready: 'Ready.' }[p.phase] || 'Working\u2026';
+            bar.classList.toggle('indeterminate', p.phase !== 'download');
+            actions.textContent = '';
+            const smaller = lm?.prepareInfo?.();
+            if (smaller?.tier === 'default' && ['starting', 'download', 'retrying', 'check'].includes(p.phase)) {
+              const b = el('button', 'link-btn', 'Use the smaller model instead (faster to download)'); b.type = 'button';
+              b.addEventListener('click', () => { b.textContent = 'Switching\u2026'; lm.switchTier('light').catch(err => showToast(err.message, 6000)); });
+              actions.appendChild(b);
+            }
+          }
+          if (p.phase === 'download') {
+            const pct = Math.round((p.fraction || 0) * 100);
+            fill.style.width = pct + '%'; bar.setAttribute('aria-valuenow', String(pct));
+            detail.textContent = pct + '%  \u00B7  ' + fmtBytes(p.bytesDone || 0) + ' of ' + fmtBytes(p.totalBytes || 0) + (fmtEta(p.etaSeconds) ? '  \u00B7  ' + fmtEta(p.etaSeconds) : '');
+          } else { fill.style.width = ''; bar.removeAttribute('aria-valuenow'); detail.textContent = p.modelName && p.phase !== 'offline' ? p.modelName : ''; }
+        } };
+        api.update(prep?.progress || { phase: 'starting' });
+        return api;
+      }
+
       function fillBody(body, msg) {
+        if (msg.role === 'assistant' && msg.status === 'preparing' && prep?.messageId === msg.id) {
+          prep.card = buildPrepCard({ intro: 'Your message is saved and your answer will start as soon as this finishes.' });
+          body.replaceChildren(prep.card.el);
+          return;
+        }
         if (msg.role === 'assistant' && M) {
           body.replaceChildren(M.markdown.renderMarkdown(msg.content, document));
         } else {
@@ -3294,8 +3341,8 @@ const base64UrlEncode = value => {
       function createMessageEl(thread, msg, index, lastIndex) {
         const S = STATUS();
         const isLast = index === lastIndex;
-        const streaming = msg.status === S.STREAMING;
-        const div = el('div', 'message ' + msg.role + (streaming ? ' streaming' : '') + (msg.excluded ? ' excluded' : ''));
+        const streaming = msg.status === S.STREAMING || msg.status === S.PREPARING;
+        const div = el('div', 'message ' + msg.role + (streaming ? ' streaming' : '') + (msg.status === S.PREPARING ? ' preparing' : '') + (msg.excluded ? ' excluded' : ''));
         div.dataset.id = msg.id;
         div.appendChild(el('div', 'speaker', msg.role === 'user' ? 'You' : msg.role === 'assistant' ? 'AI response' : 'Notice'));
         if (msg.attachments?.length) {
@@ -3385,6 +3432,20 @@ const base64UrlEncode = value => {
           const row = el('div', 'welcome-actions'); row.append(provider, how); box.appendChild(row);
           return box;
         }
+        if (local && welcomeSetup) {
+          box.classList.add('welcome');
+          box.appendChild(el('p', 'eyebrow', 'PRIVATE AI CHAT ON YOUR DEVICE'));
+          box.appendChild(el('h2', null, welcomeSetup.error ? 'Setup did not finish.' : 'Setting up on-device chat'));
+          if (welcomeSetup.error) {
+            box.appendChild(el('p', 'lede', welcomeSetup.error));
+            const again = el('button', 'primary', 'Try again'); again.type = 'button'; again.addEventListener('click', () => startWelcomeSetup()); box.appendChild(again);
+          } else {
+            welcomeSetup.card = buildPrepCard({ intro: 'You can start typing your first message now.' });
+            welcomeSetup.card.update(welcomeSetup.progress);
+            box.appendChild(welcomeSetup.card.el);
+          }
+          return box;
+        }
         if (firstUse) {
           // condensed welcome for someone who has not set up on-device chat yet
           box.classList.add('welcome');
@@ -3393,7 +3454,7 @@ const base64UrlEncode = value => {
           box.appendChild(el('p', 'lede', 'Run a model on your device and keep on-device conversation content off AI providers’ servers.'));
           const row = el('div', 'welcome-actions');
           const setup = el('button', 'primary', 'Set up on-device chat'); setup.type = 'button'; setup.id = 'emptySetup';
-          setup.addEventListener('click', () => confirmSetup());
+          setup.addEventListener('click', () => startWelcomeSetup());
           const how = el('button', 'secondary', 'How privacy works'); how.type = 'button'; how.addEventListener('click', () => openAbout());
           row.append(setup, how); box.appendChild(row);
           box.appendChild(el('p', 'muted', 'Free to use on your device. Optional providers may charge.'));
@@ -3410,7 +3471,7 @@ const base64UrlEncode = value => {
           const loading = lm.installed;
           const status = el('p', 'muted', loading ? 'Loading the model into memory. You can write a draft while it loads.' : 'Finish setting up on-device chat to get replies.');
           box.appendChild(status);
-          if (!loading) { const setup = el('button', 'primary', 'Set up on-device chat'); setup.type = 'button'; setup.id = 'emptySetup'; setup.addEventListener('click', () => confirmSetup()); box.appendChild(setup); }
+          if (!loading) { const setup = el('button', 'primary', 'Set up on-device chat'); setup.type = 'button'; setup.id = 'emptySetup'; setup.addEventListener('click', () => startWelcomeSetup()); box.appendChild(setup); }
         }
         const list = el('div', 'starter-prompts');
         starterPrompts().forEach(text => {
@@ -3421,13 +3482,20 @@ const base64UrlEncode = value => {
         box.appendChild(list);
         return box;
       }
-      async function confirmSetup() {
-        const lm = window.localModels, st = lm?.state;
-        const item = st?.tiers?.[st.selection.tier];
-        const gb = n => (n / 1e9).toFixed(1) + ' GB';
-        const name = item?.info?.modelId || 'the model';
-        const ok = await confirmDialog('Download ' + name + '?', 'This download uses about ' + (item ? gb(item.info.downloadBytes) : 'a few GB') + ' of browser storage. The model needs about ' + (item ? gb(item.info.memory.steadyBytes) : 'a few GB') + ' of working memory while loaded. Keep this page open while the download finishes. Your internet provider\u2019s data charges may apply.', 'Download model');
-        if (ok) document.getElementById('setupPrivateChat').click();
+      // The welcome button just starts: no dialog. Progress appears right there, and the first message can be typed meanwhile.
+      let welcomeSetup = null; // { progress, card, error }
+      async function startWelcomeSetup() {
+        const lm = window.localModels;
+        welcomeSetup = { progress: { phase: 'starting' }, card: null, error: null };
+        const thread = currentThread(); if (thread) renderMessages(thread);
+        try {
+          await lm.ensureReady({ onProgress: p => { if (welcomeSetup) { welcomeSetup.progress = p; welcomeSetup.card?.update(p); } } });
+          welcomeSetup = null;
+          showToast('On-device chat is ready.');
+        } catch (err) {
+          welcomeSetup = { error: err.message || 'Setup could not finish.' };
+        }
+        const t = currentThread(); if (t && !t.messages.length) renderMessages(t);
       }
 
       function renderMessages(thread, { keepScroll = false } = {}) {
@@ -3496,13 +3564,15 @@ const base64UrlEncode = value => {
         else if (mode === 'regenerate') M.model.beginNewVersion(msg);
         else if (mode === 'retry') { msg.content = ''; M.model.syncActiveVersion(msg); }
         else { msg = M.model.makeMessage('assistant', '', { status: S.STREAMING }); thread.messages.push(msg); }
-        msg.status = S.STREAMING; delete msg.error;
+        const needsPrep = window.localModels?.mode === 'local' && !window.localModels.ready;
+        msg.status = needsPrep ? S.PREPARING : S.STREAMING; delete msg.error;
+        if (needsPrep) prep = { messageId: msg.id, progress: { phase: 'starting' }, card: null };
         const controller = new AbortController();
         gen = { threadId, messageId: msg.id, controller };
         generationController = controller;
         const generationStatus = document.getElementById('generationStatus');
         generationStatus.hidden = false;
-        generationStatus.textContent = window.localModels?.mode === 'local' ? 'Generating on this device…' : 'Waiting for ' + providerName() + '…';
+        generationStatus.textContent = needsPrep ? 'Getting on-device chat ready…' : window.localModels?.mode === 'local' ? 'Generating on this device…' : 'Waiting for ' + providerName() + '…';
         setGenerating(true);
         M.model.touch(thread);
         saveThreads();
@@ -3519,6 +3589,18 @@ const base64UrlEncode = value => {
           scheduleSave();
         };
         try {
+          if (needsPrep) {
+            // First message on this device: get a model (download once, load) while showing what is happening, then answer.
+            await window.localModels.ensureReady({ signal: controller.signal, onProgress: p => {
+              if (!prep) return;
+              prep.progress = p; prep.card?.update(p);
+              generationStatus.textContent = p.phase === 'download' ? 'Downloading the model… ' + Math.round((p.fraction || 0) * 100) + '%' : p.phase === 'load' ? 'Loading the model into memory…' : 'Getting on-device chat ready…';
+            } });
+            prep = null;
+            msg.status = S.STREAMING;
+            generationStatus.textContent = 'Generating on this device…';
+            if (threadId === currentThreadId) renderMessages(thread, { keepScroll: false });
+          }
           const context = await buildInferenceMessages(thread, index, mode);
           const result = await sendToApi(context, controller.signal, onText);
           msg.content = baseText + join(result.text) + result.text;
@@ -3552,6 +3634,7 @@ const base64UrlEncode = value => {
             } else { msg.status = baseText ? S.STOPPED : S.FAILED; }
           }
         } finally {
+          if (prep?.messageId === msg.id) prep = null;
           if (contextSources.length) msg.sources = contextSources; else if (mode !== 'continue') delete msg.sources;
           M.model.syncActiveVersion(msg);
           gen = null; generationController = null;

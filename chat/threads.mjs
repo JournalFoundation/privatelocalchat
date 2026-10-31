@@ -6,7 +6,7 @@
 //   status: complete | streaming | stopped | failed | length | interrupted   (assistant messages; absent = complete)
 //   versions: every answer produced for the same prompt; `content` always mirrors the version being shown.
 
-export const STATUS = Object.freeze({ COMPLETE: "complete", STREAMING: "streaming", STOPPED: "stopped", FAILED: "failed", LENGTH: "length", INTERRUPTED: "interrupted" });
+export const STATUS = Object.freeze({ COMPLETE: "complete", PREPARING: "preparing", STREAMING: "streaming", STOPPED: "stopped", FAILED: "failed", LENGTH: "length", INTERRUPTED: "interrupted" });
 export const CONTINUABLE = new Set([STATUS.STOPPED, STATUS.LENGTH, STATUS.INTERRUPTED, STATUS.FAILED]);
 
 export const newId = () => `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
@@ -21,11 +21,11 @@ export function normalizeMessage(raw, at = Date.now()) {
   if (raw.excluded === true) m.excluded = true;
   if (raw.role === "assistant") {
     let status = str(raw.status);
-    if (status === STATUS.STREAMING) status = STATUS.INTERRUPTED; // the page went away mid-answer: keep what was written
+    if (status === STATUS.STREAMING || status === STATUS.PREPARING) status = STATUS.INTERRUPTED; // the page went away mid-answer: keep what was written
     if (status && status !== STATUS.COMPLETE && Object.values(STATUS).includes(status)) m.status = status;
     if (typeof raw.error === "string" && raw.error) m.error = raw.error.slice(0, 2000);
     if (Array.isArray(raw.versions) && raw.versions.length > 1) {
-      m.versions = raw.versions.map((v) => ({ content: str(v?.content), ...(v?.status && Object.values(STATUS).includes(v.status) && v.status !== STATUS.COMPLETE ? { status: v.status === STATUS.STREAMING ? STATUS.INTERRUPTED : v.status } : {}), at: num(v?.at, m.at) }));
+      m.versions = raw.versions.map((v) => ({ content: str(v?.content), ...(v?.status && Object.values(STATUS).includes(v.status) && v.status !== STATUS.COMPLETE ? { status: v.status === STATUS.STREAMING || v.status === STATUS.PREPARING ? STATUS.INTERRUPTED : v.status } : {}), at: num(v?.at, m.at) }));
       m.versionIndex = Math.min(Math.max(0, num(raw.versionIndex, m.versions.length - 1) | 0), m.versions.length - 1);
       m.content = m.versions[m.versionIndex].content;
       const vs = m.versions[m.versionIndex].status; if (vs) m.status = vs; else delete m.status;
@@ -135,7 +135,7 @@ export function undoEditPrompt(thread, index, previous) {
 /** Messages that the model sees: the saved summary replaces the older part of the transcript, excluded ones are left out. */
 export function contextMessages(thread) {
   const upTo = thread.summary?.upTo ?? 0;
-  return thread.messages.map((m, i) => ({ m, i })).filter(({ m, i }) => i >= upTo && !m.excluded && !m.notice && !(m.role === "assistant" && m.status === STATUS.STREAMING)).map(({ m }) => m);
+  return thread.messages.map((m, i) => ({ m, i })).filter(({ m, i }) => i >= upTo && !m.excluded && !m.notice && !(m.role === "assistant" && (m.status === STATUS.STREAMING || m.status === STATUS.PREPARING))).map(({ m }) => m);
 }
 
 // ---- import -------------------------------------------------------------------------------------------------------

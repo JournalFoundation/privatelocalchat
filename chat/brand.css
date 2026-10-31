@@ -355,3 +355,24 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .gpu-help li, .gpu-steps li { margin: 0.3rem 0; overflow-wrap: anywhere; }
 .gpu-steps { text-align: left; max-width: 34rem; margin: 0 auto 1rem; color: var(--plc-muted); }
 .gpu-help code, .gpu-steps code { font-size: 0.85em; }
+
+/* ---- getting on-device chat ready ------------------------------------------------------------------------------------ */
+.prep-card { border: 1px solid var(--plc-border); border-radius: var(--plc-radius-panel); background: var(--plc-surface); padding: 1rem; max-width: 34rem; text-align: left; box-shadow: var(--plc-shadow); }
+.empty-state .prep-card { margin: 1rem auto 0; }
+.prep-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+.prep-spinner { width: 1.1rem; height: 1.1rem; border-radius: 50%; border: 2.5px solid var(--plc-border); border-top-color: var(--plc-accent); animation: prep-spin 0.9s linear infinite; flex: none; }
+@keyframes prep-spin { to { transform: rotate(360deg); } }
+.prep-phase { margin: 0.25rem 0 0.6rem; font-weight: 600; }
+.prep-bar { height: 0.6rem; border-radius: 999px; background: var(--plc-border); overflow: hidden; position: relative; }
+.prep-fill { height: 100%; width: 0; background: var(--plc-accent); border-radius: 999px; transition: width 0.6s var(--plc-ease); }
+.prep-bar.indeterminate .prep-fill { position: absolute; width: 35%; animation: prep-slide 1.4s ease-in-out infinite; }
+@keyframes prep-slide { 0% { left: -35%; } 100% { left: 100%; } }
+.prep-detail { margin: 0.4rem 0 0; min-height: 1.3em; font-size: 0.88rem; color: var(--plc-muted); font-variant-numeric: tabular-nums; }
+.prep-calm { margin: 0.75rem 0 0; font-size: 0.9rem; color: var(--plc-muted); line-height: 1.5; }
+.prep-actions { margin-top: 0.5rem; }
+.prep-actions .link-btn { min-height: var(--plc-control-min); display: inline-flex; align-items: center; }
+.message.preparing .message-body > :last-child::after { content: none; }
+@media (prefers-reduced-motion: reduce) { .prep-spinner { animation-duration: 3s; } .prep-bar.indeterminate .prep-fill { animation: none; width: 100%; opacity: 0.4; } }
+.message-form .composer-actions #stopGeneration { background: var(--plc-danger-tint); color: var(--plc-danger); }
+.message-form .composer-actions #stopGeneration .ico { width: 1.2em; height: 1.2em; }
+.message-form:has(.composer-card) ~ .context-meter { display: none; }

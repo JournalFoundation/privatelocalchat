@@ -1,6 +1,7 @@
 import {createDownloadRecovery} from './runtime/download-recovery.mjs';
 import {shouldAutoLoad} from './runtime/auto-load.mjs';
 import {explainGpu} from './runtime/gpu-help.mjs';
+import {createPreparer} from './runtime/prepare.mjs';
 import {createOfflineStatusProbe} from './runtime/offline-status.mjs';
 import {createModelHost} from './runtime/providers/model-host.mjs';
 import {gatherEnv} from './runtime/providers/capability-probe.mjs';
@@ -16,7 +17,8 @@ let diagnosticsStarted;
 const diagnosticsReady=new Promise(resolve=>{diagnosticsStarted=resolve;});
 window.__plcDiagnosticsStarted=diagnosticsStarted;
 /* DEV_DIAGNOSTICS_END */
-let state, env, downloadRecovery, activeGeneration = false;
+let state, env, downloadRecovery, preparer, activeGeneration = false;
+let initDone;const initFinished=new Promise(resolve=>{initDone=resolve;});
 let resetPromptAfterAbort=false;
 const modeKey = 'plc.inferenceMode.v1';
 let updatePending = false, quality = null, qualityAvailable = true, offlineAppReady = false, autoLoadTried = false, userFreed = false;
@@ -137,6 +139,8 @@ window.__plcDebugDownloadControl = action => {
   return {requested:true,installed:false,recovery:downloadRecovery.state};
 };
 /* DEV_DIAGNOSTICS_END */
+// Sending a message is enough: choose a model for this device, download it, load it, then answer (see runtime/prepare.mjs).
+preparer=createPreparer({host,recovery:downloadRecovery,getEnv:()=>env,subscribe:fn=>{window.addEventListener('local-model-state',fn);return()=>window.removeEventListener('local-model-state',fn);},userAgent:()=>navigator.userAgent,maxTouchPoints:()=>navigator.maxTouchPoints||0});
 window.addEventListener('online',()=>downloadRecovery.wake());
 window.addEventListener('pageshow',()=>downloadRecovery.synchronize());
 window.addEventListener('storage',event=>{if(event.key==='plc.downloadIntent.v1')downloadRecovery.synchronize();});
@@ -148,6 +152,10 @@ window.localModels={
   get state(){return state;},
   get offlineReady(){return offlineAppReady;},
   get supported(){return state?isSupported(state):undefined;},
+  get canPrepare(){return env&&state?Boolean(preparer.choice().tier):undefined;},
+  prepareInfo(){return preparer.info();},
+  async ensureReady(options){await initFinished;userFreed=false;return preparer.ensureReady(options);},
+  async switchTier(tier){await initFinished;return preparer.switchTier(tier);},
   get gpuHelp(){return env&&state?explainGpu(env,{tier:state.selection.tier}):null;},
   async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');userFreed=true;await host.unload();await host.inspect();},
   async refreshStorage(){await host.refreshStorage();return state?.storage;},
@@ -174,7 +182,7 @@ $('localModelSelect').addEventListener('change',()=>action(()=>host.selectTier($
 $('downloadModel').addEventListener('click',()=>action(()=>downloadRecovery.start(host.getState().selection.tier)));
 $('loadModel').addEventListener('click',()=>action(()=>host.load()));
 $('copyDiagnostics').addEventListener('click',async()=>{const text=$('modelDiagnostics').textContent;try{await navigator.clipboard.writeText(text);$('copyDiagnostics').textContent='Copied';}catch{window.prompt('Copy these device details:',text);}setTimeout(()=>{$('copyDiagnostics').textContent='Copy device details';},2000);});
-$('setupPrivateChat').addEventListener('click',()=>{const step=$('setupPrivateChat').dataset.step;if(step==='download')action(()=>downloadRecovery.start(host.getState().selection.tier));else if(step==='load')action(()=>host.load());});
+$('setupPrivateChat').addEventListener('click',()=>action(()=>window.localModels.ensureReady()));
 $('freeMemory').addEventListener('click',()=>action(()=>window.localModels.freeMemory()));
 $('cancelModel').addEventListener('click',()=>downloadRecovery.cancel());
 $('restartModel').addEventListener('click',()=>action(async()=>{await host.restartHost();await host.inspect();}));
@@ -206,4 +214,4 @@ try {
   host.subscribe(render);
   await host.init({autoLoad:false});
   maybeAutoLoad();
-} catch(e){showError(e);} finally {downloadRecovery.resume();}
+} catch(e){showError(e);} finally {downloadRecovery.resume();initDone();}
