@@ -1136,6 +1136,56 @@
   <link rel="stylesheet" href="/chat/chat.css" />
   <link rel="stylesheet" href="/chat/brand.css" />
   <script src="/build-info.js"></script>
+  <script>
+    // Runs before the rest of the app, in plain old JavaScript, so it still works when a browser cannot run the rest.
+    // 1. If a newer build is published than the one running (an old saved copy), the saved copy is cleared and the page reloaded.
+    // 2. If the app fails to start, say so with a way to fix it, instead of leaving a page whose buttons do nothing.
+    (function () {
+      var build = window.APP_BUILD || {}, tried = 'plc.update.tried', bar = null;
+      function show(text, actionLabel, action) {
+        try {
+          if (!document.body) { document.addEventListener('DOMContentLoaded', function () { show(text, actionLabel, action); }); return; }
+          if (!bar) {
+            bar = document.createElement('div'); bar.id = 'startupBanner'; bar.setAttribute('role', 'alert');
+            bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;padding:10px 14px;background:#182332;color:#fff;font:15px/1.4 -apple-system,system-ui,sans-serif;display:flex;gap:12px;align-items:center;flex-wrap:wrap';
+            document.body.appendChild(bar);
+          }
+          bar.textContent = '';
+          var span = document.createElement('span'); span.style.flex = '1 1 14rem'; span.textContent = text; bar.appendChild(span);
+          if (actionLabel) { var b = document.createElement('button'); b.type = 'button'; b.textContent = actionLabel; b.style.cssText = 'min-height:44px;padding:0 16px;border:0;border-radius:10px;background:#fff;color:#182332;font:inherit;font-weight:600'; b.onclick = action; bar.appendChild(b); }
+        } catch (e) { /* nothing more can be done */ }
+      }
+      function clearSavedCopy(done) {
+        var jobs = [];
+        try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then(function (list) { return Promise.all(list.map(function (r) { return r.unregister(); })); })); } catch (e) { /* none */ }
+        try { if (window.caches && caches.keys) jobs.push(caches.keys().then(function (keys) { return Promise.all(keys.filter(function (k) { return k.indexOf('plc-shell-') === 0; }).map(function (k) { return caches.delete(k); })); })); } catch (e) { /* none */ }
+        Promise.all(jobs).then(done, done);
+      }
+      function updateNow() { clearSavedCopy(function () { location.reload(); }); }
+      function newerBuild(then) {
+        if (!build.commit || !window.fetch) return;
+        fetch('/version.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (v) { if (v && v.commit && v.commit !== build.commit) then(v); }, function () { /* offline: keep what is here */ });
+      }
+      var lastCheck = Date.now();
+      newerBuild(function () {
+        var once = false; try { once = sessionStorage.getItem(tried) === build.commit; sessionStorage.setItem(tried, build.commit); } catch (e) { /* private mode */ }
+        if (once) show('A newer version of PrivateLocal.Chat is available.', 'Update now', updateNow); else updateNow();
+      });
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden || Date.now() - lastCheck < 300000) return;
+        lastCheck = Date.now();
+        newerBuild(function () { show('A newer version of PrivateLocal.Chat is available.', 'Update now', updateNow); });
+      });
+      function failed(detail) {
+        if (window.__plcBooted || (bar && bar.dataset.failed)) return;
+        show('PrivateLocal.Chat did not start properly. ' + (build.commit ? '(build ' + String(build.commit).slice(0, 7) + ') ' : '') + (detail ? String(detail).slice(0, 160) : ''), 'Update the app', updateNow);
+        if (bar) bar.dataset.failed = '1';
+      }
+      window.addEventListener('error', function (e) { failed(e && e.message); });
+      window.addEventListener('unhandledrejection', function (e) { failed(e && e.reason && e.reason.message); });
+      window.addEventListener('load', function () { setTimeout(function () { failed('The app files did not finish loading.'); }, 4000); });
+    })();
+  </script>
   <script type="module" src="/local-models.js"></script>
 </head>
 <body>
@@ -3307,13 +3357,13 @@ const base64UrlEncode = value => {
           const key = p.phase + (p.phase === 'offline' ? '' : '');
           if (key !== lastPhase) {
             lastPhase = key;
-            phase.textContent = { starting: 'Starting\u2026', download: 'Downloading the model', check: 'Checking the download\u2026', load: 'Loading the model into memory\u2026', offline: 'Waiting for a connection. Your progress is saved and the download will continue.', retrying: 'The download was interrupted. Trying again\u2026', 'another-tab': 'Another tab is downloading the model. This one continues when it finishes.', ready: 'Ready.' }[p.phase] || 'Working\u2026';
+            phase.textContent = { starting: 'Starting\u2026', download: 'Downloading the model', check: 'Checking the download\u2026', load: 'Loading the model into memory\u2026', offline: 'Waiting for a connection. Your progress is saved and the download will continue.', retrying: 'The download was interrupted. Trying again\u2026', stalled: 'The download stalled. Restarting it now; nothing already downloaded is lost.', 'another-tab': 'Another tab is downloading the model. This one continues when it finishes.', ready: 'Ready.' }[p.phase] || 'Working\u2026';
             bar.classList.toggle('indeterminate', p.phase !== 'download');
             actions.textContent = '';
             if (onCancelMessage) { const c = el('button', 'secondary', 'Cancel message'); c.type = 'button'; c.addEventListener('click', onCancelMessage); actions.appendChild(c); }
-            if (onCancelDownload && ['starting', 'download', 'retrying', 'check', 'offline'].includes(p.phase)) { const c = el('button', 'link-btn', 'Cancel download'); c.type = 'button'; c.addEventListener('click', onCancelDownload); actions.appendChild(c); }
+            if (onCancelDownload && ['starting', 'download', 'retrying', 'check', 'offline', 'stalled'].includes(p.phase)) { const c = el('button', 'link-btn', 'Cancel download'); c.type = 'button'; c.addEventListener('click', onCancelDownload); actions.appendChild(c); }
             const smaller = lm?.prepareInfo?.();
-            if (smaller?.tier === 'default' && ['starting', 'download', 'retrying', 'check'].includes(p.phase)) {
+            if (smaller?.tier === 'default' && ['starting', 'download', 'retrying', 'check', 'stalled'].includes(p.phase)) {
               const b = el('button', 'link-btn', 'Use the smaller model instead (faster to download)'); b.type = 'button';
               b.addEventListener('click', () => { b.textContent = 'Switching\u2026'; lm.switchTier('light').catch(err => showToast(err.message, 6000)); });
               actions.appendChild(b);
@@ -3581,6 +3631,7 @@ const base64UrlEncode = value => {
         M.model.touch(thread);
         saveThreads();
         if (threadId === currentThreadId) renderMessages(thread, { keepScroll: false });
+        replyListeners.forEach(l => l.start?.(thread, msg));
         const index = thread.messages.indexOf(msg);
         const join = next => (baseText && next && !/\s$/.test(baseText) && !/^\s/.test(next) && /[.!?:;,)\]]$/.test(baseText) && /^[\p{L}\p{N}]/u.test(next) ? ' ' : '');
         let streamed = '';
@@ -3591,6 +3642,7 @@ const base64UrlEncode = value => {
           generationStatus.textContent = (window.localModels?.mode === 'local' ? 'Generating on this device… ' : 'Receiving the response… ') + full.length + ' characters written';
           schedulePaint(threadId, msg);
           scheduleSave();
+          replyListeners.forEach(l => l.text?.(thread, streamed));
         };
         try {
           if (needsPrep) {
@@ -3660,10 +3712,13 @@ const base64UrlEncode = value => {
           setGenerating(false);
           renderThreadList();
           afterReplyHooks.forEach(fn => fn(thread, msg));
+          replyListeners.forEach(l => l.end?.(thread, msg));
         }
       }
       let contextSources = [];
-      const afterReplyHooks = []; // features that react to a finished reply (speech)
+      const afterReplyHooks = []; // features that react to a finished reply
+      const replyListeners = []; // { start(thread, msg), text(thread, fullText), end(thread, msg) }: features that follow a reply as it is written (voice conversation)
+      const beforeSendHooks = []; // run when a message is being sent, before the composer is read and cleared (dictation stops here)
       const sendInterceptors = []; // (text, thread) => handled?  — e.g. slash commands answered without the model
       const userMessageHooks = []; // run on a prompt before it is sent (exact tools)
 
@@ -3700,6 +3755,7 @@ const base64UrlEncode = value => {
           updateChatAvailability();
           return;
         }
+        beforeSendHooks.forEach(fn => fn());
         const text = messageInput.value.trim();
         if (!text && !(pendingAttachments?.length)) { messageInput.focus(); return; }
         const thread = currentThread();
@@ -4678,16 +4734,21 @@ const base64UrlEncode = value => {
         return true;
       });
       userMessageHooks.push(retool);
-      afterReplyHooks.push((thread, msg) => { if (voiceMode.on) voiceMode.afterReply(thread, msg); });
-
-      // speech: read aloud, dictation, hands-free conversation. These use the browser's own speech services (Apple's on an iPhone).
-      // A control the browser cannot support is not shown.
+      // ---- dictation and voice conversation -------------------------------------------------------------------------
+      // Both use the browser's own speech recognition and voices (Apple's on an iPhone). A control the browser cannot support is not shown.
       const speechAvailable = {
         synth: Boolean(window.speechSynthesis && window.SpeechSynthesisUtterance),
         recognition: Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
       };
-      let speechMod = null;
+      // Some browsers (an app's built-in web view, for one) expose speech recognition but never allow a website to use it. Once that has
+      // been seen the controls stay hidden for a while instead of failing every time.
+      const SPEECH_BLOCK_KEY = 'plc.speechInputUnusable';
+      const speechInputUnusable = () => { try { const t = Number(localStorage.getItem(SPEECH_BLOCK_KEY)); return Boolean(t) && Date.now() - t < 14 * 864e5; } catch { return false; } };
+      const markSpeechInputUnusable = () => { try { localStorage.setItem(SPEECH_BLOCK_KEY, String(Date.now())); } catch { /* private mode */ } };
+      const speechInputOk = speechAvailable.recognition && !speechInputUnusable();
+      let speechMod = null, voiceMod = null;
       const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
+      const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice.mjs'));
       let speaking = null;
       const setListenButton = (btn, on) => { btn.setAttribute('aria-pressed', String(on)); M.icons.setIconLabel(btn, on ? '⏹ Stop' : '🔊 Listen'); };
       function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => setListenButton(b, false)); } }
@@ -4716,63 +4777,160 @@ const base64UrlEncode = value => {
         const b = el('button', 'tool-btn'); b.type = 'button'; b.id = id; b.title = label; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', 'false');
         b.appendChild(createEmoji(icon === 'mic' ? '🎙️' : '🎧')); return b;
       };
-      const micBtn = speechAvailable.recognition ? toolButton('micBtn', 'mic', 'Dictate') : null;
-      const voiceBtn = speechAvailable.recognition && speechAvailable.synth ? toolButton('voiceModeBtn', 'headphones', 'Voice conversation') : null;
+      let micBtn = speechInputOk ? toolButton('micBtn', 'mic', 'Dictate') : null;
+      let voiceBtn = speechInputOk && speechAvailable.synth ? toolButton('voiceModeBtn', 'headphones', 'Voice conversation') : null;
       [micBtn, voiceBtn].forEach(b => b && composerToolsEl.append(b));
       const setPressed = (btn, on) => btn?.setAttribute('aria-pressed', String(on));
-      const voiceStatus = el('p', 'voice-status'); voiceStatus.id = 'voiceStatus'; voiceStatus.setAttribute('role', 'status'); voiceStatus.hidden = true;
-      messageForm.appendChild(voiceStatus);
+      const hideSpeechInput = () => { markSpeechInputUnusable(); micBtn?.remove(); voiceBtn?.remove(); micBtn = voiceBtn = null; };
+      // WebKit only shows the microphone prompt for a recognition that starts inside the tap, so the code it needs is loaded up front.
+      if (speechInputOk) { loadSpeech().catch(() => hideSpeechInput()); if (voiceBtn) loadVoice().catch(() => {}); }
 
-      let dictating = null;
-      function stopDictation() { dictating?.stop(); dictating = null; setPressed(micBtn, false); }
-      async function startDictating({ onFinal } = {}) {
-        if (!speechAvailable.recognition) return false;
+      // Why speech recognition could not start, in words that say what to do. A blocked microphone is the person's to allow;
+      // a browser that exposes speech recognition but never lets sites use it is not, so the controls go away.
+      let speechFailures = 0;
+      async function explainSpeechInputFailure(code) {
         const sp = await loadSpeech();
-        const base = messageInput.value ? messageInput.value.replace(/\s*$/, ' ') : '';
-        let committed = base;
-        messageInput.focus();
-        setPressed(micBtn, true);
-        dictating = sp.startDictation({
-          onText: ({ final, interim }) => { if (final) { committed += final.trim() + ' '; onFinal?.(final); } messageInput.value = committed + interim; growComposer(); updateSendButtonDisabled(); scheduleDraftSave(); },
-          onEnd: () => { if (messageInput.value.startsWith(committed.trimEnd())) messageInput.value = committed.trimEnd(); setPressed(micBtn, false); dictating = null; updateSendButtonDisabled(); voiceMode.onDictationEnd?.(); },
-          onError: err => { showToast(err.message, 8000); stopDictation(); voiceMode.stop?.(); }
-        });
-        return true;
+        if (code === 'audio-capture' || code === 'network') return sp.dictationMessage(code);
+        if (code !== 'not-allowed' && code !== 'service-not-allowed') return sp.dictationMessage(code);
+        const probe = await sp.probeMicrophone();
+        if (probe.state === 'denied') return 'The microphone is blocked for this site. Allow it in your browser’s site settings (in Safari: the aA menu, then Website Settings, then Microphone) and try again.';
+        if (probe.state === 'none') return sp.dictationMessage('audio-capture');
+        speechFailures++;
+        if (probe.state === 'granted' && speechFailures === 1) return 'The microphone is allowed now. Tap again to start.';
+        hideSpeechInput();
+        return 'This browser does not let websites use speech recognition, so dictation and voice conversation are turned off here. Safari and Chrome support them.';
       }
-      micBtn?.addEventListener('click', async () => { if (dictating) { stopDictation(); return; } await startDictating(); });
 
-      // hands-free: listen -> send -> speak the reply -> listen again
-      const voiceMode = {
-        on: false, timer: null,
-        async start() {
-          if (!getChatState().ready) { showToast('The model is not ready yet.'); return; }
-          this.on = true; setPressed(voiceBtn, true); this.listen();
-        },
-        stop(message) { this.on = false; clearTimeout(this.timer); stopDictation(); stopSpeaking(); setPressed(voiceBtn, false); voiceStatus.hidden = true; if (message) showToast(message); },
-        say(t) { voiceStatus.hidden = false; voiceStatus.textContent = t + ' Press the headphones to end.'; },
-        async listen() {
-          if (!this.on || gen) return;
-          this.say('Listening. Pause when you are done.');
-          const ok = await startDictating({ onFinal: () => { clearTimeout(this.timer); this.timer = setTimeout(() => this.submit(), 1600); } });
-          if (!ok) this.stop();
-        },
-        onDictationEnd() { if (this.on && !gen && messageInput.value.trim()) this.submit(); else if (this.on && !gen && !speaking) setTimeout(() => this.listen(), 300); },
-        async submit() {
-          clearTimeout(this.timer); if (!this.on || gen) return;
-          stopDictation();
-          const text = messageInput.value.trim(); if (!text) { this.listen(); return; }
-          this.say('Generating a reply.');
-          await handleSendMessage({ preventDefault() {} });
-        },
-        afterReply(thread, msg) {
-          if (!this.on) return;
-          if (!msg.content || msg.status === 'failed' || msg.status === 'stopped') { this.stop('Voice conversation ended.'); return; }
-          this.say('Reading the reply aloud.');
-          speakText(msg.content, () => { if (this.on) this.listen(); });
-        }
+      // dictation: words go into the composer while the microphone is on
+      let dictation = null; // { handle, committed, shown }
+      function endDictation({ abort = false } = {}) {
+        const d = dictation; dictation = null; setPressed(micBtn, false);
+        if (!d) return;
+        if (abort) d.handle?.abort(); else d.handle?.stop();
+      }
+      const writeDictation = (d, value) => { d.shown = value; messageInput.value = value; growComposer(); updateSendButtonDisabled(); scheduleDraftSave(); };
+      function beginDictation() {
+        if (voiceSession?.active) return;
+        const sp = speechMod;
+        if (!sp) { loadSpeech().then(beginDictation, () => hideSpeechInput()); return; }
+        const d = dictation = { handle: null, committed: messageInput.value ? messageInput.value.replace(/\s*$/, ' ') : '', shown: messageInput.value };
+        setPressed(micBtn, true);
+        if (!isTouchDevice()) messageInput.focus();
+        d.handle = sp.startDictation({
+          onText: ({ final, interim }) => { if (dictation !== d) return; if (final) d.committed += final.trim() + ' '; writeDictation(d, d.committed + interim); },
+          onEnd: () => { if (dictation !== d) return; if (messageInput.value === d.shown) writeDictation(d, d.committed.trimEnd()); endDictation(); },
+          onError: err => { if (dictation !== d) return; endDictation({ abort: true }); explainSpeechInputFailure(err.code).then(m => showToast(m, 9000)).catch(() => showToast(err.message, 9000)); }
+        });
+      }
+      micBtn?.addEventListener('click', () => { if (dictation) endDictation(); else beginDictation(); });
+      // typing while dictating is the person's edit: later words are added after it, never over it
+      messageInput.addEventListener('input', () => { if (dictation && messageInput.value !== dictation.shown) { dictation.committed = messageInput.value.replace(/\s*$/, ' '); dictation.shown = messageInput.value; } });
+      // sending (or leaving the conversation) ends the microphone for good: a recogniser keeps delivering late words after it is stopped
+      beforeSendHooks.push(() => endDictation({ abort: true }));
+      threadSelectedHooks.push(() => endDictation({ abort: true }));
+
+      // voice conversation: listen -> send -> speak the reply while it is written -> listen again
+      let voiceSession = null, voiceUi = null, wakeLock = null;
+      const voiceLabels = {
+        listening: ['Listening', 'Speak, then pause. Tap to send now.'],
+        thinking: ['Thinking', 'Tap to cancel.'],
+        speaking: ['Speaking', 'Tap or speak to interrupt.'],
+        paused: ['Paused', 'Tap to talk.'],
+        error: ['Voice conversation stopped', '']
       };
-      voiceBtn?.addEventListener('click', () => { if (voiceMode.on) voiceMode.stop('Voice conversation ended.'); else voiceMode.start(); });
-      document.getElementById('stopGeneration').addEventListener('click', () => { if (voiceMode.on) voiceMode.stop(); });
+      function buildVoiceUi() {
+        const root = el('section', 'voice-sheet'); root.id = 'voiceSheet'; root.hidden = true; root.setAttribute('role', 'group'); root.setAttribute('aria-label', 'Voice conversation');
+        const orb = el('button', 'voice-orb'); orb.type = 'button'; orb.id = 'voiceOrb'; orb.appendChild(el('span', 'voice-orb-core'));
+        const status = el('p', 'voice-state'); status.id = 'voiceState'; status.setAttribute('role', 'status');
+        const caption = el('p', 'voice-caption'); caption.id = 'voiceCaption'; caption.setAttribute('aria-live', 'off');
+        const hint = el('p', 'voice-hint');
+        const mute = el('button', 'secondary', 'Mute'); mute.type = 'button'; mute.id = 'voiceMute'; mute.setAttribute('aria-pressed', 'false');
+        const skip = el('button', 'secondary', 'Interrupt'); skip.type = 'button'; skip.id = 'voiceInterrupt';
+        const end = el('button', 'secondary', 'End'); end.type = 'button'; end.id = 'voiceEnd';
+        const row = el('div', 'voice-actions'); row.append(mute, skip, end);
+        root.append(orb, status, caption, hint, row);
+        messageForm.parentNode.insertBefore(root, messageForm);
+        orb.addEventListener('click', () => voiceSession?.tap());
+        mute.addEventListener('click', () => { const on = mute.getAttribute('aria-pressed') !== 'true'; mute.setAttribute('aria-pressed', String(on)); mute.textContent = on ? 'Unmute' : 'Mute'; voiceSession?.setMuted(on); });
+        skip.addEventListener('click', () => voiceSession?.interrupt());
+        end.addEventListener('click', () => endVoice('Voice conversation ended.'));
+        root.addEventListener('keydown', e => { if (e.key === 'Escape') endVoice(); });
+        return { root, orb, status, caption, hint, mute, skip, end };
+      }
+      function renderVoice(state, info = {}) {
+        if (!voiceUi) return;
+        const ui = voiceUi, labels = voiceLabels[state] || ['', ''];
+        ui.root.dataset.state = state; ui.root.hidden = state === 'idle';
+        document.body.classList.toggle('voice-on', state !== 'idle');
+        const reason = info.reason === 'muted' ? 'Muted. Unmute to talk.' : info.reason === 'background' ? 'Paused while the app was in the background. Tap to talk.' : info.reason === 'tap' ? 'Tap to talk.' : labels[1];
+        ui.status.textContent = state === 'paused' && info.reason === 'muted' ? 'Muted' : labels[0];
+        ui.hint.textContent = state === 'error' ? (info.message || '') : reason;
+        ui.caption.textContent = info.caption || '';
+        ui.orb.setAttribute('aria-label', labels[0] + '. ' + reason);
+        ui.skip.hidden = !(state === 'speaking' || state === 'thinking');
+        ui.mute.hidden = state === 'error';
+        ui.end.textContent = state === 'error' ? 'Close' : 'End';
+        if (state === 'error') explainSpeechInputFailure(info.code).then(m => { ui.hint.textContent = ['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(info.code) ? m : (info.message || m); }).catch(() => {});
+      }
+      async function keepScreenOn(on) {
+        try {
+          if (on && navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+          else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+        } catch { /* the screen may simply turn off */ }
+      }
+      // a spoken (empty) utterance made inside the tap lets iPhone Safari speak later, when the reply arrives
+      const unlockSpeech = () => { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch { /* no voices */ } };
+      function ensureVoiceSession() {
+        if (voiceSession || !speechMod || !voiceMod) return voiceSession;
+        voiceUi ||= buildVoiceUi();
+        voiceSession = voiceMod.createVoiceSession({
+          listen: handlers => speechMod.startDictation(handlers),
+          speakOne: text => speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1, interrupt: false }),
+          send: async text => {
+            replyBegan = false;
+            messageInput.value = text; growComposer();
+            await handleSendMessage({ preventDefault() {} });
+            if (!replyBegan) voiceSession.replyEnded({ stopped: true }); // answered without the model, or not sent
+          },
+          abortReply: () => generationController?.abort(),
+          clean: text => (loadedDocExports?.stripMarkdown ? loadedDocExports.stripMarkdown(text) : text), // markdown that slipped through is not read out as symbols
+          onState: renderVoice, unlockAudio: unlockSpeech, keepAwake: keepScreenOn
+        });
+        return voiceSession;
+      }
+      let replyBegan = false, loadedDocExports = null;
+      loadDocModules().then(m => { loadedDocExports = m.exports; }).catch(() => {});
+      async function startVoice() {
+        if (voiceSession?.active) return;
+        if (!getChatState().ready) { showToast('The model is not ready yet.'); return; }
+        endDictation({ abort: true }); stopSpeaking();
+        if (!speechMod || !voiceMod) { await Promise.all([loadSpeech(), loadVoice()]); }
+        const session = ensureVoiceSession(); if (!session) return;
+        setPressed(voiceBtn, true);
+        session.start();
+        voiceUi.orb.focus({ preventScroll: true });
+      }
+      function endVoice(message) {
+        if (!voiceSession) return;
+        voiceSession.stop(); setPressed(voiceBtn, false);
+        if (message) showToast(message);
+        messageInput.focus({ preventScroll: true });
+      }
+      voiceBtn?.addEventListener('click', () => { if (voiceSession?.active) endVoice('Voice conversation ended.'); else startVoice(); });
+      // the reply, as it is written, goes to the voice
+      replyListeners.push({
+        start: thread => { replyBegan = true; if (voiceSession?.active && thread.id === currentThreadId) voiceSession.replyStarted(); },
+        text: (thread, full) => { if (voiceSession?.active && thread.id === currentThreadId) voiceSession.replyText(full); },
+        end: (thread, msg) => {
+          if (!voiceSession?.active) return;
+          if (msg.status === 'stopped' || msg.status === 'cancelled') voiceSession.replyEnded({ stopped: true });
+          else voiceSession.replyEnded({ text: msg.content || '', ok: msg.status !== 'failed' });
+        }
+      });
+      contextProviders.push(async () => voiceSession?.active && voiceMod ? { preamble: [voiceMod.VOICE_STYLE] } : {});
+      document.addEventListener('visibilitychange', () => { if (document.hidden) voiceSession?.pause('background'); });
+      window.addEventListener('pagehide', () => { if (voiceSession?.active) voiceSession.stop(); });
+      document.getElementById('stopGeneration').addEventListener('click', () => { if (voiceSession?.active) voiceSession.interrupt(); });
 
       // ---- context: how full the model's window is, and condensing older messages ----------------------------------
       const meterRow = el('div', 'context-meter'); meterRow.id = 'contextMeter'; meterRow.hidden = true;
@@ -5003,7 +5161,7 @@ const base64UrlEncode = value => {
       }
       function lockNow() {
         if (!lockCfg) return;
-        setLockedUi(true); stopSpeaking?.(); if (typeof voiceMode !== 'undefined') voiceMode.stop?.();
+        setLockedUi(true); stopSpeaking?.(); if (typeof voiceSession !== 'undefined') voiceSession?.stop();
       }
       lockForm.addEventListener('submit', async event => {
         event.preventDefault();
@@ -6193,6 +6351,7 @@ const base64UrlEncode = value => {
         });
       });
       initMarketing();
+      window.__plcBooted = true;
     })();
   </script>
 </body>

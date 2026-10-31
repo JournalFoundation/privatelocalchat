@@ -5,7 +5,7 @@ const speechMocks=()=>{
  Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{getVoices:()=>window.__voiceMode==='none'?[]:window.__voiceMode==='remote'?[voices[0]]:voices,cancel(){},addEventListener(){},removeEventListener(){},speak(u){spoken.push({text:u.text,voice:u.voice?.voiceURI});setTimeout(()=>u.onend&&u.onend(),5);}}});
  window.SpeechSynthesisUtterance=function(t){this.text=t;};
  class Rec{constructor(){this.continuous=false;this.interimResults=false;this._pl=false;window.__recs.push(this);}
-  start(){this.started=true;}stop(){this.started=false;this.onend&&this.onend();}
+  start(){this.started=true;}stop(){this.started=false;this.onend&&this.onend();}abort(){this.started=false;this.aborted=true;}
   emit(text,final=true){this.onresult&&this.onresult({resultIndex:0,results:[Object.assign([{transcript:text}],{isFinal:final})]});}}
  window.SpeechRecognition=Rec;
 };
@@ -113,19 +113,28 @@ try{
  await page.click('#micBtn');assert(await page.getAttribute('#micBtn','aria-pressed')==='false','stopped');
  ok('dictation');
 
- // voice conversation: listen, send, speak, listen again
- await page.evaluate(()=>{window.__spoken.length=0;});
+ // sending clears the composer and silences the microphone: words from the old recogniser never reach the next message
  await page.fill('#messageInput','');
- await page.click('#voiceModeBtn');
+ await page.click('#micBtn');
  await page.waitForFunction(()=>window.__recs.length===2&&window.__recs[1].started);
- await page.evaluate(()=>window.__recs[1].emit('tell me a joke'));
- await page.waitForFunction(()=>window.__spoken.length>0,null,{timeout:15000});
- assert(/Reply to: tell me a joke/.test((await page.evaluate(()=>window.__spoken)).map(s=>s.text).join(' ')),'reply was spoken');
- await page.waitForFunction(()=>window.__recs.length===3&&window.__recs[2].started,null,{timeout:10000});
- assert((await page.locator('.message.user').last().innerText()).includes('tell me a joke'),'spoken prompt was sent');
- await page.click('#voiceModeBtn');
- assert(await page.getAttribute('#voiceModeBtn','aria-pressed')==='false'&&await page.evaluate(()=>!window.__recs.at(-1).started),'voice mode ended');
- ok('voice conversation');
+ await page.evaluate(()=>window.__recs[1].emit('knock knock'));
+ assert((await page.inputValue('#messageInput')).trim()==='knock knock','dictated text is in the composer');
+ await page.click('#sendBtn');await settle();
+ assert((await page.inputValue('#messageInput'))==='','the composer is empty after sending');
+ assert(await page.evaluate(()=>window.__recs[1].aborted===true),'the recogniser was aborted on send');
+ assert(await page.getAttribute('#micBtn','aria-pressed')==='false','the microphone shows as off');
+ await page.evaluate(()=>window.__recs[1].emit('knock knock again'));
+ assert((await page.inputValue('#messageInput'))==='','late words from the old recogniser are dropped');
+ await page.click('#micBtn');
+ await page.waitForFunction(()=>window.__recs.length===3&&window.__recs[2].started);
+ await page.evaluate(()=>window.__recs[2].emit('who is there'));
+ assert((await page.inputValue('#messageInput')).trim()==='who is there','the next message holds only the new words');
+ // typing while dictating is kept, and the next words go after it
+ await page.fill('#messageInput','Note: who is there');
+ await page.evaluate(()=>window.__recs[2].emit('please'));
+ assert((await page.inputValue('#messageInput')).trim()==='Note: who is there please','typed edits are kept');
+ await page.click('#micBtn');await page.fill('#messageInput','');
+ ok('dictation clears on send and ignores late words');
 
  const unexpected=h.errors.filter(e=>!/API responded with status 500|network error/.test(e));
  assert(unexpected.length===0,'no unexpected page errors: '+JSON.stringify(unexpected));

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {speechChunks,speechSupport,voices,bestVoice,speak,startDictation} from '../chat/speech.mjs';
+import {speechChunks,speechSupport,voices,bestVoice,speak,startDictation,probeMicrophone} from '../chat/speech.mjs';
 const clean=()=>{for(const k of ['speechSynthesis','SpeechSynthesisUtterance','SpeechRecognition','webkitSpeechRecognition'])delete globalThis[k];};
 test('text is read in sentence-sized pieces',()=>{
  const text='First sentence here. Second one follows! And a question? '+'word '.repeat(80)+'\nNew paragraph.';
@@ -43,6 +43,31 @@ test('dictation reports results and gives readable errors',()=>{
  rec.onresult({resultIndex:0,results:[Object.assign([{transcript:'hello world'}],{isFinal:true})]});
  assert.deepEqual(got,[{final:'',interim:'hello'},{final:'hello world',interim:''}]);
  rec.onerror({error:'no-speech'});rec.onerror({error:'not-allowed'});
- assert.equal(errors.length,1);assert.match(errors[0],/Microphone access was blocked/);
+ assert.equal(errors.length,1);assert.match(errors[0],/did not allow speech recognition/);
  d.stop();clean();
+});
+
+test('abort drops results that arrive after it, so they never reach the next message',()=>{
+ const got=[];let rec,aborted=0;
+ globalThis.webkitSpeechRecognition=class{constructor(){rec=this;}start(){}stop(){}abort(){aborted++;}};
+ const d=startDictation({onText:t=>got.push(t),onEnd:()=>got.push('end'),onError:()=>got.push('err')});
+ const late=rec.onresult;
+ d.abort();
+ late({resultIndex:0,results:[Object.assign([{transcript:'knock knock'}],{isFinal:true})]});
+ assert.equal(aborted,1);assert.deepEqual(got,[]);
+ clean();
+});
+test('errors carry their code so the app can tell a block from an unsupported browser',()=>{
+ let rec,err;globalThis.webkitSpeechRecognition=class{constructor(){rec=this;}start(){}stop(){}};
+ startDictation({onError:e=>{err=e;}});rec.onerror({error:'service-not-allowed'});
+ assert.equal(err.code,'service-not-allowed');assert.match(err.message,/Enable Dictation/);clean();
+});
+test('the microphone probe separates blocked, missing and available',async()=>{
+ const nav=globalThis.navigator;const set=(v)=>Object.defineProperty(globalThis,'navigator',{value:v,configurable:true});
+ try{
+  set({mediaDevices:{getUserMedia:async()=>({getTracks:()=>[{stop(){}}]})}});assert.equal((await probeMicrophone()).state,'granted');
+  set({mediaDevices:{getUserMedia:async()=>{throw Object.assign(new Error('x'),{name:'NotAllowedError'});}}});assert.equal((await probeMicrophone()).state,'denied');
+  set({mediaDevices:{getUserMedia:async()=>{throw Object.assign(new Error('x'),{name:'NotFoundError'});}}});assert.equal((await probeMicrophone()).state,'none');
+  set({});assert.equal((await probeMicrophone()).state,'unsupported');
+ }finally{set(nav);}
 });

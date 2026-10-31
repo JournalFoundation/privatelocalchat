@@ -9,6 +9,7 @@ export function progressOf(s, r = {}) {
   if (s.load.state === "ready") return { ...base, phase: "ready", fraction: 1 };
   if (r.phase === "offline") return { ...base, phase: "offline" };
   if (r.phase === "another-tab") return { ...base, phase: "another-tab" };
+  if (r.phase === "stalled" || (r.phase === "retrying" && r.reason === "stalled")) return { ...base, phase: "stalled" };
   if (r.phase === "retrying" || s.transfer?.phase === "retry-wait") return { ...base, phase: "retrying", retryInMs: r.retryInMs || s.transfer?.retryDelayMs || 0 };
   if (s.busy === "install" || r.phase === "downloading") {
     const t = s.transfer || {}, total = t.bytesTotal || base.totalBytes || 0, done = Math.min(total, t.bytesDone || 0);

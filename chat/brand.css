@@ -381,3 +381,33 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .prep-waiting q { quotes: '\201C' '\201D'; font-weight: 600; }
 .prep-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
 .prep-actions .secondary { min-height: var(--plc-control-min); }
+
+/* ---- voice conversation: a sheet above the composer; the conversation stays readable above it ---- */
+.voice-sheet { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; box-sizing: border-box; width: calc(100% - 1.5rem); max-width: var(--plc-chat-max); margin: 0 auto max(0.5rem, env(safe-area-inset-bottom)); padding: 0.9rem 1rem 0.75rem; border: 1px solid var(--plc-border); border-radius: var(--plc-radius-panel); background: var(--plc-surface); box-shadow: var(--plc-shadow); text-align: center; }
+.voice-sheet[hidden] { display: none; }
+.voice-orb { position: relative; width: 4.5rem; height: 4.5rem; border-radius: 50%; border: 0; padding: 0; background: var(--plc-accent-tint); cursor: pointer; display: grid; place-items: center; }
+.voice-orb:focus-visible { outline: 3px solid var(--plc-accent); outline-offset: 3px; }
+.voice-orb-core { width: 2.4rem; height: 2.4rem; border-radius: 50%; background: var(--plc-accent); transition: transform var(--plc-motion-normal, 160ms) ease, opacity var(--plc-motion-normal, 160ms) ease; }
+.voice-sheet[data-state='listening'] .voice-orb-core { animation: voice-breathe 1.8s ease-in-out infinite; }
+.voice-sheet[data-state='thinking'] .voice-orb-core { animation: voice-spin 1.2s linear infinite; border-radius: 40%; }
+.voice-sheet[data-state='speaking'] .voice-orb-core { animation: voice-speak 0.9s ease-in-out infinite; }
+.voice-sheet[data-state='paused'] .voice-orb-core, .voice-sheet[data-state='error'] .voice-orb-core { opacity: 0.45; }
+.voice-state { margin: 0; font-weight: 600; color: var(--plc-ink); }
+.voice-caption { margin: 0; min-height: 1.3em; max-width: 36rem; color: var(--plc-ink); overflow-wrap: anywhere; }
+.voice-hint { margin: 0; font-size: 0.85rem; color: var(--plc-muted); }
+.voice-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.35rem; }
+.voice-actions button { min-height: var(--plc-control-min); }
+.voice-actions button[hidden] { display: none; }
+body.voice-on .message-form .composer-card, body.voice-on .message-form .accuracy-note { display: none; }
+@keyframes voice-breathe { 0%, 100% { transform: scale(0.9); } 50% { transform: scale(1.12); } }
+@keyframes voice-speak { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.18); } 60% { transform: scale(0.92); } }
+@keyframes voice-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .voice-orb-core { animation: none !important; } .voice-sheet[data-state='listening'] .voice-orb-core { transform: scale(1.1); } .voice-sheet[data-state='speaking'] .voice-orb-core { transform: scale(1.15); } }
+
+/* Browsers older than 2022 (iOS before 16.2) cannot mix colours: use plain tokens there so borders and tints do not disappear. */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  :root, [data-theme="light"], [data-theme="dark"] { --plc-hairline: var(--plc-border); --color-border-strong: var(--plc-muted); --color-thread-hover: var(--plc-accent-tint); --color-form-border: var(--plc-border); }
+  ::selection { background: var(--plc-accent-tint); }
+  .message-body code { background: var(--plc-accent-tint); }
+  .composer-card:focus-within { box-shadow: 0 0 0 3px var(--plc-accent-tint); }
+}

@@ -28,6 +28,7 @@ test('progress describes each stage in plain terms',()=>{
  assert.equal(progressOf(stateOf({busy:'load'}),{}).phase,'load');
  assert.equal(progressOf(stateOf(),{phase:'offline'}).phase,'offline');
  assert.equal(progressOf(stateOf(),{phase:'retrying',retryInMs:4000}).retryInMs,4000);
+ assert.equal(progressOf(stateOf(),{phase:'retrying',reason:'stalled'}).phase,'stalled');
  assert.equal(progressOf(stateOf({load:{state:'ready'}}),{}).phase,'ready');
 });
 function rig(initial){

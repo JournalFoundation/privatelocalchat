@@ -43,7 +43,7 @@ export function speechChunks(text, max = 220) {
 }
 
 /** -> { stop(), done: Promise } ; `done` rejects with a readable Error when the browser has no voice. */
-export function speak(text, { voiceURI, rate = 1, onStart } = {}) {
+export function speak(text, { voiceURI, rate = 1, onStart, interrupt = true } = {}) {
   const w = win(), s = w.speechSynthesis;
   let stopped = false;
   const done = (async () => {
@@ -51,7 +51,7 @@ export function speak(text, { voiceURI, rate = 1, onStart } = {}) {
     await whenVoicesReady();
     const voice = bestVoice(voiceURI);
     if (!voice) throw new Error("This browser has no voice installed for reading aloud.");
-    s.cancel();
+    if (interrupt) s.cancel();
     onStart?.();
     for (const piece of speechChunks(text)) {
       if (stopped) return;
@@ -64,25 +64,40 @@ export function speak(text, { voiceURI, rate = 1, onStart } = {}) {
   return { done, stop() { stopped = true; try { s?.cancel(); } catch { /* idle */ } } };
 }
 
-const dictationMessage = (code) => ({
-  "not-allowed": "Microphone access was blocked. Allow it for this site in your browser settings to dictate.",
-  "service-not-allowed": "Dictation is turned off for this browser. Turn on Siri & Dictation (or the browser's speech setting) and try again.",
+export const dictationMessage = (code) => ({
+  "not-allowed": "This browser did not allow speech recognition. Check that the microphone is allowed for this site in your browser or system settings.",
+  "service-not-allowed": "Speech recognition is turned off for this browser. Turn on dictation (on iPhone: Settings > General > Keyboard > Enable Dictation) and try again.",
   "audio-capture": "No microphone was found.",
   network: "Dictation needs a connection in this browser right now."
 }[code] || `Dictation stopped (${code || "unknown error"}).`);
 
-/** Start dictation with the browser's recogniser. onText({ final, interim }) fires as words arrive. Returns { stop() }. */
+/** Ask the browser for the microphone directly, to tell "you blocked it" from "this browser gives websites no speech-to-text". */
+export async function probeMicrophone() {
+  const md = win().navigator?.mediaDevices;
+  if (!md?.getUserMedia) return { state: "unsupported" };
+  try { const stream = await md.getUserMedia({ audio: true }); stream.getTracks().forEach((t) => t.stop()); return { state: "granted" }; }
+  catch (e) { return { state: e?.name === "NotAllowedError" || e?.name === "SecurityError" ? "denied" : e?.name === "NotFoundError" ? "none" : "error", name: e?.name }; }
+}
+
+/**
+ * Start dictation with the browser's recogniser. onText({ final, interim }) fires as words arrive.
+ * Returns { stop(), abort() }: stop() lets pending words arrive; abort() drops everything still in flight (used when a message is sent,
+ * because recognisers deliver late results after stop() and those words must never reach the next message).
+ * Call it directly from a tap: WebKit only shows the microphone prompt for a recognition started inside a user gesture.
+ */
 export function startDictation({ lang = win().navigator?.language || "en-US", onText, onEnd, onError }) {
   const SR = win().SpeechRecognition || win().webkitSpeechRecognition;
   const rec = new SR();
+  let dead = false;
   rec.lang = lang; rec.continuous = true; rec.interimResults = true;
   rec.onresult = (e) => {
+    if (dead) return;
     let fin = "", interim = "";
     for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; (r.isFinal ? (fin += r[0].transcript) : (interim += r[0].transcript)); }
     onText?.({ final: fin, interim });
   };
-  rec.onerror = (e) => { if (e.error !== "no-speech" && e.error !== "aborted") onError?.(new Error(dictationMessage(e.error))); };
-  rec.onend = () => onEnd?.();
+  rec.onerror = (e) => { if (dead) return; if (e.error !== "no-speech" && e.error !== "aborted") onError?.(Object.assign(new Error(dictationMessage(e.error)), { code: e.error })); };
+  rec.onend = () => { if (!dead) onEnd?.(); };
   try { rec.start(); } catch (err) { onError?.(err); }
-  return { stop() { try { rec.stop(); } catch { /* not running */ } } };
+  return { stop() { try { rec.stop(); } catch { /* not running */ } }, abort() { dead = true; rec.onresult = rec.onerror = rec.onend = null; try { rec.abort(); } catch { try { rec.stop(); } catch { /* not running */ } } } };
 }

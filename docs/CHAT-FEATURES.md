@@ -16,7 +16,7 @@ What the chat experience does beyond running a model, where each part lives, wha
 | Outputs | Save an answer as `.md` / `.txt`, a table as CSV, a code block as a file; edit longer drafts in a side editor and ask the assistant to revise them. | `chat/exports.mjs` |
 | Personalisation | Standing instructions, assistant presets, an explicit and editable memory (never used in temporary chats). | `index.html` (assistant block) |
 | Exact answers | Arithmetic, unit conversion and date questions are computed by a small parser (no `eval`). `/calc`, `/convert`, `/date` answer immediately; the same questions inside normal messages are computed and handed to the model as given. | `chat/tools.mjs` |
-| Speech | Read-aloud, dictation and the hands-free voice loop use the browser's own speech services (Apple's on an iPhone). Voices on the device are preferred. A browser without speech recognition or voices simply does not show the matching buttons. | `chat/speech.mjs` |
+| Speech | Read-aloud, dictation and voice conversation use the browser's own speech services (Apple's on an iPhone). **Dictation** writes into the composer; sending (or switching chats) aborts the recogniser, so late words never reach the next message, and typing while dictating is kept. **Voice conversation** (headphones button) is speech-to-speech: it listens, sends after a pause, speaks the reply sentence by sentence while it is still being written, then listens again; tapping the orb sends now or interrupts, the microphone is off while the app speaks (no echo), muting and the background pause it, the screen stays awake, Escape ends it, and the model is told to answer in short spoken sentences without Markdown or code (code is skipped with a spoken note). A microphone failure is explained (blocked for this site vs. a browser that never lets sites use speech recognition); in the second case the controls are removed and stay hidden for 14 days. | `chat/speech.mjs`, `chat/voice.mjs`, `index.html` (speech block) |
 | Brand and layout | PrivateLocal.Chat identity from the brand packet (`brand/`, `chat/brand.css`): wordmark, tokens, light/dark, an "On this device" / "Connected" badge on every chat. Phones get finger-sized targets, a tap-to-reveal action row and Enter-adds-a-line; desktops get hover actions and Enter-sends. Enter behaviour lives in Memory & preferences. | `chat/brand.css`, `chat/icons.mjs` |
 | Device readiness | Downloaded / Loaded / Ready for offline use are shown separately; one button performs the next step. Repair, restart, removal and diagnostics are under Advanced. Free memory unloads the model and keeps the download. | `local-models.js`, `index.html` |
 | Context | A meter shows how full the model's window is. Older messages can be condensed into a summary that replaces them *in what the model sees only*; the saved conversation is never shortened. | `chat/context.mjs` |
@@ -30,6 +30,12 @@ No button is ever shown disabled. If an action is unavailable (a model already d
 ## First message, no setup
 
 Sending a message (or pressing the welcome button) is all it takes. `runtime/prepare.mjs` picks a model for the device (`runtime/auto-tier.mjs`: phones and tablets get the 2B model, a capable desktop gets the 9B model, an installed or explicitly chosen model always wins), downloads it, loads it, and the message is answered automatically. While that happens the reply bubble (or the welcome screen) shows a progress card: stage, percent, size, time left, and one reassuring paragraph. There is no confirmation dialog; the size is stated on the card, and on a desktop there is a "use the smaller model" link. Stop during setup removes the empty reply but leaves the question; a failed download says why and Retry does not duplicate the message. `tests/e2e/firstrun.e2e.mjs` drives this with a scripted model bridge, since headless browsers have no GPU.
+
+**Stalled downloads.** `runtime/download-recovery.mjs` watches the byte count: if nothing arrives for two minutes (a phone that sat at 64% for a quarter of an hour) the transfer is abandoned and restarted, a wedged host is restarted too, and the shards already saved are reused rather than fetched again. The card says "The download stalled. Restarting it now".
+
+## Stale copies and failed starts
+
+The app ships a plain-JavaScript guard in `index.html`: if `/version.json` names a newer build than the one running, the saved service-worker copy is cleared and the page reloads once (a banner with an Update button is shown instead if that already happened, so it can never loop); if the app does not finish starting, a banner says so with the build number and the same fix. The service worker (`scripts/service-worker.js`) requires only the small startup files to install and then takes over at once; the multi-megabyte model runtimes are cached afterwards, best effort, and as they are first used, so a phone that cannot finish a 36 MB install is no longer stuck on an old version.
 
 A downloaded model loads by itself when the app opens or when on-device chat is chosen (`runtime/auto-load.mjs`), unless the person freed memory this session.
 
@@ -51,7 +57,7 @@ Everything stays in the browser. Documents are read, indexed and searched on the
 * **The lock is a screen lock.** It stops casual access. It does not encrypt `localStorage` or IndexedDB, so someone with access to the browser's files can still read them. An encrypted backup is the protected copy. A forgotten passphrase cannot be recovered: the only way back in is to erase the app's data and restore a backup.
 * **Pictures need a vision-capable API provider.** The on-device models here read text only, and the app says so instead of pretending.
 * **Scanned PDFs** have no text to read and are refused with an explanation; OCR is not available offline yet.
-* **Speech depends on the browser.** Dictation and voice conversation appear only where the browser has speech recognition, and may send audio to that browser's speech service (Apple's on iPhone). That is an accepted trade-off for an app that also lets people connect their own providers; it is not a claim that voice never leaves the device.
+* **Speech depends on the browser.** Some app web views (DuckDuckGo on iPhone, for one) expose speech recognition but never let a website use it; this cannot be tested from a desktop, so the app detects the failure and hides the controls. Dictation and voice conversation appear only where the browser has speech recognition, and may send audio to that browser's speech service (Apple's on iPhone). That is an accepted trade-off for an app that also lets people connect their own providers; it is not a claim that voice never leaves the device.
 * **Exact-answer detection is conservative.** It acts on clear arithmetic, unit and date questions and ignores things that merely look like them (`2026-03-05`, `pages 10-20`).
 * **Local performance is untested here.** Browser tests use a scripted provider, so response quality and speed on a real iPhone or WebGPU device still need the existing acceptance scripts.
 
@@ -62,7 +68,7 @@ npm test            # unit tests for every pure module (Node)
 npm run e2e         # browser tests: builds dist/, serves it, and drives it with Playwright against a scripted OpenAI-style server
 ```
 
-`tests/e2e/fake-api.mjs` is an OpenAI-compatible server whose behaviour is chosen by the last prompt (`fail-once`, `fail-mid`, `length`, `slow`, `markdown`, citations when excerpts are present). Speech APIs are replaced by mocks in `assistant.e2e.mjs`, because a headless browser has no voices or recogniser.
+`tests/e2e/fake-api.mjs` is an OpenAI-compatible server whose behaviour is chosen by the last prompt (`fail-once`, `fail-mid`, `length`, `slow`, `speak`, `speak-long`, `markdown`, citations when excerpts are present). Speech APIs are replaced by mocks in `assistant.e2e.mjs`, because a headless browser has no voices or recogniser.
 
 ## Adding to the chat
 

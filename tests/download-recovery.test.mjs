@@ -58,3 +58,39 @@ test('automatic loading waits for startup hooks and Cancel during that wait prev
 test('completed cached inventory can automatically load after reopening offline',async()=>{
  const f=fixture();f.complete=true;f.connected=false;f.recovery.resume();f.recovery.start('light');await f.step();assert.equal(f.loads,1);assert.equal(f.installs,0);assert.equal(f.store.getItem(KEY),null);
 });
+
+test('a transfer that stops moving is aborted and resumed, and a wedged abort replaces the worker',async()=>{
+ const storage=new Map(),store={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ let clock=0,polls=[],jobs=[],transfer={phase:'install',bytesDone:100,filesDone:0},complete=false,installs=0,cancels=0,restarts=0,abortInstall=null,hang=false,hidden=false;
+ const host={getState:()=>({busy:null,host:{state:'running'},selection:{tier:'light'},transfer,tiers:{light:{install:{ok:complete}}}}),inspect:async()=>{},
+  install:()=>{installs++;if(installs===1)return new Promise((_,rej)=>{abortInstall=()=>rej(Object.assign(Error('cancelled'),{name:'AbortError'}));});complete=true;return Promise.resolve();},
+  cancelTransfer:()=>{cancels++;if(!hang)abortInstall();},restartHost:async()=>{restarts++;abortInstall();},load:async()=>{}};
+ const states=[];
+ const recovery=createDownloadRecovery({host,storage:store,online:()=>true,lock:null,onState:s=>states.push(s),now:()=>clock,visible:()=>!hidden,stallMs:60000,pollMs:5000,hangMs:15000,
+  poll:fn=>{polls.push(fn);return fn;},unpoll:fn=>{polls=polls.filter(x=>x!==fn);},schedule:(fn,ms)=>{const j={fn,ms};jobs.push(j);return j;},unschedule:j=>{j.cancelled=true;}});
+ const tick=async(ms)=>{clock+=ms;for(const fn of [...polls])fn();await flush();};
+ const runJobs=async()=>{for(const j of jobs.splice(0))if(!j.cancelled)await j.fn();await flush();};
+ recovery.resume();recovery.start('light');await runJobs();
+ assert.equal(installs,1);
+ await tick(30000);assert.equal(cancels,0,'still within the allowance');
+ transfer={phase:'install',bytesDone:200,filesDone:0};await tick(5000);   // progress resets the clock
+ await tick(50000);assert.equal(cancels,0,'progress was made, so no stall');
+ hidden=true;await tick(300000);assert.equal(cancels,0,'a hidden page is not counted as stalled');
+ hidden=false;await tick(5000);await tick(60000);
+ assert.equal(cancels,1,'no progress while visible: aborted');assert.ok(states.some(s=>s.phase==='stalled'));
+ await flush();assert.equal(recovery.state.phase,'retrying');assert.equal(recovery.state.reason,'stalled');
+ await runJobs();assert.equal(installs,2,'resumed by itself');assert.equal(recovery.state.pending,false);
+});
+test('if aborting a stalled transfer hangs, the host worker is replaced',async()=>{
+ const storage=new Map(),store={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ let clock=0,polls=[],jobs=[],complete=false,installs=0,restarts=0,reject;
+ const host={getState:()=>({busy:null,host:{state:'running'},selection:{tier:'light'},transfer:{phase:'install',bytesDone:1,filesDone:0},tiers:{light:{install:{ok:complete}}}}),inspect:async()=>{},
+  install:()=>{installs++;if(installs===1)return new Promise((_,rej)=>{reject=rej;});complete=true;return Promise.resolve();},
+  cancelTransfer:()=>{},restartHost:async()=>{restarts++;reject(Object.assign(Error('worker replaced'),{name:'AbortError'}));},load:async()=>{}};
+ const recovery=createDownloadRecovery({host,storage:store,online:()=>true,lock:null,now:()=>clock,visible:()=>true,stallMs:60000,pollMs:5000,hangMs:15000,
+  poll:fn=>{polls.push(fn);return fn;},unpoll:fn=>{polls=polls.filter(x=>x!==fn);},schedule:(fn,ms)=>{const j={fn,ms};jobs.push(j);return j;},unschedule:j=>{j.cancelled=true;}});
+ recovery.resume();recovery.start('light');for(const j of jobs.splice(0))await j.fn();await flush();
+ clock+=70000;polls.forEach(f=>f());await flush();
+ const hang=jobs.find(j=>j.ms===15000);assert.ok(hang,'a hang timer was set');
+ await hang.fn();await flush();assert.equal(restarts,1);
+});
