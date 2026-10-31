@@ -3287,19 +3287,21 @@ const base64UrlEncode = value => {
       let prep = null; // { messageId, progress, card } for the reply that is waiting on the model
       const fmtBytes = n => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 1e6)) + ' MB');
       const fmtEta = sec => (!Number.isFinite(sec) || sec <= 0 ? '' : sec < 90 ? 'less than a minute left' : 'about ' + Math.round(sec / 60) + ' min left');
-      function buildPrepCard({ intro }) {
+      function buildPrepCard({ intro, question = '', onCancelMessage = null, onCancelDownload = null }) {
         const lm = window.localModels, info = lm?.prepareInfo?.() || {};
         const card = el('div', 'prep-card'); card.setAttribute('role', 'status');
         const head = el('div', 'prep-head'); const spin = el('span', 'prep-spinner'); spin.setAttribute('aria-hidden', 'true');
         head.append(spin, el('strong', null, 'Getting on-device chat ready'));
+        const waiting = el('p', 'prep-waiting');
+        if (question) { waiting.append('Waiting to send: '); waiting.appendChild(el('q', null, question.length > 140 ? question.slice(0, 140).trimEnd() + '\u2026' : question)); }
         const phase = el('p', 'prep-phase', 'Starting\u2026');
         const bar = el('div', 'prep-bar'); bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-label', 'Model download progress'); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100');
         const fill = el('div', 'prep-fill'); bar.appendChild(fill);
         const detail = el('p', 'prep-detail');
         const size = info.downloadBytes ? fmtBytes(info.downloadBytes) : 'a few GB';
-        const calm = el('p', 'prep-calm', intro + ' This runs on your device, so the model downloads once (about ' + size + ') and then works without a connection.');
+        const calm = el('p', 'prep-calm', intro + ' This runs on your device, so the model downloads once (about ' + size + ') and then works without a connection.' + (onCancelMessage ? ' You can cancel the message at any time; the download keeps going.' : ''));
         const actions = el('div', 'prep-actions');
-        card.append(head, phase, bar, detail, calm, actions);
+        card.append(head, ...(question ? [waiting] : []), phase, bar, detail, calm, actions);
         let lastPhase = '';
         const api = { el: card, update(p) {
           const key = p.phase + (p.phase === 'offline' ? '' : '');
@@ -3308,6 +3310,8 @@ const base64UrlEncode = value => {
             phase.textContent = { starting: 'Starting\u2026', download: 'Downloading the model', check: 'Checking the download\u2026', load: 'Loading the model into memory\u2026', offline: 'Waiting for a connection. Your progress is saved and the download will continue.', retrying: 'The download was interrupted. Trying again\u2026', 'another-tab': 'Another tab is downloading the model. This one continues when it finishes.', ready: 'Ready.' }[p.phase] || 'Working\u2026';
             bar.classList.toggle('indeterminate', p.phase !== 'download');
             actions.textContent = '';
+            if (onCancelMessage) { const c = el('button', 'secondary', 'Cancel message'); c.type = 'button'; c.addEventListener('click', onCancelMessage); actions.appendChild(c); }
+            if (onCancelDownload && ['starting', 'download', 'retrying', 'check', 'offline'].includes(p.phase)) { const c = el('button', 'link-btn', 'Cancel download'); c.type = 'button'; c.addEventListener('click', onCancelDownload); actions.appendChild(c); }
             const smaller = lm?.prepareInfo?.();
             if (smaller?.tier === 'default' && ['starting', 'download', 'retrying', 'check'].includes(p.phase)) {
               const b = el('button', 'link-btn', 'Use the smaller model instead (faster to download)'); b.type = 'button';
@@ -3327,7 +3331,7 @@ const base64UrlEncode = value => {
 
       function fillBody(body, msg) {
         if (msg.role === 'assistant' && msg.status === 'preparing' && prep?.messageId === msg.id) {
-          prep.card = buildPrepCard({ intro: 'Your message is saved and your answer will start as soon as this finishes.' });
+          prep.card = buildPrepCard({ intro: 'Your message is saved and will be sent as soon as this finishes.', question: prep.question, onCancelMessage: () => gen?.controller.abort(), onCancelDownload: () => window.localModels.cancelDownload() });
           body.replaceChildren(prep.card.el);
           return;
         }
@@ -3440,7 +3444,7 @@ const base64UrlEncode = value => {
             box.appendChild(el('p', 'lede', welcomeSetup.error));
             const again = el('button', 'primary', 'Try again'); again.type = 'button'; again.addEventListener('click', () => startWelcomeSetup()); box.appendChild(again);
           } else {
-            welcomeSetup.card = buildPrepCard({ intro: 'You can start typing your first message now.' });
+            welcomeSetup.card = buildPrepCard({ intro: 'You can start typing your first message now.', onCancelDownload: () => window.localModels.cancelDownload() });
             welcomeSetup.card.update(welcomeSetup.progress);
             box.appendChild(welcomeSetup.card.el);
           }
@@ -3566,7 +3570,7 @@ const base64UrlEncode = value => {
         else { msg = M.model.makeMessage('assistant', '', { status: S.STREAMING }); thread.messages.push(msg); }
         const needsPrep = window.localModels?.mode === 'local' && !window.localModels.ready;
         msg.status = needsPrep ? S.PREPARING : S.STREAMING; delete msg.error;
-        if (needsPrep) prep = { messageId: msg.id, progress: { phase: 'starting' }, card: null };
+        if (needsPrep) prep = { messageId: msg.id, progress: { phase: 'starting' }, card: null, question: thread.messages[thread.messages.indexOf(msg) - 1]?.content || '' };
         const controller = new AbortController();
         gen = { threadId, messageId: msg.id, controller };
         generationController = controller;
@@ -3602,7 +3606,18 @@ const base64UrlEncode = value => {
             if (threadId === currentThreadId) renderMessages(thread, { keepScroll: false });
           }
           const context = await buildInferenceMessages(thread, index, mode);
-          const result = await sendToApi(context, controller.signal, onText);
+          let result;
+          for (let attempt = 0; ; attempt++) {
+            try { result = await sendToApi(context, controller.signal, onText); break; }
+            catch (err) {
+              // A model that was only just loaded can fail its very first request. That is the app's problem to retry, not the person's.
+              const transient = window.localModels?.mode === 'local' && attempt === 0 && !streamed && err?.name !== 'AbortError' && !['context-overflow', 'invalid-request', 'aborted'].includes(err?.class);
+              if (!transient) throw err;
+              console.warn('Retrying the first request once:', err);
+              generationStatus.textContent = 'Getting the model ready again…';
+              await window.localModels.ensureReady({ signal: controller.signal });
+            }
+          }
           msg.content = baseText + join(result.text) + result.text;
           if (result.finishReason === 'length') msg.status = S.LENGTH; else delete msg.status;
           generationStatus.textContent = msg.status === S.LENGTH ? 'The response reached the context limit.' : 'Response complete.';
@@ -3610,12 +3625,12 @@ const base64UrlEncode = value => {
           consecutiveAuthErrors = 0;
           updateAuthGuidance();
         } catch (err) {
-          if (err?.name !== 'AbortError') console.error(err);
+          if (err?.name !== 'AbortError' && err?.code !== 'cancelled') console.error(err);
           const partial = typeof err?.partialText === 'string' ? err.partialText : streamed;
           msg.content = baseText + (partial ? join(partial) + partial : '');
-          if (err?.name === 'AbortError') {
+          if (err?.name === 'AbortError' || err?.code === 'cancelled') {
             msg.status = S.STOPPED;
-            generationStatus.textContent = 'Response stopped. The partial response has been kept.';
+            generationStatus.textContent = err?.code === 'cancelled' ? 'The download was stopped. Your message is still here.' : 'Response stopped. The partial response has been kept.';
           } else {
             msg.status = S.FAILED;
             const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
@@ -4767,7 +4782,7 @@ const base64UrlEncode = value => {
       meterRow.append(meterText, meterBar, meterBtn);
       messageForm.parentNode.insertBefore(meterRow, messageForm);
       updateContextMeter = thread => {
-        if (!thread || !thread.messages.length) { meterRow.hidden = true; return; }
+        if (!thread || !thread.messages.length || prep) { meterRow.hidden = true; return; }
         const extra = (prefs.instructions || '').length + (memory.enabled && !thread.temporary ? memory.items.reduce((n, i) => n + i.text.length + 2, 0) : 0) + selectedFolderInstructions(thread).length + 300;
         const u = M.context.contextUsage(thread, contextWindowTokens(), extra);
         const pct = Math.min(100, Math.round(u.fraction * 100));

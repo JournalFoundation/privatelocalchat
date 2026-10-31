@@ -50,16 +50,31 @@ export function createPreparer({ host, recovery, getEnv, subscribe, userAgent = 
       onChosen(c);
       await start(c.tier);
       return new Promise((resolve, reject) => {
-        let done = false, timer = null;
-        const finish = (fn, value) => { if (done) return; done = true; unsubscribe(); clearInterval(timer); signal?.removeEventListener("abort", onAbort); fn(value); };
+        let done = false, timer = null, loadTimer = null, loadInFlight = false, loadAttempts = 0;
+        const finish = (fn, value) => { if (done) return; done = true; unsubscribe(); clearInterval(timer); clearTimeout(loadTimer); signal?.removeEventListener("abort", onAbort); fn(value); };
         const onAbort = () => finish(reject, Object.assign(new Error("Stopped."), { name: "AbortError" }));
+        // The download recovery loads the model itself once the download completes. These phases are its work: never compete with it.
+        const recoveryWorking = (r) => ["pending", "checking", "waiting", "downloading", "complete", "loading", "retrying", "offline", "another-tab"].includes(r.phase);
+        const loadNow = () => {
+          if (loadInFlight || done) return;
+          loadInFlight = true;
+          Promise.resolve().then(async () => {
+            if (host.getState().host?.state !== "running") await host.restartHost?.();
+            await host.load();
+          }).catch(() => { /* the next check sees the state and decides */ }).finally(() => { loadInFlight = false; });
+        };
         const check = () => {
           const s = host.getState(), r = recovery.state;
           if (s.load.state === "ready") { onProgress?.(progressOf(s, r)); return finish(resolve); }
-          if (s.load.state === "faulted" || r.phase === "load-failed") return finish(reject, Object.assign(new Error(s.load.lastError?.message || "The model could not be loaded."), { code: "load-failed", advice: s.load.lastError?.advice }));
+          const failed = s.load.state === "faulted" || r.phase === "load-failed";
+          if (failed && !s.busy && !loadInFlight) {
+            // A failed load is retried here, a few times with a short pause, before anyone is asked to do anything.
+            if (loadAttempts >= 3) return finish(reject, Object.assign(new Error(s.load.lastError?.message || "The model could not be loaded."), { code: "load-failed", advice: s.load.lastError?.advice }));
+            if (!loadTimer) { loadAttempts++; loadTimer = setTimeout(() => { loadTimer = null; loadNow(); }, 800 * loadAttempts); }
+          }
           if (r.phase === "cancelled" && !switching && !s.busy) return finish(reject, Object.assign(new Error("The download was stopped."), { code: "cancelled" }));
-          // downloaded but nothing is loading it (for example it failed to start earlier): load it now
-          if (!s.busy && !r.pending && s.tiers[s.selection.tier].install.ok === true && s.load.state === "unloaded") host.load().catch(() => {});
+          // downloaded, nothing is working on it and it is not loaded: load it (never while the recovery is about to)
+          if (!failed && !s.busy && !recoveryWorking(r) && !r.pending && s.tiers[s.selection.tier].install.ok === true && s.load.state === "unloaded") loadNow();
           onProgress?.(progressOf(s, r));
         };
         const unsubscribe = subscribe(check);

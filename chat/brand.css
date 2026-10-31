@@ -376,3 +376,8 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .message-form .composer-actions #stopGeneration { background: var(--plc-danger-tint); color: var(--plc-danger); }
 .message-form .composer-actions #stopGeneration .ico { width: 1.2em; height: 1.2em; }
 .message-form:has(.composer-card) ~ .context-meter { display: none; }
+
+.prep-waiting { margin: 0 0 0.5rem; padding: 0.5rem 0.75rem; background: var(--plc-accent-tint); border-radius: var(--plc-radius-control); font-size: 0.92rem; overflow-wrap: anywhere; }
+.prep-waiting q { quotes: '\201C' '\201D'; font-weight: 600; }
+.prep-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.prep-actions .secondary { min-height: var(--plc-control-min); }

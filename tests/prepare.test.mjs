@@ -69,3 +69,39 @@ test('a browser that cannot run any model says so',async()=>{
  const p=createPreparer({host,recovery:{state:{}},getEnv:()=>({webgpu:{available:false}}),subscribe:()=>()=>{}});
  await assert.rejects(p.ensureReady(),e=>e.code==='unsupported');
 });
+
+// The real recovery publishes "complete", then loads on its own a moment later. The preparer must leave that load alone.
+function raceRig({failFirstLoads=0}={}){
+ let s=stateOf({host:{state:'running'}}),rec={phase:'idle',pending:false},listeners=new Set(),loads=0,failures=failFirstLoads;
+ const emit=()=>listeners.forEach(f=>f());
+ const host={getState:()=>s,async selectTier(t){s.selection.tier=t;},
+  async load(){
+   loads++;
+   if(s.busy)throw Object.assign(new Error('cannot load while '+s.busy),{code:'manager-busy'});
+   s.busy='load';emit();await new Promise(r=>setTimeout(r,80));s.busy=null;
+   if(failures>0){failures--;s.load={state:'faulted',lastError:{message:'engine failed'}};emit();throw new Error('engine failed');}
+   s.load={state:'ready'};emit();},
+  restartHost:async()=>{s.host={state:'running'};s.load={state:'unloaded'};}};
+ const recovery={get state(){return rec;},cancel(){},
+  start(t){rec={phase:'downloading',pending:true};s.busy='install';s.transfer={bytesDone:1e9,bytesTotal:2e9};emit();
+   setTimeout(async()=>{s.busy=null;s.transfer=null;s.tiers[t].install.ok=true;rec={phase:'complete',pending:false};emit();
+     await new Promise(r=>setTimeout(r,30)); // await beforeLoad() in the real code
+     rec={phase:'loading',pending:false};emit();
+     try{await host.load();rec={phase:'ready',pending:false};}catch{rec={phase:'load-failed',pending:false};}emit();},10);}};
+ const p=createPreparer({host,recovery,getEnv:()=>GPU,subscribe:f=>{listeners.add(f);return()=>listeners.delete(f);},userAgent:()=>DESK});
+ return {p,loads:()=>loads};
+}
+test('finishing a download does not start a second, colliding load',async()=>{
+ const {p,loads}=raceRig();
+ await p.ensureReady();
+ assert.equal(loads(),1,'only the recovery loaded the model');
+});
+test('a load that fails is retried by the app, not by the person',async()=>{
+ const {p,loads}=raceRig({failFirstLoads:1});
+ await p.ensureReady();
+ assert.ok(loads()>=2,'loaded again after the failure');
+});
+test('after repeated failures the real reason is reported',async()=>{
+ const {p}=raceRig({failFirstLoads:99});
+ await assert.rejects(p.ensureReady(),e=>e.code==='load-failed'&&/engine failed/.test(e.message));
+});

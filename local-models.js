@@ -156,6 +156,7 @@ window.localModels={
   prepareInfo(){return preparer.info();},
   async ensureReady(options){await initFinished;userFreed=false;return preparer.ensureReady(options);},
   async switchTier(tier){await initFinished;return preparer.switchTier(tier);},
+  cancelDownload(){downloadRecovery.cancel();},
   get gpuHelp(){return env&&state?explainGpu(env,{tier:state.selection.tier}):null;},
   async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');userFreed=true;await host.unload();await host.inspect();},
   async refreshStorage(){await host.refreshStorage();return state?.storage;},

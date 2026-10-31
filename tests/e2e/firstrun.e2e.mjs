@@ -13,6 +13,8 @@ const fakeModel=()=>{
    let i=0;
    const tick=()=>{
     if(signal?.aborted)return reject(Object.assign(new Error('Stopped.'),{name:'AbortError'}));
+    if(window.__cancelled){window.__cancelled=false;return reject(Object.assign(new Error('The download was stopped.'),{code:'cancelled'}));}
+    if(st.ready&&i===0){onProgress?.({phase:'ready',fraction:1});return resolve();}
     if(window.__failPrep&&i>=2)return reject(new Error('The download could not finish. Check your connection.'));
     if(window.__holdPrep&&i>=3){setTimeout(tick,100);return;}
     if(i<steps.length){onProgress?.(steps[i++]);setTimeout(tick,window.__stepMs||250);}
@@ -21,7 +23,8 @@ const fakeModel=()=>{
    tick();
   });
   lm.switchTier=async t=>{window.__switched=t;};
-  lm.generate=async(messages,{onToken,onFinish}={})=>{const text='Local answer to: '+messages.at(-1).content;onToken?.(text);onFinish?.({finishReason:'stop'});return text;};
+  lm.cancelDownload=()=>{window.__cancelCalls=(window.__cancelCalls||0)+1;window.__cancelled=true;};
+  lm.generate=async(messages,{onToken,onFinish}={})=>{window.__generateCalls=(window.__generateCalls||0)+1;if(window.__failFirstGenerate){window.__failFirstGenerate=false;throw new Error('model not ready yet');}const text='Local answer to: '+messages.at(-1).content;onToken?.(text);onFinish?.({finishReason:'stop'});return text;};
   window.dispatchEvent(new Event('local-model-state'));
  };
 };
@@ -42,8 +45,8 @@ const run=async(label,viewport,touch)=>{
   await page.waitForFunction(()=>document.querySelector('.empty-state .prep-bar')?.getAttribute('aria-valuenow')==='75',null,{timeout:8000});
   const card=await page.locator('.empty-state .prep-card').innerText();
   assert(/Downloading the model/.test(card)&&/75%/.test(card)&&/4\.2 GB of 5\.6 GB/.test(card)&&/about 5\.6 GB/.test(card)&&/works without a connection/.test(card)&&/start typing your first message/.test(card),label+': card says what is happening: '+card);
-  assert(await page.locator('.empty-state .prep-actions .link-btn').innerText()==='Use the smaller model instead (faster to download)',label+': escape hatch on the larger model');
-  await page.click('.empty-state .prep-actions .link-btn');
+  assert(await page.locator('.empty-state .prep-actions .link-btn:has-text("smaller")').innerText()==='Use the smaller model instead (faster to download)',label+': escape hatch on the larger model');
+  await page.click('.empty-state .prep-actions .link-btn:has-text("smaller")');
   assert(await page.evaluate(()=>window.__switched)==='light',label+': switched to the smaller model');
   await page.evaluate(()=>{window.__holdPrep=false;});
   await page.waitForSelector('.empty-state:not(:has(.prep-card))',{timeout:10000});
@@ -56,7 +59,9 @@ const run=async(label,viewport,touch)=>{
   await page.fill('#messageInput','Hello from my wife');
   await page.click('#sendBtn');
   await page.waitForSelector('.message.assistant .prep-card');
-  assert(/Your message is saved/.test(await page.locator('.message.assistant .prep-card').innerText()),label+': says the message is saved');
+  const waitingCard=await page.locator('.message.assistant .prep-card').innerText();
+  assert(/Your message is saved/.test(waitingCard)&&/Waiting to send:\s*.?Hello from my wife/.test(waitingCard),label+': names the message that is waiting: '+waitingCard);
+  assert(await page.locator('.message.assistant .prep-card button:has-text("Cancel message")').isVisible()&&await page.locator('.message.assistant .prep-card button:has-text("Cancel download")').isVisible(),label+': both cancels offered');
   assert(/Hello from my wife/.test(await page.locator('.message.user').innerText()),label+': her message is in the chat at once');
   assert(await page.locator('#stopGeneration').isVisible()&&!(await page.locator('#sendBtn').isVisible()),label+': Stop is available while waiting');
   const box=await page.locator('.message.assistant .prep-card').boundingBox();
@@ -69,10 +74,21 @@ const run=async(label,viewport,touch)=>{
   await page.evaluate(()=>{window.__setReady(false);window.__holdPrep=true;});
   await page.fill('#messageInput','second question');await page.click('#sendBtn');
   await page.waitForSelector('.message.assistant:last-of-type .prep-card');
-  await page.click('#stopGeneration');
+  await page.click('.message.assistant:last-of-type .prep-card button:has-text("Cancel message")');
   await page.waitForFunction(()=>/Response stopped/.test(document.querySelector('#generationStatus').textContent));
+  assert(!(await page.evaluate(()=>window.__cancelCalls)),label+': cancelling the message does not cancel the download');
   assert(await page.locator('.prep-card').count()===0,label+': card gone after Stop');
   assert(await page.locator('.message.user').count()===2&&await page.locator('.message.assistant').count()===1,label+': her question stays, no empty reply');
+
+  // 3b. cancelling the download stops the waiting reply too, without calling it an error
+  await page.evaluate(()=>{window.__holdPrep=true;});
+  await page.fill('#messageInput','a message while downloading');await page.click('#sendBtn');
+  await page.waitForSelector('.message.assistant:last-of-type .prep-card');
+  await page.click('.message.assistant:last-of-type .prep-card button:has-text("Cancel download")');
+  await page.waitForFunction(()=>/The download was stopped/.test(document.querySelector('#generationStatus').textContent));
+  assert((await page.evaluate(()=>window.__cancelCalls))===1,label+': the download was cancelled');
+  assert(await page.locator('.message-meta.failed').count()===0&&await page.locator('.prep-card').count()===0,label+': no error shown for a cancel');
+  assert(/a message while downloading/.test(await page.locator('#messages').innerText()),label+': her message is still there');
 
   // 4. a failed download is explained and Retry does not duplicate her message
   await page.evaluate(()=>{window.__holdPrep=false;window.__failPrep=true;});
@@ -85,12 +101,19 @@ const run=async(label,viewport,touch)=>{
   await page.waitForFunction(()=>/Local answer to: third question/.test(document.querySelector('#messages').innerText),null,{timeout:15000});
   assert(await page.locator('.message.user').count()===users,label+': retry adds nothing');
 
+  // 4b. the first request after loading fails once: the app retries by itself, no Retry button
+  await page.evaluate(()=>{window.__setReady(false);window.__holdPrep=false;window.__failPrep=false;window.__failFirstGenerate=true;window.__generateCalls=0;});
+  await page.fill('#messageInput','after a hiccup');await page.click('#sendBtn');
+  await page.waitForFunction(()=>/Local answer to: after a hiccup/.test(document.querySelector('#messages').innerText),null,{timeout:15000});
+  assert((await page.evaluate(()=>window.__generateCalls))===2,label+': generated twice, the person saw one answer');
+  assert(await page.locator('[data-action="retry"]').count()===0&&await page.locator('.message-meta.failed').count()===0,label+': no failure and no Retry for a transient hiccup');
+
   // 5. once the model is loaded, sending is instant again
   await page.fill('#messageInput','fourth');await page.click('#sendBtn');
   await page.waitForFunction(()=>/Local answer to: fourth/.test(document.querySelector('#messages').innerText));
   assert(await page.locator('.prep-card').count()===0,label+': no progress card once ready');
 
-  const unexpected=h.errors.filter(e=>!/network error|The download could not finish/.test(e));
+  const unexpected=h.errors.filter(e=>!/network error|The download could not finish|Retrying the first request once|model not ready yet/.test(e));
   assert(unexpected.length===0,label+': no unexpected errors '+JSON.stringify(unexpected));
   console.log('PASS',label);
  }catch(e){console.error(label,e.message);console.error(await page.locator('#messages').innerText().catch(()=>''));console.error(h.errors);process.exitCode=1;}
