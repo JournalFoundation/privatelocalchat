@@ -3337,6 +3337,7 @@ const base64UrlEncode = value => {
       let prep = null; // { messageId, progress, card } for the reply that is waiting on the model
       const fmtBytes = n => (n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(n / 1e6)) + ' MB');
       const fmtEta = sec => (!Number.isFinite(sec) || sec <= 0 ? '' : sec < 90 ? 'less than a minute left' : 'about ' + Math.round(sec / 60) + ' min left');
+      const generatingLabel = () => window.localModels?.backend === 'cpu' ? 'Generating on this device\u2019s processor (slower)\u2026' : 'Generating on this device\u2026';
       function buildPrepCard({ intro, question = '', onCancelMessage = null, onCancelDownload = null }) {
         const lm = window.localModels, info = lm?.prepareInfo?.() || {};
         const card = el('div', 'prep-card'); card.setAttribute('role', 'status');
@@ -3349,7 +3350,7 @@ const base64UrlEncode = value => {
         const fill = el('div', 'prep-fill'); bar.appendChild(fill);
         const detail = el('p', 'prep-detail');
         const size = info.downloadBytes ? fmtBytes(info.downloadBytes) : 'a few GB';
-        const calm = el('p', 'prep-calm', intro + ' This runs on your device, so the model downloads once (about ' + size + ') and then works without a connection.' + (onCancelMessage ? ' You can cancel the message at any time; the download keeps going.' : ''));
+        const calm = el('p', 'prep-calm', intro + ' This runs on your device, so the model downloads once (about ' + size + ') and then works without a connection.' + (lm?.backend === 'cpu' ? ' No usable graphics card was found, so it runs on your processor: it works, but replies come more slowly.' : '') + (onCancelMessage ? ' You can cancel the message at any time; the download keeps going.' : ''));
         const actions = el('div', 'prep-actions');
         card.append(head, ...(question ? [waiting] : []), phase, bar, detail, calm, actions);
         let lastPhase = '';
@@ -3626,7 +3627,7 @@ const base64UrlEncode = value => {
         generationController = controller;
         const generationStatus = document.getElementById('generationStatus');
         generationStatus.hidden = false;
-        generationStatus.textContent = needsPrep ? 'Getting on-device chat ready…' : window.localModels?.mode === 'local' ? 'Generating on this device…' : 'Waiting for ' + providerName() + '…';
+        generationStatus.textContent = needsPrep ? 'Getting on-device chat ready…' : window.localModels?.mode === 'local' ? generatingLabel() : 'Waiting for ' + providerName() + '…';
         setGenerating(true);
         M.model.touch(thread);
         saveThreads();
@@ -3639,7 +3640,7 @@ const base64UrlEncode = value => {
           streamed = full;
           msg.content = baseText + join(full) + full;
           M.model.syncActiveVersion(msg);
-          generationStatus.textContent = (window.localModels?.mode === 'local' ? 'Generating on this device… ' : 'Receiving the response… ') + full.length + ' characters written';
+          generationStatus.textContent = (window.localModels?.mode === 'local' ? (generatingLabel() + ' ') : 'Receiving the response… ') + full.length + ' characters written';
           schedulePaint(threadId, msg);
           scheduleSave();
           replyListeners.forEach(l => l.text?.(thread, streamed));
@@ -3654,7 +3655,7 @@ const base64UrlEncode = value => {
             } });
             prep = null;
             msg.status = S.STREAMING;
-            generationStatus.textContent = 'Generating on this device…';
+            generationStatus.textContent = generatingLabel();
             if (threadId === currentThreadId) renderMessages(thread, { keepScroll: false });
           }
           const context = await buildInferenceMessages(thread, index, mode);

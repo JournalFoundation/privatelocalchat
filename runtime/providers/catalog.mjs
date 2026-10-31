@@ -102,7 +102,7 @@ export function tierFiles(tier, sources = OFFICIAL_SOURCES, variant = DEFAULT_VA
 }
 
 /** The `load` config the host Worker's adapters take. `runtimeDir` is where the app serves the vendored wllama build (same origin). */
-export function loadConfigFor(tier, { sources = OFFICIAL_SOURCES, runtimeDir = null, variant = DEFAULT_VARIANT } = {}) {
+export function loadConfigFor(tier, { sources = OFFICIAL_SOURCES, runtimeDir = null, variant = DEFAULT_VARIANT, backend = "gpu" } = {}) {
   const t = TIERS[tier];
   if (!t) throw new RangeError(`unknown tier ${tier}`);
   if (tier === "default") {
@@ -113,15 +113,18 @@ export function loadConfigFor(tier, { sources = OFFICIAL_SOURCES, runtimeDir = n
     };
   }
   const files = tierFiles("light", sources);
+  // "cpu": the same model and files, computed by the processor through WebAssembly (no WebGPU at all). Slower, and it keeps the whole model
+  // in WebAssembly memory instead of the graphics card, so nothing is offloaded.
+  const cpu = backend === "cpu";
   return {
-    adapter: "wllama", tier, modelId: t.modelId, modelUrl: files[0].url, quantization: t.quantization, license: t.license, files,
+    adapter: "wllama", tier, backend: cpu ? "cpu" : "gpu", modelId: t.modelId, modelUrl: files[0].url, quantization: t.quantization, license: t.license, files,
     runtime: { dir: runtimeDir, buildId: "privatelocalchat-native-destroy-20261030-v1", cls: "compat" },
     context: {
       // Keep the full conversation window; bound temporary prefill graphs separately.
       // The non-flash-attention path used on iPhone otherwise reserves ~94 MiB at 512.
-      n_ctx: t.contextWindowTokens, n_batch: 128, n_ubatch: 32, flash_attn_policy: -1, fused_gdn_auto: true, fused_gdn_ar: true, fused_gdn_ch: true,
+      n_ctx: t.contextWindowTokens, n_batch: 128, n_ubatch: 32, flash_attn_policy: -1, n_gpu_layers: cpu ? 0 : -1, fused_gdn_auto: true, fused_gdn_ar: true, fused_gdn_ch: true,
       sched_max_splits_hint: 128, ctx_checkpoints: 1, checkpoint_every_n_tokens: 64, checkpoint_clear_policy: "replace-on-reset-and-terminate"
     },
-    knobs: { initialMemoryMiB: 128, offloadTiedEmbedding: true, progressiveSourceRelease: true, recycleWindowBytes: 96 * MiB }
+    knobs: { initialMemoryMiB: 128, offloadTiedEmbedding: !cpu, progressiveSourceRelease: true, recycleWindowBytes: 96 * MiB }
   };
 }

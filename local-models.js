@@ -2,6 +2,7 @@ import {createDownloadRecovery} from './runtime/download-recovery.mjs';
 import {shouldAutoLoad} from './runtime/auto-load.mjs';
 import {explainGpu} from './runtime/gpu-help.mjs';
 import {createPreparer} from './runtime/prepare.mjs';
+import {cpuBackendSupport,gpuRunsLight} from './runtime/auto-tier.mjs';
 import {createOfflineStatusProbe} from './runtime/offline-status.mjs';
 import {createModelHost} from './runtime/providers/model-host.mjs';
 import {gatherEnv} from './runtime/providers/capability-probe.mjs';
@@ -40,7 +41,7 @@ function render(s) {
   if(s.device) env=s.device;
   const tier=s.selection.tier, item=s.tiers[tier], t=s.transfer;
   $('localModelSelect').value=tier;
-  $('modelDetails').textContent=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':'Smaller model; lower memory use.');
+  $('modelDetails').textContent=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':onCpu(s)?'Smaller model. No usable graphics card was found, so it runs on your processor: it works, but replies are slower.':'Smaller model; lower memory use.');
   $('modelStatus').dataset.error='false';
   const modelName=item.info.modelId||'the model';
   if(s.busy) $('modelStatus').textContent=t ? `Downloading ${modelName}: ${gb(t.bytesDone || 0)} of ${gb(t.bytesTotal || item.info.downloadBytes)} downloaded${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy==='load'?`Loading ${modelName} into memory…`:s.busy==='install'?`Downloading ${modelName}…`:s.busy==='repair'?'Repairing the model download…':s.busy==='remove'?'Removing model files…':s.busy+'…';
@@ -49,7 +50,7 @@ function render(s) {
   else $('modelStatus').textContent=item.install.ok?'Downloaded \u00B7 not loaded':'Download a model to use on-device chat.';
   if(s.busy&&t?.phase==='retry-wait') $('modelStatus').textContent+=` · Retrying download ${t.retryAttempt}/${t.retryLimit} in ${t.retryDelayMs/1000}s. Saved files are kept.`;
   const ready=s.load.state==='ready';
-  const supported=!!env?.webgpu.available && (tier!=='light'||env.webgpu.shaderF16);
+  const supported=isSupported(s);
   renderGpuHelp(s,supported);
   $('modelProgress').hidden=!t;
   if(t) $('modelProgress').value=(t.bytesDone || 0)/Math.max(1,t.bytesTotal || 1);
@@ -74,12 +75,14 @@ function render(s) {
 function renderGpuHelp(s,supported) {
   const box=$('gpuHelp'), g=env?explainGpu(env,{tier:s.selection.tier}):null;
   const blocked=Boolean(env&&!supported&&!s.busy&&g&&g.kind!=='ok');
-  box.hidden=!blocked;
-  if(!blocked)return;
-  box.querySelector('.gpu-help-lead').textContent=g.headline+(g.detail?' '+g.detail:'');
+  // with no usable card the model still runs, on the processor: the same help is offered as a way to make it faster
+  const slower=Boolean(env&&supported&&onCpu(s)&&!s.busy&&g&&g.kind!=='ok');
+  box.hidden=!(blocked||slower);
+  if(!blocked&&!slower)return;
+  box.querySelector('.gpu-help-lead').textContent=(slower?'Chat runs on your processor, which is slower. A graphics card would make replies much faster. ':'')+g.headline+(g.detail?' '+g.detail:'');
   const list=box.querySelector('ol');list.textContent='';
   g.steps.forEach(step=>{const li=document.createElement('li');li.textContent=step;list.appendChild(li);});
-  $('modelStatus').textContent=g.headline;$('modelStatus').dataset.error='true';
+  if(blocked){$('modelStatus').textContent=g.headline;$('modelStatus').dataset.error='true';}
 }
 function setRow(id,yes) {const row=$(id);row.classList.toggle('yes',yes);row.classList.toggle('no',!yes);row.setAttribute('aria-label',row.textContent+': '+(yes?'yes':'not yet'));}
 // Downloaded, loaded and ready-for-offline are different facts; one button always does the next useful step.
@@ -96,7 +99,10 @@ function renderReadiness(s,supported,ready) {
     :downloaded&&offlineAppReady?'Everything needed is saved on this device. You can use it without a connection.':'The model is saved. Reload the app once while online so the app itself is saved for offline use too.';
   show('freeMemory',ready&&!s.busy&&!activeGeneration);
 }
-const isSupported=s=>{const tier=s.selection.tier;return !!env?.webgpu.available&&(tier!=='light'||env.webgpu.shaderF16);};
+// The small model runs on the graphics card, or on the processor when there is no usable card (slower). The larger one needs the card.
+const cpuOk=()=>Boolean(env)&&cpuBackendSupport({env,userAgent:navigator.userAgent,maxTouchPoints:navigator.maxTouchPoints||0}).ok;
+const isSupported=s=>{const tier=s.selection.tier;return tier==='light'?gpuRunsLight(env)||cpuOk():!!env?.webgpu.available;};
+const onCpu=s=>s.selection.tier==='light'&&!gpuRunsLight(env)&&cpuOk();
 // A downloaded model loads by itself when the app opens (or when on-device chat is chosen), so chatting just works.
 function maybeAutoLoad() {
   if(!state)return;
@@ -152,6 +158,8 @@ window.localModels={
   get state(){return state;},
   get offlineReady(){return offlineAppReady;},
   get supported(){return state?isSupported(state):undefined;},
+  /** Where on-device chat runs: 'gpu' (graphics card) or 'cpu' (processor, slower). */
+  get backend(){return state&&state.selection.tier==='light'&&onCpu(state)?'cpu':'gpu';},
   get canPrepare(){return env&&state?Boolean(preparer.choice().tier):undefined;},
   prepareInfo(){return preparer.info();},
   async ensureReady(options){await initFinished;userFreed=false;return preparer.ensureReady(options);},
@@ -197,7 +205,7 @@ if('serviceWorker' in navigator) {
     getController:()=>navigator.serviceWorker.controller,
     expectedCache:'plc-shell-'+window.APP_BUILD.commit,
     onResult:current=>{
-      offlineAppReady=Boolean(current);if(state)renderReadiness(state,!!env?.webgpu.available,state.load.state==='ready');
+      offlineAppReady=Boolean(current);if(state)renderReadiness(state,isSupported(state),state.load.state==='ready');
       $('offlineStatus').textContent=current?'Offline app ready. Downloaded models can be loaded without a connection.':'An updated app is ready. Reload while online before the offline test.';
       updatePending=!current;$('reloadApp').hidden=!updatePending;
     }

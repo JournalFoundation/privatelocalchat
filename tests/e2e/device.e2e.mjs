@@ -52,6 +52,17 @@ try{
  assert(await page.locator('#readiness li').count()===3&&await page.locator('#readiness li.yes').count()===0,'three states, none reached');
  assert(await page.locator('#advancedModel').evaluate(d=>!d.open),'advanced controls collapsed');
  assert(await page.locator('#freeMemory').isHidden(),'nothing to free yet, so no Free memory button');
+ // this browser has no usable graphics card, so the small model is offered on the processor (slower), with the way to make it faster
+ assert(await page.locator('#setupPrivateChat').isVisible(),'setup is offered: the processor can run the small model');
+ assert(/processor/.test(await page.locator('#modelDetails').innerText())&&await page.locator('#gpuHelp').isVisible(),'the slower processor path is explained, with what to try for speed');
+ await page.click('#newChatBtn');
+ assert(await page.locator('#emptySetup').count()===1,'the welcome screen still offers setup');
+ // a browser that can run neither (no WebAssembly SIMD) is told so instead of being offered a setup that cannot work
+ await page.selectOption('#inferenceMode','api');
+ await page.addInitScript(()=>{const v=WebAssembly.validate.bind(WebAssembly);WebAssembly.validate=()=>false;});
+ await page.reload();await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled||true);
+ await page.selectOption('#inferenceMode','local');
+ await page.waitForFunction(()=>window.localModels?.supported===false);
  assert(await page.locator('#setupPrivateChat').isHidden()&&await page.locator('#downloadModel').isHidden(),'controls that cannot work here are not shown');
  await page.click('#newChatBtn');
  assert(await page.locator('#emptySetup').count()===0&&/WebGPU|graphics card|software renderer/.test(await page.locator('#emptyState').innerText()),'an unsupported browser is told so instead of being offered a setup that cannot work');

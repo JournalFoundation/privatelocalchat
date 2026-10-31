@@ -9,7 +9,8 @@
 //   host.openMindPort()      a MessagePort for a mind worker:  mindWorker.postMessage({ port }, [port]); createProvider(port) there
 //
 // Rules this object keeps (plan/PLAN.md section 0):
-//   * no silent fallback: it never picks another tier. The tier is the human's setting (or the measured default). A failure on the
+//   * no silent fallback: it never picks another tier. (Where the small model runs, graphics card or processor, is not a tier: it is the
+//     same model and files, chosen from the device's capabilities and always shown in the state as `backend`.) The tier is the human's setting (or the measured default). A failure on the
 //     default tier is shown with advice that mentions the light tier; switching is a deliberate human action (selectTier).
 //   * every failure is recorded in the state (last error, plain message + the raw one) AND the method rejects with the typed error.
 //   * a retry is a new attempt: each load() call increments `loadAttempt`; nothing retries by itself.
@@ -18,6 +19,7 @@ import { createProvider, openPort } from "./client.mjs";
 import { TIERS, TIER_ORDER, VARIANT_INFO, DEFAULT_VARIANT, chooseWebllmVariant, resolveSources, tierFiles, loadConfigFor } from "./catalog.mjs";
 import { gatherEnv } from "./capability-probe.mjs";
 import { classifyEngineError } from "./errors.mjs";
+import { lightBackend } from "../auto-tier.mjs";
 
 const SETTINGS_KEY = "plc.models.v1";
 
@@ -34,6 +36,8 @@ export function createModelHost({
   loadConfigOverride = null,     // tests: (tier, base) => config, e.g. to run a mock adapter through the whole manager
   now = () => Date.now(),
   envProbe = () => gatherEnv(),
+  userAgent = () => globalThis.navigator?.userAgent || "",
+  maxTouchPoints = () => globalThis.navigator?.maxTouchPoints || 0,
 } = {}) {
   const src = resolveSources(sourceOverrides);
   const subscribers = new Set();
@@ -49,6 +53,7 @@ export function createModelHost({
     notices: [],
     source: { label: src.label, overridden: src.overridden },
     variant: { chosen: DEFAULT_VARIANT, why: "default build until the GPU is probed" },
+    backend: { light: "gpu", why: "graphics card until the device is probed" },
     tiers: Object.fromEntries(TIER_ORDER.map((t) => [t, { info: tiers[t], install: { state: "unknown", checkedAt: null } }])),
     transfer: null,
     load: { state: "unloaded", tier: null, loadAttempt: 0, progress: null, lastError: null, loadedAt: null, loadMs: null, info: null },
@@ -92,6 +97,8 @@ export function createModelHost({
   async function chooseVariantFromGpu() {
     let env; try { env = await envProbe(); } catch (e) { notice("probe", `Could not read the GPU's capabilities (${e?.message || e}); using the ${DEFAULT_VARIANT} build.`); return; }
     state.device = env;
+    const lb = lightBackend({ env, userAgent: userAgent(), maxTouchPoints: maxTouchPoints() });
+    state.backend = { light: lb, why: lb === "cpu" ? "no usable graphics card here, so the small model runs on the processor (slower)" : "the graphics card runs the small model" };
     const v = chooseWebllmVariant(env);
     if (v === null) { state.variant = { chosen: variant, why: `no WebGPU adapter (${env.webgpu?.reason || "unknown"}); loading will fail with a clear error` }; return; }
     applyVariant(v, v === "q4f16_1" ? "this GPU supports shader-f16" : "this GPU has no shader-f16, so the f32 build is used");
@@ -224,7 +231,7 @@ export function createModelHost({
     provider() { if (!client) throw new Error("the model host has not been started; call init()"); return client; },
     /** A MessagePort wired to the shared host for one mind worker. Transfer it: mindWorker.postMessage({ port }, [port]). */
     openMindPort() { if (!worker || state.host.state !== "running") throw Object.assign(new Error("the model host is not running"), { class: "provider-unavailable", code: "host-not-running" }); return openPort(worker); },
-    tierConfig(tier = state.selection.tier) { const base = loadConfigFor(tier, { sources: src.sources, runtimeDir, variant }); return loadConfigOverride ? loadConfigOverride(tier, base) : base; },
+    tierConfig(tier = state.selection.tier) { const base = loadConfigFor(tier, { sources: src.sources, runtimeDir, variant, backend: tier === "light" ? state.backend.light : "gpu" }); return loadConfigOverride ? loadConfigOverride(tier, base) : base; },
 
     async init({ autoLoad = false } = {}) {
       readSettings();

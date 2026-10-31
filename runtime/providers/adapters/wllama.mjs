@@ -13,7 +13,11 @@ import {shutdownNativeRuntime} from '../native-shutdown.mjs';
 import { preflight as webgpuPreflight } from "./webgpu.mjs";
 import {retryDownload} from '../download-retry.mjs';
 import {writeOpfsStream} from '../opfs-stream-writer.mjs';
-export async function preflight() {
+export async function preflight(config) {
+  if (config?.backend === "cpu") { // the processor runs the model: only WebAssembly is needed, not a graphics card
+    if (typeof WebAssembly === "undefined") throw Object.assign(new Error("This browser cannot run WebAssembly, which running the model on the processor needs."), { name: "WebGpuUnavailable" });
+    return;
+  }
   await webgpuPreflight();
   const adapter=await navigator.gpu.requestAdapter();
   if(!adapter?.features.has('shader-f16')) throw Object.assign(new Error('This 2B runtime requires shader-f16, which this browser does not expose. Choose the 9B model if this device has enough memory, or explicitly select API mode.'),{name:'WebGpuUnavailable'});
@@ -210,7 +214,7 @@ export class WllamaAdapter {
       context: { n_ctx: ctx.n_ctx, n_batch: ctx.n_batch, n_ubatch: ctx.n_ubatch, n_vocab: ctx.n_vocab, n_ctx_train: ctx.n_ctx_train },
       gguf: { arch: meta["general.architecture"], name: meta["general.name"], file_type: meta["general.file_type"] },
       capabilities: {
-        kind: "local-webgpu", structuredEnforced: [], structuredValidated: ["json-schema", "json-object"], structuredEnforcement: { json_schema: "validated", json_object: "validated" },
+        kind: cfg.backend === "cpu" ? "local-cpu" : "local-webgpu", structuredEnforced: [], structuredValidated: ["json-schema", "json-object"], structuredEnforcement: { json_schema: "validated", json_object: "validated" },
         quantization: cfg.quantization || null, license: cfg.license || null, runtimeName: "wllama", runtimeVersion: rt.buildId,
         contextWindowTokens: ctx.n_ctx, maxOutputTokens: 1024
       }

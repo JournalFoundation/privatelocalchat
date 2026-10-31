@@ -10,3 +10,5 @@ The model catalogue is pinned in `runtime/providers/catalog-data.mjs`. Public de
 The public catalogue and `ops/cloudflare/model-cdn-manifest.json` record every model file's exact size, SHA-256, and immutable URL. `model-object-verification.json` records a complete destination read-back and hash verification; `public-cdn-verification.json` records browser-delivery HTTP checks.
 
 Upstream projects: https://github.com/mlc-ai/web-llm, https://github.com/ngxson/wllama, https://github.com/ggml-org/llama.cpp, https://huggingface.co/Qwen/Qwen3.5-2B, https://huggingface.co/Qwen/Qwen3.5-9B.
+
+- Processor (CPU) placement: the same wllama build runs the 2B model without WebGPU when the load config sets `n_gpu_layers: 0` and `offloadTiedEmbedding: false` (`loadConfigFor('light', { backend: 'cpu' })`). Without an adapter the runtime logs `ggml_webgpu: Failed to get an adapter` and carries on with the CPU backend. Single thread only; not used on iPhone/iPad.

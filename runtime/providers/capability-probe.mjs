@@ -7,6 +7,14 @@
 
 export const PROFILE_FORMAT = "cfp-capability-profile/1";
 
+// The smallest module that uses a 128-bit SIMD instruction: it validates only where WebAssembly SIMD exists (the CPU runtime needs it).
+const SIMD_PROBE = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
+export function wasmSupport(wasm = globalThis.WebAssembly) {
+  if (!wasm || typeof wasm.validate !== "function") return { available: false, simd: false };
+  let simd = false; try { simd = wasm.validate(SIMD_PROBE); } catch { /* treated as unsupported */ }
+  return { available: true, simd };
+}
+
 /** Read what the browser says about itself. `nav` is injectable. Every field states "unavailable" rather than guessing. */
 export async function gatherEnv(nav = globalThis.navigator) {
   const env = { webgpu: { available: false }, deviceMemoryGB: nav?.deviceMemory ?? null, storage: null, userAgentMemory: "unavailable", crossOriginIsolated: !!globalThis.crossOriginIsolated, secureContext: globalThis.isSecureContext ?? null, userAgent: nav?.userAgent ?? null, platform: nav?.userAgentData?.platform ?? nav?.platform ?? null };
@@ -25,6 +33,7 @@ export async function gatherEnv(nav = globalThis.navigator) {
       }
     }
   } catch (e) { env.webgpu = { available: false, hasApi: Boolean(nav?.gpu), reason: `requestAdapter threw: ${e?.message || e}` }; }
+  env.wasm = wasmSupport();
   try { const e = await nav?.storage?.estimate?.(); env.storage = e ? { usage: e.usage ?? null, quota: e.quota ?? null } : null; } catch (e) { env.storage = { error: String(e?.message || e) }; }
   if (typeof globalThis.performance?.measureUserAgentSpecificMemory === "function") {
     env.userAgentMemory = "measurement pending";
