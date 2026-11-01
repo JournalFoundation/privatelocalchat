@@ -43,15 +43,20 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 23. **WebKit microphone permission is untestable here.** Dictation and voice conversation were built from the platform's documented behaviour and tested against mocks; DuckDuckGo on iOS and Safari were not exercised. Two assumptions are unverified: that `resultIndex` behaves as in Chrome on WebKit, and that voice mode's recogniser restarts without a tap are allowed after the first permission.
 24. **Voice call polish is unverified on real phones.** The ring, pick-up and hang-up tones, vibration, the full-screen call layout, the on-screen keyboard and iOS audio unlocking (the audio context is created inside the tap that starts the call) were tested in headless Chromium with a mocked audio context only. Check them on an iPhone and an Android phone, with the ringer switch both ways.
 25. **Voice mode has no echo cancellation** beyond turning the microphone off while it speaks, so a speakerphone setup may cut replies short.
+26. **Roberta, voice notes and recording are untested on real phones and Safari.** They were built from documented browser behaviour and driven in headless Chromium with mocked speech: the voicemail layout, the keypad, `speechSynthesis` sentence queueing and pause, recording through the speech recogniser, and the labelled keypad on a small screen. Try an iPhone (Safari and home-screen app) and an Android phone before relying on them.
+27. **The semantic-matching model is served from `assets.sonalon.com`**, another project's storage (`chat/embedding-config.mjs`). It is public and content-addressed, but it is a dependency outside this project: if that host changes, Roberta falls back to keyword matching. *Fix:* the owner uploads the set listed in `docs/EMBEDDINGS.md` to `assets.privatelocal.chat` and changes `EMBEDDING_ASSET_HOST`; then update the Privacy table row.
+28. **The robot's name is defined twice** (`ROBOT_NAME` in `index.html` and `chat/ivr-content.mjs`), and the live voice call's contact name is still "Private Local Chat" rather than Roberta. Make the page import the one constant and decide whether the call should show Roberta.
+29. **The vendored embedding worker is edited after bundling** (`ops/embedding/build-worker.mjs` splits one 32-letter model class name so GitHub push protection does not mistake it for a Mistral API key). Rebuilding with the script keeps the edit; replacing the bundle by hand would bring the push block back.
 
 ## Public site and operations (all need the owner)
 
-26. **Unset configuration in `site-config.json`:** support email and owner, Discussions URL and owner, hosting-log note, verification date, demo. The site hides what depends on them; the Help copy for contact and community is minimal until then.
-27. **Unverified infrastructure facts:** log retention for the Pages projects and the R2 domain; the live `robots.txt` (and any edge content-signal policy) versus the generated file; the `privatelocalchat.com` redirect rule (outside this repo); Search Console; social-preview checks in real services.
-28. **No demonstration video** and no genuine ratings or reviews, so none are claimed.
-29. **Physical-device checks never done:** scanning a QR with a phone camera, a real native share sheet, enlarged text and the on-screen keyboard on a phone, and the stale-Safari / home-screen-app repair path on the reporter's device.
-30. **Known-issue entries on `/help/` were derived from repository documents**, not re-tested; each says so. Re-verify and update the dates at every release.
+30. **Unset configuration in `site-config.json`:** support email and owner, Discussions URL and owner, hosting-log note, verification date, demo. The site hides what depends on them; the Help copy for contact and community is minimal until then.
+31. **Unverified infrastructure facts:** log retention for the Pages projects and the R2 domain; the live `robots.txt` (and any edge content-signal policy) versus the generated file; the `privatelocalchat.com` redirect rule (outside this repo); Search Console; social-preview checks in real services.
+32. **No demonstration video** and no genuine ratings or reviews, so none are claimed.
+33. **Physical-device checks never done:** scanning a QR with a phone camera, a real native share sheet, enlarged text and the on-screen keyboard on a phone, and the stale-Safari / home-screen-app repair path on the reporter's device.
+34. **Known-issue entries on `/help/` were derived from repository documents**, not re-tested; each says so. Re-verify and update the dates at every release.
 
 ## Review log
 
 * 2026-11-01: first version, written after the sharing / transfer / public-pages release.
+* 2026-11-01: added voice notes, Roberta and semantic matching items (26-29) after that release.

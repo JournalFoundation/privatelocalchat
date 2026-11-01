@@ -6,3 +6,4 @@ dist/
 work/
 __pycache__/
 *.py[cod]
+.claude/worktrees/
