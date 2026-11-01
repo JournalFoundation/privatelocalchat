@@ -36,11 +36,17 @@ self.addEventListener('fetch',event=>{
  if(event.request.method!=='GET'||url.origin!==location.origin)return;
  event.respondWith(normalResponse(event,url));
 });
+const PUBLIC_PAGES=['help','about','privacy','updates'];
+function offlinePage(pathname){
+  const page=/^\/([a-z]+)\/?(?:index\.html)?$/.exec(pathname)?.[1];
+  return PUBLIC_PAGES.includes(page)?'/'+page+'/index.html':'/index.html';
+}
 async function normalResponse(event,url){
   if(event.request.method!=='GET'||url.origin!==location.origin)return fetch(event.request);
   const cache=await caches.open(CACHE);
   if(event.request.mode==='navigate'){
-   try{return await fetch(event.request);}catch{const saved=await cache.match('/index.html');return saved?new Response(saved.body,{status:200,headers:saved.headers}):Response.error();}
+   // The public documents are separate pages. Offline, each one opens its own saved document; anything else gets the app.
+   try{return await fetch(event.request);}catch{const saved=await cache.match(offlinePage(url.pathname));return saved?new Response(saved.body,{status:200,headers:saved.headers}):Response.error();}
   }
   const saved=await cache.match(event.request)||(url.pathname.startsWith('/releases/')?await caches.match(event.request):undefined); // a page from the previous version may still be open
   if(saved)return saved;
