@@ -39,7 +39,13 @@ const P = {
   ghost: '<circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/>',
   device: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>',
   cloud: '<path d="M7 18a4 4 0 0 1-.6-7.9A5.5 5.5 0 0 1 17 9.5a4.2 4.2 0 0 1 0 8.5z"/>',
-  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  share: '<circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8 11l8-4M8 13l8 4"/>',
+  transfer: '<path d="M4 8h13l-3-3M20 16H7l3 3"/>',
+  chats: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+  warning: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7M12 17v.01"/>',
+  qr: '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><path d="M14 14h3v3M20 14v6h-6"/>'
 };
 export const ICON_NAMES = Object.keys(P);
 

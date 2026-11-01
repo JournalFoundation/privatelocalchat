@@ -9,7 +9,7 @@ test('legacy storage keys are preserved and obsolete notice is removed',()=>{
  assert.ok(!/migration-warning-banner|cutover is April/.test(html));
 });
 test('inline application script remains valid JavaScript',()=>{
- for(const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(match[1].trim())execFileSync('node',['--check','--input-type=commonjs'],{input:match[1]});
+ for(const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){if(/application\/ld\+json/.test(match[0].slice(0,match[0].indexOf('>'))))JSON.parse(match[1]);else if(match[1].trim())execFileSync('node',['--check','--input-type=commonjs'],{input:match[1]});}
 });
 test('local inference gates API requests and supports cancellation',async()=>{
  const gate=html.search(/if \(window.localModels\?\.mode === 'local'\) \{[\s\S]*?window.localModels.generate[\s\S]*?return \{ text, finishReason \};\s*\}\s*if \(!config.endpoint\)/);

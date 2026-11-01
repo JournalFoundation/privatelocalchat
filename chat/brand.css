@@ -411,3 +411,74 @@ body.voice-on .message-form .composer-card, body.voice-on .message-form .accurac
   .message-body code { background: var(--plc-accent-tint); }
   .composer-card:focus-within { box-shadow: 0 0 0 3px var(--plc-accent-tint); }
 }
+
+/* ---- sharing, transfer and help ------------------------------------------------------------------------------------------- */
+/* The conversation and settings regions scroll on their own; the Help & about / Share row below them never leaves the screen. */
+.sidebar { overflow: hidden; }
+.sidebar > .sidebar-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0 1rem 0.5rem; display: flex; flex-direction: column; }
+.sidebar > .sidebar-scroll > * { flex-shrink: 0; }
+.sidebar > .side-footer { flex: 0 0 auto; margin-top: 0; padding-top: 0.5rem; background: var(--plc-surface); }
+.side-utility { display: flex; align-items: center; gap: 0.5rem; }
+.utility-btn { flex: 1 1 0; min-height: var(--plc-control-min); display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; padding: 0 0.75rem; border: 1px solid var(--plc-border); border-radius: var(--plc-radius-control); background: var(--plc-surface); color: var(--plc-ink); font: inherit; font-weight: 600; cursor: pointer; }
+.utility-btn:hover { background: var(--plc-accent-tint); }
+.utility-btn.utility-share { background: var(--plc-accent); border-color: var(--plc-accent); color: var(--plc-on-accent); }
+.utility-btn.utility-share:hover { background: var(--plc-accent-hover); }
+.flow-icon { display: inline-flex; width: 1.25rem; height: 1.25rem; flex: 0 0 auto; }
+.flow-icon svg { width: 100%; height: 100%; }
+.side-footer .footer-links, .side-footer .hint-text { font-size: 0.78rem; }
+
+/* each flow says what it moves in words and with its own icon, so the three are told apart without relying on colour */
+.flow-list { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; }
+.flow-entry { border: 1px solid var(--plc-border); border-radius: var(--plc-radius-control); padding: 0.75rem; background: var(--plc-background); }
+.flow-entry h3 { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.25rem; font-size: 1rem; }
+.flow-entry p { margin: 0 0 0.5rem; }
+.flow-entry-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.flow-entry-actions button { min-height: var(--plc-control-min); }
+.flow-danger { justify-content: flex-start; }
+.pending-token { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--plc-border); }
+
+.flow-scope { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.6rem 0.75rem; border-radius: var(--plc-radius-control); background: var(--plc-accent-tint); color: var(--plc-ink); margin-bottom: 0.75rem; }
+.flow-scope p { margin: 0; }
+.flow-scope .flow-icon { color: var(--plc-accent); margin-top: 0.1rem; }
+.flow-scope.flow-error { background: var(--plc-danger-tint); }
+.flow-scope.flow-error .flow-icon { color: var(--plc-danger); }
+.danger-notice { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.7rem 0.8rem; margin: 0 0 0.75rem; border: 1px solid var(--plc-danger); border-radius: var(--plc-radius-control); background: var(--plc-danger-tint); color: var(--plc-ink); }
+.danger-notice p { margin: 0; }
+.danger-notice .flow-icon { color: var(--plc-danger); margin-top: 0.1rem; }
+.flow-review { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 0.9rem; margin: 0 0 0.75rem; }
+.flow-review dt { color: var(--plc-muted); }
+.flow-review dd { margin: 0; overflow-wrap: anywhere; }
+.flow-status { min-height: 1.4em; margin: 0.5rem 0; }
+.flow-output-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0; }
+.flow-output-actions button, .product-share-actions button { min-height: var(--plc-control-min); }
+.flow-qr, .product-share-qr { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 0.75rem; margin: 0.5rem 0; background: #fff; border-radius: var(--plc-radius-control); }
+.flow-qr-image, .product-share-qr-image { line-height: 0; }
+.flow-qr-image img, .flow-qr-image canvas, .product-share-qr-image img, .product-share-qr-image canvas { max-width: 100%; height: auto; }
+.product-share-destination { margin: 0; color: #182332; font-size: 0.85rem; overflow-wrap: anywhere; text-align: center; }
+.flow-manual { width: 100%; box-sizing: border-box; font: inherit; }
+.flow-card { border: 1px solid var(--plc-border); border-radius: var(--plc-radius-control); padding: 0.9rem; margin: 0 0 1rem; }
+.flow-card h3 { margin: 0 0 0.5rem; }
+.flow-included { list-style: none; padding: 0; margin: 0 0 0.75rem; }
+.flow-included li { padding: 0.15rem 0; }
+.flow-included li.excluded { color: var(--plc-muted); }
+.flow-changes { margin: 0 0 0.75rem; padding-left: 1.2rem; }
+.flow-import h3 { font-size: 1rem; margin: 0.5rem 0 0.25rem; }
+.product-share { display: flex; flex-direction: column; gap: 0.5rem; }
+.product-share-copy { margin: 0; }
+.product-share-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.product-share-actions .primary { background: var(--plc-accent); color: var(--plc-on-accent); border-color: var(--plc-accent); }
+.product-share-status { min-height: 1.4em; margin: 0; color: var(--plc-accent); }
+.product-share-address { width: 100%; box-sizing: border-box; font: inherit; }
+.help-links { list-style: none; padding: 0; margin: 0 0 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.help-links a { display: inline-flex; align-items: center; min-height: var(--plc-control-min); }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; margin-top: 0.75rem; }
+.dialog-body { overflow-y: auto; }
+.app-dialog .sheet { max-height: 92dvh; display: flex; flex-direction: column; }
+.app-dialog .sheet .dialog-body { flex: 1 1 auto; min-height: 0; }
+@media (max-width: 899px) { .flow-review { grid-template-columns: 1fr; } .flow-review dd { margin-bottom: 0.4rem; } }
+.flow-check { display: flex; align-items: center; gap: 0.6rem; min-height: var(--plc-control-min); padding: 0.25rem 0; }
+.flow-check input[type='checkbox'] { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; margin: 0; }
+.utility-btn { white-space: nowrap; }
+.side-footer .side-footer-row { margin-top: 0.25rem; }
+.side-footer .footer-links { margin: 0; }
+.side-footer #releaseInfo, .side-footer #offlineStatus { margin: 0.1rem 0; font-size: 0.75rem; }
