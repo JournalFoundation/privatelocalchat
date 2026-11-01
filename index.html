@@ -4708,6 +4708,7 @@
           hasChats: threads.some(t => !t.temporary && t.messages.some(m => m.role === 'user'))
         }),
         speak: (text, rate = 1) => (speechMod && speechAvailable.synth ? speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, rate * (prefs.speechRate || 1)) }) : { done: Promise.resolve(), stop() {} }),
+        canSpeak: () => speechAvailable.synth,
         getRouter: () => loadRouter(),
         warmUp: () => { loadRouter(); },
         listen: speechInputOk ? handlers => speechMod.startDictation(handlers) : null,

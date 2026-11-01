@@ -78,7 +78,8 @@ export function createRoberta({ app, doc = document }) {
     container.appendChild(root);
     let shown = 0;
     const rendered = [];
-    const mountNote = (g, i, holder, transcript) => mountVoiceNote(holder, { doc, text: g.text, from: ROBOT_NAME, id: "roberta-" + i, transcript, rate: 1, speakOne: (t, r) => app.speak(t, r) });
+    // a browser with no voice shows the words instead of a player that could not play
+    const mountNote = (g, i, holder, transcript) => { if (app.canSpeak && !app.canSpeak()) { transcript.hidden = false; return null; } return mountVoiceNote(holder, { doc, text: g.text, from: ROBOT_NAME, id: "roberta-" + i, transcript, rate: 1, speakOne: (t, r) => app.speak(t, r) }); };
     const render = () => {
       const state = ivr.state, groups = groupTranscript(state.transcript);
       if (groups.length < shown) { feed.textContent = ""; shown = 0; rendered.length = 0; }
