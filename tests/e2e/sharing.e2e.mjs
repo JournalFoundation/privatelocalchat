@@ -193,6 +193,18 @@ try{
  await closeDialog();
  ok('layout');
 
+ // ---- a phone with the on-screen keyboard open (a short viewport) leaves the password field and the action reachable
+ await page.setViewportSize({width:390,height:360});
+ await page.evaluate(({A})=>{const c=JSON.parse(sessionStorage.getItem('chatConfig'));c.endpoint=A;c.model='fake-model';sessionStorage.setItem('chatConfig',JSON.stringify(c));},{A});
+ await fresh(h.origin+'/');await page.click('#openSidebarBtn');await page.waitForTimeout(400);await page.evaluate(()=>{document.querySelector('#backupFiles').open=true;});
+ await page.evaluate(()=>{document.querySelector('#transferSettingsBtn').scrollIntoView();});
+ await page.click('#transferSettingsBtn');await page.waitForSelector('#transferCreateBtn');await page.check('#transferIncludeToken');
+ await page.locator('#transferPassword').focus();await page.locator('#transferPassword').scrollIntoViewIfNeeded();
+ const pw=await page.locator('#transferPassword').boundingBox();assert(pw&&pw.y>=0&&pw.y+pw.height<=360,'the password field can be scrolled into view with the keyboard open: '+JSON.stringify(pw));
+ await page.locator('#transferCreateBtn').scrollIntoViewIfNeeded();const cr=await page.locator('#transferCreateBtn').boundingBox();assert(cr&&cr.y+cr.height<=360&&cr.height>=44,'Create transfer link is reachable and touch-sized: '+JSON.stringify(cr));
+ await closeDialog();await page.setViewportSize({width:1280,height:800});
+ ok('short viewport');
+
  const unexpected=h.errors.filter(e=>!/API responded with status|network error|Failed to fetch|ERR_|tenant/i.test(e));
  assert(unexpected.length===0,'no unexpected page errors: '+JSON.stringify(unexpected));
  console.log('ALL PASS');
