@@ -2,7 +2,11 @@ import {cp,readFile,writeFile,readdir,mkdir,rm,rename} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-const root=process.cwd(), out=path.join(root,'dist');
+import {buildPublicSite,loadSiteConfig,siteConfigScript} from './public-site.mjs';
+const root=process.cwd(), out=path.resolve(root,process.env.BUILD_OUT_DIR||'dist'); // BUILD_OUT_DIR is for tests that must not touch dist/
+if(out===root||!out.startsWith(root+path.sep))throw new Error('The build output must be a folder inside the repository');
+// Release configuration (support address, discussion space, ...). Nothing is assumed: every value is null until the owner verifies it.
+const siteConfig=await loadSiteConfig(path.resolve(root,process.env.SITE_CONFIG_PATH||'site-config.json'));
 await rm(out,{recursive:true,force:true});await mkdir(out,{recursive:true});
 for(const p of ['index.html','local-models.js','local-models.css','conversation-messages.mjs','chat','runtime','brand']) await cp(p,path.join(out,p),{recursive:true});
 const pkg=JSON.parse(await readFile('package.json','utf8'));
@@ -27,7 +31,8 @@ for(const [file,pin] of Object.entries(productionNative.files)){
  if(bytes.length!==pin.bytes||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)throw new Error('Production runtime checksum mismatch: '+file);
 }
 let html=await readFile(path.join(out,'index.html'),'utf8');
-html=html.replace('<script src="/build-info.js"></script>','<script>window.APP_BUILD='+JSON.stringify(build)+';</script>');
+const appBuildScript='<script>window.APP_BUILD='+JSON.stringify(build)+';</script>';
+html=html.replace('<script src="/build-info.js"></script>',appBuildScript+siteConfigScript(siteConfig));
 html=html.replace('href="/chat/chat.css"','href="/'+releasePath+'/chat/chat.css"').replace('href="/chat/brand.css"','href="/'+releasePath+'/chat/brand.css"').replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');
 if(branch==='dev') {
  const debugRuntime=path.join('dev-tools','native-runtime');
@@ -57,10 +62,15 @@ if(branch==='dev') {
 }
 await writeFile(path.join(out,'index.html'),html);
 
+// The public documents (help/, about/, privacy/, updates/), sitemap.xml, robots.txt and updates/rss.xml are generated from their sources by
+// scripts/public-site.mjs: regions are filled from site-config.json and updates/entries.json, /chat/... references are rewritten to this
+// release's folder and every stylesheet, script and image a page names must exist in the output. See docs/PUBLIC-SITE.md.
+const rootLastmod=execFileSync('git',['show','-s','--format=%cs','HEAD'],{encoding:'utf8'}).trim();
+await buildPublicSite({root,outDir:out,releasePath,config:siteConfig,rootLastmod});
 await writeFile(path.join(out,'404.html'),'<!doctype html><title>Not found</title><h1>Page not found</h1><a href="/">Open Private Local Chat</a>');
 await writeFile(path.join(out,'version.json'),JSON.stringify(build,null,2)+'\n');
 await writeFile(path.join(out,'manifest.webmanifest'),JSON.stringify({name:'PrivateLocal.Chat',short_name:'PrivateLocal',description:'Free AI chat on your device. Choose a supported model, keep on-device conversations local, or connect a provider when you choose.',start_url:'/',scope:'/',display:'standalone',background_color:'#F6F8FB',theme_color:'#F6F8FB',categories:['productivity','utilities'],icons:[{src:'/brand/app-icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'/brand/app-icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'},{src:'/brand/app-icon-maskable-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'}]}));
-await writeFile(path.join(out,'_headers'),'/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n\n/sw.js\n  Cache-Control: no-cache\n\n/build-info.js\n  Cache-Control: no-cache\n\n/version.json\n  Cache-Control: no-cache\n');
+await writeFile(path.join(out,'_headers'),'/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n\n/sw.js\n  Cache-Control: no-cache\n\n/build-info.js\n  Cache-Control: no-cache\n\n/version.json\n  Cache-Control: no-cache\n\n/sitemap.xml\n  Cache-Control: public, max-age=3600\n\n/updates/rss.xml\n  Cache-Control: public, max-age=3600\n');
 const shell=[];
 async function walk(dir){for(const ent of await readdir(dir,{withFileTypes:true})){const p=path.join(dir,ent.name);if(ent.isDirectory())await walk(p);else if(!ent.name.startsWith('_'))shell.push('/'+path.relative(out,p).split(path.sep).join('/'));}}
 await walk(out);

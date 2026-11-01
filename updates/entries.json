@@ -1,0 +1,264 @@
+{
+  "entries": [
+    {
+      "id": "share-transfer-help",
+      "date": "2026-11-01",
+      "release": null,
+      "title": "Share, transfer settings, and help",
+      "summary": "Three clearly separate ways to move things around, and a public help area that opens without setting up a model.",
+      "points": [
+        "Share Private Local Chat: recommend the app with your device's share sheet, a copied link or a QR code. It always shares the public address https://privatelocal.chat/ and nothing from your chats or settings.",
+        "Transfer settings: review the endpoint, model and theme, then create a versioned link, QR code or settings file. An API token is included only if you choose, and it is encrypted with a password you pick. Tell the recipient the password separately.",
+        "Transfer chats and backups: exporting conversations and creating an encrypted backup are now named, reviewed steps, with the contents listed before the file is made. Provider settings travel separately through Transfer settings.",
+        "New Help, About, Privacy and Updates pages with a FAQ, troubleshooting steps and dated known issues. They are saved with the app, so they open offline once the app is saved on the device."
+      ],
+      "help": [
+        {"label": "Share", "href": "/help/#share"},
+        {"label": "Transfer settings", "href": "/help/#transfer-settings"},
+        {"label": "Forgot the transfer password", "href": "/help/#unlock-token"},
+        {"label": "Transfer chats", "href": "/help/#transfer-chats"},
+        {"label": "Privacy", "href": "/privacy/"}
+      ],
+      "issues": ["iphone-page-restarts"]
+    },
+    {
+      "id": "processor-fallback",
+      "date": "2026-10-31",
+      "release": "v0.12.0",
+      "title": "On-device chat without a graphics card",
+      "summary": "When the browser has no usable GPU, the smaller Qwen3.5-2B model now runs on the processor (WebAssembly) instead of being unavailable.",
+      "points": [
+        "It is slower than a graphics card, and the app says so while it sets up.",
+        "It is not offered on iPhone or iPad, on devices reporting under 4 GB of memory, or without WebAssembly SIMD.",
+        "The larger Qwen3.5-9B model still needs a GPU."
+      ],
+      "help": [
+        {"label": "Will it work on my device?", "href": "/help/#compatibility"},
+        {"label": "A model will not load", "href": "/help/#load-failure"}
+      ],
+      "issues": ["processor-speed", "linux-shader-f16"]
+    },
+    {
+      "id": "voice-conversation",
+      "date": "2026-10-31",
+      "release": "v0.11.0",
+      "title": "Voice conversation, steadier downloads",
+      "summary": "Speak to the app and hear replies, and recover on their own from stalled downloads and old saved copies.",
+      "points": [
+        "Voice conversation listens, sends after a pause and reads the reply aloud sentence by sentence.",
+        "Dictation clears when you send, so late words never land in the next message.",
+        "A download that makes no progress for two minutes is restarted by itself and reuses the files already saved.",
+        "An old saved copy of the app repairs itself when a newer version is published."
+      ],
+      "help": [
+        {"label": "Where is voice processed?", "href": "/help/#voice"},
+        {"label": "Speech controls missing", "href": "/help/#speech-availability"},
+        {"label": "A download stalls", "href": "/help/#stalled-download"}
+      ],
+      "issues": ["speech-in-app-browsers"]
+    },
+    {
+      "id": "setup-fix",
+      "date": "2026-10-31",
+      "release": "v0.10.1",
+      "title": "First-message setup fix",
+      "summary": "Fixed a case where setting up on-device chat from the first message ended with a 'could not be loaded' error.",
+      "points": [],
+      "help": [{"label": "A model will not load", "href": "/help/#load-failure"}],
+      "issues": []
+    },
+    {
+      "id": "first-message-setup",
+      "date": "2026-10-31",
+      "release": "v0.10.0",
+      "title": "The first message sets up on-device chat",
+      "summary": "Send a message and the app picks a model for your device, downloads it, loads it and answers, with no separate setup step.",
+      "points": [
+        "A progress card shows the stage, size and time left, and offers a smaller model on a desktop.",
+        "Stopping during setup removes the empty reply and keeps your question."
+      ],
+      "help": [
+        {"label": "Getting started", "href": "/help/#getting-started"},
+        {"label": "Why does it download a model?", "href": "/help/#model-downloads"}
+      ],
+      "issues": []
+    },
+    {
+      "id": "webgpu-explained",
+      "date": "2026-10-31",
+      "release": "v0.9.1",
+      "title": "Clearer messages when the graphics card is not usable",
+      "summary": "The app now says what is actually wrong with WebGPU on a device, with things to try, instead of blaming one missing feature.",
+      "points": [],
+      "help": [{"label": "A model will not load", "href": "/help/#load-failure"}],
+      "issues": []
+    },
+    {
+      "id": "brand-and-speech",
+      "date": "2026-10-30",
+      "release": "v0.9.0",
+      "title": "New look, automatic model loading, browser speech",
+      "summary": "The PrivateLocal.Chat brand arrived, a downloaded model loads by itself when the app opens, and read-aloud and dictation use your browser's speech services.",
+      "points": [],
+      "help": [{"label": "Where is voice processed?", "href": "/help/#voice"}],
+      "issues": []
+    },
+    {
+      "id": "everyday-features",
+      "date": "2026-10-30",
+      "release": "v0.8.0",
+      "title": "Everyday chat features, storage and backups",
+      "summary": "Rendered answers with message controls, search, projects, documents, personal instructions and memory, plus readiness, storage, encrypted backups and an app lock.",
+      "points": [
+        "Attach text, Markdown, CSV, code and text-based PDF files; they are read on your device.",
+        "Downloaded, loaded and ready-for-offline are shown as separate facts.",
+        "Back up chats, create an encrypted backup protected by a passphrase, or lock the app with a passphrase screen.",
+        "PDF reading was fixed on older Safari versions."
+      ],
+      "help": [
+        {"label": "Where are my saved conversations?", "href": "/help/#saved-conversations"},
+        {"label": "What does App lock protect?", "href": "/help/#app-lock"},
+        {"label": "Restoring a backup", "href": "/help/#backup-restoration"}
+      ],
+      "issues": []
+    },
+    {
+      "id": "no-reply-cap",
+      "date": "2026-10-30",
+      "release": "v0.7.0",
+      "title": "No fixed reply length cap",
+      "summary": "Replies are no longer cut off by a fixed length cap, and the text already written is kept when you stop a reply.",
+      "points": [
+        "A reply can still end when the model's working window is full; the message says so and offers Continue."
+      ],
+      "help": [],
+      "issues": ["context-window"]
+    },
+    {
+      "id": "reliable-downloads",
+      "date": "2026-10-30",
+      "release": "v0.6.0",
+      "title": "More reliable model downloads and offline use",
+      "summary": "Interrupted downloads resume, verified files are kept, and the model loads when the download finishes.",
+      "points": [
+        "Each file is retried on transient failures without losing files already verified.",
+        "An installed offline update can be activated with an explicit reload.",
+        "The Stop control stays available during generation."
+      ],
+      "help": [
+        {"label": "A download stalls", "href": "/help/#stalled-download"},
+        {"label": "Can I use it offline?", "href": "/help/#offline"}
+      ],
+      "issues": ["iphone-low-storage"]
+    },
+    {
+      "id": "cloudflare-and-on-device",
+      "date": "2026-10-29",
+      "release": "v0.5.0",
+      "title": "Hosted on Cloudflare Pages, with on-device models",
+      "summary": "Private Local Chat moved to https://privatelocal.chat and gained on-device chat with Qwen3.5 models, alongside optional connected providers.",
+      "points": [
+        "Model files are served from the project's own storage at assets.privatelocal.chat.",
+        "Feedback forms on GitHub were added in v0.4.0 earlier the same day."
+      ],
+      "help": [
+        {"label": "What is Private Local Chat?", "href": "/help/#what-is-private-local-chat"},
+        {"label": "Privacy", "href": "/privacy/"}
+      ],
+      "issues": []
+    }
+  ],
+  "knownIssues": [
+    {
+      "id": "iphone-page-restarts",
+      "title": "iPhone page restarts during loading or long replies",
+      "devices": "iPhone 15 Pro on iOS 26.6.2 (the device tested). Other iPhone and iPad models have not been checked.",
+      "browsers": "DuckDuckGo 26.6 and Safari automation sessions on that phone.",
+      "models": "Qwen3.5-2B on-device model.",
+      "symptom": "The page is replaced and starts again without an error message while the model loads or a longer reply is being written. Downloaded model files stay saved.",
+      "status": "Open, under investigation",
+      "verified": "2026-10-30",
+      "verifiedNote": "project investigation log; many sessions complete normally",
+      "workaround": "Reopen the app: saved conversations and drafts remain and the downloaded files are reused. For dependable use on an iPhone, set Where replies run to a connected provider, or use a computer.",
+      "help": [{"label": "The page reloads by itself", "href": "/help/#unexpected-reload"}]
+    },
+    {
+      "id": "iphone-low-storage",
+      "title": "Model downloads fail when the phone is nearly full",
+      "devices": "iPhone 15 Pro on iOS 26.6.2.",
+      "browsers": "Safari automation session.",
+      "models": "Qwen3.5-2B download (about 1.20 GB).",
+      "symptom": "Writing downloaded files fails repeatedly with a generic message while the device has almost no free space. The app keeps retrying and keeps the files it already verified.",
+      "status": "Explained by device storage; the app retries automatically",
+      "verified": "2026-10-30",
+      "verifiedNote": "USB system log recorded the out-of-space error",
+      "workaround": "Free space on the phone before downloading. The project's phone tests used at least 3 GB free as the minimum before a download.",
+      "help": [{"label": "A download stalls", "href": "/help/#stalled-download"}]
+    },
+    {
+      "id": "speech-in-app-browsers",
+      "title": "Dictation and voice conversation missing in some in-app browsers",
+      "devices": "iPhone.",
+      "browsers": "DuckDuckGo on iPhone exposes speech recognition but does not let websites use it. Other in-app web views may behave the same.",
+      "models": "Any (speech is separate from the model).",
+      "symptom": "A message says the browser does not let websites use speech recognition, and the dictation and voice controls are turned off. They stay hidden for 14 days after the failure is seen.",
+      "status": "Browser limitation; the app hides the controls",
+      "verified": "2026-10-31",
+      "verifiedNote": "release v0.11.0 documentation; not re-tested on a physical phone",
+      "workaround": "Open Private Local Chat in Safari or Chrome, which support speech recognition.",
+      "help": [{"label": "Speech controls missing", "href": "/help/#speech-availability"}]
+    },
+    {
+      "id": "processor-speed",
+      "title": "On-device chat on the processor is slow",
+      "devices": "Computers whose browser has no usable GPU (no WebGPU, no adapter, or only a software renderer).",
+      "browsers": "Browsers with WebAssembly SIMD. Not offered on iPhone or iPad.",
+      "models": "Qwen3.5-2B only. Qwen3.5-9B needs a GPU.",
+      "symptom": "Replies arrive slowly. Words per second on a real processor have not been measured.",
+      "status": "Limitation; speed not yet measured",
+      "verified": "2026-10-31",
+      "verifiedNote": "loading and generation verified in an automated browser test with a tiny test model",
+      "workaround": "Turn on or fix the browser's GPU support, or connect a provider.",
+      "help": [{"label": "A model will not load", "href": "/help/#load-failure"}]
+    },
+    {
+      "id": "linux-shader-f16",
+      "title": "2B model did not start on some Linux desktops without 16-bit shaders",
+      "devices": "Linux desktop with an NVIDIA graphics card (the tested setup).",
+      "browsers": "Chromium-based browsers where the optional shader-f16 feature was not enabled.",
+      "models": "Qwen3.5-2B on the GPU path.",
+      "symptom": "The 2B model was refused because the browser lacked 16-bit shader support.",
+      "status": "Mitigated in v0.12.0: the model now runs on the processor when the GPU path is not possible",
+      "verified": "2026-10-31",
+      "verifiedNote": "desktop environment receipt from 2026-10-30; processor path added the next day",
+      "workaround": "Enable the browser's shader-f16 support if it offers it, or use the processor path, which is slower.",
+      "help": [{"label": "A model will not load", "href": "/help/#load-failure"}]
+    },
+    {
+      "id": "context-window",
+      "title": "Very long replies end when the working window is full",
+      "devices": "All devices.",
+      "browsers": "All browsers.",
+      "models": "Both bundled on-device models (4,096-token window shared by the conversation and the reply).",
+      "symptom": "A long conversation or answer stops when the window is full. The message says so and offers Continue or a summary.",
+      "status": "Known limit; raising it costs memory, which matters most on iPhone",
+      "verified": "2026-10-31",
+      "verifiedNote": "project documentation of chat limits",
+      "workaround": "Choose Continue, condense older messages into a summary, or start a new conversation.",
+      "help": []
+    },
+    {
+      "id": "pictures-and-scans",
+      "title": "Pictures and scanned PDFs cannot be read on this device",
+      "devices": "All devices.",
+      "browsers": "All browsers.",
+      "models": "Both on-device models read text only.",
+      "symptom": "Pictures are refused with an explanation, and a scanned PDF with no text layer is refused because there is no text to read.",
+      "status": "Not supported yet; text recognition for scans is not available offline",
+      "verified": "2026-10-31",
+      "verifiedNote": "project documentation of chat limits",
+      "workaround": "Attach text-based files, or use a connected provider that accepts pictures (its data practices then apply).",
+      "help": [{"label": "What happens to my messages?", "href": "/help/#messages-and-providers"}]
+    }
+  ]
+}
