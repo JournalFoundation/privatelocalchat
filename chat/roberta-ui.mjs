@@ -45,7 +45,7 @@ export function createRoberta({ app, doc = document }) {
     getContext: () => app.context(),
     say: async (lines) => { if (callOpen && !muted) { speakHandle = app.speak(lines.join(" "), 1); try { await speakHandle.done; } catch { /* the text is on screen */ } } },
     stopSpeech: () => { try { speakHandle?.stop(); } catch { /* nothing playing */ } speakHandle = null; },
-    actions: new Proxy({}, { get: (_t, id) => (...args) => { if (id === "startChatting") { api.closeCall(); } app.actions[id]?.(...args); } }),
+    actions: new Proxy({}, { get: (_t, id) => (...args) => { if (id === "startChatting" || id === "startVoicemail" || id === "openProvider") api.closeCall(); app.actions[id]?.(...args); } }),
     router: { route: async (text) => { const router = await app.getRouter(); if (!router) return null; return router.route(text); } },
     onChange: () => refresh()
   });
