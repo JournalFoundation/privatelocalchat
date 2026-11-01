@@ -1,0 +1,40 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+Private Local Chat: a static, no-framework browser app (WebGPU/WASM local LLMs, or an explicitly chosen OpenAI-compatible API). GitHub `JournalFoundation/privatelocalchat` is the source of truth; Cloudflare Pages serves the app, R2 (`assets.privatelocal.chat`) serves model files. This repo is **not** deployed via the homelab/Flux/Caddy stack described in the global instructions.
+
+## Commands
+
+Node 22+, Python 3.
+
+```sh
+npm ci
+npm test                                        # node --test tests/*.test.mjs
+node --test tests/download-retry.test.mjs       # single test file
+python3 -m unittest discover -s dev-tools/tests -v   # dev-tools Python tests (CI runs these too)
+DEPLOY_BRANCH=dev npm run build                 # or DEPLOY_BRANCH=main; each build wipes dist/
+node scripts/serve.mjs                          # serves dist/ at http://127.0.0.1:18171
+DEPLOY_SITE_URL=<url> GITHUB_SHA=$(git rev-parse HEAD) GITHUB_REF_NAME=<branch> node scripts/verify-release.mjs
+```
+
+There is no linter. Commits must be Conventional Commits with body lines ≤100 chars (commitlint/gitlint; semantic-release runs from `main`).
+
+## Architecture
+
+- **`index.html`** (~4.5k lines) is the legacy single-page chat UI. It owns the storage formats that must be preserved: `chatThreads` (localStorage) and `chatConfig`/`chatModels` (sessionStorage). Local mode must never silently fall back to an API.
+- **`local-models.js` / `local-models.css`** bridge the UI to local models (model panel, download/load flow). **`conversation-messages.mjs`** shapes messages for the model.
+- **`runtime/`** is the provider layer: `providers/` (catalog, host worker + `client.mjs`, `adapters/` incl. wllama, hash/OPFS download writers, retry/recovery, `vendor/wllama/v1q` pinned native WASM). `runtime/download-recovery.mjs` and `offline-status.mjs` support resumable downloads and offline UX. Runtime artifacts are pinned by SHA-256; see `docs/RUNTIMES.md` before replacing any.
+- **`scripts/build.mjs`** produces `dist/`: copies app files into a versioned `releases/<commit>/` path (index.html rewrites asset URLs to it), injects `window.APP_BUILD`, verifies pinned runtime checksums (`ops/native/production-runtime.json`, compiler-control receipt), writes `version.json`, `_headers` (COOP/COEP required for WASM threads), and generates `sw.js` from `scripts/service-worker.js` (precaches every shell file; cache name includes commit).
+- **Dev vs production builds from one source**: code between `/* DEV_DIAGNOSTICS_START */` … `/* DEV_DIAGNOSTICS_END */` markers is **stripped from non-dev builds** (index.html, local-models.js, adapters/wllama.mjs, host-core.mjs, client.mjs, sw.js). The `dev` build additionally overlays `dev-tools/native-runtime/*` (instrumented wasm), copies `dev-tools/*.mjs` + `start.js`, and installs `dev-tools/receiver-worker.js` as the Pages `_worker.js` (opt-in telemetry receiver, R2-backed). Production must never contain diagnostics UI/receiver/logging — keep new diagnostics inside the markers or `dev-tools/`.
+- **Branches**: `dev` → dev.privatelocal.chat (Pages project `privatelocalchat-dev`), `main` → privatelocal.chat. Push triggers `.github/workflows/deploy.yml` (tests, build, wrangler deploy, verification). Work on `dev`, promote by merging to `main`. Model objects in R2 are immutable; publish new keys rather than replacing (`docs/OPERATIONS.md`).
+- **`ops/`** (Cloudflare/R2 publishing + native compiler-control tooling) and **`docs/`** (MAINTAINER-HANDOFF, OPERATIONS, ACCEPTANCE, RUNTIMES, DEV-DIAGNOSTICS, IPHONE-INVESTIGATION) hold procedures; read the relevant doc before runtime or release changes. Runtime changes need real model generation and offline checks, not just mocks.
+- **`work/`** is git-ignored scratch (one-off device probes, browser proofs, private state/tokens like `cloudflare-state.json`). Don't commit from it or print secrets in it; `work/CONTINUATION.md` is a historical handoff log. `.gitlab-ci.yml` is legacy.
+
+## Constraints
+
+- Never commit credentials, browser profiles, or user conversations; diagnostics must not capture prompts/replies/API keys.
+- No references to the project the runtime was originally sourced from may appear in code, UI, docs, or public metadata.
+- Browser tests on this box use dedicated profiles on `/media/Vivarium/…`; don't clear unrelated browser storage.
