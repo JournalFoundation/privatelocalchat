@@ -525,3 +525,117 @@ body.voice-on .message-form .composer-card, body.voice-on .message-form .accurac
   .call-captions { min-height: 5rem; }
   .call-btn { width: 4.5rem; height: 4.5rem; }
 }
+
+/* ---- voice notes ---------------------------------------------------------------------------------------------------------- */
+.voice-note-holder { margin: 0.25rem 0 0.5rem; }
+.voice-note { max-width: 24rem; padding: 0.6rem 0.75rem 0.45rem; border: 1px solid var(--plc-border); border-radius: 1.1rem; background: var(--plc-accent-tint); color: var(--plc-ink); }
+.vn-line { display: flex; align-items: center; gap: 0.6rem; }
+.vn-play { flex: 0 0 auto; width: var(--plc-control-min); height: var(--plc-control-min); border: 0; border-radius: 50%; background: var(--plc-accent); color: var(--plc-on-accent); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.vn-play:hover { background: var(--plc-accent-hover); }
+.vn-icon { width: 0; height: 0; margin-left: 0.2rem; border-left: 0.75rem solid currentColor; border-top: 0.5rem solid transparent; border-bottom: 0.5rem solid transparent; }
+.voice-note[data-state='playing'] .vn-icon { width: 0.9rem; height: 1rem; margin: 0; border: 0; border-left: 0.3rem solid currentColor; border-right: 0.3rem solid currentColor; box-sizing: border-box; }
+.vn-wave { flex: 1 1 auto; min-width: 0; height: 2.1rem; display: flex; align-items: center; gap: 2px; cursor: pointer; border-radius: 0.4rem; }
+.vn-wave:focus-visible, .vn-play:focus-visible, .vn-speed:focus-visible, .vn-text-toggle:focus-visible { outline: 3px solid var(--plc-focus, var(--plc-accent)); outline-offset: 2px; }
+.vn-bar { flex: 1 1 0; min-width: 2px; border-radius: 2px; background: var(--plc-muted); opacity: 0.45; }
+.vn-bar.played { background: var(--plc-accent); opacity: 1; }
+.vn-clock { flex: 0 0 auto; min-width: 4.2rem; text-align: right; font-size: 0.85rem; font-variant-numeric: tabular-nums; color: var(--plc-muted); }
+.vn-speed { flex: 0 0 auto; min-width: 2.75rem; min-height: 2rem; border: 1px solid var(--plc-border); border-radius: 999px; background: var(--plc-surface); color: var(--plc-ink); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.vn-meta { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.15rem; font-size: 0.8rem; color: var(--plc-muted); }
+.vn-text-toggle { min-height: 2rem; padding: 0 0.25rem; border: 0; background: none; color: var(--plc-accent); font: inherit; font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
+.voice-note-message .message-body[hidden] { display: none; }
+.voice-badge { margin: 0.1rem 0 0.35rem; font-size: 0.8rem; color: var(--plc-muted); }
+
+.vn-recorder { box-sizing: border-box; width: calc(100% - 1.5rem); max-width: var(--plc-chat-max); margin: 0 auto max(0.5rem, env(safe-area-inset-bottom)); padding: 0.9rem 1rem; border: 1px solid var(--plc-border); border-radius: var(--plc-radius-panel); background: var(--plc-surface); box-shadow: var(--plc-shadow); }
+.vn-recorder[hidden] { display: none; }
+.vnr-top { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
+.vnr-dot { width: 0.8rem; height: 0.8rem; border-radius: 50%; background: #c9262f; animation: vnr-pulse 1.2s ease-in-out infinite; }
+.vn-recorder[data-state='review'] .vnr-dot { animation: none; background: var(--plc-muted); }
+.vnr-timer { margin-left: auto; font-variant-numeric: tabular-nums; }
+.vnr-text { margin: 0.6rem 0; min-height: 3rem; max-height: 9rem; overflow-y: auto; overflow-wrap: anywhere; color: var(--plc-ink); }
+.vnr-edit { width: 100%; box-sizing: border-box; margin: 0.6rem 0; font: inherit; }
+.vnr-error { margin: 0.25rem 0; min-height: 1.2em; color: var(--plc-danger); }
+.vnr-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-end; }
+.vnr-actions button { min-height: var(--plc-control-min); }
+@keyframes vnr-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .vnr-dot { animation: none; } }
+
+/* ---- Roberta: the voicemail thread, the incoming call and the call -------------------------------------------------------- */
+.roberta-card { box-sizing: border-box; width: 100%; max-width: 30rem; margin: 0 auto 1.25rem; padding: 1rem; border: 1px solid var(--plc-border); border-radius: 1.25rem; background: var(--plc-surface); box-shadow: var(--plc-shadow); text-align: left; }
+.roberta-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.6rem; }
+.roberta-avatar { display: inline-grid; place-items: center; flex: 0 0 auto; width: 2.6rem; height: 2.6rem; border-radius: 50%; background: var(--plc-accent); color: var(--plc-on-accent); font-weight: 700; }
+.roberta-avatar.big { position: relative; width: 6rem; height: 6rem; background: transparent; }
+.roberta-face { position: relative; z-index: 1; display: grid; place-items: center; width: 4.2rem; height: 4.2rem; border-radius: 50%; background: var(--plc-accent); color: var(--plc-on-accent); font-size: 1.7rem; font-weight: 700; }
+.roberta-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--plc-accent); opacity: 0; transform: scale(0.7); animation: call-ripple 2s ease-out infinite; }
+.roberta-ring.r2 { animation-delay: 0.65s; } .roberta-ring.r3 { animation-delay: 1.3s; }
+.roberta-who { display: flex; flex-direction: column; min-width: 0; }
+.roberta-tag { color: var(--plc-muted); font-size: 0.85rem; margin: 0; }
+.roberta-badge { margin-left: auto; padding: 0.15rem 0.6rem; border-radius: 999px; background: var(--plc-accent-tint); color: var(--plc-accent); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.roberta-feed { max-height: 18rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; padding: 0.25rem 0; }
+.roberta-msg.you { align-self: flex-end; }
+.roberta-you { display: inline-block; padding: 0.35rem 0.8rem; border-radius: 1rem; background: var(--plc-accent); color: var(--plc-on-accent); font-size: 0.9rem; }
+.roberta-note .voice-note { max-width: 100%; }
+.roberta-transcript { margin: 0.35rem 0 0; font-size: 0.9rem; color: var(--plc-ink); }
+.roberta-transcript[hidden] { display: none; }
+.roberta-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+.roberta-chip { display: inline-flex; align-items: center; gap: 0.45rem; min-height: var(--plc-control-min); padding: 0 0.8rem 0 0.4rem; border: 1px solid var(--plc-border); border-radius: 999px; background: var(--plc-surface); color: var(--plc-ink); font: inherit; font-size: 0.9rem; cursor: pointer; }
+.roberta-chip:hover { background: var(--plc-accent-tint); }
+.roberta-chip-key { display: inline-grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--plc-accent-tint); color: var(--plc-accent); font-weight: 700; }
+.roberta-pending { background: var(--plc-accent); color: var(--plc-on-accent); padding-left: 0.9rem; }
+.roberta-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.75rem; }
+.roberta-call-btn, .roberta-answer { min-height: var(--plc-control-min); padding: 0 1.1rem; border: 0; border-radius: 999px; background: #1f8f55; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.roberta-call-btn:hover, .roberta-answer:hover { background: #17794a; }
+.roberta-link { min-height: var(--plc-control-min); padding: 0 0.5rem; border: 0; background: none; color: var(--plc-muted); font: inherit; text-decoration: underline; cursor: pointer; }
+.roberta-incoming { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+.roberta-incoming-name { margin: 0.4rem 0 0; font-size: 1.4rem; }
+.roberta-incoming-note { margin: 0; color: var(--plc-muted); font-size: 0.9rem; max-width: 22rem; }
+.roberta-incoming-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; margin: 0.6rem 0 0.2rem; }
+.roberta-voicemail-btn { min-height: var(--plc-control-min); padding: 0 1.1rem; border: 1px solid var(--plc-border); border-radius: 999px; background: var(--plc-surface); color: var(--plc-ink); font: inherit; cursor: pointer; }
+.roberta-answer, .roberta-call-btn, .roberta-voicemail-btn, .roberta-chip, .roberta-link { max-width: 100%; }
+
+.rcall-scrim { position: fixed; inset: 0; z-index: 3600; display: grid; place-items: center; background: rgba(8, 14, 22, 0.6); }
+.rcall-scrim[hidden] { display: none; }
+.rcall { box-sizing: border-box; width: min(34rem, 94vw); max-height: 94dvh; overflow-y: auto; padding: 1.25rem 1.25rem 1rem; border-radius: 1.5rem; color: #fff; background: linear-gradient(180deg, #0e1a27 0%, #17314a 100%); box-shadow: var(--plc-shadow); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; text-align: center; }
+.rcall-top { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; }
+.rcall-name { margin: 0; font-size: 1.15rem; font-weight: 650; }
+.rcall-status { margin: 0; color: #b8c7d9; font-size: 0.9rem; min-height: 1.3em; }
+.rcall-timer { margin: 0; font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.rcall-stage { position: relative; width: 100%; display: grid; place-items: center; min-height: 9rem; border-radius: 1rem; background: rgba(255, 255, 255, 0.06); }
+.rcall-tile { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 0.8rem; }
+.rcall .roberta-ring { border-color: rgba(127, 176, 255, 0.7); }
+.rcall[data-state='speaking'] .roberta-ring, .rcall[data-state='connecting'] .roberta-ring { opacity: 0.6; }
+.rcall:not([data-state='speaking']):not([data-state='connecting']) .roberta-ring { animation: none; opacity: 0.25; transform: scale(0.9); }
+.rcall-chip { padding: 0.1rem 0.6rem; border-radius: 999px; background: rgba(0, 0, 0, 0.35); font-size: 0.8rem; }
+.rcall-self { position: absolute; right: 0.6rem; bottom: 0.6rem; display: grid; place-items: center; width: 4.5rem; height: 3.2rem; border-radius: 0.6rem; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); font-size: 0.75rem; color: #d3deea; }
+.rcall[data-state='listening'] .rcall-self { border-color: #7fb0ff; box-shadow: 0 0 0 2px rgba(127, 176, 255, 0.5); }
+.rcall-captions { width: 100%; min-height: 4.2rem; }
+.rcall-line { margin: 0; font-size: 1.05rem; line-height: 1.35; overflow-wrap: anywhere; max-height: 5.5rem; overflow-y: auto; }
+.rcall-yours { margin: 0.3rem 0 0; color: #9cc2ff; font-size: 0.9rem; overflow-wrap: anywhere; }
+.rcall-hint { margin: 0; min-height: 0; color: #ffd6d9; font-size: 0.85rem; }
+.rcall-hint:empty { display: none; }
+.rcall-keypad { display: grid; grid-template-columns: repeat(3, 4.4rem); gap: 0.5rem 0.9rem; justify-content: center; margin: 0.25rem 0; }
+.rk { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 4.4rem; height: 3.6rem; padding: 0; border: 0; border-radius: 0.9rem; background: rgba(255, 255, 255, 0.14); color: #fff; font: inherit; cursor: pointer; }
+.rk:hover { background: rgba(255, 255, 255, 0.24); }
+.rk[data-active='false'] { opacity: 0.55; }
+.rk-digit { font-size: 1.3rem; font-weight: 600; line-height: 1.1; }
+.rk-sub { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em; color: #c7d5e6; max-width: 4.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcall-controls { display: flex; justify-content: center; gap: 1.1rem; margin-top: 0.3rem; }
+.rcall-control { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; min-width: 4rem; }
+.rcall-control[hidden] { display: none; }
+.rcall-btn { width: 3.6rem; height: 3.6rem; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.16); color: #fff; font-size: 1.4rem; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.rcall-btn:hover { background: rgba(255, 255, 255, 0.26); }
+.rcall-btn[aria-pressed='true'] { background: #fff; color: #0e1a27; }
+.rcall-btn.rcall-end { background: #c9262f; }
+.rcall-btn.rcall-end:hover { background: #a81d26; }
+.rcall-btn:focus-visible, .rk:focus-visible { outline: 3px solid #9cc2ff; outline-offset: 3px; }
+.rcall-control-label { font-size: 0.78rem; color: #d3deea; }
+body.roberta-call-open { overflow: hidden; }
+@media (max-width: 899px) {
+  .rcall-scrim { background: transparent; }
+  .rcall { position: fixed; inset: 0; z-index: 3600; width: auto; max-height: none; border-radius: 0; box-shadow: none; padding: max(1.5rem, env(safe-area-inset-top)) 1.1rem max(1.25rem, env(safe-area-inset-bottom)); justify-content: space-between; }
+  .rcall-stage { flex: 1 1 auto; min-height: 7rem; }
+}
+@media (prefers-reduced-motion: reduce) { .roberta-ring { animation: none; opacity: 0.3; } }
+
+.vn-wave { overflow: hidden; gap: 1.5px; }
+.vn-bar { min-width: 1.5px; }
+.vn-clock { min-width: 3.6rem; }

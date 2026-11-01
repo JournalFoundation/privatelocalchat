@@ -49,6 +49,7 @@ const P = {
   hangup: '<g transform="rotate(135 12 12)"><path d="M20.5 16.9v2.6a1.8 1.8 0 0 1-2 1.8 17 17 0 0 1-7.4-2.6 16.7 16.7 0 0 1-5.2-5.2A17 17 0 0 1 3.3 6.2a1.8 1.8 0 0 1 1.8-2h2.6a1.8 1.8 0 0 1 1.8 1.5c.1.9.4 1.8.7 2.6a1.8 1.8 0 0 1-.4 1.9l-1.1 1.1a14 14 0 0 0 5.2 5.2l1.1-1.1a1.8 1.8 0 0 1 1.9-.4c.8.3 1.7.6 2.6.7a1.8 1.8 0 0 1 1.5 1.8z"/></g>',
   'mic-off': '<path d="M4 4l16 16"/><path d="M9 9v2a3 3 0 0 0 5 2.2M15 10V6a3 3 0 0 0-5.7-1.3"/><path d="M5 11a7 7 0 0 0 11.2 5.6M19 11a7 7 0 0 1-.7 3M12 18v3"/>',
   skip: '<path d="M5 5l9 7-9 7z"/><path d="M18 5v14"/>',
+  waveform: '<path d="M3 12h1.5M7.5 8v8M12 4v16M16.5 8v8M20 12h1"/>',
   qr: '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><path d="M14 14h3v3M20 14v6h-6"/>'
 };
 export const ICON_NAMES = Object.keys(P);
@@ -57,7 +58,7 @@ export const ICON_NAMES = Object.keys(P);
 export const EMOJI_ICON = {
   "➕": "plus", "➖": "minus", "🕶️": "ghost", "📁": "folder", "⋮": "more", "✏️": "edit", "📋": "copy", "📤": "download", "🗑️": "trash", "🔗": "link",
   "📌": "pin", "📍": "pin", "🗄️": "archive", "🧬": "copy", "♻️": "refresh", "🌿": "branch", "⬇": "download", "📝": "edit", "🔊": "volume", "⏹": "stop",
-  "🧠": "bookmark", "📚": "book", "💾": "storage", "🔒": "lock", "🧮": "calc", "📎": "paperclip", "🖼️": "image", "🎙️": "mic", "🎧": "headphones", "📞": "phone", "📵": "hangup",
+  "🧠": "bookmark", "📚": "book", "💾": "storage", "🔒": "lock", "🧮": "calc", "📎": "paperclip", "🖼️": "image", "🎙️": "mic", "🎧": "headphones", "📞": "phone", "🎚️": "waveform", "📵": "hangup",
   "🔄": "refresh", "☀️": "sun", "🌙": "moon", "ℹ️": "info", "❌": "close", "☠️": "trash", "🗜": "summarize", "↻": "refresh", "▶": "play", "✕": "close",
   "📩": "send", "☰": "menu", "‹": "left", "›": "right"
 };

@@ -25,3 +25,10 @@ test('sounds that are turned off, or a browser without audio, do nothing and nev
  const broken=createCallSounds({createContext:()=>{throw new Error('no audio');}});broken.ringback();
  s.close();assert.equal(log.closed,1);
 });
+test('keypad buttons make their telephone tones, and unknown keys make none',()=>{
+ const {ctx,log}=fakeContext();const s=createCallSounds({createContext:()=>ctx});
+ s.dtmf('1');assert.deepEqual(log.osc.map(o=>o.frequency.value),[697,1209]);
+ s.dtmf('#');assert.deepEqual(log.osc.slice(2).map(o=>o.frequency.value),[941,1477]);
+ s.dtmf('0');assert.deepEqual(log.osc.slice(4).map(o=>o.frequency.value),[941,1336]);
+ s.dtmf('x');assert.equal(log.osc.length,6);
+});

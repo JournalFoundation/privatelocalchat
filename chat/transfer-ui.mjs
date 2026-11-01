@@ -7,6 +7,7 @@
 import * as ST from "./settings-transfer.mjs";
 import { PRODUCT, mountProductShare, canShareNatively } from "./product-share.mjs";
 import { renderQr, fitsQr } from "./qr.mjs";
+import { ROBOT_NAME } from "./ivr-content.mjs";
 
 export const NOTICE_SETTINGS = "This transfer includes the settings listed below. These settings may contain sensitive information. Anyone with the link, QR code, or settings file can read the listed settings. An included API token is encrypted with your chosen password. Communicate that password separately.";
 export const NOTICE_EXPORT = "This file includes the conversations and items listed below. Anyone able to open the file can read its included content. Choose where to save it and who to give it to.";
@@ -70,6 +71,7 @@ export function createTransferUi({ app, el, openAppDialog, showToast, icon, doc 
     if (site.supportEmail) { const p = el("p", "hint-text"); const a = el("a", null, "Email the project team"); a.href = "mailto:" + site.supportEmail; p.append(a, " — goes to the people who run this project, for questions and support."); body.appendChild(p); }
     body.appendChild(el("p", "hint-text", "GitHub submissions are public. Leave out API keys and private conversations."));
     const sonalon = el("p", "hint-text"); sonalon.append("Looking for AI personas? "); const sa = el("a", null, "Explore Sonalon"); sa.href = "https://sonalon.com/"; sa.target = "_blank"; sa.rel = "noopener"; sonalon.appendChild(sa); body.appendChild(sonalon);
+    if (app.callRoberta) { const call = button(`Call ${ROBOT_NAME}, the app's robot`, { id: "helpCallRoberta" }); call.addEventListener("click", () => { handle.close(); app.callRoberta(); }); body.appendChild(call); }
     const about = button("Quick summary of this app"); about.addEventListener("click", () => { handle.close(); app.openAboutModal(); }); body.appendChild(about);
     const handle = openAppDialog({ title: "Help & about", content: body });
     return handle;

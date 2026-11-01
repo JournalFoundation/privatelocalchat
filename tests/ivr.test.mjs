@@ -140,3 +140,8 @@ test('the transcript records what Roberta said and what was pressed or said, for
  const r=rig({router:{route:async()=>({intent:'about.who',confidence:'high',candidates:[]})}});await r.ivr.start();await r.ivr.press('1');await r.ivr.hear('who are you');
  const t=r.ivr.state.transcript;assert.ok(t.some(x=>x.who==='roberta'));assert.ok(t.some(x=>x.who==='you'&&x.text==='Pressed 1'));assert.ok(t.some(x=>x.who==='you'&&x.text==='who are you'));
 });
+test('spoken menu prompts are marked as such, so a voicemail view can show them as reply buttons instead',async()=>{
+ const r=rig();await r.ivr.start();
+ const t=r.ivr.state.transcript;assert.ok(t.some(x=>x.kind==='say'&&/Hello, this is Roberta/.test(x.text)));assert.ok(t.some(x=>x.kind==='menu'&&x.text==='Press 1 for privacy.'));
+ await r.ivr.press('1');assert.ok(r.ivr.state.transcript.some(x=>x.kind==='say'&&/thinking stays yours/.test(x.text)));assert.ok(r.ivr.state.transcript.some(x=>x.kind==='menu'&&x.text==='Press 1 for the cloud.'));
+});

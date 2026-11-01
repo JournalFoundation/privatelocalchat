@@ -51,3 +51,12 @@ test('a branch cuts the chat at a message and gets new identity',()=>{
  const t=T('a',[['user','1'],['assistant','2'],['user','3']],{pinned:true});
  const b=branchThread(t,1);assert.equal(b.messages.length,2);assert.notEqual(b.id,t.id);assert.notEqual(b.messages[0].id,t.messages[0].id);assert.equal(b.pinned,undefined);assert.match(b.title,/branch/);
 });
+test('voice notes survive saving: a reply shown as a voice note, and the length of a message recorded by voice',()=>{
+ const a=normalizeMessage({role:'assistant',content:'hello there',voiceNote:true});assert.equal(a.voiceNote,true);
+ assert.equal(normalizeMessage({role:'assistant',content:'x',voiceNote:'yes'}).voiceNote,undefined,'only a real flag counts');
+ assert.equal(normalizeMessage({role:'user',content:'x',voiceNote:true}).voiceNote,undefined,'a note is a way of playing a reply, not of your own message');
+ assert.deepEqual(normalizeMessage({role:'user',content:'spoken words',voice:{seconds:41.6}}).voice,{seconds:42});
+ assert.equal(normalizeMessage({role:'user',content:'x',voice:{seconds:'long'}}).voice,undefined);
+ assert.equal(normalizeMessage({role:'user',content:'x',voice:{seconds:999999}}).voice.seconds,86400);
+ assert.equal(normalizeMessage({role:'assistant',content:'x',voice:{seconds:5}}).voice,undefined);
+});

@@ -236,11 +236,14 @@ export function menuPrompt(nodeId, c) {
   return out;
 }
 
-/** The menu as data for a keypad / button list: [{ key, id, label }]. */
+// one or two words for the small print on a keypad key
+const SHORT = Object.freeze({ privacy: "privacy", "privacy.cloud": "cloud", "privacy.storage": "storage", "privacy.provider": "providers", "privacy.account": "accounts", talking: "voice", "talking.read": "read aloud", "talking.dictate": "dictation", "talking.call": "calls", "talking.notes": "notes", setup: "download", share: "share", restore: "restore", export: "export", settings: "settings", "settings.transfer": "transfer", "settings.provider": "provider", voicemail: "message", help: "help", "help.stuck": "stuck", "help.load": "won't load", "help.mic": "mic", "help.storage": "storage", chat: "chat" });
+
+/** The menu as data for a keypad / button list: [{ key, id, label, short }]. */
 export function menuItems(nodeId, c) {
   const parent = nodeId && NODES[nodeId];
   const ids = parent?.children?.length ? parent.children : MAIN_MENU;
-  return ids.map((id, i) => ({ key: parent?.children?.length ? String(i + 1) : NODES[id].key, id, label: NODES[id].label(c) }));
+  return ids.map((id, i) => ({ key: parent?.children?.length ? String(i + 1) : NODES[id].key, id, label: NODES[id].label(c), short: SHORT[id] || NODES[id].label(c).replace(/^to /, "") }));
 }
 
 export const FALLBACK_SAY = (c) => ["Sorry, I couldn't match that to anything I can help with.", "I only have prepared answers about this app. You can press a number, or try saying things like: is this private, how do I download the model, or can I share this with a friend.", c.model.state === "ready" || c.mode === "api" ? "For anything else, press pound and ask in the chat." : "For anything else, ask in the chat once your model is ready."];

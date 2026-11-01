@@ -15,25 +15,25 @@ export function createIvr({ getContext, say, stopSpeech = () => {}, actions = {}
   let token = 0;                     // makes late speech from an interrupted turn harmless
   let phase = "idle";                // idle | speaking | menu
   let pendingAction = null;          // an action that needs a tap (browsers only allow a file chooser inside a gesture)
-  let started = false, matching = false;
+  let started = false, matching = false, active = 0; // active: turns in progress (a turn is one key press, one utterance, or the introduction)
   const transcript = [];
 
   const ctx = () => getContext();
   const emit = () => onChange(snapshot());
   function snapshot() {
     const c = ctx();
-    return { started, phase, matching, nodeId, items: menuItems(nodeId, c), pendingAction, transcript: transcript.slice(-30), title: nodeId ? NODES[nodeId].label(c) : "Main menu" };
+    return { started, phase, matching, busy: active > 0, nodeId, items: menuItems(nodeId, c), pendingAction, transcript: transcript.slice(-30), title: nodeId ? NODES[nodeId].label(c) : "Main menu" };
   }
-  const note = (who, text) => { transcript.push({ who, text, at: now() }); };
+  const note = (who, text, kind = "say") => { transcript.push({ who, text, kind, at: now() }); };
 
   /** Speaks sentences in order; resolves when finished or when something interrupted it. */
-  async function speak(lines, mine = token) {
+  async function speak(lines, mine = token, kind = "say") {
     const spoken = lines.filter(Boolean);
     if (!spoken.length) return;
     phase = "speaking"; emit();
     for (const line of spoken) {
       if (mine !== token) return;
-      note("roberta", line); emit();
+      note("roberta", line, kind); emit();
       try { await say([line]); } catch { /* a voice that fails is not the person's problem; the text is shown */ }
     }
     if (mine === token) { phase = "menu"; emit(); }
@@ -42,10 +42,14 @@ export function createIvr({ getContext, say, stopSpeech = () => {}, actions = {}
   function interrupt() { token++; try { stopSpeech(); } catch { /* nothing playing */ } }
 
   async function playMenu(mine) {
-    await speak(menuPrompt(nodeId, ctx()), mine);
+    await speak(menuPrompt(nodeId, ctx()), mine, "menu");
   }
 
-  async function open(id, { viaGesture = false } = {}) {
+  /** Runs one turn and keeps count, so the page can tell when Roberta has finished everything she is going to say. */
+  async function turn(fn) { active++; try { return await fn(); } finally { active--; emit(); } }
+
+  async function open(id, opts) { return turn(() => openNode(id, opts)); }
+  async function openNode(id, { viaGesture = false } = {}) {
     const node = NODES[id];
     if (!node) return;
     interrupt(); const mine = token;
@@ -61,31 +65,35 @@ export function createIvr({ getContext, say, stopSpeech = () => {}, actions = {}
     if (mine !== token) return;
     if (node.children.length) await playMenu(mine);
     else if (pendingAction) await speak([`Tap the button on your screen to ${pendingLabel(node.action).toLowerCase()}.`], mine);
-    else await speak([nodeId ? "Press a number for another topic, star to go back, or zero to hear these options." : "Press zero to hear the menu."], mine);
+    else await speak([nodeId ? "Press a number for another topic, star to go back, or zero to hear these options." : "Press zero to hear the menu."], mine, "menu");
     emit();
   }
 
   const pendingLabel = (action) => ({ openImport: "Choose a backup file", openShare: "Open the share sheet", openExport: "Open Transfer chats and backups", openTransferSettings: "Open Transfer settings", startVoicemail: "Start recording" }[action] || "Continue");
 
   function back() {
-    interrupt(); const mine = token;
-    nodeId = stack.length ? stack.pop() : null; pendingAction = null;
-    return playMenu(mine);
+    return turn(async () => {
+      interrupt(); const mine = token;
+      nodeId = stack.length ? stack.pop() : null; pendingAction = null;
+      await playMenu(mine);
+    });
   }
 
   const api = {
     get state() { return snapshot(); },
     /** The introduction, then the main menu. */
-    async start() {
-      started = true; interrupt(); const mine = token; nodeId = null; stack.length = 0; pendingAction = null;
-      await speak(introScript(ctx()), mine);
-      if (mine === token) await playMenu(mine);
+    start() {
+      return turn(async () => {
+        started = true; interrupt(); const mine = token; nodeId = null; stack.length = 0; pendingAction = null;
+        await speak(introScript(ctx()), mine);
+        if (mine === token) await playMenu(mine);
+      });
     },
     /** A keypad press: 0-9, * or #. `viaGesture` is true when it came from a real tap or key press. */
     async press(key, { viaGesture = true } = {}) {
       const k = String(key);
       if (!/^[0-9*#]$/.test(k)) return;
-      if (k === "0") { interrupt(); const mine = token; pendingAction = null; return playMenu(mine); }
+      if (k === "0") return turn(async () => { interrupt(); const mine = token; pendingAction = null; await playMenu(mine); });
       if (k === "*") return back();
       if (k === "#") return open("chat", { viaGesture });
       const parent = nodeId && NODES[nodeId];
@@ -93,12 +101,21 @@ export function createIvr({ getContext, say, stopSpeech = () => {}, actions = {}
         const child = parent.children[Number(k) - 1];
         if (child) return open(child, { viaGesture });
       } else if (KEY_TO_NODE[k] && MAIN_MENU.includes(KEY_TO_NODE[k])) return open(KEY_TO_NODE[k], { viaGesture });
-      interrupt(); const mine = token;
-      await speak([`${k} isn't one of the options.`], mine);
-      await playMenu(mine);
+      return turn(async () => { interrupt(); const mine = token; await speak([`${k} isn't one of the options.`], mine); await playMenu(mine); });
     },
     /** Something said or typed. Matched by meaning; a confident match behaves like the key press for it. */
-    async hear(text) {
+    hear(text) { return turn(() => hearText(text)); },
+    /** Runs the action that was waiting for a tap. */
+    runPending() {
+      if (!pendingAction) return;
+      const { id } = pendingAction; pendingAction = null; emit();
+      try { actions[id]?.({ viaGesture: true, context: ctx() }); } catch { /* the page reports its own errors */ }
+    },
+    interrupt() { interrupt(); phase = "menu"; emit(); },
+    stop() { interrupt(); started = false; phase = "idle"; nodeId = null; stack.length = 0; pendingAction = null; emit(); },
+    refresh: emit
+  };
+  async function hearText(text) {
       const said = String(text || "").trim();
       if (!said) return;
       interrupt(); const mine = token; note("you", said);
@@ -116,17 +133,7 @@ export function createIvr({ getContext, say, stopSpeech = () => {}, actions = {}
       }
       if (intent === "ctl.repeat") { pendingAction = null; return playMenu(mine); }
       if (intent === "ctl.back") return back();
-      return open(intent, { viaGesture: false });
-    },
-    /** Runs the action that was waiting for a tap. */
-    runPending() {
-      if (!pendingAction) return;
-      const { id } = pendingAction; pendingAction = null; emit();
-      try { actions[id]?.({ viaGesture: true, context: ctx() }); } catch { /* the page reports its own errors */ }
-    },
-    interrupt() { interrupt(); phase = "menu"; emit(); },
-    stop() { interrupt(); started = false; phase = "idle"; nodeId = null; stack.length = 0; pendingAction = null; emit(); },
-    refresh: emit
-  };
+      return openNode(intent, { viaGesture: false });
+  }
   return api;
 }

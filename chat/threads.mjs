@@ -2,7 +2,9 @@
 //
 // thread  { id, title, systemPrompt, messages[], createdAt, updatedAt, pinned?, archived?, deletedAt?, folderId?, temporary?,
 //           summary? { text, upTo } }
-// message { id, role, content, at, status?, error?, notice?, excluded?, versions?, versionIndex?, attachments?, sources? }
+// message { id, role, content, at, status?, error?, notice?, excluded?, versions?, versionIndex?, attachments?, sources?, voiceNote?, voice? }
+//   voiceNote: an assistant reply shown as a playable voice note (the words stay underneath); voice: { seconds } on a message you recorded
+//   by voice (only the transcript is kept, never audio)
 //   status: complete | streaming | stopped | failed | length | interrupted   (assistant messages; absent = complete)
 //   versions: every answer produced for the same prompt; `content` always mirrors the version being shown.
 
@@ -34,6 +36,8 @@ export function normalizeMessage(raw, at = Date.now()) {
     if (Array.isArray(raw.sources) && raw.sources.length) m.sources = raw.sources.filter((s) => s && typeof s === "object").slice(0, 50);
   }
   if (raw.role === "user" && Array.isArray(raw.tools) && raw.tools.length) m.tools = raw.tools.filter((t) => t && typeof t.label === "string" && typeof t.result === "string").slice(0, 6).map((t) => ({ kind: str(t.kind, "calc"), label: t.label.slice(0, 200), result: t.result.slice(0, 200) }));
+  if (raw.role === "assistant" && raw.voiceNote === true) m.voiceNote = true;
+  if (raw.role === "user" && raw.voice && typeof raw.voice === "object" && Number.isFinite(raw.voice.seconds)) m.voice = { seconds: Math.min(86400, Math.max(1, Math.round(raw.voice.seconds))) };
   if (raw.role === "assistant" && raw.local === true) m.local = true; // answered on this device by a built-in tool, not by the model
   if (Array.isArray(raw.attachments) && raw.attachments.length) m.attachments = raw.attachments.filter((a) => a && typeof a === "object" && typeof a.name === "string").slice(0, 50).map((a) => ({ ...a, name: a.name.slice(0, 200) }));
   return m;

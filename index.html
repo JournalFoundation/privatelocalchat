@@ -2832,6 +2832,7 @@
         if (text != null) node.textContent = text;
         return node;
       };
+      const clockText = seconds => { const t = Math.max(0, Math.floor(seconds || 0)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
       function actionButton(action, label, title) {
         const b = el('button', 'act');
         M.icons.setIconLabel(b, label);
@@ -2861,6 +2862,8 @@
 
       const messageDecorators = []; // later features add buttons/meta here: (thread, msg, index, ctx) => void
       const threadSelectedHooks = []; // run after a conversation is shown
+      let noteSupport = false;       // voice notes need the browser's text-to-speech; set by the speech block
+      const ROBOT_NAME = 'Roberta';  // the app's robot (chat/ivr-content.mjs holds the same name for the menu)
       /** A link to the Help page section for a problem, opened in a new tab so the chat and draft stay put. */
       function helpLink(anchor, label) {
         const a = el('a', 'help-link', label); a.href = '/help/#' + anchor; a.target = '_blank'; a.rel = 'noopener';
@@ -2954,6 +2957,8 @@
         }
         const body = el('div', 'message-body');
         fillBody(body, msg);
+        if (msg.role === 'user' && msg.voice) div.appendChild(el('div', 'voice-badge', '\uD83C\uDF99 Voice note \u00B7 ' + clockText(msg.voice.seconds) + ' \u00B7 transcribed by your browser; the audio was not saved'));
+        if (msg.role === 'assistant' && msg.voiceNote && msg.content && !streaming && noteSupport) mountMessageVoiceNote(div, body, msg);
         div.appendChild(body);
         if (msg.role === 'assistant' && msg.sources?.length && !streaming) div.appendChild(renderSources(msg));
         if (msg.role === 'user' && msg.tools?.length) div.appendChild(el('div', 'message-meta', msg.tools.map(t => '\uD83E\uDDEE ' + t.label + ' = ' + t.result).join('   \u00B7   ')));
@@ -3005,7 +3010,7 @@
       }
 
       // The everyday actions stay in view; the rest live behind "More".
-      const PRIMARY_ACTIONS = new Set(['edit-message', 'copy-message', 'regenerate', 'retry', 'continue', 'speak', 'summarize']);
+      const PRIMARY_ACTIONS = new Set(['edit-message', 'copy-message', 'regenerate', 'retry', 'continue', 'speak', 'voice-note', 'summarize']);
       function compactActions(actions) {
         const extra = [...actions.children].filter(n => n.matches?.('button[data-action]') && !PRIMARY_ACTIONS.has(n.dataset.action));
         if (!extra.length) return;
@@ -3024,6 +3029,7 @@
         const unsupported = local && lm && lm.supported === false && !lm.ready && Boolean(lm.gpuHelp && lm.gpuHelp.kind !== 'ok');
         const help = unsupported ? lm.gpuHelp : null;
         const firstUse = local && lm && !lm.installed && !lm.ready && !thread.temporary && !unsupported;
+        if (!prefs.robertaDismissed && !thread.temporary && local && lm && !lm.ready && (firstUse || welcomeSetup || unsupported)) { const slot = el('div', 'roberta-slot'); box.appendChild(slot); mountRobertaHero(slot); }
         if (unsupported) {
           // this browser cannot run the on-device models: say so and offer the other path, instead of a setup that cannot work
           box.classList.add('welcome');
@@ -3116,6 +3122,7 @@
         });
         if (thread.summary && thread.summary.upTo >= thread.messages.length) messagesEl.appendChild(renderSummaryDivider(thread));
         if (keepScroll && !followLatest) { messagesEl.scrollTop = previousTop; if (jumpLatestBtn) jumpLatestBtn.hidden = nearBottom(); }
+        else if (!thread.messages.length) messagesEl.scrollTop = 0; // the start screen (and Roberta at its top) is read from the top
         else scrollToLatest(true);
         updateContextMeter?.(thread);
       }
@@ -4298,6 +4305,7 @@
         synth: Boolean(window.speechSynthesis && window.SpeechSynthesisUtterance),
         recognition: Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
       };
+      noteSupport = speechAvailable.synth;
       // Some browsers (an app's built-in web view, for one) expose speech recognition but never allow a website to use it. Once that has
       // been seen the controls stay hidden for a while instead of failing every time.
       const SPEECH_BLOCK_KEY = 'plc.speechInputUnusable';
@@ -4324,7 +4332,14 @@
         messageDecorators.push((thread, msg, index, ctx, actions) => {
           if (msg.role !== 'assistant' || !msg.content || ctx.streaming) return;
           actions.appendChild(actionButton('speak', '🔊 Listen', 'Read this answer aloud'));
+          actions.appendChild(actionButton('voice-note', msg.voiceNote ? '📄 Show as text' : '🎙️ Voice note', msg.voiceNote ? 'Show this reply as text again' : 'Turn this reply into a voice note you can play'));
         });
+        messageActionHandlers['voice-note'] = async (thread, msg) => {
+          await loadNoteModules();
+          msg.voiceNote = !msg.voiceNote;
+          saveThreads(); renderMessages(thread, { keepScroll: true });
+          if (msg.voiceNote) nodeFor(msg.id)?.querySelector('.vn-play')?.click(); // turning a reply into a note plays it
+        };
         messageActionHandlers['speak'] = async (thread, msg, btn) => {
           if (btn.getAttribute('aria-pressed') === 'true') { stopSpeaking(); return; }
           stopSpeaking(); setListenButton(btn, true);
@@ -4335,13 +4350,14 @@
 
       const toolButton = (id, icon, label) => {
         const b = el('button', 'tool-btn'); b.type = 'button'; b.id = id; b.title = label; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', 'false');
-        b.appendChild(createEmoji(icon === 'mic' ? '🎙️' : icon === 'phone' ? '📞' : '🎧')); return b;
+        b.appendChild(createEmoji(icon === 'mic' ? '🎙️' : icon === 'phone' ? '📞' : icon === 'waveform' ? '🎚️' : '🎧')); return b;
       };
+      let recordBtn = null;
       let micBtn = speechInputOk ? toolButton('micBtn', 'mic', 'Dictate') : null;
       let voiceBtn = speechInputOk && speechAvailable.synth ? toolButton('voiceModeBtn', 'phone', 'Voice call') : null;
       [micBtn, voiceBtn].forEach(b => b && composerToolsEl.append(b));
       const setPressed = (btn, on) => btn?.setAttribute('aria-pressed', String(on));
-      const hideSpeechInput = () => { markSpeechInputUnusable(); micBtn?.remove(); voiceBtn?.remove(); micBtn = voiceBtn = null; };
+      const hideSpeechInput = () => { markSpeechInputUnusable(); micBtn?.remove(); voiceBtn?.remove(); recordBtn?.remove(); micBtn = voiceBtn = recordBtn = null; };
       // WebKit only shows the microphone prompt for a recognition that starts inside the tap, so the code it needs is loaded up front.
       if (speechInputOk) { loadSpeech().catch(() => hideSpeechInput()); if (voiceBtn) { voiceBtn.classList.add('call-start'); voiceBtn.title = 'Start a voice call'; loadVoice().catch(() => {}); loadCallSounds().catch(() => {}); } }
 
@@ -4557,6 +4573,173 @@
       document.addEventListener('visibilitychange', () => { if (document.hidden) voiceSession?.pause('background'); });
       window.addEventListener('pagehide', () => { if (voiceSession?.active) voiceSession.stop(); callSounds?.close(); });
       document.getElementById('stopGeneration').addEventListener('click', () => { if (voiceSession?.active) voiceSession.interrupt(); });
+
+      // ---- voice notes: any reply can be played like a voice message; long messages can be recorded as notes ------------------------
+      // The sound is the browser's own text-to-speech, one sentence at a time (chat/voice-note.mjs). Nothing is recorded as audio:
+      // a note you record is kept as its transcript.
+      let voiceNoteMod = null, voiceRecorderMod = null;
+      const loadNoteModules = async () => {
+        await Promise.all([loadSpeech(), voiceNoteMod ? null : import(moduleBase() + 'chat/voice-note.mjs').then(m => { voiceNoteMod = m; }), loadDocModules().then(m => { loadedDocExports = m.exports; }).catch(() => {})]);
+      };
+      if (noteSupport) loadNoteModules().catch(() => {});
+      function mountMessageVoiceNote(div, body, msg) {
+        if (!voiceNoteMod || !speechMod) { loadNoteModules().then(() => { const t = currentThread(); if (t) renderMessages(t, { keepScroll: true }); }).catch(() => {}); return; }
+        div.classList.add('voice-note-message');
+        const holder = el('div', 'voice-note-holder'); div.appendChild(holder);
+        const plain = loadedDocExports?.stripMarkdown ? loadedDocExports.stripMarkdown(msg.content) : msg.content;
+        voiceNoteMod.mountVoiceNote(holder, {
+          text: plain, from: ROBOT_NAME, id: msg.id, transcript: body, rate: prefs.noteRate || 1,
+          onRate: r => { prefs.noteRate = r; savePrefs(); },
+          onPlay: () => stopSpeaking(),
+          speakOne: (t, r) => speechMod.speak(t, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, r * (prefs.speechRate || 1)) })
+        });
+      }
+      // the other audio features stop a playing note
+      const stopNotes = () => voiceNoteMod?.stopOtherNotes(null);
+      messageActionHandlers['speak'] = ((inner) => (...args) => { stopNotes(); return inner(...args); })(messageActionHandlers['speak'] || (() => {}));
+
+      // recording a voice note (also behind "leave a voice message" in Roberta's menu)
+      let recorder = null, recorderUi = null, pendingVoice = null;
+      recordBtn = speechInputOk ? toolButton('recordNoteBtn', 'waveform', 'Record a voice note') : null;
+      if (recordBtn) { recordBtn.title = 'Record a voice note'; composerToolsEl.append(recordBtn); }
+      function buildRecorderUi() {
+        const root = el('section', 'vn-recorder'); root.id = 'voiceRecorder'; root.hidden = true; root.setAttribute('role', 'group'); root.setAttribute('aria-label', 'Voice note');
+        const top = el('div', 'vnr-top'); const dot = el('span', 'vnr-dot'); dot.setAttribute('aria-hidden', 'true');
+        const label = el('span', 'vnr-label', 'Recording'); const timer = el('span', 'vnr-timer', '0:00'); timer.id = 'vnrTimer'; timer.setAttribute('role', 'timer'); timer.setAttribute('aria-live', 'off');
+        top.append(dot, label, timer);
+        const live = el('p', 'vnr-text'); live.id = 'vnrText'; live.setAttribute('aria-live', 'off');
+        const edit = el('textarea', 'vnr-edit'); edit.id = 'vnrEdit'; edit.rows = 5; edit.hidden = true; edit.setAttribute('aria-label', 'What was heard. You can correct it before sending.');
+        const note = el('p', 'hint-text', 'Only your words are kept, not the audio. They are written down by your browser’s speech recognition, which may send audio to its speech service.');
+        const err = el('p', 'vnr-error'); err.id = 'vnrError'; err.setAttribute('role', 'alert');
+        const cancel = el('button', 'secondary', 'Cancel'); cancel.type = 'button'; cancel.id = 'vnrCancel';
+        const stop = el('button', 'primary', 'Stop'); stop.type = 'button'; stop.id = 'vnrStop';
+        const send = el('button', 'primary', 'Send voice note'); send.type = 'button'; send.id = 'vnrSend'; send.hidden = true;
+        const row = el('div', 'vnr-actions'); row.append(cancel, stop, send);
+        root.append(top, live, edit, note, err, row);
+        messageForm.parentNode.insertBefore(root, messageForm);
+        cancel.addEventListener('click', () => closeRecorder());
+        stop.addEventListener('click', () => reviewRecording());
+        send.addEventListener('click', () => sendRecording());
+        root.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeRecorder(); } });
+        return { root, label, timer, live, edit, err, cancel, stop, send, dot };
+      }
+      const recorderOpen = () => Boolean(recorderUi && !recorderUi.root.hidden);
+      function renderRecorder(s) {
+        const ui = recorderUi; if (!ui) return;
+        ui.timer.textContent = clockText(s.seconds);
+        if (!ui.edit.hidden) return;
+        ui.live.textContent = s.text || 'Listening… start talking.';
+        ui.live.scrollTop = ui.live.scrollHeight;
+        if (s.state === 'stopped' && s.error) { ui.err.textContent = s.error.message; if (s.error.keep === false || !s.text) { explainSpeechInputFailure(s.error.code).then(m => { ui.err.textContent = m; }).catch(() => {}); } else reviewRecording(); }
+      }
+      async function startVoiceNote() {
+        if (voiceSession?.active || recorderOpen()) return;
+        endDictation({ abort: true }); stopSpeaking(); stopNotes();
+        if (!speechMod || !voiceRecorderMod) await Promise.all([loadSpeech(), import(moduleBase() + 'chat/voice-recorder.mjs').then(m => { voiceRecorderMod = m; })]);
+        recorderUi ||= buildRecorderUi();
+        const ui = recorderUi;
+        ui.root.hidden = false; document.body.classList.add('voice-on'); ui.edit.hidden = true; ui.edit.value = ''; ui.err.textContent = ''; ui.live.hidden = false;
+        ui.label.textContent = 'Recording'; ui.root.dataset.state = 'recording'; ui.stop.hidden = false; ui.send.hidden = true;
+        recorder = voiceRecorderMod.createVoiceRecorder({ listen: handlers => speechMod.startDictation(handlers), onChange: renderRecorder });
+        recorder.start(); ui.stop.focus({ preventScroll: true });
+      }
+      function reviewRecording() {
+        const ui = recorderUi; if (!ui || !recorder) return;
+        const out = recorder.stop();
+        ui.edit.hidden = false; ui.live.hidden = true; ui.edit.value = out.text; ui.root.dataset.state = 'review'; ui.label.textContent = 'Review';
+        ui.stop.hidden = true; ui.send.hidden = false; ui.timer.textContent = clockText(out.seconds); ui.root.dataset.seconds = String(out.seconds);
+        ui.err.textContent = out.text ? (out.error ? out.error.message : '') : 'Nothing was heard. Try again, or cancel.';
+        ui.cancel.textContent = out.text ? 'Discard' : 'Close';
+        ui.send.hidden = !out.text; (out.text ? ui.edit : ui.cancel).focus({ preventScroll: true });
+      }
+      function closeRecorder() {
+        recorder?.cancel(); recorder = null;
+        if (recorderUi) { recorderUi.root.hidden = true; recorderUi.cancel.textContent = 'Cancel'; }
+        if (!voiceSession?.active) document.body.classList.remove('voice-on');
+        messageInput.focus({ preventScroll: true });
+      }
+      async function sendRecording() {
+        const ui = recorderUi; if (!ui) return;
+        const text = ui.edit.value.trim(); if (!text) return;
+        pendingVoice = { seconds: Number(ui.root.dataset.seconds) || 1 };
+        closeRecorder();
+        messageInput.value = text; growComposer();
+        await handleSendMessage({ preventDefault() {} });
+      }
+      userMessageHooks.push(message => { if (pendingVoice) { message.voice = pendingVoice; pendingVoice = null; } });
+      recordBtn?.addEventListener('click', () => { if (recorderOpen()) closeRecorder(); else startVoiceNote(); });
+
+      // ---- Roberta: the app's robot, a phone menu of prepared messages -----------------------------------------------------------
+      // She is the front desk: it works before any language model is loaded, in parallel with the model download. Pressing numbers always
+      // works; what a person says is matched to a topic by meaning (chat/intent-router.mjs, with a small search model that loads in the
+      // background). She is not the language model and says so (chat/ivr-content.mjs).
+      let robertaApi = null, contentMod = null, routerPromise = null;
+      function robertaModelFacts() {
+        const lm = window.localModels, base = { state: 'none', tierLabel: null, bytes: null, progress: 0, backend: null };
+        if (!lm || lm.mode !== 'local') return base;
+        const info = lm.prepareInfo?.() || {}, st = lm.state;
+        const facts = { ...base, bytes: info.downloadBytes ?? null, tierLabel: info.tier === 'light' ? 'smaller' : info.tier === 'default' ? 'larger' : null, backend: lm.backend };
+        if (lm.ready) facts.state = 'ready';
+        else if (lm.supported === false && lm.canPrepare === false) facts.state = 'unavailable';
+        else if (st?.load?.state === 'loading') facts.state = 'loading';
+        else if (st?.busy === 'install' || lm.downloadRecovery?.pending) { facts.state = 'downloading'; const t = st?.transfer; facts.progress = t && t.bytesTotal ? Math.min(1, (t.bytesDone || 0) / t.bytesTotal) : 0; }
+        else if (info.installed) facts.state = 'downloaded';
+        return facts;
+      }
+      async function loadRouter() {
+        routerPromise ||= (async () => {
+          try {
+            const [routerMod, embedderMod, content] = await Promise.all([import(moduleBase() + 'chat/intent-router.mjs'), import(moduleBase() + 'chat/embedder.mjs'), import(moduleBase() + 'chat/ivr-content.mjs')]);
+            const vectors = await (await fetch(moduleBase() + 'chat/ivr-vectors.json')).json();
+            const embedder = embedderMod.createEmbedder({});
+            const router = routerMod.createIntentRouter({ vectors, embedder });
+            embedder.ready().catch(() => {}); // the small search model loads in the background; until then words are matched by their text
+            return router;
+          } catch (err) { console.warn('Roberta is matching by keypad only:', err); return null; }
+        })();
+        return routerPromise;
+      }
+      const robertaApp = {
+        ringMs: 1500,
+        context: () => contentMod.describeContext({
+          userAgent: navigator.userAgent, maxTouchPoints: navigator.maxTouchPoints || 0, online: navigator.onLine,
+          standalone: Boolean(window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true),
+          mode: window.localModels?.mode, model: robertaModelFacts(), speechInput: speechInputOk, speechOutput: speechAvailable.synth,
+          hasChats: threads.some(t => !t.temporary && t.messages.some(m => m.role === 'user'))
+        }),
+        speak: (text, rate = 1) => (speechMod && speechAvailable.synth ? speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, rate * (prefs.speechRate || 1)) }) : { done: Promise.resolve(), stop() {} }),
+        getRouter: () => loadRouter(),
+        warmUp: () => { loadRouter(); },
+        listen: speechInputOk ? handlers => speechMod.startDictation(handlers) : null,
+        explainListenFailure: code => explainSpeechInputFailure(code),
+        get sounds() { return callSounds; },
+        layout: () => (window.matchMedia('(min-width: 900px)').matches && !isTouchDevice() ? 'desktop' : 'mobile'),
+        actions: {
+          startSetup() { const lm = window.localModels; if (!lm || lm.mode !== 'local' || lm.ready || welcomeSetup || prep) return; if (lm.supported === false && lm.canPrepare === false) return; startWelcomeSetup(); },
+          openShare() { loadTransferUi().then(ui => ui.openShare()); },
+          openImport() { importInput.click(); },
+          openExport() { loadTransferUi().then(ui => ui.openTransferChats()); },
+          openTransferSettings() { loadTransferUi().then(ui => ui.openTransferSettings()); },
+          openProvider() { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); const group = document.getElementById('providerSettings'); if (group) group.open = true; openSidebar({ focusTarget: endpointInput }); },
+          startVoicemail() { startVoiceNote(); },
+          startChatting() { messageInput.focus({ preventScroll: true }); }
+        }
+      };
+      async function loadRoberta() {
+        if (robertaApi) return robertaApi;
+        const [, , roberta, content] = await Promise.all([loadSpeech(), loadCallSounds().catch(() => null), import(moduleBase() + 'chat/roberta-ui.mjs'), import(moduleBase() + 'chat/ivr-content.mjs')]);
+        contentMod = content;
+        if (callSoundsMod && !callSounds) callSounds = callSoundsMod.createCallSounds({ enabled: callSoundsOn });
+        robertaApi ||= roberta.createRoberta({ app: robertaApp });
+        return robertaApi;
+      }
+      const rerenderEmptyChat = () => { const t = currentThread(); if (t && !t.messages.length) renderMessages(t); };
+      /** Called while the empty chat is drawn: puts Roberta's introduction at the top for someone who has not set up yet. */
+      function mountRobertaHero(slot) {
+        if (!robertaApi) { loadRoberta().then(rerenderEmptyChat).catch(() => {}); return; }
+        robertaApi.mountHero(slot, { onDismiss: () => { prefs.robertaDismissed = true; savePrefs(); rerenderEmptyChat(); } });
+      }
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && robertaApi?.callOpen && !document.querySelector('.app-dialog')) robertaApi.closeCall(); });
 
       // ---- context: how full the model's window is, and condensing older messages ----------------------------------
       const meterRow = el('div', 'context-meter'); meterRow.id = 'contextMeter'; meterRow.hidden = true;
@@ -5285,6 +5468,7 @@
       }
       const transferApp = {
         siteConfig: window.SITE_CONFIG || {},
+        callRoberta: () => loadRoberta().then(r => r.openCall()),
         getConfig: () => ({ ...config }),
         tokens: {
           get: endpoint => getTokenForEndpoint(endpoint),
@@ -5298,7 +5482,13 @@
         async credentialsResolved({ endpoint, changed = true, unlocked = false } = {}) {
           const ST = await settingsTransferModule();
           if (!config.endpoint || (endpoint && !ST.sameDestination(endpoint, config.endpoint))) return;
+          const wanted = config.model;
           if (changed || unlocked || (config.model && !models.includes(config.model))) await refreshModels({ silent: true });
+          // the model that came with the settings stays selected even if this provider's list does not show it (some providers accept more than they list)
+          if (wanted && config.model !== wanted) {
+            storeModels([...models, wanted]); config.model = wanted; persistConfig(); renderModelOptions(models, wanted);
+            showToast('The model \u201C' + wanted + '\u201D is not in this provider\u2019s list. It was kept; choose another if requests fail.', 6000);
+          }
           updateAuthGuidance();
           updateChatAvailability();
         },
