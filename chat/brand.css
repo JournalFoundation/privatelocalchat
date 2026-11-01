@@ -382,27 +382,7 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .prep-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
 .prep-actions .secondary { min-height: var(--plc-control-min); }
 
-/* ---- voice conversation: a sheet above the composer; the conversation stays readable above it ---- */
-.voice-sheet { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; box-sizing: border-box; width: calc(100% - 1.5rem); max-width: var(--plc-chat-max); margin: 0 auto max(0.5rem, env(safe-area-inset-bottom)); padding: 0.9rem 1rem 0.75rem; border: 1px solid var(--plc-border); border-radius: var(--plc-radius-panel); background: var(--plc-surface); box-shadow: var(--plc-shadow); text-align: center; }
-.voice-sheet[hidden] { display: none; }
-.voice-orb { position: relative; width: 4.5rem; height: 4.5rem; border-radius: 50%; border: 0; padding: 0; background: var(--plc-accent-tint); cursor: pointer; display: grid; place-items: center; }
-.voice-orb:focus-visible { outline: 3px solid var(--plc-accent); outline-offset: 3px; }
-.voice-orb-core { width: 2.4rem; height: 2.4rem; border-radius: 50%; background: var(--plc-accent); transition: transform var(--plc-motion-normal, 160ms) ease, opacity var(--plc-motion-normal, 160ms) ease; }
-.voice-sheet[data-state='listening'] .voice-orb-core { animation: voice-breathe 1.8s ease-in-out infinite; }
-.voice-sheet[data-state='thinking'] .voice-orb-core { animation: voice-spin 1.2s linear infinite; border-radius: 40%; }
-.voice-sheet[data-state='speaking'] .voice-orb-core { animation: voice-speak 0.9s ease-in-out infinite; }
-.voice-sheet[data-state='paused'] .voice-orb-core, .voice-sheet[data-state='error'] .voice-orb-core { opacity: 0.45; }
-.voice-state { margin: 0; font-weight: 600; color: var(--plc-ink); }
-.voice-caption { margin: 0; min-height: 1.3em; max-width: 36rem; color: var(--plc-ink); overflow-wrap: anywhere; }
-.voice-hint { margin: 0; font-size: 0.85rem; color: var(--plc-muted); }
-.voice-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin-top: 0.35rem; }
-.voice-actions button { min-height: var(--plc-control-min); }
-.voice-actions button[hidden] { display: none; }
 body.voice-on .message-form .composer-card, body.voice-on .message-form .accuracy-note { display: none; }
-@keyframes voice-breathe { 0%, 100% { transform: scale(0.9); } 50% { transform: scale(1.12); } }
-@keyframes voice-speak { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.18); } 60% { transform: scale(0.92); } }
-@keyframes voice-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .voice-orb-core { animation: none !important; } .voice-sheet[data-state='listening'] .voice-orb-core { transform: scale(1.1); } .voice-sheet[data-state='speaking'] .voice-orb-core { transform: scale(1.15); } }
 
 /* Browsers older than 2022 (iOS before 16.2) cannot mix colours: use plain tokens there so borders and tints do not disappear. */
 @supports not (color: color-mix(in srgb, red, blue)) {
@@ -482,3 +462,66 @@ body.voice-on .message-form .composer-card, body.voice-on .message-form .accurac
 .side-footer .side-footer-row { margin-top: 0.25rem; }
 .side-footer .footer-links { margin: 0; }
 .side-footer #releaseInfo, .side-footer #offlineStatus { margin: 0.1rem 0; font-size: 0.75rem; }
+
+/* ---- voice call: it looks and behaves like a phone call ---------------------------------------------------------------------- */
+.tool-btn.call-start { background: #1f8f55; color: #fff; border-radius: 50%; }
+.tool-btn.call-start:hover, .tool-btn.call-start:focus-visible { background: #17794a; color: #fff; }
+.tool-btn.call-start[aria-pressed='true'] { background: #c9262f; }
+.call { box-sizing: border-box; width: calc(100% - 1.5rem); max-width: 26rem; margin: 0 auto max(0.5rem, env(safe-area-inset-bottom)); padding: 1.25rem 1rem 1.1rem; border-radius: 1.5rem; color: #fff; background: linear-gradient(180deg, #0e1a27 0%, #17314a 100%); box-shadow: var(--plc-shadow); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; text-align: center; }
+.call[hidden] { display: none; }
+.call-top { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+.call-name { margin: 0; font-size: 1.2rem; font-weight: 650; letter-spacing: 0.01em; }
+.call-status { margin: 0; color: #b8c7d9; font-size: 0.95rem; min-height: 1.4em; }
+.call-timer { margin: 0; font-size: 1.6rem; font-weight: 600; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.call[data-state='connecting'] .call-timer { visibility: hidden; }
+.call[data-state='error'] .call-timer { display: none; }
+.call-avatar { position: relative; width: 8.5rem; height: 8.5rem; display: grid; place-items: center; margin: 0.25rem 0; }
+.call-face { position: relative; z-index: 1; width: 5.5rem; height: 5.5rem; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.28); display: grid; place-items: center; }
+.call-face img { width: 3rem; height: 3rem; }
+.call-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(127, 176, 255, 0.6); opacity: 0; transform: scale(0.65); }
+/* the rings say who is "talking": rippling outward while it rings or speaks, a slow swell while it listens, a turning dashed ring while it thinks */
+.call[data-state='connecting'] .call-ring, .call[data-state='speaking'] .call-ring { animation: call-ripple 1.8s ease-out infinite; }
+.call-ring.r2 { animation-delay: 0.6s !important; }
+.call-ring.r3 { animation-delay: 1.2s !important; }
+.call[data-state='listening'] .call-ring.r1 { opacity: 0.55; animation: call-swell 2.6s ease-in-out infinite; }
+.call[data-state='thinking'] .call-ring.r1 { opacity: 0.7; transform: scale(0.95); border-style: dashed; animation: call-turn 3.2s linear infinite; }
+.call[data-state='paused'] .call-ring.r1, .call[data-state='ended'] .call-ring.r1, .call[data-state='error'] .call-ring.r1 { opacity: 0.25; transform: scale(0.9); }
+.call-captions { width: 100%; min-height: 3.6rem; }
+.call-who { margin: 0; min-height: 1em; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; color: #8fa6c0; }
+.call-caption { margin: 0.1rem 0 0; font-size: 1.05rem; line-height: 1.35; overflow-wrap: anywhere; max-height: 6.5rem; overflow-y: auto; }
+.call-hint { margin: 0; color: #b8c7d9; font-size: 0.85rem; }
+.call-hint:empty { display: none; }
+.call-link { min-height: var(--plc-control-min); padding: 0 0.75rem; background: none; border: 0; color: #9cc2ff; text-decoration: underline; font: inherit; cursor: pointer; }
+.call-link[hidden], .call-pill[hidden] { display: none; }
+.call-pill { min-height: var(--plc-control-min); padding: 0 1.4rem; border: 0; border-radius: 999px; background: #fff; color: #0e1a27; font: inherit; font-weight: 600; cursor: pointer; }
+.call-controls { display: flex; justify-content: center; gap: 1.4rem; margin-top: 0.4rem; }
+.call-control { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; min-width: 4.5rem; }
+.call-control[hidden] { display: none; }
+.call-btn { width: 4rem; height: 4rem; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.16); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.call-btn .ico, .call-btn svg { width: 1.7rem; height: 1.7rem; }
+.call-btn:hover { background: rgba(255, 255, 255, 0.26); }
+.call-btn[aria-pressed='true'] { background: #fff; color: #0e1a27; }
+.call-btn:focus-visible, .call-pill:focus-visible, .call-link:focus-visible { outline: 3px solid #9cc2ff; outline-offset: 3px; }
+.call-btn.call-end { background: #c9262f; color: #fff; }
+.call-btn.call-end:hover { background: #a81d26; }
+.call-control-label { font-size: 0.8rem; color: #d3deea; }
+.call[data-state='ended'] .call-controls { visibility: hidden; }
+@keyframes call-ripple { 0% { opacity: 0.6; transform: scale(0.65); } 100% { opacity: 0; transform: scale(1.15); } }
+@keyframes call-swell { 0%, 100% { transform: scale(0.82); } 50% { transform: scale(0.98); } }
+@keyframes call-turn { to { transform: rotate(360deg) scale(0.95); } }
+@media (prefers-reduced-motion: reduce) {
+  .call-ring { animation: none !important; }
+  .call[data-state='connecting'] .call-ring.r1, .call[data-state='speaking'] .call-ring.r1 { opacity: 0.6; transform: scale(0.95); }
+  .call[data-state='connecting'] .call-ring.r2, .call[data-state='speaking'] .call-ring.r2 { opacity: 0.35; transform: scale(1.08); }
+}
+/* on a phone the call takes the whole screen, like a real call */
+@media (max-width: 899px) {
+  .call { position: fixed; inset: 0; z-index: 3500; width: auto; max-width: none; margin: 0; border-radius: 0; box-shadow: none; padding: max(2.25rem, env(safe-area-inset-top)) 1.25rem max(1.75rem, env(safe-area-inset-bottom)); }
+  .call-avatar { width: 11rem; height: 11rem; margin: auto 0; }
+  .call-face { width: 7rem; height: 7rem; }
+  .call-face img { width: 3.8rem; height: 3.8rem; }
+  .call-name { font-size: 1.35rem; }
+  .call-timer { font-size: 1.9rem; }
+  .call-captions { min-height: 5rem; }
+  .call-btn { width: 4.5rem; height: 4.5rem; }
+}

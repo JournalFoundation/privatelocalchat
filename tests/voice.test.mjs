@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createSentenceStream,createSpeaker,createVoiceSession,VOICE_STYLE} from '../chat/voice.mjs';
+import {createSentenceStream,createSpeaker,createVoiceSession,formatDuration,VOICE_STYLE} from '../chat/voice.mjs';
 const sentences=(chunks,{final=true}={})=>{const out=[];const s=createSentenceStream({onSentence:t=>out.push(t)});let full='';for(const c of chunks){full+=c;s.update(full);}if(final)s.update(full,{final:true});return out;};
 test('a streaming reply is spoken sentence by sentence as it arrives',()=>{
  const out=[];const s=createSentenceStream({onSentence:t=>out.push(t)});
@@ -98,3 +98,25 @@ test('a failed reply says so out loud and listens again; stop ends everything',a
  r.session.stop();assert.equal(r.session.state,'idle');assert.ok(r.log.includes('awake:false'));
 });
 test('the voice style tells the model to speak plainly',()=>{ assert.match(VOICE_STYLE,/read aloud/);assert.match(VOICE_STYLE,/Markdown/); });
+
+test('a call shows its elapsed time as m:ss, and h:mm:ss after an hour',()=>{
+ assert.equal(formatDuration(0),'0:00');assert.equal(formatDuration(5),'0:05');assert.equal(formatDuration(65),'1:05');assert.equal(formatDuration(599.9),'9:59');
+ assert.equal(formatDuration(3600),'1:00:00');assert.equal(formatDuration(3725),'1:02:05');assert.equal(formatDuration(-3),'0:00');assert.equal(formatDuration('x'),'0:00');
+});
+test('a call connects first: the microphone opens inside the tap but nothing is heard until the call is connected',async()=>{
+ const r=rig({connectMs:1500});r.session.start();
+ assert.equal(r.session.state,'connecting');assert.equal(r.listens,1,'opened at once, inside the gesture');assert.ok(r.rec.started!==false);
+ r.rec.onText({final:'hello too early',interim:''});await r.advance(1400);
+ assert.equal(r.session.state,'connecting');assert.deepEqual(r.sent,[],'early words are not part of the call');
+ await r.advance(200);assert.equal(r.session.state,'listening');assert.equal(r.listens,1,'the same recogniser carries on');
+ r.rec.onText({final:'now we talk',interim:''});await r.advance(1100);assert.deepEqual(r.sent,['now we talk']);
+});
+test('while connecting: a refused microphone fails the call at once, a recogniser that stopped is reopened, and a mute is honoured',async()=>{
+ let r=rig({connectMs:1500});r.session.start();r.rec.onError({code:'not-allowed',message:'blocked'});
+ assert.equal(r.session.state,'error');assert.equal(r.session.active,false);await r.advance(2000);assert.equal(r.session.state,'error','the connect timer does not revive it');
+ r=rig({connectMs:1500});r.session.start();r.rec.onEnd();await r.advance(1600);
+ assert.equal(r.session.state,'listening');assert.equal(r.listens,2,'a fresh recogniser once connected');
+ r=rig({connectMs:1500});r.session.start();r.session.setMuted(true);assert.equal(r.session.state,'connecting');await r.advance(1600);
+ assert.equal(r.session.state,'paused','connected, but muted');assert.equal(r.listens,1);
+ r=rig({connectMs:1500});r.session.start();r.session.stop();await r.advance(2000);assert.equal(r.session.state,'idle','hanging up while it rings');
+});

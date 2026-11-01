@@ -153,7 +153,7 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
 .preset-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .preset-row label { margin: 0; display: inline; }
 .preset-row select { flex: 1 1 8rem; min-height: 36px; }
-.composer-tools button.unavailable, #voiceModeBtn[aria-disabled='true'] { opacity: 0.5; }
+.composer-tools button.unavailable { opacity: 0.5; }
 
 html.locked #app { visibility: hidden; }
 html.locked .lock-screen { display: flex; }

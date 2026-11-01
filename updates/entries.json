@@ -10,7 +10,8 @@
         "Share Private Local Chat: recommend the app with your device's share sheet, a copied link or a QR code. It always shares the public address https://privatelocal.chat/ and nothing from your chats or settings.",
         "Transfer settings: review the endpoint, model and theme, then create a versioned link, QR code or settings file. An API token is included only if you choose, and it is encrypted with a password you pick. Tell the recipient the password separately.",
         "Transfer chats and backups: exporting conversations and creating an encrypted backup are now named, reviewed steps, with the contents listed before the file is made. Provider settings travel separately through Transfer settings.",
-        "New Help, About, Privacy and Updates pages with a FAQ, troubleshooting steps and dated known issues. They are saved with the app, so they open offline once the app is saved on the device."
+        "New Help, About, Privacy and Updates pages with a FAQ, troubleshooting steps and dated known issues. They are saved with the app, so they open offline once the app is saved on the device.",
+        "Voice conversation now works like a phone call: a green call button, a short ring while it connects, a call screen with a running timer, Mute, Skip and End call buttons, a \"Call ended\" summary with the length of the call, and optional ring, pick-up and hang-up sounds that you can turn off in Memory & preferences. On a phone the call takes the whole screen."
       ],
       "help": [
         {"label": "Share", "href": "/help/#share"},

@@ -4266,6 +4266,12 @@
           voiceWrap.append(el('p', 'muted', 'Replies are read with your browser\u2019s voices.'), voiceSel, el('div', 'muted', 'Speed'), rate);
         }
         if (voiceWrap.childElementCount) sec('Read aloud', voiceWrap);
+        if (voiceBtn) {
+          const soundRow = el('label', 'list-row'); const soundBox = el('input'); soundBox.type = 'checkbox'; soundBox.id = 'callSoundsPref'; soundBox.checked = callSoundsOn();
+          soundRow.append(soundBox, el('span', null, 'Play ringing, pick-up and hang-up sounds during voice calls'));
+          soundBox.addEventListener('change', () => { prefs.callSounds = soundBox.checked; savePrefs(); });
+          sec('Voice calls', soundRow);
+        }
         openAppDialog({ title: 'Memory & preferences', content: root, wide: true, actions: [{ label: 'Done', primary: true, run: () => { prefs.instructions = instr.value.trim().slice(0, 4000); savePrefs(); } }] });
       }
       addFeatureLink('🧠', 'Memory & preferences', openPreferences, 'openPrefsBtn');
@@ -4301,6 +4307,8 @@
       let speechMod = null, voiceMod = null;
       const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
       const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice.mjs'));
+      let callSoundsMod = null;
+      const loadCallSounds = async () => (callSoundsMod ||= await import(moduleBase() + 'chat/call-sounds.mjs'));
       let speaking = null;
       const setListenButton = (btn, on) => { btn.setAttribute('aria-pressed', String(on)); M.icons.setIconLabel(btn, on ? '⏹ Stop' : '🔊 Listen'); };
       function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => setListenButton(b, false)); } }
@@ -4327,15 +4335,15 @@
 
       const toolButton = (id, icon, label) => {
         const b = el('button', 'tool-btn'); b.type = 'button'; b.id = id; b.title = label; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', 'false');
-        b.appendChild(createEmoji(icon === 'mic' ? '🎙️' : '🎧')); return b;
+        b.appendChild(createEmoji(icon === 'mic' ? '🎙️' : icon === 'phone' ? '📞' : '🎧')); return b;
       };
       let micBtn = speechInputOk ? toolButton('micBtn', 'mic', 'Dictate') : null;
-      let voiceBtn = speechInputOk && speechAvailable.synth ? toolButton('voiceModeBtn', 'headphones', 'Voice conversation') : null;
+      let voiceBtn = speechInputOk && speechAvailable.synth ? toolButton('voiceModeBtn', 'phone', 'Voice call') : null;
       [micBtn, voiceBtn].forEach(b => b && composerToolsEl.append(b));
       const setPressed = (btn, on) => btn?.setAttribute('aria-pressed', String(on));
       const hideSpeechInput = () => { markSpeechInputUnusable(); micBtn?.remove(); voiceBtn?.remove(); micBtn = voiceBtn = null; };
       // WebKit only shows the microphone prompt for a recognition that starts inside the tap, so the code it needs is loaded up front.
-      if (speechInputOk) { loadSpeech().catch(() => hideSpeechInput()); if (voiceBtn) loadVoice().catch(() => {}); }
+      if (speechInputOk) { loadSpeech().catch(() => hideSpeechInput()); if (voiceBtn) { voiceBtn.classList.add('call-start'); voiceBtn.title = 'Start a voice call'; loadVoice().catch(() => {}); loadCallSounds().catch(() => {}); } }
 
       // Why speech recognition could not start, in words that say what to do. A blocked microphone is the person's to allow;
       // a browser that exposes speech recognition but never lets sites use it is not, so the controls go away.
@@ -4382,48 +4390,112 @@
       beforeSendHooks.push(() => endDictation({ abort: true }));
       threadSelectedHooks.push(() => endDictation({ abort: true }));
 
-      // voice conversation: listen -> send -> speak the reply while it is written -> listen again
-      let voiceSession = null, voiceUi = null, wakeLock = null;
-      const voiceLabels = {
-        listening: ['Listening', 'Speak, then pause. Tap to send now.'],
-        thinking: ['Thinking', 'Tap to cancel.'],
-        speaking: ['Speaking', 'Tap or speak to interrupt.'],
-        paused: ['Paused', 'Tap to talk.'],
-        error: ['Voice conversation stopped', '']
-      };
+      // voice call: a phone call with the assistant. It rings, connects, shows how long it has run, and ends with a summary.
+      // Underneath: listen -> send -> speak the reply while it is written -> listen again (chat/voice.mjs).
+      let voiceSession = null, voiceUi = null, wakeLock = null, callSounds = null;
+      const CALL_RING_MS = 1600;
+      const call = { startedAt: null, ticker: null, endedTimer: null, prev: 'idle', failed: false };
+      const callSoundsOn = () => prefs.callSounds !== false;
+      const buzz = ms => { try { if (callSoundsOn()) navigator.vibrate?.(ms); } catch { /* not supported */ } };
+      const callIcon = (name, fallback) => { const n = M && M.icons ? M.icons.iconNode(name) : null; if (n) return n; const f = el('span', null, fallback); f.setAttribute('aria-hidden', 'true'); return f; };
       function buildVoiceUi() {
-        const root = el('section', 'voice-sheet'); root.id = 'voiceSheet'; root.hidden = true; root.setAttribute('role', 'group'); root.setAttribute('aria-label', 'Voice conversation');
-        const orb = el('button', 'voice-orb'); orb.type = 'button'; orb.id = 'voiceOrb'; orb.appendChild(el('span', 'voice-orb-core'));
-        const status = el('p', 'voice-state'); status.id = 'voiceState'; status.setAttribute('role', 'status');
-        const caption = el('p', 'voice-caption'); caption.id = 'voiceCaption'; caption.setAttribute('aria-live', 'off');
-        const hint = el('p', 'voice-hint');
-        const mute = el('button', 'secondary', 'Mute'); mute.type = 'button'; mute.id = 'voiceMute'; mute.setAttribute('aria-pressed', 'false');
-        const skip = el('button', 'secondary', 'Interrupt'); skip.type = 'button'; skip.id = 'voiceInterrupt';
-        const end = el('button', 'secondary', 'End'); end.type = 'button'; end.id = 'voiceEnd';
-        const row = el('div', 'voice-actions'); row.append(mute, skip, end);
-        root.append(orb, status, caption, hint, row);
+        const root = el('section', 'call'); root.id = 'voiceSheet'; root.hidden = true; root.setAttribute('role', 'group'); root.setAttribute('aria-label', 'Voice call');
+        const top = el('div', 'call-top');
+        const name = el('p', 'call-name', 'Private Local Chat');
+        const status = el('p', 'call-status'); status.id = 'callStatus'; status.setAttribute('role', 'status');
+        const timer = el('p', 'call-timer', '0:00'); timer.id = 'callTimer'; timer.setAttribute('role', 'timer'); timer.setAttribute('aria-live', 'off');
+        top.append(name, status, timer);
+        const avatar = el('div', 'call-avatar'); avatar.setAttribute('aria-hidden', 'true');
+        for (let i = 1; i <= 3; i++) avatar.appendChild(el('span', 'call-ring r' + i));
+        const face = el('span', 'call-face'); const mark = el('img'); mark.src = '/brand/mark-dark.svg'; mark.alt = ''; mark.width = 64; mark.height = 64; face.appendChild(mark); avatar.appendChild(face);
+        const captionBox = el('div', 'call-captions');
+        const who = el('p', 'call-who'); who.setAttribute('aria-hidden', 'true');
+        const caption = el('p', 'call-caption'); caption.id = 'voiceCaption'; caption.setAttribute('aria-live', 'off');
+        captionBox.append(who, caption);
+        const hint = el('p', 'call-hint voice-hint');
+        const sendNow = el('button', 'call-link', 'Send now'); sendNow.type = 'button'; sendNow.id = 'callSendNow'; sendNow.hidden = true;
+        const resume = el('button', 'call-pill', 'Tap to talk'); resume.type = 'button'; resume.id = 'callResume'; resume.hidden = true;
+        const control = (id, icon, fallback, label, cls) => {
+          const wrap = el('div', 'call-control'); const b = el('button', 'call-btn' + (cls ? ' ' + cls : '')); b.type = 'button'; b.id = id;
+          b.appendChild(callIcon(icon, fallback)); const text = el('span', 'call-control-label', label); wrap.append(b, text); return { wrap, b, text };
+        };
+        const mute = control('voiceMute', 'mic', '🎙', 'Mute'); mute.b.setAttribute('aria-pressed', 'false'); mute.b.setAttribute('aria-label', 'Mute microphone');
+        const skip = control('voiceInterrupt', 'skip', '⏭', 'Skip'); skip.b.setAttribute('aria-label', 'Skip what is being said');
+        const end = control('voiceEnd', 'hangup', '✕', 'End call', 'call-end'); end.b.setAttribute('aria-label', 'End call');
+        const row = el('div', 'call-controls'); row.append(mute.wrap, skip.wrap, end.wrap);
+        root.append(top, avatar, captionBox, hint, sendNow, resume, row);
         messageForm.parentNode.insertBefore(root, messageForm);
-        orb.addEventListener('click', () => voiceSession?.tap());
-        mute.addEventListener('click', () => { const on = mute.getAttribute('aria-pressed') !== 'true'; mute.setAttribute('aria-pressed', String(on)); mute.textContent = on ? 'Unmute' : 'Mute'; voiceSession?.setMuted(on); });
-        skip.addEventListener('click', () => voiceSession?.interrupt());
-        end.addEventListener('click', () => endVoice('Voice conversation ended.'));
+        sendNow.addEventListener('click', () => voiceSession?.tap());
+        resume.addEventListener('click', () => voiceSession?.tap());
+        mute.b.addEventListener('click', () => { const on = mute.b.getAttribute('aria-pressed') !== 'true'; voiceSession?.setMuted(on); });
+        skip.b.addEventListener('click', () => voiceSession?.interrupt());
+        end.b.addEventListener('click', () => endVoice());
         root.addEventListener('keydown', e => { if (e.key === 'Escape') endVoice(); });
-        return { root, orb, status, caption, hint, mute, skip, end };
+        return { root, status, timer, who, caption, hint, sendNow, resume, mute, skip, end };
       }
+      const callElapsed = () => (call.startedAt === null ? 0 : (Date.now() - call.startedAt) / 1000);
+      function startTimer() {
+        call.startedAt = Date.now(); voiceUi.timer.textContent = '0:00';
+        clearInterval(call.ticker); call.ticker = setInterval(() => { voiceUi.timer.textContent = voiceMod.formatDuration(callElapsed()); }, 1000);
+      }
+      function hideCall() {
+        clearInterval(call.ticker); clearTimeout(call.endedTimer); call.ticker = call.endedTimer = null; call.startedAt = null;
+        if (voiceUi) voiceUi.root.hidden = true;
+        document.body.classList.remove('voice-on');
+      }
+      const callWords = {
+        connecting: ['Calling…', ''],
+        listening: ['Listening', ''],
+        thinking: ['Thinking…', ''],
+        speaking: ['Speaking', '']
+      };
       function renderVoice(state, info = {}) {
         if (!voiceUi) return;
-        const ui = voiceUi, labels = voiceLabels[state] || ['', ''];
-        ui.root.dataset.state = state; ui.root.hidden = state === 'idle';
-        document.body.classList.toggle('voice-on', state !== 'idle');
-        const reason = info.reason === 'muted' ? 'Muted. Unmute to talk.' : info.reason === 'background' ? 'Paused while the app was in the background. Tap to talk.' : info.reason === 'tap' ? 'Tap to talk.' : labels[1];
-        ui.status.textContent = state === 'paused' && info.reason === 'muted' ? 'Muted' : labels[0];
-        ui.hint.textContent = state === 'error' ? (info.message || '') : reason;
+        const ui = voiceUi, before = call.prev; call.prev = state;
+        if (state === 'idle') {
+          // hanging up shows how long the call lasted for a moment, like a phone; a call that never connected just closes
+          clearInterval(call.ticker); call.ticker = null;
+          if (call.startedAt !== null && !call.failed && !ui.root.hidden) {
+            ui.timer.textContent = voiceMod.formatDuration(callElapsed());
+            ui.root.dataset.state = 'ended'; ui.status.textContent = 'Call ended'; ui.who.textContent = ''; ui.caption.textContent = ''; ui.hint.textContent = '';
+            ui.sendNow.hidden = ui.resume.hidden = true;
+            if (callSoundsOn()) callSounds?.ended(); buzz(40);
+            clearTimeout(call.endedTimer); call.endedTimer = setTimeout(hideCall, 2400);
+          } else hideCall();
+          return;
+        }
+        clearTimeout(call.endedTimer); call.endedTimer = null;
+        ui.root.hidden = false; ui.root.dataset.state = state; document.body.classList.add('voice-on');
+        if (state === 'connecting') {
+          call.startedAt = null; call.failed = false; ui.timer.textContent = '0:00';
+          ui.status.textContent = callWords.connecting[0]; ui.who.textContent = ''; ui.caption.textContent = ''; ui.hint.textContent = '';
+          ui.sendNow.hidden = ui.resume.hidden = ui.skip.wrap.hidden = true; ui.mute.wrap.hidden = false; ui.end.text.textContent = 'End call'; ui.end.b.setAttribute('aria-label', 'End call');
+          callSounds?.ringback();
+          return;
+        }
+        if (state === 'error') {
+          call.failed = true; clearInterval(call.ticker); call.ticker = null;
+          ui.status.textContent = 'Call failed'; ui.who.textContent = ''; ui.caption.textContent = ''; ui.hint.textContent = info.message || '';
+          ui.sendNow.hidden = ui.resume.hidden = ui.skip.wrap.hidden = ui.mute.wrap.hidden = true; ui.end.text.textContent = 'Close'; ui.end.b.setAttribute('aria-label', 'Close the call screen');
+          explainSpeechInputFailure(info.code).then(m => { ui.hint.textContent = ['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(info.code) ? m : (info.message || m); }).catch(() => {});
+          return;
+        }
+        if (call.startedAt === null) { startTimer(); if (before === 'connecting') { callSounds?.connected(); buzz(25); } }
+        const muted = state === 'paused' && info.reason === 'muted', hold = state === 'paused' && info.reason === 'background';
+        ui.status.textContent = muted ? 'Muted' : hold ? 'On hold' : state === 'paused' ? 'Tap to talk' : (callWords[state] || ['', ''])[0];
+        ui.hint.textContent = muted ? 'Your microphone is off. Unmute to talk.' : hold ? 'The call was put on hold while the app was in the background.' : '';
+        const speaking = state === 'speaking', yours = state === 'listening' || state === 'thinking';
+        ui.who.textContent = info.caption ? (speaking ? 'Private Local Chat' : yours ? 'You' : '') : '';
         ui.caption.textContent = info.caption || '';
-        ui.orb.setAttribute('aria-label', labels[0] + '. ' + reason);
-        ui.skip.hidden = !(state === 'speaking' || state === 'thinking');
-        ui.mute.hidden = state === 'error';
-        ui.end.textContent = state === 'error' ? 'Close' : 'End';
-        if (state === 'error') explainSpeechInputFailure(info.code).then(m => { ui.hint.textContent = ['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(info.code) ? m : (info.message || m); }).catch(() => {});
+        ui.sendNow.hidden = !(state === 'listening' && info.caption);
+        ui.resume.hidden = !(state === 'paused' && !muted);
+        ui.skip.wrap.hidden = !(speaking || state === 'thinking');
+        ui.mute.wrap.hidden = false; ui.end.text.textContent = 'End call'; ui.end.b.setAttribute('aria-label', 'End call');
+        const micOff = Boolean(info.muted);
+        ui.mute.b.setAttribute('aria-pressed', String(micOff)); ui.mute.b.setAttribute('aria-label', micOff ? 'Unmute microphone' : 'Mute microphone');
+        ui.mute.text.textContent = micOff ? 'Unmute' : 'Mute';
+        const want = micOff ? 'mic-off' : 'mic';
+        if (ui.mute.b.dataset.icon !== want) { ui.mute.b.dataset.icon = want; ui.mute.b.replaceChildren(callIcon(want, '🎙')); }
       }
       async function keepScreenOn(on) {
         try {
@@ -4447,7 +4519,7 @@
           },
           abortReply: () => generationController?.abort(),
           clean: text => (loadedDocExports?.stripMarkdown ? loadedDocExports.stripMarkdown(text) : text), // markdown that slipped through is not read out as symbols
-          onState: renderVoice, unlockAudio: unlockSpeech, keepAwake: keepScreenOn
+          onState: renderVoice, connectMs: CALL_RING_MS, unlockAudio: () => { unlockSpeech(); callSounds?.unlock(); }, keepAwake: keepScreenOn
         });
         return voiceSession;
       }
@@ -4457,19 +4529,20 @@
         if (voiceSession?.active) return;
         if (!getChatState().ready) { showToast('The model is not ready yet.'); return; }
         endDictation({ abort: true }); stopSpeaking();
-        if (!speechMod || !voiceMod) { await Promise.all([loadSpeech(), loadVoice()]); }
+        if (!speechMod || !voiceMod || !callSoundsMod) { await Promise.all([loadSpeech(), loadVoice(), loadCallSounds().catch(() => null)]); }
+        if (callSoundsMod && !callSounds) callSounds = callSoundsMod.createCallSounds({ enabled: callSoundsOn });
         const session = ensureVoiceSession(); if (!session) return;
         setPressed(voiceBtn, true);
         session.start();
-        voiceUi.orb.focus({ preventScroll: true });
+        voiceUi.mute.b.focus({ preventScroll: true });
       }
-      function endVoice(message) {
+      function endVoice() {
         if (!voiceSession) return;
         voiceSession.stop(); setPressed(voiceBtn, false);
-        if (message) showToast(message);
         messageInput.focus({ preventScroll: true });
       }
-      voiceBtn?.addEventListener('click', () => { if (voiceSession?.active) endVoice('Voice conversation ended.'); else startVoice(); });
+      voiceBtn?.addEventListener('click', () => { if (voiceSession?.active) endVoice(); else startVoice(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && voiceSession?.active && !document.querySelector('.app-dialog')) endVoice(); });
       // the reply, as it is written, goes to the voice
       replyListeners.push({
         start: thread => { replyBegan = true; if (voiceSession?.active && thread.id === currentThreadId) voiceSession.replyStarted(); },
@@ -4482,7 +4555,7 @@
       });
       contextProviders.push(async () => voiceSession?.active && voiceMod ? { preamble: [voiceMod.VOICE_STYLE] } : {});
       document.addEventListener('visibilitychange', () => { if (document.hidden) voiceSession?.pause('background'); });
-      window.addEventListener('pagehide', () => { if (voiceSession?.active) voiceSession.stop(); });
+      window.addEventListener('pagehide', () => { if (voiceSession?.active) voiceSession.stop(); callSounds?.close(); });
       document.getElementById('stopGeneration').addEventListener('click', () => { if (voiceSession?.active) voiceSession.interrupt(); });
 
       // ---- context: how full the model's window is, and condensing older messages ----------------------------------

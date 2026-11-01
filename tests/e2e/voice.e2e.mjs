@@ -10,6 +10,8 @@ const speechMocks=()=>{
   stop(){this.started=false;this.onend&&this.onend();}abort(){this.started=false;this.aborted=true;}
   emit(text,final=true){this.onresult&&this.onresult({resultIndex:0,results:[Object.assign([{transcript:text}],{isFinal:final})]});}}
  window.SpeechRecognition=Rec;
+ window.__tones=[];
+ window.AudioContext=class{constructor(){this.currentTime=0;this.state='running';this.destination={};}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){}};}createOscillator(){const o={type:'',frequency:{value:0},connect(){},start(){},stop(){}};window.__tones.push(o);return o;}resume(){}close(){}};
  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{if(window.__mic==='denied'){const e=new Error('denied');e.name='NotAllowedError';throw e;}return {getTracks:()=>[{stop(){}}]};}}});
 };
 const h=await launch({init:speechMocks});
@@ -21,14 +23,26 @@ const waitState=(s,timeout=15000)=>page.waitForFunction(v=>document.querySelecto
 const requests=async()=>(await (await fetch(`http://127.0.0.1:${h.api.port}/__requests`)).json());
 try{
  await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
- assert(await page.locator('#voiceModeBtn').count()===1,'voice button exists');
+ assert(await page.locator('#voiceModeBtn').count()===1,'the call button exists');
+ assert((await page.getAttribute('#voiceModeBtn','aria-label'))==='Voice call'&&(await page.getAttribute('#voiceModeBtn','title'))==='Start a voice call'&&await page.locator('#voiceModeBtn svg').count()===1,'a handset icon with a call name');
+ assert(await page.locator('#voiceModeBtn').evaluate(b=>getComputedStyle(b).backgroundColor)==='rgb(31, 143, 85)','the call button is green');
+
+ // it rings first ("Calling..."), then connects and the timer starts
+ await page.click('#voiceModeBtn');
+ await waitState('connecting',3000);
+ assert((await page.textContent('#callStatus'))==='Calling\u2026'&&(await page.locator('.call-name').innerText())==='Private Local Chat','calling the assistant');
+ assert(await page.locator('#voiceEnd').isVisible()&&(await page.locator('#voiceEnd').getAttribute('aria-label'))==='End call','End call is there while it rings');
+ assert(await page.evaluate(()=>window.__tones.map(t=>t.frequency.value).join())==='440,480','a ringback tone');
+ await waitState('listening');
+ assert(await page.evaluate(()=>window.__tones.length)===4&&await page.evaluate(()=>window.__tones.slice(2).map(t=>t.frequency.value).join())==='880,1175','a pick-up blip once connected');
+ assert((await page.textContent('#callTimer'))==='0:00'||(await page.textContent('#callTimer'))==='0:01','the call timer has started');
+ await page.waitForFunction(()=>/^0:0[1-9]$/.test(document.querySelector('#callTimer').textContent),null,{timeout:6000});
+ ok('call rings, connects and times itself');
 
  // a whole turn: listen, send after a pause, speak the reply sentence by sentence, listen again
- await page.click('#voiceModeBtn');
- await waitState('listening');
  assert(await page.locator('#voiceSheet').isVisible(),'the voice sheet is shown');
  assert(!(await page.locator('#messageInput').isVisible()),'the typing box makes room for it');
- assert(await page.evaluate(()=>window.__recs.length===1&&window.__recs[0].started),'microphone on');
+ assert(await page.evaluate(()=>window.__recs.length===1&&window.__recs[0].started),'microphone on (opened by the tap that started the call)');
  await page.evaluate(()=>window.__recs[0].emit('speak about cats',false));
  assert((await page.textContent('#voiceCaption')).includes('speak about cats'),'what is heard is shown');
  await page.evaluate(()=>window.__recs[0].emit('speak about cats'));
@@ -62,18 +76,30 @@ try{
  // mute, then leave with Escape
  await page.click('#voiceMute');
  assert(await state()==='paused'&&await live()===0,'muted: microphone off');
+ assert((await page.textContent('#callStatus'))==='Muted'&&(await page.getAttribute('#voiceMute','aria-label'))==='Unmute microphone'&&(await page.getAttribute('#voiceMute','aria-pressed'))==='true','the mute button says what it will do');
  await page.click('#voiceMute');await waitState('listening');
  await page.keyboard.press('Escape');
- await page.waitForFunction(()=>document.querySelector('#voiceSheet').hidden);
+ await waitState('ended',3000);
+ assert((await page.textContent('#callStatus'))==='Call ended'&&/^\d+:\d\d$/.test(await page.textContent('#callTimer')),'hanging up shows how long the call lasted');
+ assert(await page.evaluate(()=>window.__tones.length)>=6,'a hang-up tone');
+ await page.waitForFunction(()=>document.querySelector('#voiceSheet').hidden,null,{timeout:6000});
  assert(await live()===0,'ended: microphone off');
  assert(await page.locator('#messageInput').isVisible(),'the typing box is back');
  ok('voice mute and end');
+
+ // the call sounds can be turned off
+ await page.click('#openPrefsBtn');await page.uncheck('#callSoundsPref');await page.click('.app-dialog button:has-text("Done")');
+ const tonesBefore=await page.evaluate(()=>window.__tones.length);
+ await page.click('#voiceModeBtn');await waitState('listening');await page.click('#voiceEnd');await page.waitForFunction(()=>document.querySelector('#voiceSheet').hidden,null,{timeout:6000});
+ assert(await page.evaluate(()=>window.__tones.length)===tonesBefore,'no sounds when they are off');
+ ok('call sounds preference');
 
  // a microphone the browser blocks: the sheet explains it, and the controls stay when it is only a matter of allowing it
  await page.evaluate(()=>{window.__mic='denied';window.__startError='not-allowed';});
  await page.click('#voiceModeBtn');
  await waitState('error');
  await page.waitForFunction(()=>/blocked for this site/.test(document.querySelector('.voice-hint').textContent));
+ assert((await page.textContent('#callStatus'))==='Call failed'&&(await page.locator('#voiceEnd + .call-control-label').innerText())==='Close','a failed call says so and offers Close');
  await page.click('#voiceEnd');
  assert(await page.locator('#voiceModeBtn').count()===1&&await page.locator('#micBtn').count()===1,'still offered when the person can fix it');
  ok('blocked microphone is explained');

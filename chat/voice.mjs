@@ -6,6 +6,13 @@
 // Replies are spoken sentence by sentence while they are still being written, so the first words come out quickly. The microphone is
 // off while the app speaks (no echo), the person can interrupt at any time, and a recogniser that stops by itself is restarted.
 
+/** m:ss for a call timer, h:mm:ss from an hour on. */
+export function formatDuration(totalSeconds) {
+  const t = Math.max(0, Math.floor(Number(totalSeconds) || 0)), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  const two = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
+}
+
 export const VOICE_STYLE = "The person is talking with you by voice and your reply will be read aloud. Reply the way a person speaks: short, natural sentences, usually one to three. Do not use Markdown, bullet lists, tables, emoji or code blocks. If a long answer is needed, give the headline first and offer to go on.";
 
 const END = /([.!?…。！？]+["')\]]*)(\s+|$)/;
@@ -87,17 +94,24 @@ export function createSpeaker(speakOne, { onError } = {}) {
   };
 }
 
-export function createVoiceSession({ listen, speakOne, send, abortReply, onState = () => {}, clean = (s) => s, unlockAudio = () => {}, keepAwake = () => {}, setTimer = setTimeout, clearTimer = clearTimeout, silenceMs = 1400, restartMs = 250, minChars = 2 }) {
+export function createVoiceSession({ listen, speakOne, send, abortReply, onState = () => {}, clean = (s) => s, unlockAudio = () => {}, keepAwake = () => {}, setTimer = setTimeout, clearTimer = clearTimeout, silenceMs = 1400, restartMs = 250, minChars = 2, connectMs = 0 }) {
+  let connectTimer = null, recDead = false;
   let active = false, confirmed = false, state = "idle", heard = "", rec = null, silence = null, restart = null, replyDone = true, muted = false, turn = 0, spokeAny = false;
   const set = (next, info = {}) => { state = next; onState(next, { heard, muted, ...info }); };
   const speaker = createSpeaker(speakOne, { onError: (e) => { fail(e.message || "This browser could not speak the reply."); } });
   const stream = createSentenceStream({ clean, onSentence: (text) => { spokeAny = true; speaker.enqueue(text); if (state !== "speaking") set("speaking", { caption: text }); } });
-  const stopListening = () => { clearTimer(silence); clearTimer(restart); silence = restart = null; try { rec?.abort(); } catch { /* not running */ } rec = null; };
+  const stopListening = () => { clearTimer(silence); clearTimer(restart); silence = restart = null; recDead = false; try { rec?.abort(); } catch { /* not running */ } rec = null; };
   function fail(message, code) { stopListening(); speaker.clear(); active = false; keepAwake(false); set("error", { message, code }); }
 
   function startListening() {
     if (!active || muted) return;
     stopListening(); heard = ""; set("listening", { caption: "" });
+    openRecogniser();
+  }
+
+  // The recogniser is opened by the same tap that starts the call (browsers only ask for the microphone inside a gesture), while the
+  // call still says "connecting": what it hears is ignored until the call is connected.
+  function openRecogniser() {
     rec = listen({
       onText: ({ final, interim }) => {
         confirmed = true;
@@ -109,6 +123,7 @@ export function createVoiceSession({ listen, speakOne, send, abortReply, onState
       },
       onEnd: () => { // the recogniser stopped by itself (browsers end it after silence)
         confirmed = true;
+        if (state === "connecting") recDead = true;
         if (!active || state !== "listening") return;
         if (heard.trim().length >= minChars) submit(); else { clearTimer(restart); restart = setTimer(() => startListening(), restartMs); }
       },
@@ -116,8 +131,16 @@ export function createVoiceSession({ listen, speakOne, send, abortReply, onState
         if (["not-allowed", "service-not-allowed", "audio-capture"].includes(e?.code)) {
           // the very first start failing means the browser will not do it; later on it is usually only that this restart was not a tap
           if (confirmed && e.code !== "audio-capture") { stopListening(); set("paused", { reason: "tap" }); } else fail(e.message, e.code);
-        } else if (state === "listening") { clearTimer(restart); restart = setTimer(() => startListening(), 1000); } }
+        } else if (state === "connecting") recDead = true;
+        else if (state === "listening") { clearTimer(restart); restart = setTimer(() => startListening(), 1000); } }
     });
+  }
+
+  function connect() {
+    connectTimer = null;
+    if (!active) return;
+    if (muted) { stopListening(); set("paused", { reason: "muted" }); return; }
+    if (rec && !recDead) { heard = ""; set("listening", { caption: "" }); } else startListening();
   }
 
   function submit() {
@@ -138,8 +161,12 @@ export function createVoiceSession({ listen, speakOne, send, abortReply, onState
   return {
     get state() { return state; },
     get active() { return active; },
-    start() { if (active) return; active = true; confirmed = false; muted = false; unlockAudio(); keepAwake(true); startListening(); },
-    stop() { active = false; stopListening(); speaker.clear(); abortReply(); keepAwake(false); set("idle"); },
+    start() {
+      if (active) return; active = true; confirmed = false; muted = false; unlockAudio(); keepAwake(true);
+      if (connectMs > 0) { heard = ""; set("connecting"); openRecogniser(); connectTimer = setTimer(connect, connectMs); }
+      else startListening();
+    },
+    stop() { clearTimer(connectTimer); connectTimer = null; active = false; stopListening(); speaker.clear(); abortReply(); keepAwake(false); set("idle"); },
     /** Tap on the orb: send what was heard now, or interrupt speech. */
     tap() { if (state === "listening") submit(); else if (state === "speaking" || state === "thinking") this.interrupt(); else if (state === "paused" && !muted) { startListening(); } },
     interrupt() {
