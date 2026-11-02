@@ -20,6 +20,8 @@ export const VOICE_KEY = "plc.voice.v1";
 export const DECLINE_MS = 30 * 864e5;
 export const SAMPLE_TEXT = "This is how I will read your answers aloud. If you like it, keep this voice.";
 const TYPICAL_REPLY_SECONDS = 20;
+/** Engines that exist in this build. The larger voice is in the selection rule but has no engine yet, so it is never offered. */
+export const IMPLEMENTED = Object.freeze(["kitten"]);
 
 const blank = () => ({ v: 1, engine: null, chosen: null, declinedAt: null, fallback: null });
 
@@ -183,22 +185,22 @@ export function createVoiceController({
     const base = { env: await env(), userAgent, maxTouchPoints, language, config, devOffer, installed: {}, chosen: null };
     let est = null; try { est = await estimate(); } catch { /* unknown */ }
     const storageNow = est && Number.isFinite(est.quota) ? { usage: est.usage || 0, quota: est.quota } : null;
-    let d = pickVoiceEngine({ ...base, storage: storageNow });
+    let d = pickVoiceEngine({ ...base, only: IMPLEMENTED, storage: storageNow });
     // a stage-1 "no" ends it here; only a device that passed the cheap checks reaches the measurement modules
     if (d.offer === false && d.reason !== "probe-needed" && d.reason !== "storage-unverified") return d;
     // the real write test is required for any offer (the estimate alone is not trusted); a missing module means no offer
     const smod = await tryLoad("storage-check.mjs"), check = pickFn(smod, ["checkStorage", "measureStorage", "storageCheck", "default"]);
     if (!check) return { offer: false, reason: "storage-test-unavailable" };
-    const s = await check(Math.max(...Object.values(VOICE_ENGINES).map((e) => e.downloadBytes)));
+    const s = await check({ bytes: Math.max(...Object.values(VOICE_ENGINES).filter((e) => IMPLEMENTED.includes(e.id)).map((e) => e.downloadBytes)) });
     if (!s) return { offer: false, reason: "storage-test-unavailable" };
     base.storage = s;
-    d = pickVoiceEngine({ ...base });
+    d = pickVoiceEngine({ ...base, only: IMPLEMENTED });
     if (d.reason === "probe-needed") {
-      const mod = await tryLoad("voice-probe.mjs"), run = pickFn(mod, ["runVoiceProbe", "runProbe", "probe", "default"]);
+      const mod = await tryLoad("voice-probe.mjs"), run = pickFn(mod, ["runComputeProbe", "runVoiceProbe", "runProbe", "probe", "default"]);
       if (!run) return { offer: false, reason: "probe-unavailable" };
       const probe = await run();
       if (!probe || !Number.isFinite(probe.ms)) return { offer: false, reason: "probe-unavailable" };
-      d = pickVoiceEngine({ ...base, probe });
+      d = pickVoiceEngine({ ...base, only: IMPLEMENTED, probe });
     }
     return d;
   }

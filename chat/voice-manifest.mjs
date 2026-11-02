@@ -2,6 +2,9 @@
 // Source: Hugging Face KittenML/kitten-tts-nano-0.8-int8 (Apache-2.0 on the model card). Re-pin the Hugging Face revision when the files are
 // published to the asset host (docs/VOICE-RUNTIME.md). A changed byte is a new manifest, never an edit in place.
 
+/** Where the three files live (immutable, keyed by the pinned Hugging Face revision; see ops/cloudflare/voice-models.json). */
+export const KITTEN_NANO_BASE_URL = "https://assets.privatelocal.chat/models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/";
+
 export const KITTEN_NANO_MANIFEST = Object.freeze({
   id: "kitten-tts-nano-0.8-int8",
   files: Object.freeze([

@@ -49,8 +49,9 @@ const os = (reason, extra = {}) => ({ engine: "os", offer: false, reason, ...ext
  * @param {number} a.chatModelResidentGB  memory the loaded chat model holds (0 when none is loaded)
  * @param {boolean} a.devOffer        dev flag that shows the offer while thresholds are uncalibrated
  * @param {object} a.config
+ * @param {string[]|null} a.only      engine ids that are actually implemented in this build; others are never offered (null = all, for tests)
  */
-export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, storage = null, probe = null, language = "en", chosen = null, installed = {}, chatModelResidentGB = 0, devOffer = false, config = VOICE_CONFIG } = {}) {
+export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, storage = null, probe = null, language = "en", chosen = null, installed = {}, chatModelResidentGB = 0, devOffer = false, config = VOICE_CONFIG, only = null } = {}) {
   // 1. what the person decided always wins
   if (chosen === "os") return os("user-choice");
   if (chosen && VOICE_ENGINES[chosen] && installed[chosen]) return { engine: chosen, offer: false, reason: "user-choice-installed", loadWhen: loadPolicy(env, VOICE_ENGINES[chosen], chatModelResidentGB) };
@@ -60,7 +61,7 @@ export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, 
 
   // 3. coverage: the small engines are English only
   const lang = String(language || "").toLowerCase().split("-")[0];
-  const candidates = Object.values(VOICE_ENGINES).filter((e) => e.languages.includes(lang));
+  const candidates = Object.values(VOICE_ENGINES).filter((e) => e.languages.includes(lang) && (!only || only.includes(e.id)));
   if (!candidates.length) return os("language-not-covered");
 
   // 4. stage 1: cheap signals. Anything missing is "no", never "yes".

@@ -4248,7 +4248,11 @@
           try { const a = await navigator.gpu?.requestAdapter(); if (a) webgpu = { available: true, isFallbackAdapter: Boolean(a.isFallbackAdapter) }; } catch { /* no WebGPU */ }
           return { deviceMemoryGB: navigator.deviceMemory, cores: navigator.hardwareConcurrency, webgpu };
         };
-        const factory = hook || (async id => (await import(moduleBase() + 'chat/voice-engine.mjs')).createVoiceEngine({ engine: id, moduleBase: moduleBase() }));
+        const factory = hook || (async id => {
+          if (id !== 'kitten') throw new Error('No engine for ' + id);
+          const [eng, man] = await Promise.all([import(moduleBase() + 'chat/voice-engine.mjs'), import(moduleBase() + 'chat/voice-manifest.mjs')]);
+          return eng.createVoiceEngine({ baseUrl: man.KITTEN_NANO_BASE_URL, workerUrl: moduleBase() + 'chat/vendor/voice/worker.js' });
+        });
         const ctl = mod.createVoiceController({ factory, env, ...(hook?.inputs || {}) });
         await ctl.init();
         return ctl;
