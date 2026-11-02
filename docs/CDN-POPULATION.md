@@ -1,5 +1,33 @@
 # Populating the CDN (task for an agent or operator with Cloudflare access)
 
+> ## ACTION REQUIRED: someone with the Cloudflare token must run ONE command
+>
+> The CDN `assets.privatelocal.chat` is **missing the small search model** that Roberta uses (about 37 MB). Until it is uploaded, the app
+> downloads it from another project's host (`assets.sonalon.com`). A coding session could not upload it: it has no Cloudflare credentials
+> and GitHub refuses workflow files from it. Everything else is ready and the files were already verified byte for byte (dry run).
+>
+> **Option A: from any machine with the operator token (about 1 minute):**
+>
+>     git checkout claude/lucid-tesla-qhjgmk        # or main once merged
+>     pip install boto3
+>     python3 ops/cloudflare/publish-embedding.py --dry-run     # must end "dry run: nothing uploaded", no MISMATCH
+>     CLOUDFLARE_API_TOKEN=<token> python3 ops/cloudflare/publish-embedding.py    # or leave the variable unset and use
+>                                                                                  # /root/.config/privatelocalchat/cloudflare-api-token
+>
+> It must finish with `OK` for all 10 objects and exit 0. The token needs R2 write access to bucket `privatelocalchat-assets`.
+>
+> **Option B: from GitHub (uses the repo secret `CLOUDFLARE_API_TOKEN`):**
+>
+>     git mv ops/cloudflare/publish-cdn-assets.workflow.yml .github/workflows/publish-cdn-assets.yml
+>     git commit -m "ci: publish CDN assets" && git push
+>
+> then Actions -> "Publish CDN assets" -> Run workflow (it also runs on a push to the branch named in the file). It fails with a clear error if
+> the secret's token cannot write to R2; use Option A then. Remove the workflow afterwards if you do not want it kept.
+>
+> **After it succeeds, tell the next coding session "the CDN is populated"** and it will do Task 2 below (point the app at the CDN,
+> fix the Privacy page, re-run the real-model browser test). Do NOT change `EMBEDDING_ASSET_HOST` before the upload is verified: Roberta's
+> semantic matching would silently fall back to keywords.
+
 **Rule:** every model file the app downloads, of any kind (language, search, and later speech-to-text and text-to-speech), is served from one
 host: `https://assets.privatelocal.chat` (R2 bucket `privatelocalchat-assets`, provisioned by `ops/cloudflare/provision-cdn.py`; see
 `ops/cloudflare/CDN-OPERATIONS.txt`). The app should not depend on another project's storage or on Hugging Face / GitHub at run time.

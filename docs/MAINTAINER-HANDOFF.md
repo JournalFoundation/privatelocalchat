@@ -1,5 +1,7 @@
 # Private Local Chat: maintainer handoff
 
+> **Open task needing the Cloudflare token: populate the CDN with the search model. See [CDN-POPULATION.md](CDN-POPULATION.md), top box.**
+
 This is the practical starting point for a maintainer with access to the GitHub repository and Cloudflare account. GitHub is the source of truth for the application and its deployment workflow. Cloudflare Pages serves the application; Cloudflare R2 and its CDN serve the model files. A home server is not needed to serve the app.
 
 | Purpose | Source | Deployment |
