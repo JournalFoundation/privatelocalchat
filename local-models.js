@@ -41,7 +41,7 @@ function render(s) {
   if(s.device) env=s.device;
   const tier=s.selection.tier, item=s.tiers[tier], t=s.transfer;
   $('localModelSelect').value=tier;
-  $('modelDetails').textContent=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':onCpu(s)?'Smaller model. No usable graphics card was found, so it runs on your processor: it works, but replies are slower.':'Smaller model; lower memory use.');
+  $('modelDetails').textContent=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':onCpu(s)?'Smaller model. No usable graphics card was found, so it runs on your processor: it works, but replies are slower.':(tier==='light'?'Smaller model; lower memory use.':item.info.strengths));
   $('modelStatus').dataset.error='false';
   const modelName=item.info.modelId||'the model';
   if(s.busy) $('modelStatus').textContent=t ? `Downloading ${modelName}: ${gb(t.bytesDone || 0)} of ${gb(t.bytesTotal || item.info.downloadBytes)} downloaded${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy==='load'?`Loading ${modelName} into memory…`:s.busy==='install'?`Downloading ${modelName}…`:s.busy==='repair'?'Repairing the model download…':s.busy==='remove'?'Removing model files…':s.busy+'…';
@@ -101,8 +101,9 @@ function renderReadiness(s,supported,ready) {
 }
 // The small model runs on the graphics card, or on the processor when there is no usable card (slower). The larger one needs the card.
 const cpuOk=()=>Boolean(env)&&cpuBackendSupport({env,userAgent:navigator.userAgent,maxTouchPoints:navigator.maxTouchPoints||0}).ok;
-const isSupported=s=>{const tier=s.selection.tier;return tier==='light'?gpuRunsLight(env)||cpuOk():!!env?.webgpu.available;};
-const onCpu=s=>s.selection.tier==='light'&&!gpuRunsLight(env)&&cpuOk();
+const isWllama=t=>t==='light'||t==='lfm'||t==='granite';
+const isSupported=s=>{const tier=s.selection.tier;return isWllama(tier)?gpuRunsLight(env)||cpuOk():!!env?.webgpu.available;};
+const onCpu=s=>isWllama(s.selection.tier)&&!gpuRunsLight(env)&&cpuOk();
 // A downloaded model loads by itself when the app opens (or when on-device chat is chosen), so chatting just works.
 function maybeAutoLoad() {
   if(!state)return;
@@ -159,7 +160,7 @@ window.localModels={
   get offlineReady(){return offlineAppReady;},
   get supported(){return state?isSupported(state):undefined;},
   /** Where on-device chat runs: 'gpu' (graphics card) or 'cpu' (processor, slower). */
-  get backend(){return state&&state.selection.tier==='light'&&onCpu(state)?'cpu':'gpu';},
+  get backend(){return state&&isWllama(state.selection.tier)&&onCpu(state)?'cpu':'gpu';},
   get canPrepare(){return env&&state?Boolean(preparer.choice().tier):undefined;},
   prepareInfo(){return preparer.info();},
   async ensureReady(options){await initFinished;userFreed=false;return preparer.ensureReady(options);},
@@ -167,6 +168,10 @@ window.localModels={
   cancelDownload(){downloadRecovery.cancel();},
   get gpuHelp(){return env&&state?explainGpu(env,{tier:state.selection.tier}):null;},
   async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');userFreed=true;await host.unload();await host.inspect();},
+  /** Check the downloaded files of every model (storage screen, so each can be removed). Tiers are checked one after another. */
+  async inspectAll(){await initFinished;for(const tier of Object.keys(host.getState().tiers)){try{await host.inspect(tier);}catch{/* recorded in the state */}}return host.getState();},
+  /** Delete one model's downloaded files (the person confirmed in the page). Unloads it first when it is the loaded one. */
+  async removeTier(tier){await initFinished;downloadRecovery.cancel();await host.remove(tier,{confirmed:true});return host.getState();},
   async refreshStorage(){await host.refreshStorage();return state?.storage;},
   async requestPersist(){return host.requestPersist();},
   async generate(messages,{signal,onToken,onFinish}={}) {
@@ -174,7 +179,7 @@ window.localModels={
     activeGeneration=true; render(state);
     try {
       let streamed="";
-      const call=host.provider().generate({attemptId:crypto.randomUUID(),messages:messages.filter(m=>m.role!=='system'||m.content).map(m=>({role:m.role,content:m.content})),temperature:0.6,cachePrompt:!resetPromptAfterAbort},{signal,onToken:ev=>{streamed+=ev.text;onToken?.(streamed);}});
+      const call=host.provider().generate({attemptId:crypto.randomUUID(),messages:messages.filter(m=>m.role!=='system'||m.content).map(m=>({role:m.role,content:m.content})),temperature:0.6,sampling:state.tiers[state.selection.tier].info.sampling,cachePrompt:!resetPromptAfterAbort},{signal,onToken:ev=>{streamed+=ev.text;onToken?.(streamed);}});
       resetPromptAfterAbort=false;
       const end=await call.done;
       if(end.type==='attempt-aborted') throw Object.assign(new DOMException('Generation stopped.','AbortError'),{partialText:streamed});

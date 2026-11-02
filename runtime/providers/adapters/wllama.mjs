@@ -20,7 +20,7 @@ export async function preflight(config) {
   }
   await webgpuPreflight();
   const adapter=await navigator.gpu.requestAdapter();
-  if(!adapter?.features.has('shader-f16')) throw Object.assign(new Error('This 2B runtime requires shader-f16, which this browser does not expose. Choose the 9B model if this device has enough memory, or explicitly select API mode.'),{name:'WebGpuUnavailable'});
+  if(!adapter?.features.has('shader-f16')) throw Object.assign(new Error('This on-device runtime requires shader-f16, which this browser does not expose. Choose the 9B model if this device has enough memory, or explicitly select API mode.'),{name:'WebGpuUnavailable'});
 }
 
 const wllamaCache = new Map(); // runtime dir -> Wllama (used only for its cache manager in storage ops)

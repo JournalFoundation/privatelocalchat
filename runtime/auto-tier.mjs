@@ -5,6 +5,8 @@ const MOBILE = /iPhone|iPad|iPod|Android/;
 export const isMobileDevice = (userAgent = "", maxTouchPoints = 0) => MOBILE.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
 
 const IOS = /iPhone|iPad|iPod/;
+// models run by the wllama engine (the same runtime and processor fallback); LFM2.5 and Granite are chosen by the person, never picked for them
+const WLLAMA = new Set(["light", "lfm", "granite"]);
 
 /**
  * Can the small model run on the processor (WebAssembly) instead of a graphics card? Same model, same files: only where the maths happens
@@ -33,14 +35,20 @@ export function pickTier({ env, installed = {}, selection = {}, userAgent = "", 
   const gpu = env?.webgpu || {};
   const cpu = cpuBackendSupport({ env, userAgent, maxTouchPoints }).ok;
   // no usable graphics card: the small model on the processor, if the device can
-  if (!gpu.available || gpu.isFallbackAdapter) return cpu ? { tier: "light", backend: "cpu", reason: "no-gpu-cpu" } : { tier: null, reason: "no-gpu" };
-  const supports = { light: Boolean(gpu.shaderF16), default: true }; // the larger model has a build that works without 16-bit shaders
+  if (!gpu.available || gpu.isFallbackAdapter) {
+    if (!cpu) return { tier: null, reason: "no-gpu" };
+    // a model the person chose (or already has) keeps its place on the processor; otherwise the small Qwen model
+    const keep = WLLAMA.has(selection.tier) && (selection.chosenBy === "human" || installed[selection.tier]) ? selection.tier : "light";
+    return { tier: keep, backend: "cpu", reason: keep === "light" ? "no-gpu-cpu" : "chosen-cpu" };
+  }
+  const f16 = Boolean(gpu.shaderF16);
+  const supports = { light: f16, lfm: f16, granite: f16, default: true }; // the larger model has a build that works without 16-bit shaders
   const mobile = isMobileDevice(userAgent, maxTouchPoints);
   const roomForLarge = !mobile && (env.deviceMemoryGB == null || env.deviceMemoryGB >= 8);
   const ok = (t) => supports[t] && (t !== "default" || roomForLarge || installed.default || selection.chosenBy === "human");
-  const withBackend = (t, reason) => (t === "light" && !supports.light ? { tier: t, backend: "cpu", reason } : { tier: t, reason });
-  if (selection.chosenBy === "human" && selection.tier && (ok(selection.tier) || (selection.tier === "light" && cpu))) return withBackend(selection.tier, "chosen");
-  const have = ["light", "default"].filter((t) => installed[t] && (ok(t) || (t === "light" && cpu)));
+  const withBackend = (t, reason) => (WLLAMA.has(t) && !supports[t] ? { tier: t, backend: "cpu", reason } : { tier: t, reason });
+  if (selection.chosenBy === "human" && selection.tier && (ok(selection.tier) || (WLLAMA.has(selection.tier) && cpu))) return withBackend(selection.tier, "chosen");
+  const have = ["light", "lfm", "granite", "default"].filter((t) => installed[t] && (ok(t) || (WLLAMA.has(t) && cpu)));
   if (have.length) { const t = have.includes(selection.tier) ? selection.tier : have[0]; return withBackend(t, "installed"); }
   if (roomForLarge && supports.default) return { tier: "default", reason: "desktop" };
   if (supports.light) return { tier: "light", reason: mobile ? "mobile" : "small-device" };

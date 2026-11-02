@@ -19,8 +19,8 @@ export function explainGpu(env, { tier = "light" } = {}) {
     return { kind: "software", headline: "The browser only found a software renderer, not your graphics card.", detail: `It reported ${adapterName(w.adapter) || "a fallback adapter"}, which runs on the CPU and is too slow for these models.`, steps: [...common, ...(browser === "firefox" ? ["Try Chrome or Chromium, which support WebGPU on Linux and Windows today."] : linuxVulkan)], adapter: adapterName(w.adapter) };
   }
   if (w.available && !w.shaderF16) {
-    const big = tier === "light";
-    return { kind: "no-f16", headline: big ? "This graphics card is available, but the browser does not offer the 16-bit shader support the 2B model needs." : "", detail: `${adapterName(w.adapter) ? adapterName(w.adapter) + " was found. " : ""}${big ? "The larger 9B model has a build that works without it, if this device has enough memory (about 8 GB or more of graphics memory)." : ""}`.trim(), steps: [...common, "Update the graphics driver, then restart the browser (on NVIDIA/Linux the Vulkan driver must expose 16-bit float support).", ...(big ? ["Choose the 9B model under Model and connection, or use a connected provider."] : [])], adapter: adapterName(w.adapter) };
+    const big = tier !== "default";
+    return { kind: "no-f16", headline: big ? "This graphics card is available, but the browser does not offer the 16-bit shader support the on-device model needs." : "", detail: `${adapterName(w.adapter) ? adapterName(w.adapter) + " was found. " : ""}${big ? "The larger 9B model has a build that works without it, if this device has enough memory (about 8 GB or more of graphics memory)." : ""}`.trim(), steps: [...common, "Update the graphics driver, then restart the browser (on NVIDIA/Linux the Vulkan driver must expose 16-bit float support).", ...(big ? ["Choose the 9B model under Model and connection, or use a connected provider."] : [])], adapter: adapterName(w.adapter) };
   }
   if (w.available) return { kind: "ok", headline: "", detail: "", steps: [], adapter: adapterName(w.adapter) };
   if (w.hasApi === false) {

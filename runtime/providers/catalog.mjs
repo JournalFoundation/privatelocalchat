@@ -9,6 +9,12 @@ import { CATALOG_DATA } from "./catalog-data.mjs";
 const MiB = 1 << 20;
 const W = CATALOG_DATA.webllmQwen35_9b;
 const L = CATALOG_DATA.wllamaQwen35_2b;
+const LFM = CATALOG_DATA.wllamaLfm25_2_6b;
+const GRANITE = CATALOG_DATA.wllamaGranite40h1b;
+const WLLAMA_DATA = Object.freeze({ light: L, lfm: LFM, granite: GRANITE });
+/** Tiers served by the wllama engine (llama.cpp in WebAssembly): they share the runtime, the OPFS cache and the processor fallback. */
+export const WLLAMA_TIERS = Object.freeze(["light", "lfm", "granite"]);
+export const isWllamaTier = (t) => WLLAMA_TIERS.includes(t);
 
 /** The WebLLM builds of the default model. f16 is preferred; f32 exists for GPUs without shader-f16. */
 export const WEBLLM_VARIANTS = Object.freeze(["q4f16_1", "q4f32_1"]);
@@ -20,7 +26,9 @@ export const OFFICIAL_SOURCES = Object.freeze({
   // binary-mlc-llm-libs (Apache-2.0) tracks the WebLLM release; each file is checked against the sha256 pinned here
   webllmLibBase: Object.freeze(Object.fromEntries(WEBLLM_VARIANTS.map((v) => [v, "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/"]))),
   // the owner's immutable manifest-addressed repackaging of Qwen/Qwen3.5-2B (Apache-2.0) as Q4_0 GGUF shards
-  wllamaModelBase: L.baseUrl
+  wllamaModelBase: L.baseUrl,
+  // LFM2.5 and Granite are served only from the project's own CDN (assets.privatelocal.chat), pinned file by file
+  wllamaTierBase: Object.freeze({ lfm: LFM.baseUrl, granite: GRANITE.baseUrl })
 });
 
 const f16Bytes = W.q4f16_1.files.reduce((n, f) => n + f.bytes, 0) + W.q4f16_1.lib.bytes;
@@ -57,10 +65,38 @@ export const TIERS = Object.freeze({
     speed: { decodeTokPerSec: "about 30", bodyStepSeconds: "about 4.4", chatTurnFirstTokenSeconds: "about 1.7", loadSecondsWarm: 5 },
     strengths: "Small and quick to load. Cautions: it is NOT grammar constrained (the reply is checked after it is written and a bad one fails the attempt), it picked an offer in every one of 10 'nothing fits' trials, and its prose is weaker.",
     cacheKind: "OPFS (wllama cache directory)"
+  }),
+  lfm: Object.freeze({
+    tier: "lfm", label: "LFM2.5-2.6B (Liquid)", engine: "wllama", adapter: "wllama",
+    modelId: "lfm2.5-2.6b-q3_k_m", family: "LFM2.5", paramsB: 2.6, quantization: "Q3_K_M",
+    license: "LFM Open License v1.0", licenseNote: "LiquidAI/LFM2.5-2.6B, free for use below the licence's revenue threshold; quantised by the owner's pinned toolchain. The licence text is served beside the files.",
+    runtime: { name: "wllama", version: "3.5.1 retained-v1q-chat-stable-slim-20260901", license: "owner build of llama.cpp (MIT) via wllama (MIT)" },
+    contextWindowTokens: 8192, maxOutputTokens: 1024,
+    structured: { "json-schema": "validated" },
+    downloadBytes: LFM.totalBytes,
+    memory: { steadyBytes: 2.2e9, peakBytes: 2.9e9, note: "estimate from the file size plus context; see docs/CHAT-FEATURES.md for what was measured" },
+    sampling: { temperature: 0.3, topP: 0.9, topK: 40, repetitionPenalty: 1.05 },
+    speed: { decodeTokPerSec: "not yet measured", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "not yet measured", loadSecondsWarm: "not yet measured" },
+    strengths: "A stronger writer and reasoner than the 2B Qwen at a similar size, with a hybrid design that keeps memory low for long chats. Q3 quantisation trades a little accuracy for size.",
+    cacheKind: "OPFS (wllama cache directory)"
+  }),
+  granite: Object.freeze({
+    tier: "granite", label: "Granite 4.0 H 1B (IBM)", engine: "wllama", adapter: "wllama",
+    modelId: "granite-4.0-h-1b-q4_k_m", family: "Granite 4.0", paramsB: 1.5, quantization: "Q4_K_M",
+    license: "Apache-2.0", licenseNote: "ibm-granite/granite-4.0-h-1b (Apache-2.0), quantised by the owner's pinned toolchain; text only.",
+    runtime: { name: "wllama", version: "3.5.1 retained-v1q-chat-stable-slim-20260901", license: "owner build of llama.cpp (MIT) via wllama (MIT)" },
+    contextWindowTokens: 8192, maxOutputTokens: 1024,
+    structured: { "json-schema": "validated" },
+    downloadBytes: GRANITE.totalBytes,
+    memory: { steadyBytes: 1.5e9, peakBytes: 2.0e9, note: "estimate from the file size plus context; see docs/CHAT-FEATURES.md for what was measured" },
+    sampling: { temperature: 0.2, topP: 0.9, topK: 40, repetitionPenalty: 1.05 },
+    speed: { decodeTokPerSec: "not yet measured", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "not yet measured", loadSecondsWarm: "not yet measured" },
+    strengths: "The smallest download here, quick on modest devices, and a hybrid (Mamba) design that is gentle on memory. Best for short, direct answers; weaker at open-ended writing.",
+    cacheKind: "OPFS (wllama cache directory)"
   })
 });
 
-export const TIER_ORDER = Object.freeze(["default", "light"]);
+export const TIER_ORDER = Object.freeze(["default", "light", "lfm", "granite"]);
 
 /** The build of the default model for a GPU: f16 where shader-f16 exists, else f32. Capability decides (DEC 57). null: no WebGPU. */
 export function chooseWebllmVariant(env) {
@@ -79,10 +115,11 @@ export function resolveSources(overrides = null) {
   if (overrides.webllmModelBase) sources.webllmModelBase = perVariant(overrides.webllmModelBase);
   if (overrides.webllmLibBase) sources.webllmLibBase = perVariant(overrides.webllmLibBase);
   if (overrides.wllamaModelBase) sources.wllamaModelBase = overrides.wllamaModelBase.endsWith("/") ? overrides.wllamaModelBase : overrides.wllamaModelBase + "/";
+  if (overrides.wllamaTierBase) sources.wllamaTierBase = Object.freeze(Object.fromEntries(Object.entries({ ...OFFICIAL_SOURCES.wllamaTierBase, ...overrides.wllamaTierBase }).map(([k, v]) => [k, v.endsWith("/") ? v : v + "/"])));
   // WebLLM rewrites a model URL that lacks /resolve/<rev>/ by appending resolve/main/, which would silently miss every cached file
   for (const v of WEBLLM_VARIANTS) if (!/.+\/resolve\/.+\//.test(sources.webllmModelBase[v])) throw new RangeError(`webllmModelBase.${v} must contain /resolve/<revision>/ (WebLLM would rewrite it otherwise): ${sources.webllmModelBase[v]}`);
-  const flat = [...Object.values(sources.webllmModelBase), ...Object.values(sources.webllmLibBase), sources.wllamaModelBase];
-  const origins = [...new Set(flat.map((u) => { try { return new URL(u).origin; } catch { return String(u); } }).filter((o) => o !== "https://huggingface.co" && o !== "https://raw.githubusercontent.com" && o !== new URL(L.baseUrl).origin))];
+  const flat = [...Object.values(sources.webllmModelBase), ...Object.values(sources.webllmLibBase), sources.wllamaModelBase, ...Object.values(sources.wllamaTierBase)];
+  const origins = [...new Set(flat.map((u) => { try { return new URL(u).origin; } catch { return String(u); } }).filter((o) => o !== "https://huggingface.co" && o !== "https://raw.githubusercontent.com" && o !== new URL(L.baseUrl).origin && o !== new URL(LFM.baseUrl).origin))];
   return { sources, label: "OVERRIDE: " + origins.join(", "), overridden: true };
 }
 
@@ -97,7 +134,10 @@ export function tierFiles(tier, sources = OFFICIAL_SOURCES, variant = DEFAULT_VA
     files.push({ path: V.lib.path, bytes: V.lib.bytes, sha256: V.lib.sha256, url: sources.webllmLibBase[variant] + V.lib.path, scope: "webllm/wasm" });
     return files;
   }
-  if (tier === "light") return L.files.map((f) => ({ path: f.path, bytes: f.bytes, sha256: f.sha256, url: sources.wllamaModelBase + f.path, scope: "opfs" }));
+  if (isWllamaTier(tier)) {
+    const base = tier === "light" ? sources.wllamaModelBase : sources.wllamaTierBase[tier];
+    return WLLAMA_DATA[tier].files.map((f) => ({ path: f.path, bytes: f.bytes, sha256: f.sha256, url: base + f.path, scope: "opfs" }));
+  }
   throw new RangeError(`unknown tier ${tier}`);
 }
 
@@ -112,7 +152,7 @@ export function loadConfigFor(tier, { sources = OFFICIAL_SOURCES, runtimeDir = n
       contextWindow: t.contextWindowTokens, quantization: vi.quantization, license: t.license, files: tierFiles("default", sources, variant)
     };
   }
-  const files = tierFiles("light", sources);
+  const files = tierFiles(tier, sources);
   // "cpu": the same model and files, computed by the processor through WebAssembly (no WebGPU at all). Slower, and it keeps the whole model
   // in WebAssembly memory instead of the graphics card, so nothing is offloaded.
   const cpu = backend === "cpu";
@@ -122,7 +162,9 @@ export function loadConfigFor(tier, { sources = OFFICIAL_SOURCES, runtimeDir = n
     context: {
       // Keep the full conversation window; bound temporary prefill graphs separately.
       // The non-flash-attention path used on iPhone otherwise reserves ~94 MiB at 512.
-      n_ctx: t.contextWindowTokens, n_batch: 128, n_ubatch: 32, flash_attn_policy: -1, n_gpu_layers: cpu ? 0 : -1, fused_gdn_auto: true, fused_gdn_ar: true, fused_gdn_ch: true,
+      n_ctx: t.contextWindowTokens, n_batch: 128, n_ubatch: 32, flash_attn_policy: -1, n_gpu_layers: cpu ? 0 : -1,
+      // the fused gated-delta-net kernels are Qwen3.5's; the other models do not have that layer
+      ...(tier === "light" ? { fused_gdn_auto: true, fused_gdn_ar: true, fused_gdn_ch: true } : {}),
       sched_max_splits_hint: 128, ctx_checkpoints: 1, checkpoint_every_n_tokens: 64, checkpoint_clear_policy: "replace-on-reset-and-terminate"
     },
     knobs: { initialMemoryMiB: 128, offloadTiedEmbedding: !cpu, progressiveSourceRelease: true, recycleWindowBytes: 96 * MiB }

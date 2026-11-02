@@ -322,9 +322,31 @@ function buildSettings({ app, shell, registry, moved, filter }) {
   add("personalization", "Personalization", "user", "memory preferences instructions voice speed call sounds", () => h("div", {}, h("h2", { text: "Personalization" }), card(
     row("Memory & preferences", "What it remembers, voice, reply speed and call sounds. Never used in temporary chats.", btn("Manage", press("openPrefsBtn"))),
     row("Instructions for a chat", "Set these from the + menu in any chat.", null))));
-  add("models", "Models", "sliders", "model download provider api endpoint token device gpu", () => {
+  add("models", "Models", "sliders", "model download remove delete storage provider api endpoint token device gpu", () => {
     const w = h("div", { class: "set-moved" }, h("h2", { text: "Models and connection" }));
-    moved.providerSettings.open = true; w.append(moved.providerSettings); return w;
+    const installed = h("div", { class: "set-card", id: "installedModels" });
+    w.append(h("h3", { class: "set-sub", text: "On this device" }), installed);
+    const size = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : Math.round(n / 1e6) + " MB");
+    async function paint(inspect = true) {
+      const lm = window.localModels; if (!lm) return;
+      if (inspect) { try { await lm.inspectAll(); } catch { /* shown below as unknown */ } }
+      installed.textContent = "";
+      const st = lm.state; if (!st) return;
+      let total = 0;
+      for (const [tier, item] of Object.entries(st.tiers)) {
+        const present = item.install.bytesPresent || 0; total += present;
+        const loaded = st.load.state === "ready" && st.load.tier === tier;
+        const status = item.install.ok ? size(present) + " downloaded" : present ? size(present) + " partly downloaded" : "Not downloaded (" + size(item.info.downloadBytes) + ")";
+        const controls = h("div", { class: "set-control" });
+        if (loaded) controls.append(btn("Unload", async () => { try { await lm.freeMemory(); } catch (e) { app.toast?.(e.message); } paint(false); }));
+        if (present > 0) controls.append(btn("Remove", async () => { if (!confirm("Remove " + item.info.label + " from this device? Your chats are kept. You can download it again later.")) return; try { await lm.removeTier(tier); } catch (e) { alert(e.message); } paint(); }, "danger"));
+        installed.append(h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-label", text: item.info.label || item.info.modelId }), h("div", { class: "set-desc", text: status + (loaded ? " · loaded in memory" : "") + " · " + item.info.license })), controls));
+      }
+      installed.append(h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-label", text: "Total on this device" }), h("div", { class: "set-desc", text: size(total) })), h("div", { class: "set-control" })));
+    }
+    w.paint = paint; w.addEventListener("shell-refresh", () => paint());
+    window.addEventListener("local-model-state", () => { if (!page.hidden && page.dataset.section === "models") paint(false); });
+    moved.providerSettings.open = true; w.append(h("h3", { class: "set-sub", text: "Choose and download" }), moved.providerSettings); return w;
   });
   add("data", "Data controls", "shield", "export import backup transfer delete archive trash storage", () => {
     const w = h("div", {}, h("h2", { text: "Data controls" }));
@@ -372,6 +394,7 @@ function buildSettings({ app, shell, registry, moved, filter }) {
     if (!built.has(s.id)) built.set(s.id, s.build());
     for (const w of built.values()) if (w.parentNode === content) stash.append(w); // never detach: the app looks these controls up by id
     content.append(built.get(s.id));
+    built.get(s.id).dispatchEvent?.(new Event("shell-refresh"));
     buttons.forEach((b, k) => b.classList.toggle("active", k === s.id));
     page.dataset.section = s.id;
   }

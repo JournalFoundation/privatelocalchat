@@ -1,6 +1,19 @@
 {
   "entries": [
     {
+      "id": "more-models",
+      "date": "2026-11-02",
+      "release": null,
+      "title": "Two more on-device models, and a new layout",
+      "summary": "Choose LFM2.5-2.6B (Liquid) or Granite 4.0 H 1B (IBM) from the model menu next to the message box, and remove any downloaded model from Settings.",
+      "points": [
+        "LFM2.5-2.6B (about 1.37 GB, LFM Open License) and Granite 4.0 H 1B (about 0.90 GB, Apache-2.0) are served from the project's own storage, checked file by file against pinned hashes. Neither is picked for you: the app still starts with Qwen3.5.",
+        "Settings > Models lists every model with its size on this device, with Unload and Remove buttons, so downloads never pile up unseen. Storage & backups has the same Remove buttons.",
+        "The app has a new layout: a rail and sidebar, a model menu, a Settings page and a search that matches by words and meaning (Ctrl or Cmd+K)."
+      ],
+      "models": "Qwen3.5-2B, Qwen3.5-9B, LFM2.5-2.6B, Granite 4.0 H 1B."
+    },
+    {
       "id": "share-transfer-help",
       "date": "2026-11-01",
       "release": null,
@@ -17,13 +30,30 @@
         "What you say to Roberta is matched to prepared answers by meaning, on your device, with a small search model (about 37 MB, downloaded once from assets.privatelocal.chat and kept in the browser). It generates nothing and works while your model downloads. See Privacy for details."
       ],
       "help": [
-        {"label": "Share", "href": "/help/#share"},
-        {"label": "Transfer settings", "href": "/help/#transfer-settings"},
-        {"label": "Forgot the transfer password", "href": "/help/#unlock-token"},
-        {"label": "Transfer chats", "href": "/help/#transfer-chats"},
-        {"label": "Privacy", "href": "/privacy/"}
+        {
+          "label": "Share",
+          "href": "/help/#share"
+        },
+        {
+          "label": "Transfer settings",
+          "href": "/help/#transfer-settings"
+        },
+        {
+          "label": "Forgot the transfer password",
+          "href": "/help/#unlock-token"
+        },
+        {
+          "label": "Transfer chats",
+          "href": "/help/#transfer-chats"
+        },
+        {
+          "label": "Privacy",
+          "href": "/privacy/"
+        }
       ],
-      "issues": ["iphone-page-restarts"]
+      "issues": [
+        "iphone-page-restarts"
+      ]
     },
     {
       "id": "processor-fallback",
@@ -37,10 +67,19 @@
         "The larger Qwen3.5-9B model still needs a GPU."
       ],
       "help": [
-        {"label": "Will it work on my device?", "href": "/help/#compatibility"},
-        {"label": "A model will not load", "href": "/help/#load-failure"}
+        {
+          "label": "Will it work on my device?",
+          "href": "/help/#compatibility"
+        },
+        {
+          "label": "A model will not load",
+          "href": "/help/#load-failure"
+        }
       ],
-      "issues": ["processor-speed", "linux-shader-f16"]
+      "issues": [
+        "processor-speed",
+        "linux-shader-f16"
+      ]
     },
     {
       "id": "voice-conversation",
@@ -55,11 +94,22 @@
         "An old saved copy of the app repairs itself when a newer version is published."
       ],
       "help": [
-        {"label": "Where is voice processed?", "href": "/help/#voice"},
-        {"label": "Speech controls missing", "href": "/help/#speech-availability"},
-        {"label": "A download stalls", "href": "/help/#stalled-download"}
+        {
+          "label": "Where is voice processed?",
+          "href": "/help/#voice"
+        },
+        {
+          "label": "Speech controls missing",
+          "href": "/help/#speech-availability"
+        },
+        {
+          "label": "A download stalls",
+          "href": "/help/#stalled-download"
+        }
       ],
-      "issues": ["speech-in-app-browsers"]
+      "issues": [
+        "speech-in-app-browsers"
+      ]
     },
     {
       "id": "setup-fix",
@@ -68,7 +118,12 @@
       "title": "First-message setup fix",
       "summary": "Fixed a case where setting up on-device chat from the first message ended with a 'could not be loaded' error.",
       "points": [],
-      "help": [{"label": "A model will not load", "href": "/help/#load-failure"}],
+      "help": [
+        {
+          "label": "A model will not load",
+          "href": "/help/#load-failure"
+        }
+      ],
       "issues": []
     },
     {
@@ -82,8 +137,14 @@
         "Stopping during setup removes the empty reply and keeps your question."
       ],
       "help": [
-        {"label": "Getting started", "href": "/help/#getting-started"},
-        {"label": "Why does it download a model?", "href": "/help/#model-downloads"}
+        {
+          "label": "Getting started",
+          "href": "/help/#getting-started"
+        },
+        {
+          "label": "Why does it download a model?",
+          "href": "/help/#model-downloads"
+        }
       ],
       "issues": []
     },
@@ -94,7 +155,12 @@
       "title": "Clearer messages when the graphics card is not usable",
       "summary": "The app now says what is actually wrong with WebGPU on a device, with things to try, instead of blaming one missing feature.",
       "points": [],
-      "help": [{"label": "A model will not load", "href": "/help/#load-failure"}],
+      "help": [
+        {
+          "label": "A model will not load",
+          "href": "/help/#load-failure"
+        }
+      ],
       "issues": []
     },
     {
@@ -104,7 +170,12 @@
       "title": "New look, automatic model loading, browser speech",
       "summary": "The PrivateLocal.Chat brand arrived, a downloaded model loads by itself when the app opens, and read-aloud and dictation use your browser's speech services.",
       "points": [],
-      "help": [{"label": "Where is voice processed?", "href": "/help/#voice"}],
+      "help": [
+        {
+          "label": "Where is voice processed?",
+          "href": "/help/#voice"
+        }
+      ],
       "issues": []
     },
     {
@@ -120,9 +191,18 @@
         "PDF reading was fixed on older Safari versions."
       ],
       "help": [
-        {"label": "Where are my saved conversations?", "href": "/help/#saved-conversations"},
-        {"label": "What does App lock protect?", "href": "/help/#app-lock"},
-        {"label": "Restoring a backup", "href": "/help/#backup-restoration"}
+        {
+          "label": "Where are my saved conversations?",
+          "href": "/help/#saved-conversations"
+        },
+        {
+          "label": "What does App lock protect?",
+          "href": "/help/#app-lock"
+        },
+        {
+          "label": "Restoring a backup",
+          "href": "/help/#backup-restoration"
+        }
       ],
       "issues": []
     },
@@ -136,7 +216,9 @@
         "A reply can still end when the model's working window is full; the message says so and offers Continue."
       ],
       "help": [],
-      "issues": ["context-window"]
+      "issues": [
+        "context-window"
+      ]
     },
     {
       "id": "reliable-downloads",
@@ -150,10 +232,18 @@
         "The Stop control stays available during generation."
       ],
       "help": [
-        {"label": "A download stalls", "href": "/help/#stalled-download"},
-        {"label": "Can I use it offline?", "href": "/help/#offline"}
+        {
+          "label": "A download stalls",
+          "href": "/help/#stalled-download"
+        },
+        {
+          "label": "Can I use it offline?",
+          "href": "/help/#offline"
+        }
       ],
-      "issues": ["iphone-low-storage"]
+      "issues": [
+        "iphone-low-storage"
+      ]
     },
     {
       "id": "cloudflare-and-on-device",
@@ -166,8 +256,14 @@
         "Feedback forms on GitHub were added in v0.4.0 earlier the same day."
       ],
       "help": [
-        {"label": "What is Private Local Chat?", "href": "/help/#what-is-private-local-chat"},
-        {"label": "Privacy", "href": "/privacy/"}
+        {
+          "label": "What is Private Local Chat?",
+          "href": "/help/#what-is-private-local-chat"
+        },
+        {
+          "label": "Privacy",
+          "href": "/privacy/"
+        }
       ],
       "issues": []
     }
@@ -184,7 +280,12 @@
       "verified": "2026-10-30",
       "verifiedNote": "project investigation log; many sessions complete normally",
       "workaround": "Reopen the app: saved conversations and drafts remain and the downloaded files are reused. For dependable use on an iPhone, set Where replies run to a connected provider, or use a computer.",
-      "help": [{"label": "The page reloads by itself", "href": "/help/#unexpected-reload"}]
+      "help": [
+        {
+          "label": "The page reloads by itself",
+          "href": "/help/#unexpected-reload"
+        }
+      ]
     },
     {
       "id": "iphone-low-storage",
@@ -197,7 +298,12 @@
       "verified": "2026-10-30",
       "verifiedNote": "USB system log recorded the out-of-space error",
       "workaround": "Free space on the phone before downloading. The project's phone tests used at least 3 GB free as the minimum before a download.",
-      "help": [{"label": "A download stalls", "href": "/help/#stalled-download"}]
+      "help": [
+        {
+          "label": "A download stalls",
+          "href": "/help/#stalled-download"
+        }
+      ]
     },
     {
       "id": "speech-in-app-browsers",
@@ -210,7 +316,12 @@
       "verified": "2026-10-31",
       "verifiedNote": "release v0.11.0 documentation; not re-tested on a physical phone",
       "workaround": "Open Private Local Chat in Safari or Chrome, which support speech recognition.",
-      "help": [{"label": "Speech controls missing", "href": "/help/#speech-availability"}]
+      "help": [
+        {
+          "label": "Speech controls missing",
+          "href": "/help/#speech-availability"
+        }
+      ]
     },
     {
       "id": "processor-speed",
@@ -223,7 +334,12 @@
       "verified": "2026-10-31",
       "verifiedNote": "loading and generation verified in an automated browser test with a tiny test model",
       "workaround": "Turn on or fix the browser's GPU support, or connect a provider.",
-      "help": [{"label": "A model will not load", "href": "/help/#load-failure"}]
+      "help": [
+        {
+          "label": "A model will not load",
+          "href": "/help/#load-failure"
+        }
+      ]
     },
     {
       "id": "linux-shader-f16",
@@ -236,7 +352,12 @@
       "verified": "2026-10-31",
       "verifiedNote": "desktop environment receipt from 2026-10-30; processor path added the next day",
       "workaround": "Enable the browser's shader-f16 support if it offers it, or use the processor path, which is slower.",
-      "help": [{"label": "A model will not load", "href": "/help/#load-failure"}]
+      "help": [
+        {
+          "label": "A model will not load",
+          "href": "/help/#load-failure"
+        }
+      ]
     },
     {
       "id": "context-window",
@@ -262,7 +383,12 @@
       "verified": "2026-10-31",
       "verifiedNote": "project documentation of chat limits",
       "workaround": "Attach text-based files, or use a connected provider that accepts pictures (its data practices then apply).",
-      "help": [{"label": "What happens to my messages?", "href": "/help/#messages-and-providers"}]
+      "help": [
+        {
+          "label": "What happens to my messages?",
+          "href": "/help/#messages-and-providers"
+        }
+      ]
     }
   ]
 }

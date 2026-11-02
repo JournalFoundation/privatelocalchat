@@ -1287,7 +1287,7 @@
           <p id="setupHint" class="hint-text" role="status"></p>
         </div>
         <label for="localModelSelect">Model</label>
-        <select id="localModelSelect"><option value="light">Qwen3.5-2B — smaller download</option><option value="default">Qwen3.5-9B — higher quality</option></select>
+        <select id="localModelSelect"><option value="light">Qwen3.5-2B — smaller download</option><option value="lfm">LFM2.5-2.6B — Liquid, strong writing</option><option value="granite">Granite 4.0 H 1B — IBM, smallest download</option><option value="default">Qwen3.5-9B — higher quality</option></select>
         <p id="modelDetails"></p>
         <p id="modelStatus" role="status" aria-live="polite">Checking device capabilities…</p>
         <p class="hint-text model-help">Trouble? <a href="/help/#stalled-download" target="_blank" rel="noopener">Download stuck<span class="sr-only"> (opens in a new tab)</span></a> · <a href="/help/#load-failure" target="_blank" rel="noopener">Model will not load<span class="sr-only"> (opens in a new tab)</span></a> · <a href="/help/#model-storage" target="_blank" rel="noopener">Storage and removal<span class="sr-only"> (opens in a new tab)</span></a></p>
@@ -4867,7 +4867,7 @@
       async function openStorage() {
         const root = el('div');
         const lm = window.localModels, { store } = await loadDocModules();
-        try { await lm?.refreshStorage?.(); } catch { /* estimate unavailable */ }
+        try { await lm?.refreshStorage?.(); await lm?.inspectAll?.(); } catch { /* estimate unavailable */ }
         const stateNow = lm?.state;
         const table = el('table'); const body = el('tbody'); table.appendChild(body);
         const row = (label, value, note, action) => {
@@ -4881,7 +4881,7 @@
             const present = item.install.bytesPresent || 0;
             row('Model: ' + (item.info.modelId || tier), item.install.ok ? humanSize(present) + ' downloaded' : present ? humanSize(present) + ' partly downloaded' : 'Not downloaded',
               stateNow.load.state === 'ready' && stateNow.selection.tier === tier ? 'Loaded in memory now' : item.install.ok ? 'Not in memory' : '',
-              item.install.ok && stateNow.selection.tier === tier ? btn('Remove files', () => { document.getElementById('removeModel').click(); }) : null);
+              present > 0 ? btn('Remove files', async () => { if (!await confirmDialog('Remove ' + (item.info.label || item.info.modelId) + '?', 'This deletes the downloaded model files (' + humanSize(present) + ') from this device. Your conversations are kept, and you can download it again later.', 'Remove files', { danger: true })) return; try { await lm.removeTier(tier); showToast('Removed. ' + humanSize(present) + ' freed.'); } catch (e) { showToast(e.message); } openStorageRefresh(); }) : null);
           });
           row('Memory', stateNow.load.state === 'ready' ? 'Model is loaded' : 'Model is not loaded', 'Freeing memory keeps the download and your chats.',
             stateNow.load.state === 'ready' ? btn('Free memory', async () => { try { await lm.freeMemory(); showToast('Memory freed. The download is kept.'); } catch (e) { showToast(e.message); } openStorageRefresh(); }) : null);
