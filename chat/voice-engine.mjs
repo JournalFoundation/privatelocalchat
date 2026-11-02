@@ -40,7 +40,7 @@ export function validateManifest(manifest) {
 }
 
 export function createVoiceEngine({
-  baseUrl, manifest = KITTEN_NANO_MANIFEST, fetchImpl, workerUrl, dirName = VOICE_DIR, getRoot, createWorker, threads, attempts = 4, pause,
+  cachesImpl, baseUrl, manifest = KITTEN_NANO_MANIFEST, fetchImpl, workerUrl, dirName = VOICE_DIR, getRoot, createWorker, threads, attempts = 4, pause,
 } = {}) {
   const fetchFn = fetchImpl || ((...args) => globalThis.fetch(...args));
   const root = getRoot || (() => globalThis.navigator.storage.getDirectory());
@@ -190,9 +190,26 @@ export function createVoiceEngine({
     discardWorker("unloaded");
   }
 
+  /** The service worker keeps the 13 MB ONNX Runtime files in the app cache the first time they are used. Removing the voice removes those too. */
+  async function purgeRuntimeCache() {
+    const store = cachesImpl || globalThis.caches;
+    if (!store?.keys) return 0;
+    let removed = 0;
+    try {
+      for (const name of await store.keys()) {
+        const cache = await store.open(name);
+        for (const request of await cache.keys()) {
+          if (/\/vendor\/voice\/ort-wasm[^/]*$/.test(new URL(request.url).pathname) && await cache.delete(request)) removed++;
+        }
+      }
+    } catch { /* a cache that cannot be cleaned is not fatal; the model files are already gone */ }
+    return removed;
+  }
+
   async function remove() {
     await unload();
     await removeDirectory();
+    await purgeRuntimeCache();
     return status();
   }
 

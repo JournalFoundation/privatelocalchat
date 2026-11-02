@@ -307,3 +307,25 @@ test("golden with the real phonemizer: chunk ids equal the reference ids (needs 
   }
   assert.ok(identical >= golden.length - 1, `${identical}/${golden.length} identical`);
 });
+
+test("remove also clears the ONNX Runtime files the service worker cached, and nothing else", async () => {
+  const urls = [
+    "https://app.example/releases/abc/chat/vendor/voice/ort-wasm-simd-threaded.wasm",
+    "https://app.example/releases/abc/chat/vendor/voice/ort-wasm-simd-threaded.mjs",
+    "https://app.example/releases/abc/chat/vendor/voice/worker.js",
+    "https://app.example/releases/abc/index.html",
+  ];
+  const entries = new Map([["shell", new Set(urls)], ["other", new Set(["https://app.example/other/ort-wasm.wasm.txt"])]]);
+  const cachesImpl = {
+    keys: async () => [...entries.keys()],
+    open: async (name) => ({ keys: async () => [...entries.get(name)].map((url) => ({ url })), delete: async (r) => entries.get(name).delete(r.url) }),
+  };
+  const f = fixture();
+  const engine = f.make({ cachesImpl });
+  await engine.install();
+  await engine.remove();
+  assert.deepEqual([...entries.get("shell")], [urls[2], urls[3]], "only the two runtime files are dropped");
+  assert.equal(entries.get("other").size, 1);
+  const noCaches = f.make({ cachesImpl: { keys: async () => { throw new Error("denied"); } } });
+  await noCaches.remove(); // a cache that cannot be read does not make removal fail
+});
