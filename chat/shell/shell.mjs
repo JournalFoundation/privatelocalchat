@@ -241,9 +241,9 @@ export function createShell(app) {
       rows.push({ label: name, desc: (note || "") + (current ? " · " + modelName().detail : ""), icon: "device", checked: current, onClick: () => chooseLocal(o.value) });
     }
     const api = $("modelSelect");
-    if (api && api.options.length) {
+    if (api && [...api.options].some((o) => o.value)) {
       rows.push({ heading: "Connected provider" });
-      for (const o of [...api.options].slice(0, 12)) rows.push({ label: o.text, icon: "cloud", checked: lm?.mode === "api" && api.value === o.value, onClick: () => chooseProvider(o.value) });
+      for (const o of [...api.options].filter((x) => x.value).slice(0, 12)) rows.push({ label: o.text, icon: "cloud", checked: lm?.mode === "api" && api.value === o.value, onClick: () => chooseProvider(o.value) });
     }
     rows.push({ divider: true }, { label: "Manage models…", icon: "sliders", onClick: () => shell.openSettings("models") }, { label: "Add a provider…", icon: "cloud", onClick: () => shell.openSettings("models", $("endpointSelect") || $("inferenceMode"), true) });
     popover(modelPill, rows, { align: "end", above: true, cls: "wide" });

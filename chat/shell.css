@@ -256,3 +256,5 @@ body.shell .thread-list li.selected, body.shell .thread-list li.selected .thread
 /* the model pill, mic and voice/send sit on the right; "+" stays on the left */
 body.shell .composer-bar .shell-model { margin-left: auto !important; }
 body.shell .composer-bar .composer-actions:not(:has(> :not([hidden]))) { display: none; }
+@media (hover: none) { body.shell .sidebar-close:focus, body.shell .shell-icon-btn:focus, .shell-pop-row:focus { outline: none; } }
+.setup-card .hint-text, #setupHint { margin-top: 10px; }
