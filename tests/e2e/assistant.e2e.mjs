@@ -9,7 +9,7 @@ const speechMocks=()=>{
   emit(text,final=true){this.onresult&&this.onresult({resultIndex:0,results:[Object.assign([{transcript:text}],{isFinal:final})]});}}
  window.SpeechRecognition=Rec;
 };
-const h=await launch({init:speechMocks,shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
+const h=await launch({init:speechMocks,port:18271});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
 const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};
@@ -145,7 +145,7 @@ try{
 finally{await h.close();}
 
 // a browser with no speech recognition or voices simply does not show the controls
-const h2=await launch({build:false,shell:true,port:18272+Number(process.env.E2E_PORT_OFFSET||0),init:()=>{delete window.SpeechRecognition;delete window.webkitSpeechRecognition;Object.defineProperty(window,'speechSynthesis',{configurable:true,value:undefined});}});
+const h2=await launch({build:false,port:18272,init:()=>{delete window.SpeechRecognition;delete window.webkitSpeechRecognition;Object.defineProperty(window,'speechSynthesis',{configurable:true,value:undefined});}});
 try{
  await h2.page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
  const count=async sel=>h2.page.locator(sel).count();

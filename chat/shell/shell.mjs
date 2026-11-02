@@ -37,7 +37,7 @@ export function popover(anchor, rows, { align = "start", above = false, cls = ""
     b.append(text);
     if (r.right) b.append(h("span", { class: "shell-pop-right" }, r.right));
     if (r.checked) b.append(h("span", { class: "shell-pop-check" }, icon("check")));
-    b.addEventListener("click", (e) => { e.stopPropagation(); if (r.keepOpen) { r.onClick?.(e); return; } closePopover(); r.onClick?.(e); });
+    b.addEventListener("click", (e) => { e.stopPropagation(); if (r.keepOpen) { r.onClick?.(e); return; } closePopover(); anchor.focus?.({ preventScroll: true }); r.onClick?.(e); }); // focus goes back to the control that opened the menu, so a dialog opened next returns there
     pop.append(b);
   }
   document.body.append(pop);

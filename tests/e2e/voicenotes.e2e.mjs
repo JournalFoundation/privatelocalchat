@@ -7,7 +7,7 @@ const mocks=()=>{
  class Rec{constructor(){window.__recs.push(this);}start(){this.started=true;}stop(){this.started=false;this.onend&&this.onend();}abort(){this.started=false;this.aborted=true;}emit(t,f=true){this.onresult&&this.onresult({resultIndex:0,results:[Object.assign([{transcript:t}],{isFinal:f})]});}}
  window.SpeechRecognition=Rec;
 };
-const h=await launch({init:mocks,shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});const {page}=h;
+const h=await launch({init:mocks,port:18271});const {page}=h;
 const ok=n=>console.log('PASS',n);
 const plusItem=async label=>{await page.click('#shellPlus');await page.click(`.shell-pop .shell-pop-row:has-text("${label}")`);};
 const settle=()=>page.waitForFunction(()=>/Response complete\./.test(document.querySelector('#generationStatus').textContent));

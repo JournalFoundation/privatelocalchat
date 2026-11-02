@@ -14,7 +14,7 @@ const speechMocks=()=>{
  window.AudioContext=class{constructor(){this.currentTime=0;this.state='running';this.destination={};}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){}};}createOscillator(){const o={type:'',frequency:{value:0},connect(){},start(){},stop(){}};window.__tones.push(o);return o;}resume(){}close(){}};
  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{if(window.__mic==='denied'){const e=new Error('denied');e.name='NotAllowedError';throw e;}return {getTracks:()=>[{stop(){}}]};}}});
 };
-const h=await launch({init:speechMocks,shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
+const h=await launch({init:speechMocks,port:18271});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
 const openMemory=async()=>{await page.click('button[aria-label="This device menu"]');await page.click('.shell-pop .shell-pop-row:has-text("Memory & preferences")');await page.waitForSelector('.app-dialog');};

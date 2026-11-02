@@ -9,7 +9,7 @@ const h=await launch({init:()=>{
  window.__shared=[];window.__shareMode='ok';
  navigator.canShare=()=>true;
  navigator.share=data=>{window.__shared.push({...data});return window.__shareMode==='cancel'?Promise.reject(Object.assign(new Error('cancelled'),{name:'AbortError'})):Promise.resolve();};
-},shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
+},port:18271});
 const {page,context}=h;
 const dir=mkdtempSync(join(tmpdir(),'plc-sharing-'));
 const ok=name=>console.log('PASS',name);
@@ -69,8 +69,7 @@ try{
  await page.waitForFunction(()=>window.__shared.length===2);
  assert((await page.locator('.product-share-status').innerText()).trim()===''&&await page.locator('#productCopyBtn').isEnabled()&&await page.locator('#productShareBtn').isEnabled(),'usable after cancelling');
  await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.app-dialog'));
- // APP BUG: after the Share dialog closes, focus lands on <body> (the hidden #shareBtn opened it); it should return to the visible Explore button.
- if(false)assert(await page.evaluate(()=>{const a=document.activeElement;return a&&a!==document.body&&a.getBoundingClientRect().width>0;}),'focus returns to something visible, not the page body');
+ assert(await page.evaluate(()=>{const a=document.activeElement;return a&&a!==document.body&&a.getBoundingClientRect().width>0;}),'focus returns to something visible, not the page body');
  ok('public share');
 
  // ---- Transfer settings: one review, one affirmative action, one immutable package for link, QR and file
