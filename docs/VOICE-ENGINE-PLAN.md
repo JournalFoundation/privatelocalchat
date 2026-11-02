@@ -209,6 +209,7 @@ Everything lands on `dev` first. The dev flag keeps the offer hidden until calib
 | iPhone 15 Pro, Safari | 4 | hidden | Apple | yes | 19 ms |
 | iPhone 11 Pro, Safari | 4 | hidden | none (API absent) | n/a | 53 ms |
 | Mac, Safari | 8 | hidden | Apple | yes | 18 ms |
+| Galaxy S8+, Chrome (Android 9) | 8 | 4 GB (rounded) | none (API present, no adapter) | n/a | **487 ms** |
 | Boiler, Chromium with flags | 12 | 32 GB | NVIDIA (RTX 3060) | **no** | 66 ms |
 | Boiler, Chromium default | 12 | 32 GB | none | n/a | 63 ms |
 | Centroid, headless Chromium | 16 | 32 GB | none | n/a | 62 ms |
@@ -217,7 +218,8 @@ Everything lands on `dev` first. The dev flag keeps the offer hidden until calib
 - The WebGPU flags make a real GPU adapter appear on Boiler; without them there is none. The adapter there does not offer `shader-f16`, so fp16 model variants would not be usable on it.
 - Safari reports `hardwareConcurrency` of 4 on both iPhones whatever the chip, and no `deviceMemory`. Cores and memory cannot separate these phones. That is another reason the iOS rule is platform-based.
 - The simple reference loop separates the fast Apple chips (about 18 ms) from the iPhone 11 Pro (53 ms) and from the x86 browsers (about 62 to 66 ms), but not usefully between desktop and old phone. It is only a placeholder probe. A better probe (a small WASM workload, run in a worker) is part of workstream 1.
-- The Galaxy S8+ was not inventoried yet (battery). It will be read last, once charged.
+- **Galaxy S8+ (read at 8% battery, read-only):** the reference loop took 487 ms, 7 to 25 times slower than every other device, so even this crude probe separates it clearly. Chrome reported zero voices (the page may have been in the background; to be re-read in the foreground).
+- **Chrome's storage estimate cannot be trusted on a phone.** It reported a 34 GB quota while the data partition had about 430 MB free: the quota is a share of total disk. `pickVoiceEngine` therefore never accepts the estimate alone on mobile. It requires `storage.writeOk`, the result of really writing the download size plus a margin to private storage and deleting it again (workstream 1 builds that check). Without it the answer is "storage-unverified" and nothing is offered.
 - The Mac's Safari already holds about 5 GB of browser storage for `privatelocal.chat` from earlier model testing. Nothing was cleared.
 
 **Verified source facts**

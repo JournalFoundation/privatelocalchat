@@ -11,7 +11,7 @@ const UA = {
 };
 const GB = 1e9;
 const good = { cores: 8, deviceMemoryGB: 8 };
-const roomy = { usage: 1 * GB, quota: 40 * GB };
+const roomy = { usage: 1 * GB, quota: 40 * GB, writeOk: true };
 const fast = { ms: 30 };
 const on = { ...VOICE_CONFIG, calibrated: true };
 const pick = (o) => pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast, config: on, ...o });
@@ -39,9 +39,9 @@ test("Android with memory hidden is never offered a voice (fail safe)", () => {
 });
 
 test("a storage-starved phone gets no offer; a roomier one gets the small voice before the large one", () => {
-  const full = pick({ userAgent: UA.android, maxTouchPoints: 5, storage: { usage: 55.3 * GB, quota: 55.8 * GB } });
+  const full = pick({ userAgent: UA.android, maxTouchPoints: 5, storage: { usage: 55.3 * GB, quota: 55.8 * GB, writeOk: false } });
   assert.equal(full.offer, false); assert.equal(full.reason, "not-enough-free-storage");
-  const medium = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 8 }, storage: { usage: 0, quota: 0.65 * GB } });
+  const medium = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 8 }, storage: { usage: 0, quota: 0.65 * GB, writeOk: true } });
   assert.equal(medium.offer, true); assert.equal(medium.candidate, "kitten");
 });
 
@@ -88,4 +88,14 @@ test("stage 3: a slow or slow-starting voice is rejected", () => {
   assert.equal(voiceIsFastEnough({ realTimeFactor: 1.2, firstAudioMs: 600 }), false);
   assert.equal(voiceIsFastEnough({ realTimeFactor: 4, firstAudioMs: 9000 }), false);
   assert.equal(voiceIsFastEnough({}), false);
+});
+
+test("real Galaxy S8+ numbers: a huge reported quota is not trusted without a write test, and the slow probe still declines", () => {
+  // read from the device on 2026-11-02: 8 cores, deviceMemory 4, quota 34 GB while the data partition had about 430 MB free, probe loop 487 ms
+  const s8 = { userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 4 }, storage: { usage: 0.04 * GB, quota: 34.3 * GB }, probe: { ms: 487 } };
+  const noTest = pick(s8);
+  assert.equal(noTest.offer, false); assert.equal(noTest.reason, "storage-unverified"); assert.equal(noTest.needsStorageTest, true);
+  const tested = pick({ ...s8, storage: { ...s8.storage, writeOk: true } });
+  assert.equal(tested.offer, false); assert.equal(tested.reason, "probe-too-slow");
+  assert.equal(pick({ ...s8, storage: { ...s8.storage, writeOk: false } }).reason, "not-enough-free-storage");
 });

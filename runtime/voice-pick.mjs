@@ -35,7 +35,9 @@ const os = (reason, extra = {}) => ({ engine: "os", offer: false, reason, ...ext
  * @param {object} a.env              capability probe result: { deviceMemoryGB, cores, webgpu:{available,isFallbackAdapter} }
  * @param {string} a.userAgent
  * @param {number} a.maxTouchPoints
- * @param {{usage:number,quota:number}|null} a.storage   navigator.storage.estimate(), in bytes
+ * @param {{usage:number,quota:number,writeOk?:boolean}|null} a.storage   navigator.storage.estimate() in bytes. Chrome sizes the quota from TOTAL disk,
+ *        not free space (a phone with 430 MB free reported a 34 GB quota), so on mobile the estimate is never trusted alone: `writeOk` is the
+ *        result of really writing the download size plus a margin to private storage and deleting it again.
  * @param {{ms:number}|null} a.probe  compute probe result; null when it has not run yet
  * @param {string} a.language         BCP-47 language of the chat, e.g. "en" or "en-US"
  * @param {string|null} a.chosen      "os", an engine id, or null when the person has not chosen
@@ -66,6 +68,8 @@ export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, 
   if (mem !== null && mem < config.minMemoryGB) return os("low-memory", { stage: 1 });
   if (!storage || !Number.isFinite(storage.quota) || !Number.isFinite(storage.usage)) return os("storage-unknown", { stage: 1 });
   const freeMB = (storage.quota - storage.usage) / 1e6;
+  // a mobile browser's estimate can overstate free space by orders of magnitude: it must be proven with a real write
+  if (mobile && storage.writeOk !== true) return os(storage.writeOk === false ? "not-enough-free-storage" : "storage-unverified", { stage: 1, needsStorageTest: storage.writeOk === undefined });
 
   // the larger voice needs memory headroom (or, on desktop where memory is hidden, a fast probe below)
   const wantQuality = (mem !== null ? mem >= config.qualityMinMemoryGB : !mobile) && candidates.some((c) => c.tier === 2);

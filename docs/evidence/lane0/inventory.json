@@ -231,6 +231,37 @@
     "localEnglish": 25
    },
    "jsLoopMs": 18
+  },
+  "galaxy-s8plus-chrome": {
+   "at": "2026-11-02T21:27:04.640Z",
+   "url": "https://privatelocal.chat",
+   "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
+   "platform": "Linux armv81",
+   "cores": 8,
+   "deviceMemoryGB": 4,
+   "touchPoints": 5,
+   "secureContext": true,
+   "crossOriginIsolated": true,
+   "sharedArrayBuffer": true,
+   "storage": {
+    "usageMB": 40,
+    "quotaMB": 34335
+   },
+   "persisted": false,
+   "opfs": true,
+   "webgpu": {
+    "api": true,
+    "adapter": false
+   },
+   "wasmSimd": true,
+   "speech": {
+    "synth": true,
+    "total": 0,
+    "english": 0,
+    "localEnglish": 0
+   },
+   "jsLoopMs": 487,
+   "_note": "Reported quota is total-disk based; the data partition had about 430 MB free. Read at 8% battery."
   }
  }
 }
