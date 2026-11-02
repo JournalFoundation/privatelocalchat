@@ -229,6 +229,11 @@ Everything lands on `dev` first. The dev flag keeps the offer hidden until calib
 - **`kokoro-js` voices:** the voice base URL is hard-coded to Hugging Face and cannot be configured, so we host the voice files on the CDN and load them ourselves (or patch the library).
 - **Runtime already in the repo:** `chat/vendor/embedding/worker.js` bundles transformers.js 4.2.0 and ONNX Runtime 1.26.0-dev, loaded by `chat/embedder.mjs` and redirected to our CDN by `ops/embedding/model-env.mjs`. Its pinned hashes are in `docs/EMBEDDINGS.md`. It is older than `onnxruntime-web` 1.31.1 and has no WebGPU build hosted. `kokoro-js` declares transformers.js 3.5.x, so it may need adapting.
 
+**Spike result (2026-11-02): Kokoro q8 runs in a browser, but not in real time on CPU.** `docs/evidence/voice/kokoro-wasm-spike.json`. In headless Chromium on Centroid (16 cores, no GPU, cross-origin isolated) through `kokoro-js` and transformers.js, the WASM backend produced valid 24 kHz audio, loading in about 10 s once cached. A warm 4.9 s sentence took 8.8 s with one thread (real-time factor 0.56) and 5.8 s with eight threads (0.86). Even a fast desktop CPU cannot stay ahead of playback, so:
+- Kokoro is only chosen when a real GPU adapter exists (the selection rule now requires it, and is tested). It is not a CPU voice.
+- The small voice (Kitten nano, designed for CPU) is the main candidate for everyone else. It has not been run yet: its next spike must prove it runs under ONNX Runtime Web and measure its real-time factor. If it also falls short, the honest result is that most devices keep the system voice.
+- Kokoro on the GPU path is still untested (Boiler's RTX 3060 adapter lacks `shader-f16`, so only the fp32 variant could run there, and one community export reports wrong output on fp16 WebGPU).
+
 **Unverified (do not rely on)**
 - That the Kitten int8 and Kokoro q8 files run under ONNX Runtime Web (WASM). This is the first thing the Lane 2 spike must prove.
 - Separate licences of the voices, tokenizer and config files, and Kitten's training-data licences.

@@ -10,7 +10,8 @@ const UA = {
   mac: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
 };
 const GB = 1e9;
-const good = { cores: 8, deviceMemoryGB: 8 };
+const gpu = { available: true, isFallbackAdapter: false };
+const good = { cores: 8, deviceMemoryGB: 8, webgpu: gpu };
 const roomy = { usage: 1 * GB, quota: 40 * GB, writeOk: true };
 const fast = { ms: 30 };
 const on = { ...VOICE_CONFIG, calibrated: true };
@@ -25,7 +26,7 @@ test("iPhone and iPad always keep the system voice, whatever else is true", () =
 });
 
 test("a powerful new Android device is offered the larger voice; an old busy one is not", () => {
-  const modern = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 8 } });
+  const modern = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 8, webgpu: gpu } });
   assert.equal(modern.offer, true); assert.equal(modern.candidate, "kokoro");
   const old = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 4, deviceMemoryGB: 2 } });
   assert.equal(old.offer, false); assert.equal(old.reason, "low-memory");
@@ -98,4 +99,12 @@ test("real Galaxy S8+ numbers: a huge reported quota is not trusted without a wr
   const tested = pick({ ...s8, storage: { ...s8.storage, writeOk: true } });
   assert.equal(tested.offer, false); assert.equal(tested.reason, "probe-too-slow");
   assert.equal(pick({ ...s8, storage: { ...s8.storage, writeOk: false } }).reason, "not-enough-free-storage");
+});
+
+test("without a real GPU adapter the larger voice is never chosen (it ran below real time on CPU)", () => {
+  const cpuOnly = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: false } } });
+  assert.equal(cpuOnly.candidate, "kitten");
+  const software = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: true, isFallbackAdapter: true } } });
+  assert.equal(software.candidate, "kitten");
+  assert.equal(pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: gpu } }).candidate, "kokoro");
 });

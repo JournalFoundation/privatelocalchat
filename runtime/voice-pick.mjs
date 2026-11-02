@@ -13,7 +13,7 @@ export const VOICE_CONFIG = Object.freeze({
   probeMaxMs: 120,           // placeholder
   // stage 3 (after install): audio seconds produced per second of compute; below this the system voice takes over again
   minRealTimeFactor: 2,      // placeholder
-  qualityMinMemoryGB: 8      // placeholder: memory (or unknown on desktop with a fast probe) needed for the larger voice
+  qualityMinMemoryGB: 8      // placeholder: memory (or unknown on desktop) needed for the larger voice, which also needs a real GPU adapter
 });
 
 /** Candidates. `tier` orders them; sizes are the bytes the person would download (model plus voices). */
@@ -72,7 +72,9 @@ export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, 
   if (mobile && storage.writeOk !== true) return os(storage.writeOk === false ? "not-enough-free-storage" : "storage-unverified", { stage: 1, needsStorageTest: storage.writeOk === undefined });
 
   // the larger voice needs memory headroom (or, on desktop where memory is hidden, a fast probe below)
-  const wantQuality = (mem !== null ? mem >= config.qualityMinMemoryGB : !mobile) && candidates.some((c) => c.tier === 2);
+  // Measured 2026-11-02: Kokoro q8 on WASM/CPU ran at 0.56x (1 thread) to 0.86x (8 threads) real time on a 16-core desktop, so it needs a real GPU adapter
+  const realGpu = Boolean(env.webgpu?.available) && !env.webgpu?.isFallbackAdapter;
+  const wantQuality = realGpu && (mem !== null ? mem >= config.qualityMinMemoryGB : !mobile) && candidates.some((c) => c.tier === 2);
   const pick = (wantQuality ? candidates.find((c) => c.tier === 2) : candidates.find((c) => c.tier === 1)) || candidates[0];
   const needMB = (pick.downloadBytes / 1e6) * config.storageHeadroomFactor;
   if (freeMB < Math.max(needMB, config.minFreeStorageMB + pick.downloadBytes / 1e6)) {
