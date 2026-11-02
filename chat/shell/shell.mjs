@@ -337,6 +337,31 @@ function buildSettings({ app, shell, registry, moved }) {
     window.addEventListener("local-model-state", () => { if (!page.hidden && page.dataset.section === "models") paint(false); });
     w.append(h("h3", { class: "set-sub", text: "Choose and download" }), moved.providerSettings); return w;
   });
+  add("voice", "Voice", "phone", "voice read aloud listen speak natural download sample system tts", () => {
+    const w = h("div", { class: "set-moved" }, h("h2", { text: "Voice for reading aloud" }));
+    const box = h("div", { class: "set-card", id: "voiceCard" });
+    w.append(box);
+    const size = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : Math.max(1, Math.round(n / 1e6)) + " MB");
+    async function paint() {
+      box.textContent = "";
+      const ctl = await app.loadVoice?.();
+      if (!ctl) { box.append(row("Current voice", "System voice (the one your device provides).", null)); return; }
+      if (ctl.isIOS()) { box.append(row("Current voice", "System voice. iPhone and iPad always use the system voice: a downloaded voice would not fit in the memory the browser allows beside the chat model.", null)); return; }
+      const snap = ctl.snapshot(), has = Boolean(snap.engine) && snap.state === "active";
+      if (!has) {
+        box.append(row("Current voice", "System voice (the one your device provides)." + (snap.state === "fallback" ? " A downloaded voice was tried and removed: " + (snap.reason || "it did not work well here") + "." : " If this device can run a more natural voice, it is offered once after you listen to a reply."), null));
+        return;
+      }
+      const bytes = await ctl.bytes();
+      const controls = h("div", { class: "set-control" });
+      controls.append(btn("Hear a sample", async () => { try { await ctl.hearSample(); } catch (e) { app.toast?.(e.message); } }));
+      controls.append(btn("Unload", async () => { await ctl.unload(); paint(); }));
+      controls.append(btn("Remove", async () => { if (!confirm("Remove " + snap.label + " from this device? Reading aloud goes back to the system voice. You can download it again later.")) return; await ctl.remove(); paint(); }, "danger"));
+      box.append(h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-label", text: snap.label || "Downloaded voice" }), h("div", { class: "set-desc", text: size(bytes) + " on this device · works offline" })), controls));
+    }
+    w.paint = paint; w.addEventListener("shell-refresh", () => paint()); paint();
+    return w;
+  });
   add("data", "Data controls", "shield", "export import backup transfer delete archive trash storage", () => {
     const w = h("div", {}, h("h2", { text: "Data controls" }));
     w.append(card(
