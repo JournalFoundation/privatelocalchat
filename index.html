@@ -4237,12 +4237,15 @@
       let speechMod = null, voiceMod = null;
       const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
       const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice.mjs'));
-      // Optional downloaded read-aloud voice (chat/voice-upgrade.mjs). Test hook, nothing else: with localStorage plc.test.voice=1 a test page may
-      // define window.__plcVoiceEngineFactory(engineId) -> engine (and .inputs = controller options such as env/estimate/loadModule/devOffer).
+      // Optional downloaded read-aloud voice (chat/voice-upgrade.mjs). Development builds also honour a test hook (see the markers below).
       let voiceUpPromise = null;
       const loadVoiceUpgrade = () => (voiceUpPromise ||= (async () => {
         const mod = await import(moduleBase() + 'chat/voice-upgrade.mjs');
-        const hook = localStorage.getItem('plc.test.voice') === '1' ? window.__plcVoiceEngineFactory : null;
+        let hook = null;
+        /* DEV_DIAGNOSTICS_START */
+        // with localStorage plc.test.voice=1 a test page may define window.__plcVoiceEngineFactory(engineId) -> engine (and .inputs = controller options)
+        hook = localStorage.getItem('plc.test.voice') === '1' ? window.__plcVoiceEngineFactory : null; // test hook: stripped from production builds
+        /* DEV_DIAGNOSTICS_END */
         const env = async () => {
           let webgpu = { available: false };
           try { const a = await navigator.gpu?.requestAdapter(); if (a) webgpu = { available: true, isFallbackAdapter: Boolean(a.isFallbackAdapter) }; } catch { /* no WebGPU */ }

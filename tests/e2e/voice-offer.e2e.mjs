@@ -1,3 +1,4 @@
+process.env.PLC_E2E_BRANCH='dev'; // the test hook lives inside the dev diagnostics markers, which only dev builds keep
 import {launch,assert} from './harness.mjs';
 // The downloaded-voice offer, driven with the in-page fake engine through the documented test hook (localStorage plc.test.voice=1 and
 // window.__plcVoiceEngineFactory). The system voice is a mock that finishes quickly.
