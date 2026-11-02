@@ -639,3 +639,74 @@ body.roberta-call-open { overflow: hidden; }
 .vn-wave { overflow: hidden; gap: 1.5px; }
 .vn-bar { min-width: 1.5px; }
 .vn-clock { min-width: 3.6rem; }
+
+/* ---- Polish pass ------------------------------------------------------------------------------------------------------------
+   Spacing, hierarchy and readability fixes found by looking at every screen on a phone and a desktop in both themes. */
+
+/* The backup reminder in the sidebar: an icon, a heading and a sentence, then two equal buttons. */
+.backup-nudge { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.75rem; align-items: start; margin: 0.25rem 0 0.75rem; padding: 0.9rem; border: 1px solid var(--plc-border); border-radius: var(--plc-radius-panel); background: var(--plc-accent-tint); }
+.backup-nudge[hidden] { display: none; }
+.backup-nudge-icon { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--plc-surface); color: var(--plc-accent); }
+.backup-nudge-icon svg { width: 1.1rem; height: 1.1rem; }
+.backup-nudge-text strong { display: block; font-size: 0.95rem; line-height: 1.3; color: var(--plc-ink); }
+.backup-nudge-text p { margin: 0.2rem 0 0; font-size: 0.85rem; line-height: 1.45; color: var(--plc-muted); }
+.backup-nudge-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-top: 0.5rem; }
+.backup-nudge-actions button { min-height: 2.5rem; padding: 0 0.25rem; font-size: 0.85rem; white-space: nowrap; justify-content: center; min-width: 0; }
+
+/* Chat list: long titles end in an ellipsis instead of being cut off mid-letter. */
+.thread-list li .thread-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: var(--plc-control-min); padding-right: 0.25rem; }
+
+/* Sidebar footer: quiet links and one calm status line. */
+.side-footer .footer-links a { color: var(--plc-muted); text-decoration: none; }
+.side-footer .footer-links a:hover, .side-footer .footer-links a:focus-visible { color: var(--plc-ink); text-decoration: underline; }
+.side-footer .side-footer-row { margin-top: 0.5rem; }
+.side-footer #releaseInfo, .side-footer #offlineStatus { color: var(--plc-muted); }
+
+/* "Instructions for this chat": a quiet disclosure row with a chevron. */
+.system-prompt-container > summary { list-style: none; cursor: pointer; justify-content: space-between; gap: 0.5rem; }
+.system-prompt-container > summary::-webkit-details-marker { display: none; }
+.system-prompt-container > summary::after { content: '›'; font-size: 1.3rem; line-height: 1; color: var(--plc-muted); transition: transform var(--plc-motion-fast); }
+.system-prompt-container[open] > summary::after { transform: rotate(90deg); }
+
+/* Help & about: the links are a tidy list of rows, then the two actions, then the small print. */
+.help-links { gap: 0; margin: 0.75rem 0; border: 1px solid var(--plc-border); border-radius: var(--plc-radius-control); overflow: hidden; background: var(--plc-surface); }
+.help-links li + li { border-top: 1px solid var(--plc-border); }
+.help-links a { display: flex; justify-content: space-between; padding: 0 0.9rem; color: var(--plc-ink); font-weight: 500; text-decoration: none; }
+.help-links a::after { content: '›'; font-size: 1.3rem; color: var(--plc-muted); }
+.help-links a:hover, .help-links a:focus-visible { background: var(--plc-accent-tint); }
+.help-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1rem; }
+.help-actions button { flex: 1 1 14rem; min-height: var(--plc-control-min); justify-content: center; }
+.help-fineprint .hint-text { margin: 0 0 0.4rem; line-height: 1.45; }
+
+@media (max-width: 599px) {
+  /* Message actions: one tidy row of icons (the words stay for screen readers). */
+  .message-actions { flex-wrap: nowrap; gap: 0; justify-content: flex-start; }
+  .message-actions .act, .message-actions button { padding: 0; min-width: var(--plc-control-min); justify-content: center; }
+  .message-actions .act .ico-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* Code blocks: small buttons, so the bar does not dwarf the code. */
+  .code-bar { padding: 0.25rem 0.5rem; }
+  .code-action { min-height: 2.25rem; padding: 0 0.75rem; }
+  /* Context meter: the sentence on its own line, the bar underneath. */
+  .context-meter { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
+  .context-meter > span { flex: 1 1 100%; }
+  .context-meter meter { flex: 1 1 100%; width: 100%; }
+}
+
+/* Roberta: the card starts near the top so its chips are visible, the feed fits the screen, and the jump button stays out of the way. */
+.empty-state:has(.roberta-thread) { margin-top: 0.5rem; }
+.roberta-feed { max-height: min(18rem, 38dvh); }
+body:has(.empty-state .roberta-thread) .jump-latest { display: none; }
+.rcall-btn .ico { width: 1.6rem; height: 1.6rem; }
+/* The line she is saying: whole sentences, ending in an ellipsis rather than being cut off mid-word. */
+.rcall-line { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; line-clamp: 6; overflow: hidden; max-height: none; }
+
+/* Dialog notices: clear but calm. The red is in the icon and the tint, not a heavy outline on every card. */
+.danger-notice { border-color: color-mix(in srgb, var(--plc-danger) 35%, var(--plc-border)); font-size: 0.92rem; line-height: 1.45; }
+/* Focus rings inside sheets sit inside the button so a sheet's edge never clips them. */
+.app-dialog .sheet button:focus-visible { outline-offset: -3px; }
+
+/* Checkbox rows (for example "Use memory in new questions"): the box sits next to its words, not in the middle of the row. */
+label.list-row:has(> input[type='checkbox']) { display: flex; align-items: center; justify-content: flex-start; gap: 0.75rem; cursor: pointer; }
+label.list-row > input[type='checkbox'], .app-dialog label.list-row > input[type='checkbox'] { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; margin: 0; }
+/* Storage and backups: the action buttons line up in one column. */
+@media (min-width: 600px) { .app-dialog td button { min-width: 11.5rem; } }

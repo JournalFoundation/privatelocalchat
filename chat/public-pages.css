@@ -168,3 +168,9 @@ main { padding-block: var(--plc-space-8) 0; display: block; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 @media print { .site-header .header-open, .product-share-actions, .skip-link { display: none; } }
+
+/* Phones: the page already has its own "Open Private Local Chat" button just below, so the header stays short. */
+@media (max-width: 40rem) {
+  .site-header .header-open { display: none; }
+  .site-header-inner { padding-block: var(--plc-space-2); }
+}

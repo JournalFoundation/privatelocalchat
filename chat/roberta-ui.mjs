@@ -9,6 +9,7 @@
 import { ROBOT_NAME, ROBOT_TAGLINE, describeContext } from "./ivr-content.mjs";
 import { createIvr } from "./ivr.mjs";
 import { mountVoiceNote, stopOtherNotes } from "./voice-note.mjs";
+import { iconNode } from "./icons.mjs";
 
 /** Groups the engine's transcript for the voicemail thread: consecutive spoken lines are one voice note; menu prompts become buttons instead. */
 export function groupTranscript(transcript) {
@@ -176,10 +177,10 @@ export function createRoberta({ app, doc = document }) {
     }
     const controls = el(doc, "div", "rcall-controls");
     const ctl = (id, label, cls) => { const w = el(doc, "div", "rcall-control"); const b = el(doc, "button", "rcall-btn" + (cls ? " " + cls : "")); b.type = "button"; b.id = id; b.setAttribute("aria-label", label); const t = el(doc, "span", "rcall-control-label", label); w.append(b, t); return { w, b, t }; };
-    const speak = ctl("rcallSpeak", "Speak"); speak.b.textContent = "🎙";
-    const skip = ctl("rcallSkip", "Skip"); skip.b.textContent = "⏭";
-    const mute = ctl("rcallMute", "Mute voice"); mute.b.textContent = "🔇"; mute.b.setAttribute("aria-pressed", "false");
-    const end = ctl("rcallEnd", "End call", "rcall-end"); end.b.textContent = "✕";
+    const speak = ctl("rcallSpeak", "Speak"); speak.b.replaceChildren(iconNode("mic", { doc }));
+    const skip = ctl("rcallSkip", "Skip"); skip.b.replaceChildren(iconNode("skip", { doc }));
+    const mute = ctl("rcallMute", "Mute voice"); mute.b.replaceChildren(iconNode("volume", { doc })); mute.b.setAttribute("aria-pressed", "false");
+    const end = ctl("rcallEnd", "End call", "rcall-end"); end.b.replaceChildren(iconNode("hangup", { doc }));
     controls.append(speak.w, skip.w, mute.w, end.w);
     win.append(top, stage, captions, hint, pad, controls);
     root.appendChild(win); doc.body.appendChild(root);
@@ -200,7 +201,7 @@ export function createRoberta({ app, doc = document }) {
       if (h) { listening = { finish: done }; yours.textContent = "Listening…"; render(); }
     });
     skip.b.addEventListener("click", () => ivr.interrupt());
-    mute.b.addEventListener("click", () => { muted = !muted; mute.b.setAttribute("aria-pressed", String(muted)); mute.t.textContent = muted ? "Unmute voice" : "Mute voice"; if (muted) ivr.interrupt(); });
+    mute.b.addEventListener("click", () => { muted = !muted; mute.b.setAttribute("aria-pressed", String(muted)); mute.b.replaceChildren(iconNode(muted ? "volume-off" : "volume", { doc })); mute.t.textContent = muted ? "Unmute voice" : "Mute voice"; if (muted) ivr.interrupt(); });
     end.b.addEventListener("click", close);
     win.addEventListener("keydown", (e) => {
       if (e.key === "Escape") { e.stopPropagation(); close(); return; }

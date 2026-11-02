@@ -43,7 +43,6 @@ export function createTransferUi({ app, el, openAppDialog, showToast, icon, doc 
   // ---- Share ------------------------------------------------------------------------------------------------------------
   function openShare() {
     const body = el("div");
-    body.appendChild(scope("share", "Recommend Private Local Chat to someone. Only the public app address is shared.", "flow-share"));
     mountProductShare(body, { doc, nav, onToast: showToast, qrColors: app.qrColors });
     return openAppDialog({ title: "Share Private Local Chat", content: body });
   }
@@ -68,11 +67,15 @@ export function createTransferUi({ app, el, openAppDialog, showToast, icon, doc 
     const body = el("div");
     body.appendChild(scope("help", "Guides, answers and information about Private Local Chat. Each opens in a new tab, so your chat and draft stay here."));
     body.appendChild(list);
-    if (site.supportEmail) { const p = el("p", "hint-text"); const a = el("a", null, "Email the project team"); a.href = "mailto:" + site.supportEmail; p.append(a, " — goes to the people who run this project, for questions and support."); body.appendChild(p); }
-    body.appendChild(el("p", "hint-text", "GitHub submissions are public. Leave out API keys and private conversations."));
-    const sonalon = el("p", "hint-text"); sonalon.append("Looking for AI personas? "); const sa = el("a", null, "Explore Sonalon"); sa.href = "https://sonalon.com/"; sa.target = "_blank"; sa.rel = "noopener"; sonalon.appendChild(sa); body.appendChild(sonalon);
-    if (app.callRoberta) { const call = button(`Call ${ROBOT_NAME}, the app's robot`, { id: "helpCallRoberta" }); call.addEventListener("click", () => { handle.close(); app.callRoberta(); }); body.appendChild(call); }
-    const about = button("Quick summary of this app"); about.addEventListener("click", () => { handle.close(); app.openAboutModal(); }); body.appendChild(about);
+    const actions = el("div", "help-actions");
+    if (app.callRoberta) { const call = button(`Call ${ROBOT_NAME}, the app's robot`, { id: "helpCallRoberta" }); call.addEventListener("click", () => { handle.close(); app.callRoberta(); }); actions.appendChild(call); }
+    const about = button("Quick summary of this app"); about.addEventListener("click", () => { handle.close(); app.openAboutModal(); }); actions.appendChild(about);
+    body.appendChild(actions);
+    const fine = el("div", "help-fineprint");
+    if (site.supportEmail) { const p = el("p", "hint-text"); const a = el("a", null, "Email the project team"); a.href = "mailto:" + site.supportEmail; p.append(a, " — goes to the people who run this project, for questions and support."); fine.appendChild(p); }
+    fine.appendChild(el("p", "hint-text", "GitHub submissions are public. Leave out API keys and private conversations."));
+    const sonalon = el("p", "hint-text"); sonalon.append("Looking for AI personas? "); const sa = el("a", null, "Explore Sonalon"); sa.href = "https://sonalon.com/"; sa.target = "_blank"; sa.rel = "noopener"; sonalon.appendChild(sa); fine.appendChild(sonalon);
+    body.appendChild(fine);
     const handle = openAppDialog({ title: "Help & about", content: body });
     return handle;
   }

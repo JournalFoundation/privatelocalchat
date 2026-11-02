@@ -4858,7 +4858,7 @@
       }
       addFeatureLink('💾', 'Storage & backups', openStorage, 'openStorageBtn');
 
-      const backupNudge = el('div', 'setup-card'); backupNudge.id = 'backupNudge'; backupNudge.hidden = true;
+      const backupNudge = el('div', 'backup-nudge'); backupNudge.id = 'backupNudge'; backupNudge.hidden = true; backupNudge.setAttribute('role', 'region'); backupNudge.setAttribute('aria-label', 'Back up your chats');
       document.querySelector('.chats-section').after(backupNudge);
       function updateBackupNudge() {
         const hasChats = threads.some(t => !t.temporary && t.deletedAt == null && t.messages.some(m => m.role === 'user'));
@@ -4866,10 +4866,13 @@
         backupNudge.hidden = !(hasChats && stale && !(prefs.nudgeUntil > Date.now()));
         if (backupNudge.hidden) return;
         backupNudge.textContent = '';
-        backupNudge.appendChild(el('p', 'hint-text', prefs.lastExportAt ? 'Your last backup was ' + Math.round((Date.now() - prefs.lastExportAt) / 864e5) + ' days ago.' : 'These chats exist only in this browser, which can clear them.'));
+        const icon = el('span', 'backup-nudge-icon'); icon.setAttribute('aria-hidden', 'true'); M.icons.setIconLabel(icon, '💾');
+        const text = el('div', 'backup-nudge-text');
+        text.append(el('strong', null, 'Back up your chats'), el('p', null, prefs.lastExportAt ? 'Your last backup was ' + Math.round((Date.now() - prefs.lastExportAt) / 864e5) + ' days ago.' : 'These chats exist only in this browser, which can clear them.'));
         const go = el('button', 'primary', 'Back up now'); go.type = 'button'; go.addEventListener('click', openStorage);
         const later = el('button', 'secondary', 'Remind me later'); later.type = 'button'; later.addEventListener('click', () => { prefs.nudgeUntil = Date.now() + 7 * 864e5; savePrefs(); updateBackupNudge(); });
-        backupNudge.append(go, ' ', later);
+        const row = el('div', 'backup-nudge-actions'); row.append(go, later);
+        backupNudge.append(icon, text, row);
       }
 
 

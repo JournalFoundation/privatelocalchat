@@ -5,6 +5,7 @@ const P = {
   refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>',
   play: '<path d="M8 5l11 7-11 7z"/>',
   volume: '<path d="M4 10v4h4l5 4V6l-5 4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>',
+  'volume-off': '<path d="M4 10v4h4l5 4V6l-5 4z"/><path d="M17 9.5l4 5M21 9.5l-4 5"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   more: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
   paperclip: '<path d="M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/>',
