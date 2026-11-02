@@ -276,7 +276,7 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 - The iPhone 15 Pro negative check on the final build.
 - Number and abbreviation expansion beyond what eSpeak does itself (debt item 43).
 - Confirm that `GPL-3.0-only` (the package licence field) is the intended choice; eSpeak NG itself is GPL-3.0-or-later.
-- `qrcode.js` has no licence header in its file (MIT upstream); confirm before relying on the notice.
+- `qrcode.js`: resolved. The vendored file is byte-identical to upstream's MIT-licensed `qrcode.min.js`; the licence text now sits beside it and in the notices.
 
 ## Open items
 

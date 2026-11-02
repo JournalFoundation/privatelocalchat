@@ -2661,9 +2661,31 @@
         const thread = getThread(currentThreadId);
         return thread ? structuredClone({id:thread.id,systemPrompt:thread.systemPrompt,messages:thread.messages}) : null;
       };
+      // Voice upgrade checks for the dev command channel. voice-state: what is installed. voice-decide: the controller's decision on this device, nothing
+      // downloaded. voice-cycle: install, speak a sentence, measure, remove, only when this device's own decision is an offer (never on iPhone or iPad).
+      window.__plcDebugVoice = async (action) => {
+        const base = moduleBase(), est = async () => { try { const e = await navigator.storage.estimate(); return { usageMB: +(e.usage / 1e6).toFixed(1), quotaMB: Math.round(e.quota / 1e6) }; } catch { return null; } };
+        const [eng, man, up] = await Promise.all([import(base + 'chat/voice-engine.mjs'), import(base + 'chat/voice-manifest.mjs'), import(base + 'chat/voice-upgrade.mjs')]);
+        const engine = eng.createVoiceEngine({ baseUrl: man.KITTEN_NANO_BASE_URL, workerUrl: base + 'chat/vendor/voice/worker.js' });
+        if (action === 'voice-state') return { engine: await engine.status(), storage: await est(), record: localStorage.getItem('plc.voice.v1') };
+        const env = async () => { let webgpu = { available: false }; try { const a = await navigator.gpu?.requestAdapter(); if (a) webgpu = { available: true, isFallbackAdapter: Boolean(a.isFallbackAdapter) }; } catch { /* none */ } return { deviceMemoryGB: navigator.deviceMemory, cores: navigator.hardwareConcurrency, webgpu }; };
+        const memory = {}, scratch = { getItem: k => memory[k] ?? null, setItem: (k, v) => { memory[k] = v; }, removeItem: k => { delete memory[k]; } };
+        const ctl = up.createVoiceController({ factory: async () => { throw new Error('decision only'); }, env, devOffer: true, storage: scratch });
+        const d = await ctl.evaluate();
+        const decision = { offer: d.offer, candidate: d.candidate || null, reason: d.reason, ms: d.ms || null };
+        if (action === 'voice-decide' || d.offer !== true) return { decision, skipped: action === 'voice-cycle' ? 'the decision for this device is not an offer, so nothing was downloaded' : undefined };
+        const before = await est(); let rtf = null, first = null, installMs = null;
+        try {
+          const t0 = performance.now(); await engine.install(); installMs = Math.round(performance.now() - t0);
+          const r = await engine.speak('The capital of France is Paris. This is a short test of on device speech.', { onChunk() {} });
+          rtf = r.realTimeFactor; first = r.firstAudioMs;
+        } finally { await engine.remove(); }
+        return { decision, installMs, realTimeFactor: rtf, firstAudioMs: first, storageBefore: before, storageAfter: await est(), after: await engine.status() };
+      };
       window.__plcDebugControl = async (action, args = {}) => {
         if (action === 'state') return {storage:await navigator.storage?.estimate?.().then(e=>({usage:e.usage,quota:e.quota}),()=>null),conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,downloadRecovery:window.localModels?.downloadRecovery,status:document.getElementById('generationStatus').textContent};
         if (action === 'stop') {generationController?.abort();return {stopped:true};}
+        if (action === 'voice-state' || action === 'voice-decide' || action === 'voice-cycle') return window.__plcDebugVoice(action);
         if (generationBusy) throw new Error('A response is already running');
         if (action === 'new-chat') {newThread();return window.__plcDebugCurrentConversation();}
         if (window.localModels?.mode !== 'local') throw new Error('Remote generation is restricted to local mode');

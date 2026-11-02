@@ -11,7 +11,7 @@ Private Local Chat is released under the **GNU General Public License, version 3
 | ONNX Runtime Web 1.31.1 | Runs the voice model in the browser (`chat/vendor/voice/`) | MIT | https://github.com/microsoft/onnxruntime |
 | fflate 0.8.3 | Reads the voice file archive | MIT | https://github.com/101arrowz/fflate |
 | pdf.js (`chat/vendor/pdfjs/`, Mozilla Foundation) | Reading PDF attachments | Apache-2.0 (notice at the top of the file) | https://github.com/mozilla/pdf.js |
-| QRCode.js (`chat/vendor/qrcode.js`) | Share and transfer QR codes | MIT upstream; the file itself carries no licence header, to be confirmed | https://github.com/davidshimjs/qrcodejs |
+| QRCode.js (`chat/vendor/qrcode.js`) | Share and transfer QR codes | MIT, Copyright (c) 2012 davidshimjs. The file is byte-identical to upstream `qrcode.min.js` (19,927 bytes, SHA-256 starting `c541ef06`); the licence text is `chat/vendor/qrcode.js.LICENSE` | https://github.com/davidshimjs/qrcodejs |
 | noble-hashes (`runtime/providers/vendor/noble-hashes/`) | SHA-256 checks of downloaded files | MIT | https://github.com/paulmillr/noble-hashes |
 | wllama and the llama.cpp engine inside it (`runtime/providers/vendor/wllama/`) | Running GGUF models | MIT | https://github.com/ngxson/wllama |
 | WebLLM, transformers.js and the other runtimes listed in `docs/RUNTIMES.md` and `docs/EMBEDDINGS.md` | On-device language models and search | Apache-2.0 / MIT, see those documents | see those documents |
