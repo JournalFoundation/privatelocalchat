@@ -55,7 +55,15 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 33. **Physical-device checks never done:** scanning a QR with a phone camera, a real native share sheet, enlarged text and the on-screen keyboard on a phone, and the stale-Safari / home-screen-app repair path on the reporter's device.
 34. **Known-issue entries on `/help/` were derived from repository documents**, not re-tested; each says so. Re-verify and update the dates at every release.
 
+## App layout (2026-11-02)
+
+35. **Most e2e files still test the classic layout** (`plc.shell.off`); port them to the new shell and drop the switch. Only `shell.e2e.mjs` drives the new layout.
+36. **The new layout has not been checked on a real iPhone**, nor the call screen's status text and the stalled-speech cut-off (the stall timer is a conservative guess, untested against a real stuck voice engine).
+37. **Meaning search keeps its vectors in memory only**, rebuilt each time the search opens (up to 2,500 passages, newest first). Persist them in IndexedDB if it feels slow on large histories.
+38. **No Images destination** (nothing to show), and a call does not start a model download by itself.
+
 ## Review log
 
 * 2026-11-01: first version, written after the sharing / transfer / public-pages release.
 * 2026-11-01: added voice notes, Roberta and semantic matching items (26-29) after that release.
+* 2026-11-02: added the app layout items (35-38) after the shell release.

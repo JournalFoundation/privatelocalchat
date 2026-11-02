@@ -4472,7 +4472,7 @@
         clearInterval(call.ticker); call.ticker = setInterval(() => { voiceUi.timer.textContent = voiceMod.formatDuration(callElapsed()); }, 1000);
       }
       function hideCall() {
-        clearInterval(call.ticker); clearTimeout(call.endedTimer); call.ticker = call.endedTimer = null; call.startedAt = null;
+        clearInterval(call.ticker); clearTimeout(call.endedTimer); clearTimeout(call.stallTimer); clearInterval(call.waitTicker); call.ticker = call.endedTimer = call.stallTimer = call.waitTicker = null; call.startedAt = null;
         if (voiceUi) voiceUi.root.hidden = true;
         document.body.classList.remove('voice-on');
       }
@@ -4482,7 +4482,39 @@
         thinking: ['Thinking…', ''],
         speaking: ['Speaking', '']
       };
+      // what the call is waiting on, said out loud on screen instead of a silent pause
+      function callWaitNote() {
+        const lm = window.localModels;
+        if (!lm || lm.mode !== 'local') return 'Talking with ' + providerName() + '. Answers are written by an AI model.';
+        if (lm.ready) return 'Talking with the model on this device. Answers are written by an AI model, not scripted.';
+        const st = lm.state, t = st?.transfer;
+        if (st?.busy && t) return 'Downloading the model: ' + Math.round(((t.bytesDone || 0) / Math.max(1, t.bytesTotal || 1)) * 100) + '%. The call continues when it is ready.';
+        if (st?.busy || lm.installed) return 'Loading the model into memory. The call continues when it is ready.';
+        return 'The on-device model is not downloaded yet. Pick it in the model menu to download it, then call again.';
+      }
+      // a spoken reply that never finishes (some phones stall the voice engine) is cut off, and the text stays on screen
+      function watchSpeech(state, caption) {
+        clearTimeout(call.stallTimer); call.stallTimer = null;
+        if (state !== 'speaking') return;
+        const ms = 20000 + String(caption || '').length * 90;
+        call.stallTimer = setTimeout(() => {
+          if (call.prev !== 'speaking') return;
+          try { voiceSession?.interrupt(); } catch { /* the call may already have ended */ }
+          if (voiceUi) voiceUi.hint.textContent = 'The voice stopped responding, so the reply is shown as text. You can keep talking.';
+          showToast('Spoken reply stalled; showing it as text instead.');
+        }, ms);
+      }
       function renderVoice(state, info = {}) {
+        renderVoiceInner(state, info);
+        if (!voiceUi) return;
+        watchSpeech(state, info.caption);
+        clearInterval(call.waitTicker); call.waitTicker = null;
+        if (state === 'connecting' || state === 'thinking') {
+          const put = () => { if (voiceUi && !voiceUi.hint.textContent.startsWith('The voice stopped')) voiceUi.hint.textContent = callWaitNote(); };
+          put(); call.waitTicker = setInterval(() => { if (call.prev === 'connecting' || call.prev === 'thinking') put(); else { clearInterval(call.waitTicker); call.waitTicker = null; } }, 1000);
+        } else if (state === 'listening' && !info.caption) voiceUi.hint.textContent = callWaitNote();
+      }
+      function renderVoiceInner(state, info = {}) {
         if (!voiceUi) return;
         const ui = voiceUi, before = call.prev; call.prev = state;
         if (state === 'idle') {
