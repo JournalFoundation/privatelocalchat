@@ -75,7 +75,6 @@ main { padding-block: var(--plc-space-8) 0; display: block; }
 .page-meta { color: var(--plc-muted); font-size: 0.92rem; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: var(--plc-space-3); margin-block: var(--plc-space-4); }
 .prose { max-width: 44rem; }
-.prose-wide { max-width: 100%; }
 
 .toc { background: var(--plc-surface); border: 1px solid var(--plc-border); border-radius: var(--plc-radius-panel); padding: var(--plc-space-4) var(--plc-space-6); margin-block: var(--plc-space-6); max-width: 44rem; }
 .toc h2 { font-size: 1rem; margin: 0 0 var(--plc-space-2); }
@@ -157,7 +156,6 @@ main { padding-block: var(--plc-space-8) 0; display: block; }
 .example-list { padding-left: 1.2rem; max-width: 44rem; }
 .example-list li { margin-bottom: var(--plc-space-3); }
 
-.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 @media (max-width: 40rem) {
   main { padding-block-start: var(--plc-space-6); }

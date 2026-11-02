@@ -335,7 +335,7 @@ function buildSettings({ app, shell, registry, moved }) {
     }
     w.paint = paint; w.addEventListener("shell-refresh", () => paint());
     window.addEventListener("local-model-state", () => { if (!page.hidden && page.dataset.section === "models") paint(false); });
-    moved.providerSettings.open = true; w.append(h("h3", { class: "set-sub", text: "Choose and download" }), moved.providerSettings); return w;
+    w.append(h("h3", { class: "set-sub", text: "Choose and download" }), moved.providerSettings); return w;
   });
   add("data", "Data controls", "shield", "export import backup transfer delete archive trash storage", () => {
     const w = h("div", {}, h("h2", { text: "Data controls" }));
@@ -343,7 +343,7 @@ function buildSettings({ app, shell, registry, moved }) {
       row("Archived chats", "Chats you set aside.", btn("View", () => { settings.close(); app.setThreadView("archived"); openPanel(); })),
       row("Recently deleted", "Kept for 30 days, then removed for good.", btn("View", () => { settings.close(); app.setThreadView("trash"); openPanel(); })),
       row("Storage & backups", "Where chats live on this device, and how to keep them.", btn("Open", () => app.openStorage()))));
-    moved.backupFiles.open = true; w.append(h("div", { class: "set-moved" }, moved.backupFiles));
+    w.append(h("div", { class: "set-moved" }, moved.backupFiles));
     w.append(h("p", { class: "set-note", text: "Nothing is sent anywhere to train on. There is no account." }));
     return w;
   });

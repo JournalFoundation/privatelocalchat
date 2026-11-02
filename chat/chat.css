@@ -11,7 +11,6 @@ html, body { height: 100%; }
 .message-form .message-input-wrapper { flex: 1 1 14rem; min-width: 0; }
 .message-form textarea { min-height: 3.2rem; max-height: 40vh; resize: none; font-size: 1rem; }
 .message-form button { margin-left: 0; min-height: 44px; }
-.composer-hint { flex: 1 0 100%; margin: 0; font-size: 0.78rem; color: var(--color-muted-text); }
 .composer-tools { display: flex; gap: 6px; }
 .composer-tools button, .icon-action { background: var(--color-icon-btn-bg); color: var(--color-action-text); border: 1px solid var(--color-icon-btn-border); padding: 8px 10px; }
 .composer-tools button:hover, .icon-action:hover { background: var(--color-icon-btn-hover-bg); }
@@ -77,14 +76,9 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
 .empty-state { max-width: 40rem; margin: 8vh auto 0; padding: 0 16px; text-align: center; color: var(--color-text); }
 .empty-state h2 { margin: 0 0 6px; }
 .empty-state p { margin: 4px 0 14px; color: var(--color-muted-text); }
-.starter-prompts { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); text-align: left; }
-.starter-prompts button { border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); border-radius: 8px; padding: 10px 12px; cursor: pointer; font: inherit; min-height: 44px; }
-.starter-prompts button:hover, .starter-prompts button:focus-visible { border-color: var(--color-link); }
 .temp-banner { margin: 8px 12px 0; padding: 6px 10px; border: 1px dashed var(--color-notice-border); background: var(--color-notice-bg); color: var(--color-notice-text); border-radius: 6px; font-size: 0.85rem; }
 
 /* ---- sidebar: conversations first -------------------------------------------------------------------------------- */
-.thread-tools { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
-.thread-tools button { flex: 1 1 auto; }
 .thread-filter { display: flex; gap: 4px; margin: 0 0 6px; }
 .thread-filter button { flex: 1; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); border-radius: 6px; padding: 4px; cursor: pointer; font-size: 0.8rem; min-height: 32px; }
 .thread-filter button[aria-pressed='true'] { background: var(--color-link); color: var(--color-inverse-text); border-color: var(--color-link); }
@@ -131,7 +125,6 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
 
 .system-prompt-container > summary { cursor: pointer; padding: 2px 0; color: var(--color-muted-text); font-size: 0.85rem; }
 @media (max-height: 520px) {
-  .composer-hint { display: none; }
   .chat-header { padding: 4px 12px; }
   .message-form { padding-top: 6px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
   .message-form textarea { min-height: 2.4rem; }
@@ -151,7 +144,6 @@ html.locked #app { visibility: hidden; }
 html.locked .lock-screen { display: flex; }
 .context-divider { margin: 8px auto 12px; padding: 6px 10px; max-width: 46rem; border-top: 1px dashed var(--color-border-strong); border-bottom: 1px dashed var(--color-border-strong); color: var(--color-muted-text); font-size: 0.8rem; text-align: center; }
 .chats-section { display: flex; flex-direction: column; min-height: 12rem; }
-.settings-group > summary { cursor: pointer; margin: 8px 0; }
 .model-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .sidebar > * { flex-shrink: 0; }
 .chats-section .thread-list { max-height: min(45vh, 28rem); overflow-y: auto; min-height: 0 !important; }

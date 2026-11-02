@@ -64,7 +64,6 @@ body.shell .thread-list li.heading-with-action { justify-content: space-between;
 .list-add:hover { background: var(--color-thread-hover); color: var(--color-text); }
 .list-add .ico { width: 16px; height: 16px; }
 body.shell .side-footer { display: none; }
-body.shell .settings-group > summary { display: none; }
 
 /* ---- header ---- */
 body.shell .chat-header { border-bottom: 0; padding: 8px 12px; min-height: 52px; gap: 6px; }
@@ -120,7 +119,6 @@ body.shell .chat-area.is-empty .messages { flex: none; overflow: visible; }
 body.shell .chat-area.is-empty .empty-state { margin: 0 auto; }
 body.shell .chat-area.is-empty .empty-state h2 { font-size: clamp(1.5rem, 4vw, 1.9rem); font-weight: 600; margin-bottom: 14px; }
 body.shell .chat-area.is-empty .empty-state > .lede, body.shell .chat-area.is-empty .empty-state > p.muted { max-width: 34rem; margin-left: auto; margin-right: auto; }
-body.shell .chat-area.is-empty .starter-prompts { display: none; }
 body.shell .chat-area.is-empty .accuracy-note { display: none; }
 
 /* ---- popovers ---- */

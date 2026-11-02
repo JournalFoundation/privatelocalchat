@@ -113,11 +113,7 @@ textarea::placeholder, input::placeholder { color: var(--plc-muted); opacity: 1;
 .thread-list li.folder-heading:hover { background: none; }
 .chats-section .thread-list { max-height: min(42vh, 26rem); }
 .settings-group { border-top: 1px solid var(--plc-border); padding: 0.25rem 0; margin-bottom: 0; }
-.settings-group > summary { min-height: var(--plc-control-min); display: flex; align-items: center; cursor: pointer; padding: 0 0.25rem; margin: 0; list-style: none; }
-.settings-group > summary::-webkit-details-marker { display: none; }
-.settings-group > summary::after { content: '›'; margin-left: auto; color: var(--plc-muted); transition: transform var(--plc-motion-fast); font-size: 1.3rem; }
-.settings-group[open] > summary::after { transform: rotate(90deg); }
-.settings-group > :not(summary) { padding-left: 0.25rem; padding-right: 0.25rem; }
+.settings-group > * { padding-left: 0.25rem; padding-right: 0.25rem; }
 #localModelPanel h3 { display: none; }
 .setup-card { border: 1px solid var(--plc-border); border-radius: var(--plc-radius-panel); background: var(--plc-background); padding: 0.75rem; margin: 0.5rem 0 0.75rem; }
 .readiness { gap: 0.4rem; font-size: 0.9rem; }
@@ -206,14 +202,11 @@ textarea::placeholder, input::placeholder { color: var(--plc-muted); opacity: 1;
 .empty-state .eyebrow { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; color: var(--plc-accent); margin: 0 0 0.5rem; }
 .empty-state.welcome h2 { font-size: clamp(1.9rem, 6vw, 2.75rem); }
 .welcome-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin: 1.25rem 0 0.75rem; }
-.starter-prompts { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.75rem; margin-top: 1rem; }
-.starter-prompts button { background: var(--plc-surface); border: 1px solid var(--plc-border); border-radius: var(--plc-radius-panel); padding: 0.85rem 1rem; font-size: 0.95rem; color: var(--plc-ink); min-height: 3.5rem; text-align: left; transition: border-color var(--plc-motion-fast), background var(--plc-motion-fast); }
-.starter-prompts button:hover { border-color: var(--plc-accent); background: var(--plc-accent-tint); }
 
 /* ---- composer -------------------------------------------------------------------------------------------------------- */
 .context-meter { max-width: var(--plc-chat-max); width: 100%; margin: 0 auto; padding: 0 1rem 0.35rem; }
 .message-form { display: block; padding: 0.25rem 1rem max(0.75rem, env(safe-area-inset-bottom)); border: 0; background: transparent; }
-.message-form .composer-card, .message-form > .message-attachments, .message-form .accuracy-note, .message-form .voice-status { max-width: var(--plc-chat-max); margin-left: auto; margin-right: auto; }
+.message-form .composer-card, .message-form > .message-attachments, .message-form .accuracy-note { max-width: var(--plc-chat-max); margin-left: auto; margin-right: auto; }
 .message-form > .message-attachments { margin-bottom: 0.5rem; }
 .composer-card { background: var(--plc-surface); border: 1px solid var(--color-form-border); border-radius: var(--plc-radius-panel); padding: 0.4rem 0.5rem 0.4rem 0.75rem; box-shadow: var(--plc-shadow); transition: border-color var(--plc-motion-fast); }
 .composer-card:focus-within { border-color: var(--plc-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--plc-accent) 22%, transparent); }
@@ -233,7 +226,6 @@ textarea::placeholder, input::placeholder { color: var(--plc-muted); opacity: 1;
 .message-form .stop-btn { background: var(--plc-danger-tint); color: var(--plc-danger); }
 .message-form .stop-btn:hover { background: var(--plc-danger-tint); filter: brightness(0.97); }
 .accuracy-note { margin: 0.5rem 0 0; text-align: center; font-size: 0.78rem; color: var(--plc-muted); }
-.voice-status { margin-top: 0.5rem; text-align: center; font-size: 0.85rem; color: var(--plc-accent); }
 .chat-area.drop-target { outline-color: var(--plc-accent); }
 .message-form.disabled { opacity: 1; }
 
@@ -273,10 +265,8 @@ textarea::placeholder, input::placeholder { color: var(--plc-muted); opacity: 1;
   .thread-menu-btn { min-width: var(--plc-control-min); min-height: var(--plc-control-min); }
   .thread-filter button { min-height: var(--plc-control-min); }
   .message-sources button, .chip button, .thread-menu button { min-height: var(--plc-control-min); }
-  .starter-prompts button { min-height: 4rem; }
   .toast-action { min-height: var(--plc-control-min); }
   .code-bar { padding: 4px 8px; }
-  .settings-group > summary { min-height: var(--plc-control-min); }
 }
 @media (max-height: 520px) {
   .accuracy-note { display: none; }

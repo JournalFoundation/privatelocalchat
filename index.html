@@ -1250,8 +1250,7 @@
         </div>
         <ul id="threadList" class="thread-list"></ul>
       </section>
-      <details id="providerSettings" class="settings-group">
-      <summary><strong>Model and connection</strong></summary>
+      <section id="providerSettings" class="settings-group" aria-label="Model and connection">
       <div class="form-group">
         <label for="inferenceMode">Where replies run</label>
         <select id="inferenceMode"><option value="local">On this device</option><option value="api">Connected provider</option></select>
@@ -1361,8 +1360,8 @@
         </div>
       </div>
       </div>
-      </details>
-      <details id="backupFiles" class="settings-group"><summary><strong>Import export and transfer</strong></summary>
+      </section>
+      <section id="backupFiles" class="settings-group" aria-label="Import, export and transfer">
       <div class="flow-list">
         <section class="flow-entry" aria-labelledby="flowSettingsTitle">
           <h3 id="flowSettingsTitle"><span class="flow-icon" data-flow-icon="transfer" aria-hidden="true"></span>Transfer settings</h3>
@@ -1388,7 +1387,7 @@
       </div>
       <input type="file" id="importInput" accept=".json,.zip,application/json,application/zip" style="display: none;" />
       <input type="file" id="importConfigInput" accept="application/json" style="display: none;" />
-      </details>
+      </section>
       </div>
       <footer class="side-footer">
           <button type="button" id="themeToggleBtn" class="theme-toggle-btn icon-btn" aria-label="Toggle theme" aria-pressed="false">
@@ -2741,14 +2740,6 @@
         modeBadge.title = detail + ' Press to change where replies run.';
         modeBadge.setAttribute('aria-label', 'Replies run ' + (local ? 'on this device' : 'through ' + providerName()) + '. ' + detail + ' Open connection settings.');
       }
-      function syncProviderOpen() {
-        const group = document.getElementById('providerSettings');
-        if (!group) return;
-        const needsSetup = window.localModels?.mode === 'local' ? !window.localModels?.ready : !(config.endpoint || '').trim() || !(config.model || '').trim();
-        if (needsSetup) group.open = true;
-      }
-      window.addEventListener('local-model-state', syncProviderOpen);
-      modeBadge?.addEventListener('click', () => { const group = document.getElementById('providerSettings'); if (group) group.open = true; openSidebar({ focusTarget: document.getElementById('inferenceMode') }); });
       const CONTINUE_PROMPT = 'Continue exactly where your last message stopped. Do not repeat anything you already wrote and do not add an introduction.';
 
       const PREFS_KEY = 'plc.prefs.v1';
@@ -3007,7 +2998,7 @@
           box.appendChild(el('p', 'lede', (help?.detail ? help.detail + ' ' : '') + 'Try a supported browser, or choose a connected provider.'));
           if (help?.steps?.length) { const steps = el('ol', 'gpu-steps'); help.steps.slice(0, 3).forEach(t => steps.appendChild(el('li', null, t))); box.appendChild(steps); }
           const provider = el('button', 'primary', 'Choose a connected provider'); provider.type = 'button'; provider.id = 'emptyProvider';
-          provider.addEventListener('click', () => { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); openSidebar({ focusTarget: document.getElementById('endpointSelect') }); });
+          provider.addEventListener('click', () => { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); openProviderSettings(document.getElementById('endpointSelect')); });
           const how = el('button', 'secondary', 'How privacy works'); how.type = 'button'; how.addEventListener('click', () => openAbout());
           const row = el('div', 'welcome-actions'); row.append(provider, how); box.appendChild(row);
           return box;
@@ -3065,11 +3056,6 @@
         updateContextMeter?.(thread);
       }
       let updateContextMeter = null; // set by the context-budget feature
-
-      function addMessage(role, content, notice = false) {
-        const thread = updateThread(t => t.messages.push(M.model.makeMessage(role, content, notice ? { notice: true } : {})));
-        if (thread) renderMessages(thread, { keepScroll: true });
-      }
 
       const nodeFor = id => messagesEl.querySelector('[data-id="' + (window.CSS?.escape ? CSS.escape(id) : id) + '"]');
       let paintPending = null;
@@ -3457,8 +3443,11 @@
         sidebarEl.setAttribute('aria-hidden', hidden ? 'true' : 'false');
       }
 
+      // Connection settings live on the Settings page (Models). The shell opens it; focusEl is the field to land on.
+      function openProviderSettings(focusEl) { window.plcShell?.openSettings('models', focusEl || null); }
+
       function guideToEndpointSetup() {
-        openSidebar({ focusTarget: endpointSelect, skipDefaultFocus: true });
+        openProviderSettings(endpointSelect);
         if (!endpointSelect) {
           return;
         }
@@ -3762,7 +3751,6 @@
         renderThreadList();
         if (!thread.temporary) showToast('Moved to Trash', 8000, { label: 'Undo', run: () => { delete thread.deletedAt; saveThreads(); renderThreadList(); } });
       }
-      function deleteThread(targetId = currentThreadId) { if (targetId) trashThread(targetId); }
       async function deleteForever(threadId) {
         const thread = getThread(threadId); if (!thread) return;
         if (!await confirmDialog('Delete permanently?', 'This chat will be erased and cannot be recovered.', 'Delete permanently', { danger: true })) return;
@@ -3901,7 +3889,6 @@
       // what the model is told about the documents
       contextProviders.push(async (thread, view) => {
         const attachmentList = view.messages.flatMap(m => m.attachments || []);
-        const imageIds = attachmentList.filter(a => a.kind === 'image').map(a => a.id);
         const ids = [...new Set(attachmentList.filter(a => a.kind !== 'image').map(a => a.id))];
         const { docs, store } = await loadDocModules();
         let attached = [], library = [];
@@ -4687,7 +4674,7 @@
           openImport() { importInput.click(); },
           openExport() { loadTransferUi().then(ui => ui.openTransferChats()); },
           openTransferSettings() { loadTransferUi().then(ui => ui.openTransferSettings()); },
-          openProvider() { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); const group = document.getElementById('providerSettings'); if (group) group.open = true; openSidebar({ focusTarget: endpointInput }); },
+          openProvider() { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); openProviderSettings(endpointInput); },
           startVoicemail() { startVoiceNote(); },
           startChatting() { messageInput.focus({ preventScroll: true }); }
         }
@@ -5433,9 +5420,7 @@
           updateChatAvailability();
         },
         focusTokenField() {
-          const group = document.getElementById('providerSettings'); if (group) group.open = true;
-          openSidebar({ focusTarget: tokenInput });
-          tokenInput.focus();
+          openProviderSettings(tokenInput);
         },
         chooseSettingsFile: () => importConfigInput.click(),
         chooseChatFile: () => importInput.click(),
@@ -5543,7 +5528,6 @@
         document.querySelectorAll('[data-flow-icon]').forEach(node => { if (!node.firstChild) node.appendChild(M.icons.iconNode(node.dataset.flowIcon)); });
         updateComposerHint();
         if (sessionStorage.getItem('plc.pendingToken.v1')) loadTransferUi();
-        syncProviderOpen();
         document.getElementById('newChatBtn').addEventListener('click', () => newThread());
         populateEndpointSelect();
         loadModels();
