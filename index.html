@@ -1146,6 +1146,7 @@
   <link rel="stylesheet" href="/local-models.css" />
   <link rel="stylesheet" href="/chat/chat.css" />
   <link rel="stylesheet" href="/chat/brand.css" />
+  <link rel="stylesheet" href="/chat/shell.css" />
   <script src="/build-info.js"></script>
   <script>
     // Runs before the rest of the app, in plain old JavaScript, so it still works when a browser cannot run the rest.
@@ -2744,10 +2745,10 @@
       const moduleBase = () => (window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/');
       async function loadChatModules() {
         const base = moduleBase();
-        const [markdown, model, stream, context, icons] = await Promise.all([
-          import(base + 'chat/markdown.mjs'), import(base + 'chat/threads.mjs'), import(base + 'chat/stream.mjs'), import(base + 'chat/context.mjs'), import(base + 'chat/icons.mjs')
+        const [markdown, model, stream, context, icons, shellRegistry] = await Promise.all([
+          import(base + 'chat/markdown.mjs'), import(base + 'chat/threads.mjs'), import(base + 'chat/stream.mjs'), import(base + 'chat/context.mjs'), import(base + 'chat/icons.mjs'), import(base + 'chat/shell/registry.mjs')
         ]);
-        M = { markdown, model, stream, context, icons };
+        M = { markdown, model, stream, context, icons, shellRegistry };
       }
       const STATUS = () => M.model.STATUS;
       function providerName() {
@@ -3081,7 +3082,7 @@
           box.appendChild(provider);
           return box;
         }
-        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : 'What would you like to work through?'));
+        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : (shellEnabled() ? M.shellRegistry.greeting() : 'What would you like to work through?')));
         box.appendChild(el('p', 'lede', thread.temporary
           ? 'This conversation will not be added to saved history. Copy or export anything you want to keep before closing it.'
           : 'Ask about an idea, work through a choice, or describe the text you want to revise.'));
@@ -3485,6 +3486,8 @@
         } else if (arg && typeof arg === 'object') {
           options = arg;
         }
+        // controls that now live on the Settings page: open that page instead of the sidebar
+        if (options.focusTarget && window.plcShell?.ownsFocusTarget?.(options.focusTarget)) { window.plcShell.openSettings('models', options.focusTarget); return; }
         document.body.classList.add('sidebar-open');
         closeThreadMenu();
         updateSidebarAria();
@@ -3702,17 +3705,24 @@
         document.querySelectorAll('.thread-filter button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === threadView)));
         const visible = M.model.listThreads(threads, { archived: threadView === 'archived', trashed: threadView === 'trash' });
         if (threadView === 'active') {
-          const groups = [{ folder: null, items: visible.filter(t => !t.folderId || !folders.some(f => f.id === t.folderId)) }];
-          folders.forEach(f => groups.push({ folder: f, items: visible.filter(t => t.folderId === f.id) }));
-          groups.forEach(g => {
-            if (g.folder) {
-              const h = el('li', 'folder-heading'); h.setAttribute('role', 'presentation');
-              h.appendChild(el('span', 'thread-name', '📁 ' + g.folder.name));
-              const mb = el('button', 'thread-menu-btn'); mb.type = 'button'; mb.setAttribute('aria-label', 'Options for project ' + g.folder.name); mb.appendChild(createEmoji('⋮'));
-              mb.addEventListener('click', event => { event.stopPropagation(); toggleFolderMenu(g.folder.id, mb); });
-              h.appendChild(mb); threadList.appendChild(h);
-            }
-            g.items.forEach(t => threadList.appendChild(threadItem(t)));
+          const inProject = t => t.folderId && folders.some(f => f.id === t.folderId);
+          const projectsHead = el('li', 'list-heading heading-with-action'); projectsHead.setAttribute('role', 'presentation');
+          projectsHead.appendChild(el('span', null, 'Projects'));
+          const addProject = el('button', 'list-add'); addProject.type = 'button'; addProject.title = 'New project'; addProject.setAttribute('aria-label', 'New project');
+          addProject.appendChild(createEmoji('➕')); addProject.addEventListener('click', event => { event.stopPropagation(); createFolder(); });
+          projectsHead.appendChild(addProject); threadList.appendChild(projectsHead);
+          folders.forEach(f => {
+            const h = el('li', 'folder-heading'); h.setAttribute('role', 'presentation');
+            h.appendChild(el('span', 'thread-name', f.name));
+            const mb = el('button', 'thread-menu-btn'); mb.type = 'button'; mb.setAttribute('aria-label', 'Options for project ' + f.name); mb.appendChild(createEmoji('⋮'));
+            mb.addEventListener('click', event => { event.stopPropagation(); toggleFolderMenu(f.id, mb); });
+            h.appendChild(mb); threadList.appendChild(h);
+            visible.filter(t => t.folderId === f.id).forEach(t => { const li = threadItem(t); li.classList.add('in-project'); threadList.appendChild(li); });
+          });
+          const loose = visible.filter(t => !inProject(t));
+          M.shellRegistry.groupThreadsByDate(loose).forEach(group => {
+            const head = el('li', 'list-heading', group.label); head.setAttribute('role', 'presentation'); threadList.appendChild(head);
+            group.items.forEach(t => threadList.appendChild(threadItem(t)));
           });
         } else {
           if (!visible.length) threadList.appendChild(el('li', 'folder-heading', threadView === 'trash' ? 'Trash is empty. Deleted chats stay here for ' + M.model.TRASH_DAYS + ' days.' : 'Nothing archived.'));
@@ -5868,6 +5878,19 @@
           thread.systemPrompt = systemPromptInput.value.trim();
         });
       });
+      function shellEnabled() { try { return !localStorage.getItem('plc.shell.off'); } catch { return true; } }
+      // ---- app shell (chat/shell/): rail, settings page, search, composer menus. It rearranges the controls above; see chat/shell/shell.mjs
+      const plcApp = {
+        threads: () => threads, folders: () => folders, currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
+        newThread: opts => newThread(opts || {}), toggleThreadMenu: (id, anchor) => toggleThreadMenu(id, anchor), moduleBase, loadRoberta,
+        moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
+        setThreadView: view => { threadView = view; renderThreadList(); },
+        callOpen: () => Boolean(robertaApi?.callOpen),
+        async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
+      };
+      window.plcApp = plcApp;
+      if (shellEnabled()) import(moduleBase() + 'chat/shell/shell.mjs').then(mod => { window.plcShell = mod.createShell(plcApp); renderThreadList(); })
+        .catch(err => { console.error('Shell failed to start; the classic layout stays.', err); });
       initMarketing();
       window.__plcBooted = true;
     })();
