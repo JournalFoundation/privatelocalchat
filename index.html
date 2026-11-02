@@ -2698,7 +2698,7 @@
         return thread ? structuredClone({id:thread.id,systemPrompt:thread.systemPrompt,messages:thread.messages}) : null;
       };
       window.__plcDebugControl = async (action, args = {}) => {
-        if (action === 'state') return {conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,downloadRecovery:window.localModels?.downloadRecovery,status:document.getElementById('generationStatus').textContent};
+        if (action === 'state') return {storage:await navigator.storage?.estimate?.().then(e=>({usage:e.usage,quota:e.quota}),()=>null),conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,downloadRecovery:window.localModels?.downloadRecovery,status:document.getElementById('generationStatus').textContent};
         if (action === 'stop') {generationController?.abort();return {stopped:true};}
         if (generationBusy) throw new Error('A response is already running');
         if (action === 'new-chat') {newThread();return window.__plcDebugCurrentConversation();}
@@ -2706,6 +2706,8 @@
         if (action === 'download' || action === 'cancel-download') return window.__plcDebugDownloadControl(action);
         if (action === 'load') return window.localModels.ready ? window.localModels.state.load.info : window.__plcDebugModelHost.load();
         if (action === 'unload') {const result=await window.__plcDebugModelHost.unload();await window.__plcDebugModelHost.restartHost();return {state:window.localModels.state,cleanup:result?.cleanup};}
+        if (action === 'use-model') {await window.localModels.switchTier(args.tier);return {tier:window.localModels.state.selection.tier};}
+        if (action === 'remove-model') {await window.localModels.removeTier(args.tier);await window.localModels.inspectAll();const e=await navigator.storage?.estimate?.();return {removed:args.tier,storage:e?{usage:e.usage,quota:e.quota}:null};}
         if (action === 'profile') return window.__plcDebugSetComputeProfile(args);
         if (action !== 'prompt' || typeof args.text !== 'string' || !args.text.trim() || args.text.length > 16000) throw new Error('Invalid remote prompt');
         if (!window.localModels.ready) throw new Error('Load the saved model before sending a prompt');

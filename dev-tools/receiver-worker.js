@@ -3,7 +3,7 @@ const uuid=/^[a-f0-9-]{36}$/;
 const headers=origin=>({'Content-Type':'application/json','Cache-Control':'no-store',...(origin==='https://'+HOST?{'Access-Control-Allow-Origin':origin,'Vary':'Origin','Access-Control-Allow-Methods':'GET, POST, PATCH, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization'}:{})});
 const json=(value,status=200,origin)=>new Response(JSON.stringify(value),{status,headers:headers(origin)});
 const authorized=(request,env)=>Boolean(env.DEBUG_READ_TOKEN)&&request.headers.get('Authorization')==='Bearer '+env.DEBUG_READ_TOKEN;
-const actions=new Set(['state','new-chat','prompt','load','unload','profile','stop','download','cancel-download']);
+const actions=new Set(['state','new-chat','prompt','load','unload','profile','stop','download','cancel-download','use-model','remove-model']);
 const statuses=['claimed','completed','failed','interrupted'];
 export default {
  async fetch(request,env){
@@ -43,7 +43,7 @@ export default {
      if(!control.remoteControl)return json({error:'Remote control is disabled'},403);
      const raw=await request.text();if(new TextEncoder().encode(raw).length>65536)return json({error:'Command too large'},413);
      const c=JSON.parse(raw);if(!uuid.test(c.id)||!actions.has(c.action)||!c.args||typeof c.args!=='object'||Array.isArray(c.args)||!c.expectedCommit||!/^[a-f0-9]{40}$/.test(c.expectedCommit))return json({error:'Invalid command'},400);
-     if(c.action==='prompt'?(typeof c.args.text!=='string'||!c.args.text.trim()||c.args.text.length>16000||Object.keys(c.args).some(k=>k!=='text')):c.action==='profile'?(![0,-1].includes(c.args.gpuLayers)||Object.keys(c.args).some(k=>k!=='gpuLayers')):Object.keys(c.args).length)return json({error:'Invalid command arguments'},400);
+     if(c.action==='prompt'?(typeof c.args.text!=='string'||!c.args.text.trim()||c.args.text.length>16000||Object.keys(c.args).some(k=>k!=='text')):c.action==='profile'?(![0,-1].includes(c.args.gpuLayers)||Object.keys(c.args).some(k=>k!=='gpuLayers')):['use-model','remove-model'].includes(c.action)?(!['light','lfm','granite','default'].includes(c.args.tier)||Object.keys(c.args).some(k=>k!=='tier')):Object.keys(c.args).length)return json({error:'Invalid command arguments'},400);
      const issuedKey=prefix+'issued/'+c.id+'.json';const old=await env.DEBUG_LOGS.get(issuedKey);let command;
      if(old){command=await old.json();if(command.action!==c.action||JSON.stringify(command.args)!==JSON.stringify(c.args)||command.expectedCommit!==c.expectedCommit)return json({error:'Command id conflict'},409);}
      else{const now=Date.now();command={id:c.id,action:c.action,args:c.args,expectedCommit:c.expectedCommit,issuedAt:new Date(now).toISOString(),expiresAt:new Date(now+1800000).toISOString(),pendingKey:prefix+'pending/'+String(now).padStart(13,'0')+'_'+c.id+'.json'};const won=await env.DEBUG_LOGS.put(issuedKey,JSON.stringify(command),{onlyIf:new Headers({'If-None-Match':'*'})});if(!won)command=await(await env.DEBUG_LOGS.get(issuedKey)).json();}
