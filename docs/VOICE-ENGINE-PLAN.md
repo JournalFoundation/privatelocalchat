@@ -277,11 +277,16 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 - Number and abbreviation expansion: ported from Kitten's reference pre-processor and checked against it on a golden corpus (see the commit that adds `chat/voice-text.mjs`).
 - Kokoro: measured instead of guessed. On a real GPU the fp32 model reads back perfectly at 6.7x real time (`docs/evidence/voice/kokoro-webgpu-spike.json`); it is a 326 MB download, so it is held for the owner's decision on that storage cost rather than built.
 
-**Still needs the owner or a device**
-- The iPhone 15 Pro negative check on the final build (the phone is not attached; the iPhone 11 Pro passed on dev and production, and the dev channel can run `voice-decide` on it as soon as its page is open).
-- Cleaning the Galaxy S8+'s cached test files for the dev origin in Chrome's site settings (about 100 MB less free space than before the tests; clearing site data from a script was blocked).
-- `GPL-3.0-only` (the package licence field) was chosen by default; eSpeak NG itself is GPL-3.0-or-later. Change it if "or later" is intended.
-- The git history has five commits under a placeholder identity ("Your Name") that presumably are the owner's; confirm before relying on the relicence.
+**Resolved by evidence or by a recorded default**
+- Git identity: the five commits under the placeholder name "Your Name" (3 and 4 November 2025) sit on the same days as 66 commits by the owner's two identities, in a repository that also has many Codex-created branches. They look like automated work done on the owner's behalf, not outside contributions. No other human author appears (`git shortlog`: John Benac, johnbenac, Claude, a release bot and the placeholder).
+- Licence field: `package.json` says `GPL-3.0-only`, the conservative reading of "GPL" (it does not hand future licence versions to anyone). It is compatible with every bundled component. Changing it to "or later" is a one-line edit in `package.json` and the notices if the owner prefers.
+
+**Two checks that need a device the work cannot reach from here**
+- iPhone 15 Pro negative check on the final build. It uses the same code path as the iPhone 11 Pro, which passed on dev and production. To finish it, attach the phone to Boiler (or open the dev page on it with the diagnostics URL and remote control on) and run `python3 dev-tools/operator-control.py enqueue --action voice-decide --expected-commit <full commit> --session-file <the phone's session file> --out work/cmd.json`; the expected result is `ios-system-voice-only` with offer false.
+- Galaxy S8+: about 100 MB less free space than before the tests (Chrome's cache of the test files and the dev site's runtime cache). Chrome > Settings > Site settings > All sites > `dev.privatelocal.chat` > Clear & reset returns it. Clearing site data from a script was blocked, so this is left to the owner.
+
+**A decision, not a task**
+- Kokoro as a second tier for GPU desktops (326 MB). Measured and viable (`docs/evidence/voice/kokoro-webgpu-spike.json`); it is held until the owner decides that the storage cost is acceptable.
 
 ## Open items
 
