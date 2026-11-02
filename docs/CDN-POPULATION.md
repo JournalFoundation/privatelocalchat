@@ -56,6 +56,21 @@ files come from. Then simplify the three "No, a catalogue default" rows on the P
 4. Add it to `runtime/providers/catalog-data.mjs` and a tier in `runtime/providers/catalog.mjs`, an option in `index.html`'s `localModelSelect`, the Privacy page and the Updates feed.
 5. Prove it with a real download: `node work/check-new-models.mjs <tier> <origin>` (download, verify, load, generate, unload, remove; writes `docs/evidence/model-<tier>-cdn-check.json`).
 
+## Adding any other immutable file set (the recipe for speech models)
+
+`publish-files.py` is the general form of `publish-gguf.py`: same download, size and SHA-256 check, refusal to replace a different object,
+`sha256` metadata, `manifest.json` and `LICENSE.txt`, and read-back over the public URL (bytes, CORS, content type).
+
+1. Describe the set in `ops/cloudflare/voice-models.json` (prefix `models/<Name>/<pinned commit>/`, `sourceBase`, per-file path, size and
+   SHA-256 that you computed yourself from a fresh download, licence name, licence file under `ops/cloudflare/licenses/`).
+2. `python3 ops/cloudflare/publish-files.py <key> --dry-run` (downloads and hash-checks only, needs no credentials), then without `--dry-run`.
+3. Add the key to `VOICE_IDS` in `update-catalog-index.py` and run it to list the set in `models/catalog.json`.
+4. `tests/publish-files.test.mjs` validates the manifest (hashes, sizes, unique prefix, no foreign hosts).
+
+First entry: `kitten_nano_int8` = KittenML/kitten-tts-nano-0.8-int8 at commit `84781d74e29ee25217551556398b42f80593a813` (3 files, 27,649,561 bytes,
+Apache-2.0 weights). Its phonemizer dependency, espeak-ng, is GPL-3.0 and is shipped separately, not in this set. Dry run on 2026-11-02:
+all three files matched their pinned size and SHA-256; nothing was uploaded.
+
 ## Layout convention for anything new (speech models later)
 
 * `models/<family>/<pinned revision or content hash>/<files>`: one immutable directory per version; a changed byte is a new path. Existing

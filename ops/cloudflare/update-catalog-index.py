@@ -31,6 +31,17 @@ for key, (model_id, licence) in IDS.items():
                                'baseUrl': HOST + m['prefix'], 'firstShardUrl': HOST + m['prefix'] + first, 'bytes': m['totalBytes'], 'license': licence})
     for f in m['files']:
         manifest['files'].append({'path': f['path'], 'bytes': f['bytes'], 'sha256': f['sha256'], 'key': m['prefix'] + f['path'], 'url': HOST + m['prefix'] + f['path']})
+VOICE_FILE = ROOT / 'voice-models.json'
+VOICE = json.loads(VOICE_FILE.read_text()) if VOICE_FILE.exists() else {}
+VOICE_IDS = {'kitten_nano_int8': 'Kitten-TTS-Nano-0.8-int8'}
+for key, model_id in VOICE_IDS.items():
+    m = VOICE[key]
+    manifest['models'] = [x for x in manifest['models'] if x['modelId'] != model_id]
+    manifest['files'] = [f for f in manifest['files'] if not f['key'].startswith(m['prefix'])]
+    manifest['models'].append({'modelId': model_id, 'runtime': 'onnxruntime-web', 'revision': m['model']['sourceRevision'], 'baseUrl': HOST + m['prefix'],
+                               'bytes': m['model']['totalBytes'], 'license': m['licenseName']})
+    for f in m['files']:
+        manifest['files'].append({'path': f['path'], 'bytes': f['bytes'], 'sha256': f['sha256'], 'key': m['prefix'] + f['path'], 'url': HOST + m['prefix'] + f['path']})
 text = json.dumps(manifest, indent=2) + '\n'
 print(len(manifest['models']), 'models,', len(manifest['files']), 'files')
 if args.dry_run:
