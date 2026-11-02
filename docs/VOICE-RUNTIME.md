@@ -29,7 +29,7 @@ Checked against KittenTTS's Python reference: `tests/fixtures/kitten-golden.json
 
 ## Limitations
 
-- English only. Number and abbreviation expansion (KittenTTS `clean_text`) is not ported: "3" and "Dr." reach the phonemizer as written.
+- English only. KittenTTS's text pre-processor is ported in `chat/voice-text.mjs` and applied before chunking (`speechChunks`): numbers, currency, percentages, times, ordinals, units, fractions, decades, phone numbers, IP addresses, ranges and contractions are spoken as words, and URLs, e-mail addresses and HTML tags dropped. As in the reference it then removes all punctuation and lower-cases, so a short text is one chunk (prosody comes from the model, not from sentence marks). Golden test: `tests/fixtures/kitten-preprocess-golden.json` (517 cases from the Python reference, regenerate with `ops/voice/gen-preprocess-golden.py`).
 - Installing needs `FileSystemFileHandle.createWritable()` (Chromium, Firefox, Safari 26+). No fallback yet.
 - The ORT WASM files in `chat/vendor/voice/` are excluded from the service worker's precache (`scripts/build.mjs`): they are cached on first use, not at install, so offline speech needs one online use of the worker first.
 - The `.onnx`, `voices.npz` and `config.json` are not hosted yet; `baseUrl` must point at a host that sends CORS and (under COEP) usable cross-origin headers. Hosting and the Hugging Face revision pin are still to do (`docs/CDN-POPULATION.md`).
@@ -55,7 +55,7 @@ esbuild is a dev dependency of `ops/voice` only; the app imports none of the npm
 
 | File | Bytes | SHA-256 |
 |---|---|---|
-| `chat/vendor/voice/worker.js` | 1386350 | `c705b819f4052fed7f592b14c31de099ad18283a7439bb60c0773c41b4e9cf53` |
+| `chat/vendor/voice/worker.js` | 1397091 | `45c00a0606ac563221e70417555935080691d72541589837927a57799ee222b9` |
 | `chat/vendor/voice/ort-wasm-simd-threaded.mjs` | 24738 | `30ed0b5cd1182ede931fea448afb567d4dc705ec957af09f108a2be5f770dac3` |
 | `chat/vendor/voice/ort-wasm-simd-threaded.wasm` | 14848852 | `4b884c203b0fa48d057be3332c65513ff85aa3c5bddd6946acc0fab7ecda001d` |
 | `chat/vendor/voice/worker.js.LEGAL.txt` | 211 | `4054729dc1c74b457924965c7c26c781629a3968bfbdc80ab01eded2338a24d1` |

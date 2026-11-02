@@ -15,7 +15,7 @@ import * as ort from "onnxruntime-web/wasm";
 import { phonemize } from "phonemizer";
 import { unzipSync } from "fflate";
 import {
-  SAMPLE_RATE, chunkText, chunkToIds, parseNpz, resolveVoice, effectiveSpeed, styleFor, trimAudio,
+  SAMPLE_RATE, speechChunks, chunkToIds, parseNpz, resolveVoice, effectiveSpeed, styleFor, trimAudio,
 } from "../../chat/voice-kitten.mjs";
 
 let session = null;
@@ -62,7 +62,7 @@ async function speak(id, { text, voice, speed }) {
   if (!session) throw new Error("the voice model is not loaded");
   const voiceId = resolveVoice(config, voices, voice);
   const finalSpeed = effectiveSpeed(config, voiceId, typeof speed === "number" && speed > 0 ? speed : 1);
-  const chunks = chunkText(text);
+  const chunks = speechChunks(text); // normalise for speech first, then chunk, as the reference does
   const t0 = performance.now();
   let firstAudioMs = null, samples = 0, done = 0;
   for (let index = 0; index < chunks.length; index++) {
