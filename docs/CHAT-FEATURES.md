@@ -37,7 +37,7 @@ The layout follows the familiar chat-app pattern so someone who uses one daily c
 | Settings page | General, Personalization, Models, Data controls, Security, Roberta & voice, Library, About. The model and API forms and the import/export flows are the original elements, moved here. |
 | Empty chat | A centered greeting with the composer in the middle. |
 
-Entries come from a registry (`chat/shell/registry.mjs`): adding a rail item, Explore item or "+" item is one `register()` call. Set `localStorage plc.shell.off=1` to run the classic layout; the older e2e files use it (`tests/e2e/harness.mjs`), and `tests/e2e/shell.e2e.mjs` covers the new layout.
+Entries come from a registry (`chat/shell/registry.mjs`): adding a rail item, Explore item or "+" item is one `register()` call. `tests/e2e/shell.e2e.mjs` covers the layout and every other e2e suite drives it.
 
 ## On-device models
 

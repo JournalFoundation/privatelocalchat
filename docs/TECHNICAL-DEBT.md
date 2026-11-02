@@ -18,7 +18,7 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 7. **`index.html` is a 5,600-line inline script** (`CLAUDE.md` still says about 4.5k). New features were put in modules (`chat/*.mjs`, `runtime/`) and reach the page through hook arrays (`contextProviders`, `beforeSendHooks`, `replyListeners`, ...) and the `transferApp` facade, which works but leaves two styles side by side and a large block of state (config, tokens, threads, drafts) that only the inline script can touch. *Fix:* move storage, tokens and config into modules with tests, one slice at a time, starting with the endpoint-token logic.
 8. **Two sources of truth for the API token.** `config.token` (mirrors the visible field) and `endpointTokens` (keyed by endpoint identity) can disagree; requests now use `authTokenFor(endpoint)` but several paths still write `config.token` directly. *Fix:* make `endpointTokens` the only store and derive the field from it.
 9. **Native `confirm` / `alert` / `prompt` are still used** in 10 places (clear history, reset settings, endpoint-switch key copy, a few errors). They cannot be styled, break on some embedded browsers and are hard to test. Replace with `openAppDialog` / `confirmDialog`.
-10. **Legacy CSS and variables.** `chat/chat.css` and the inline `<style>` still define the old `--color-*` tokens, which `chat/brand.css` maps onto `--plc-*`; the unused `.voice-status` rule is still there. Remove once nothing reads the old variables.
+10. **Two sets of colour variables.** `chat/chat.css` and the inline `<style>` define `--color-*` tokens, which `chat/brand.css` maps onto `--plc-*`. Fold them into one set.
 11. **The About modal and the Help sheet overlap.** The modal is kept as "Quick summary of this app" and is still reachable from the Help sheet and the first-run screens; the public `/about/` page is the canonical version. Decide whether to keep both.
 12. **Duplicated release-path rewriting.** `scripts/build.mjs` rewrites asset paths for `index.html` and, separately, for the public pages (`scripts/public-site.mjs`); a third entry point would need a third copy.
 13. **The head script in `index.html` (stale-build repair, start-failure banner) is plain ES5 by design** and duplicates a little logic with `local-models.js`' service-worker registration. Keep it small; do not let it grow.
@@ -57,13 +57,12 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 
 ## App layout (2026-11-02)
 
-35. **Most e2e files still test the classic layout** (`plc.shell.off`); port them to the new shell and drop the switch. Only `shell.e2e.mjs` drives the new layout.
-36. **The new layout has not been checked on a real iPhone**, nor the call screen's status text and the stalled-speech cut-off (the stall timer is a conservative guess, untested against a real stuck voice engine).
-37. **Meaning search keeps its vectors in memory only**, rebuilt each time the search opens (up to 2,500 passages, newest first). Persist them in IndexedDB if it feels slow on large histories.
-38. **No Images destination** (nothing to show), and a call does not start a model download by itself.
+35. **The new layout has not been checked on a real iPhone**, nor the call screen's status text and the stalled-speech cut-off (the stall timer is a conservative guess, untested against a real stuck voice engine).
+36. **Meaning search keeps its vectors in memory only**, rebuilt each time the search opens (up to 2,500 passages, newest first). Persist them in IndexedDB if it feels slow on large histories.
+37. **No Images destination** (nothing to show), and a call does not start a model download by itself.
 
-39. **LFM2.5 and Granite are untested on a GPU and on iPhone.** They were proven end to end on the processor path only (download, hash check, load, two answers, unload, remove). The earlier speechtest work qualified LFM2.5-2.6B Q3_K_M on Mac Safari with a 16 MB bounded loader; run the same check on a real iPhone before offering them there, and measure memory (the figures in `catalog.mjs` are estimates). Granite's window is 8,192 here; its manifest allowed 16,384.
-40. **LFM2.5 prints a leading newline** before its first sentence; the Markdown view hides it, but a copied answer may start with a blank line.
+38. **LFM2.5 and Granite are untested on a GPU and on iPhone.** They were proven end to end on the processor path only (download, hash check, load, two answers, unload, remove). The earlier speechtest work qualified LFM2.5-2.6B Q3_K_M on Mac Safari with a 16 MB bounded loader; run the same check on a real iPhone before offering them there, and measure memory (the figures in `catalog.mjs` are estimates). Granite's window is 8,192 here; its manifest allowed 16,384.
+39. **LFM2.5 prints a leading newline** before its first sentence; the Markdown view hides it, but a copied answer may start with a blank line.
 
 ## Review log
 
