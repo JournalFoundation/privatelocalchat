@@ -74,6 +74,7 @@ export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, 
   if (!storage || !Number.isFinite(storage.quota) || !Number.isFinite(storage.usage)) return os("storage-unknown", { stage: 1 });
   const freeMB = (storage.quota - storage.usage) / 1e6;
   // a mobile browser's estimate can overstate free space by orders of magnitude: it must be proven with a real write
+  if (storage.writeOk === false) return os("not-enough-free-storage", { stage: 1 });
   if (mobile && storage.writeOk !== true) return os(storage.writeOk === false ? "not-enough-free-storage" : "storage-unverified", { stage: 1, needsStorageTest: storage.writeOk === undefined });
 
   // the larger voice needs memory headroom (or, on desktop where memory is hidden, a fast probe below)

@@ -1,6 +1,6 @@
 # Voice runtime: on-device text-to-speech engine (Kitten TTS nano 0.8 int8)
 
-Status: engine module only. Nothing in the app calls it yet (`chat/speech.mjs` and the shell are untouched). The plan is `docs/VOICE-ENGINE-PLAN.md`.
+Status: wired into the app. `chat/voice-upgrade.mjs` (the controller) creates the engine for the optional downloaded read-aloud voice, `chat/speech.mjs` routes speech to it while it is active, and Settings > Voice manages it. The plan is `docs/VOICE-ENGINE-PLAN.md`.
 
 ## Parts
 
@@ -55,7 +55,7 @@ esbuild is a dev dependency of `ops/voice` only; the app imports none of the npm
 
 | File | Bytes | SHA-256 |
 |---|---|---|
-| `chat/vendor/voice/worker.js` | 1386350 | `ad72533abb313357a04e0c6f3a3863170a998cf87e703f8646f425374db8d755` |
+| `chat/vendor/voice/worker.js` | 1386350 | `c705b819f4052fed7f592b14c31de099ad18283a7439bb60c0773c41b4e9cf53` |
 | `chat/vendor/voice/ort-wasm-simd-threaded.mjs` | 24738 | `30ed0b5cd1182ede931fea448afb567d4dc705ec957af09f108a2be5f770dac3` |
 | `chat/vendor/voice/ort-wasm-simd-threaded.wasm` | 14848852 | `4b884c203b0fa48d057be3332c65513ff85aa3c5bddd6946acc0fab7ecda001d` |
 | `chat/vendor/voice/worker.js.LEGAL.txt` | 211 | `4054729dc1c74b457924965c7c26c781629a3968bfbdc80ab01eded2338a24d1` |

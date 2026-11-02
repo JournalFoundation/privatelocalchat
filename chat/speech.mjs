@@ -51,13 +51,13 @@ export function speechChunks(text, max = 220) {
  * call screen), engine.fail(error) is told and the same text is read by the system voice instead, unless audio already started.
  */
 function speakViaEngine(text, opts) {
-  const { engine, rate = 1, onStart, stallMs = (n) => 20000 + n * 90, betweenMs = 10000, firstChunkMs = 14000, startDelayMs = 0, createContext, ...rest } = opts;
+  const { engine, rate = 1, onStart, stallMs = (n) => 20000 + n * 150, betweenMs = 75000, firstChunkMs = 90000, startDelayMs = 0, createContext, ...rest } = opts;
   const ac = new AbortController(), player = createGaplessPlayer({ createContext, hold: startDelayMs > 0 });
   let stopped = false, fallback = null, timer = null, releaseTimer = null, got = false;
   const stop = () => { stopped = true; clearTimeout(timer); clearTimeout(releaseTimer); ac.abort(); player.stop(); fallback?.stop(); };
   const done = (async () => {
     let stalled = null;
-    const arm = (ms) => { clearTimeout(timer); timer = setTimeout(() => { stalled = new Error("The downloaded voice stopped responding."); ac.abort(); }, ms); };
+    const arm = (ms) => { clearTimeout(timer); timer = setTimeout(() => { stalled = new Error("The downloaded voice stopped responding."); ac.abort(); try { engine.terminate?.(); } catch { /* the worker is already gone */ } }, ms); };
     try {
       arm(Math.min(stallMs(String(text).length), firstChunkMs)); onStart?.();
       if (startDelayMs > 0) releaseTimer = setTimeout(() => player.release(), startDelayMs); // buffer ahead, then play gaplessly

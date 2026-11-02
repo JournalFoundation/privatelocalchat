@@ -18,6 +18,7 @@ import { createGaplessPlayer } from "./voice-player.mjs";
 
 export const VOICE_KEY = "plc.voice.v1";
 export const DECLINE_MS = 30 * 864e5;
+export const GATE_COOLDOWN_MS = 14 * 864e5;
 export const SAMPLE_TEXT = "This is how I will read your answers aloud. If you like it, keep this voice.";
 const TYPICAL_REPLY_SECONDS = 20;
 /** Engines that exist in this build. The larger voice is in the selection rule but has no engine yet, so it is never offered. */
@@ -42,7 +43,7 @@ export function createVoiceController({
   createContext
 } = {}) {
   let record = read();
-  let state = "system", engine = null, engineId = null, sessionFallback = false, lastMetrics = null, candidate = null, player = null, decision = null;
+  let evaluating = null, state = "system", engine = null, engineId = null, sessionFallback = false, lastMetrics = null, candidate = null, player = null, decision = null;
   const listeners = new Set();
   const ios = isIOSDevice(userAgent, maxTouchPoints);
 
@@ -76,7 +77,11 @@ export function createVoiceController({
      * module means no offer. Never throws.
      */
     async evaluate() {
-      try { return (decision = await evaluate()); } catch (e) { return (decision = { offer: false, reason: "error:" + (e?.message || e) }); }
+      if (evaluating) return evaluating;
+      evaluating = (async () => {
+        try { return (decision = await evaluate()); } catch (e) { return (decision = { offer: false, reason: "error:" + (e?.message || e) }); } finally { evaluating = null; }
+      })();
+      return evaluating;
     },
 
     /** Called after a read-aloud with the system voice worked. Shows the offer at most once per session. */
@@ -157,15 +162,18 @@ export function createVoiceController({
       if (state !== "active" || sessionFallback || !engine) return null;
       const lead = lastMetrics ? Math.min(startDelayMs({ audioSeconds: TYPICAL_REPLY_SECONDS, realTimeFactor: lastMetrics.realTimeFactor, firstAudioMs: lastMetrics.firstAudioMs }), config.maxStartDelayMs) : 0;
       return {
-        engine: { speak: (t, o) => engine.speak(t, o), fail: (err) => ctl.engineFailed(err) },
-        options: { startDelayMs: Number.isFinite(lead) ? lead : 0, firstChunkMs: config.maxStartDelayMs + config.maxFirstAudioMs, createContext }
+        engine: { speak: (t, o) => engine.speak(t, o), terminate: () => engine.terminate?.(), fail: (err) => ctl.engineFailed(err) },
+        options: { startDelayMs: Number.isFinite(lead) ? lead : 0, firstChunkMs: Math.max(90000, config.maxStartDelayMs + config.maxFirstAudioMs), createContext }
       };
     },
     /** The engine failed or stalled while reading: the system voice is used for the rest of the session and the device remembers why. */
     engineFailed(err) {
       sessionFallback = true;
-      record.fallback = { reason: "runtime: " + (err?.message || err), engine: record.engine, at: now() }; save();
+      const previous = record.fallback?.runtime && record.fallback.engine === record.engine ? record.fallback.count || 1 : 0;
+      record.fallback = { reason: "runtime: " + (err?.message || err), engine: record.engine, at: now(), runtime: true, count: previous + 1 }; save();
       set("fallback", { reason: record.fallback.reason });
+      // a second failure means this voice does not work here: delete it rather than failing again every session
+      if (record.fallback.count >= 2 && record.engine) void giveUp(record.engine, "repeated-failure");
     }
   };
 
@@ -182,6 +190,9 @@ export function createVoiceController({
     if (record.chosen) return { offer: false, reason: "user-choice" };
     if (record.fallback) return { offer: false, reason: "fallback-remembered" };
     if (record.declinedAt && now() - record.declinedAt < DECLINE_MS) return { offer: false, reason: "declined-recently" };
+    if (record.gate && now() - record.gate.at < GATE_COOLDOWN_MS) return { offer: false, reason: "gate-remembered:" + record.gate.reason };
+    // files left by an install or test the page never finished (closed or crashed) are removed before anything new is measured
+    if (!record.engine) { try { const e = await engineFor(IMPLEMENTED[0]), st = await e.status(); if (st.installed || st.bytes > 0) await e.remove(); } catch { /* nothing to clean */ } }
     const base = { env: await env(), userAgent, maxTouchPoints, language, config, devOffer, installed: {}, chosen: null };
     let est = null; try { est = await estimate(); } catch { /* unknown */ }
     const storageNow = est && Number.isFinite(est.quota) ? { usage: est.usage || 0, quota: est.quota } : null;
@@ -202,6 +213,8 @@ export function createVoiceController({
       if (!probe || !Number.isFinite(probe.ms)) return { offer: false, reason: "probe-unavailable" };
       d = pickVoiceEngine({ ...base, only: IMPLEMENTED, probe });
     }
+    // a measured "no" about the device itself is remembered for a while, so the write test and the probe do not run every session
+    if (d.offer === false && (d.reason === "probe-too-slow" || d.reason === "not-enough-free-storage")) { record.gate = { reason: d.reason, at: now() }; save(); }
     return d;
   }
   async function tryLoad(name) { try { return await loadModule(name); } catch { return null; } }

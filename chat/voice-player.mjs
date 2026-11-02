@@ -27,7 +27,11 @@ export function createGaplessPlayer({ createContext = () => new (globalThis.Audi
     /** Start playing what was held, and everything after it. */
     release() { held = false; const q = queue.splice(0); for (const [a, r] of q) this.push(a, r); },
     /** No more chunks are coming. Resolves when everything queued has been played (or the player was stopped). */
-    finish() { if (held) this.release(); ended = true; return pending === 0 ? Promise.resolve() : new Promise((r) => { waiter = r; }); },
+    finish() {
+      if (held) this.release(); ended = true;
+      // the audio context is closed when playback is over, so repeated read-alouds do not pile up open contexts
+      return (pending === 0 ? Promise.resolve() : new Promise((r) => { waiter = r; })).then(() => { try { ctx?.close?.(); } catch { /* closed */ } });
+    },
     stop() {
       stopped = true; ended = true;
       for (const s of sources) { try { s.onended = null; s.stop(); } catch { /* not started */ } }

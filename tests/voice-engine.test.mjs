@@ -324,7 +324,7 @@ test("remove also clears the ONNX Runtime files the service worker cached, and n
   const engine = f.make({ cachesImpl });
   await engine.install();
   await engine.remove();
-  assert.deepEqual([...entries.get("shell")], [urls[2], urls[3]], "only the two runtime files are dropped");
+  assert.deepEqual([...entries.get("shell")], [urls[3]], "the voice worker and runtime files are dropped, the app is not");
   assert.equal(entries.get("other").size, 1);
   const noCaches = f.make({ cachesImpl: { keys: async () => { throw new Error("denied"); } } });
   await noCaches.remove(); // a cache that cannot be read does not make removal fail

@@ -193,6 +193,18 @@ test("a stalled engine is abandoned and the system voice reads instead; abort st
   } finally { sys.restore(); }
 });
 
+test("a wedged worker that ignores the abort is terminated, so the system voice still takes over", async () => {
+  const sys = fakeSystemVoice();
+  try {
+    let terminated = 0, failed = null, reject = null;
+    const wedged = { speak: () => new Promise((_, rej) => { reject = rej; }), terminate() { terminated++; reject(new Error("the voice worker was stopped")); }, fail: (e) => { failed = e; } };
+    await speak("Wedged reply.", { engine: wedged, firstChunkMs: 30 }).done;
+    assert.equal(terminated, 1);
+    assert.match(failed.message, /stopped responding/);
+    assert.deepEqual(sys.spoken, ["Wedged reply."]);
+  } finally { sys.restore(); }
+});
+
 test("the player holds chunks until released, then plays them back to back", async () => {
   const ctx = fakeAudioContext(), p = createGaplessPlayer({ createContext: () => ctx, hold: true });
   p.push(new Float32Array(100), 100); assert.equal(ctx.scheduled.length, 0);

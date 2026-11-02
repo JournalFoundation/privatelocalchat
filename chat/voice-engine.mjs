@@ -190,7 +190,7 @@ export function createVoiceEngine({
     discardWorker("unloaded");
   }
 
-  /** The service worker keeps the 13 MB ONNX Runtime files in the app cache the first time they are used. Removing the voice removes those too. */
+  /** The service worker keeps the voice worker and the 13 MB ONNX Runtime files in the app cache the first time they are used (they are not precached, so nobody who never uses the voice pays for them). Removing the voice removes those too. */
   async function purgeRuntimeCache() {
     const store = cachesImpl || globalThis.caches;
     if (!store?.keys) return 0;
@@ -199,7 +199,7 @@ export function createVoiceEngine({
       for (const name of await store.keys()) {
         const cache = await store.open(name);
         for (const request of await cache.keys()) {
-          if (/\/vendor\/voice\/ort-wasm[^/]*$/.test(new URL(request.url).pathname) && await cache.delete(request)) removed++;
+          if (/\/vendor\/voice\/[^/]+$/.test(new URL(request.url).pathname) && await cache.delete(request)) removed++;
         }
       }
     } catch { /* a cache that cannot be cleaned is not fatal; the model files are already gone */ }
@@ -254,5 +254,8 @@ export function createVoiceEngine({
     return { ...stats, audio, sampleRate: SAMPLE_RATE };
   }
 
-  return { status, install, remove, load, unload, speak, sample, get manifest() { return manifest; } };
+  /** Stops a worker that no longer answers without waiting for it: every waiting call is rejected and the next speak starts a fresh worker. */
+  const terminate = () => discardWorker(new Error("the voice worker was stopped because it stopped responding"));
+
+  return { status, install, remove, load, unload, terminate, speak, sample, get manifest() { return manifest; } };
 }

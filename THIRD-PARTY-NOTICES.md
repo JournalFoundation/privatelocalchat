@@ -10,7 +10,11 @@ Private Local Chat is released under the **GNU General Public License, version 3
 | `phonemizer` 1.2.1 (JavaScript wrapper, by Xenova) | Loads the eSpeak NG build above | Apache-2.0 | https://github.com/xenova/phonemizer.js |
 | ONNX Runtime Web 1.31.1 | Runs the voice model in the browser (`chat/vendor/voice/`) | MIT | https://github.com/microsoft/onnxruntime |
 | fflate 0.8.3 | Reads the voice file archive | MIT | https://github.com/101arrowz/fflate |
-| WebLLM, wllama, transformers.js and the other runtimes listed in `docs/RUNTIMES.md` and `docs/EMBEDDINGS.md` | On-device language models and search | Apache-2.0 / MIT, see those documents | see those documents |
+| pdf.js (`chat/vendor/pdfjs/`, Mozilla Foundation) | Reading PDF attachments | Apache-2.0 (notice at the top of the file) | https://github.com/mozilla/pdf.js |
+| QRCode.js (`chat/vendor/qrcode.js`) | Share and transfer QR codes | MIT upstream; the file itself carries no licence header, to be confirmed | https://github.com/davidshimjs/qrcodejs |
+| noble-hashes (`runtime/providers/vendor/noble-hashes/`) | SHA-256 checks of downloaded files | MIT | https://github.com/paulmillr/noble-hashes |
+| wllama and the llama.cpp engine inside it (`runtime/providers/vendor/wllama/`) | Running GGUF models | MIT | https://github.com/ngxson/wllama |
+| WebLLM, transformers.js and the other runtimes listed in `docs/RUNTIMES.md` and `docs/EMBEDDINGS.md` | On-device language models and search | Apache-2.0 / MIT, see those documents | see those documents |
 
 The complete corresponding source of every GPL-covered part is this repository, which also contains the script that rebuilds the voice worker (`ops/voice/`, see `docs/VOICE-RUNTIME.md`). The eSpeak NG source is available at the address above. Apache-2.0 and MIT components are combined with this program under the terms of GPL-3.0, which permits it.
 

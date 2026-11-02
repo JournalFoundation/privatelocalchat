@@ -21,6 +21,8 @@ await build({
   outfile: path.join(out, "worker.js"),
   bundle: true, format: "esm", platform: "browser", target: "es2022", minify: true, treeShaking: true, legalComments: "linked",
   nodePaths: [nm],
+  // the bundle contains GPL code, so it says so itself (the minifier would otherwise drop every notice)
+  banner: { js: "/*! chat/vendor/voice/worker.js bundles eSpeak NG (GPL-3.0-or-later, https://github.com/espeak-ng/espeak-ng, via the npm package phonemizer 1.2.1), ONNX Runtime Web (MIT) and fflate (MIT). Private Local Chat is released under the GNU General Public License v3; see LICENSE and THIRD-PARTY-NOTICES.md. Rebuild: docs/VOICE-RUNTIME.md */" },
   // the variant of onnxruntime-web that loads its WASM files from wasmPaths instead of inlining the loader
   conditions: ["onnxruntime-web-use-extern-wasm"],
   external: ["node:*", "fs", "path", "worker_threads", "os", "crypto"],

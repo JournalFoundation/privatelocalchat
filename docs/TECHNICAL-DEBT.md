@@ -70,6 +70,12 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 44. **The browser eSpeak build differs from Python's.** One of seven reference chunks differed by one vowel ("four"), so output is very slightly different from Kitten's reference.
 45. **Installing needs `createWritable()`.** Older Safari without it cannot install the voice (the offer then fails and the system voice stays).
 46. **The service worker caches the whole app on first visit (about 42 MB) regardless of voice.** Removing the voice also deletes the 13 MB ONNX Runtime cache entries, but the shell cache is the app itself and remains.
+47. **A slow voice can stutter on long replies.** The playback lead is sized for a 20 s reply and capped at `maxStartDelayMs`; a 2-minute reply at 0.7x real time pauses between chunks. Fine for the usual short answer; revisit if long answers are read aloud often.
+48. **`loadWhen` is computed but nothing reads it.** The voice model loads on first read-aloud and stays loaded (about 100 MB plus runtime threads) until unloaded; the "when idle" policy from `runtime/voice-pick.mjs` is not applied yet.
+49. **Two tabs can race an install.** Install is de-duplicated within one page only; a second tab's cleanup could delete the first tab's partial files, which then fails and records a fallback.
+50. **Sentence splitting follows Kitten's reference.** Text is split at every full stop, so "3.5", "e.g." and "U.S." are cut into pieces, and one very long unbroken run (a URL or code) is a single long chunk.
+51. **After "Use the system voice" the choice is permanent** and Settings has no control to start the download again (the Remove dialog still says it can be downloaded later).
+52. **Installed files are hashed once, at install.** `status()` trusts size plus a marker file afterwards; same-size corruption in private storage would not be noticed.
 
 ## Review log
 
@@ -77,4 +83,4 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 * 2026-11-01: added voice notes, Roberta and semantic matching items (26-29) after that release.
 * 2026-11-02: added the app layout items (35-38) after the shell release.
 * 2026-11-02: added LFM2.5 and Granite items (39-40).
-* 2026-11-02: added the voice upgrade items (41-46).
+* 2026-11-02: added the voice upgrade items (41-46), and 47-52 from the independent review of it.
