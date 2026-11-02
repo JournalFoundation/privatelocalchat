@@ -74,7 +74,6 @@ export function createTransferUi({ app, el, openAppDialog, showToast, icon, doc 
     const fine = el("div", "help-fineprint");
     if (site.supportEmail) { const p = el("p", "hint-text"); const a = el("a", null, "Email the project team"); a.href = "mailto:" + site.supportEmail; p.append(a, " — goes to the people who run this project, for questions and support."); fine.appendChild(p); }
     fine.appendChild(el("p", "hint-text", "GitHub submissions are public. Leave out API keys and private conversations."));
-    const sonalon = el("p", "hint-text"); sonalon.append("Looking for AI personas? "); const sa = el("a", null, "Explore Sonalon"); sa.href = "https://sonalon.com/"; sa.target = "_blank"; sa.rel = "noopener"; sonalon.appendChild(sa); fine.appendChild(sonalon);
     body.appendChild(fine);
     const handle = openAppDialog({ title: "Help & about", content: body });
     return handle;

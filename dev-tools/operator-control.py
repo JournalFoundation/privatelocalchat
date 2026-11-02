@@ -7,7 +7,8 @@ private=Path('/root/.config/privatelocalchat')
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('operation',choices=['enqueue','status'])
 p.add_argument('--session-file',default=str(private/'iphone-debug-session.json'))
-p.add_argument('--action',choices=['state','new-chat','prompt','load','unload','profile','stop','download','cancel-download'])
+p.add_argument('--action',choices=['state','new-chat','prompt','load','unload','profile','stop','download','cancel-download','use-model','remove-model'])
+p.add_argument('--tier',choices=['default','light','lfm','granite'],help='model for use-model / remove-model')
 p.add_argument('--gpu-layers',type=int,choices=[0,-1])
 p.add_argument('--text-file',help='UTF-8 prompt file; avoids shell interpolation')
 p.add_argument('--expected-commit')
@@ -20,7 +21,8 @@ if a.operation=='enqueue':
  if not a.action or not a.expected_commit:p.error('enqueue requires --action and --expected-commit')
  if a.action=='prompt' and not a.text_file:p.error('prompt requires --text-file')
  if a.action=='profile' and a.gpu_layers is None:p.error('profile requires --gpu-layers')
- command={'id':a.command_id or str(uuid.uuid4()),'action':a.action,'expectedCommit':a.expected_commit,'args':{'text':Path(a.text_file).read_text()} if a.action=='prompt' else {'gpuLayers':a.gpu_layers} if a.action=='profile' else {}}
+ if a.action in('use-model','remove-model') and not a.tier:p.error(a.action+' requires --tier')
+ command={'id':a.command_id or str(uuid.uuid4()),'action':a.action,'expectedCommit':a.expected_commit,'args':{'text':Path(a.text_file).read_text()} if a.action=='prompt' else {'gpuLayers':a.gpu_layers} if a.action=='profile' else {'tier':a.tier} if a.action in('use-model','remove-model') else {}}
  Path(a.out).write_text(json.dumps({'command':command,'state':'submission-pending'},indent=2)+'\n')
  request=urllib.request.Request(base,method='POST',headers=headers,data=json.dumps(command).encode())
 else:

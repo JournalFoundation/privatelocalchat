@@ -1146,6 +1146,7 @@
   <link rel="stylesheet" href="/local-models.css" />
   <link rel="stylesheet" href="/chat/chat.css" />
   <link rel="stylesheet" href="/chat/brand.css" />
+  <link rel="stylesheet" href="/chat/shell.css" />
   <script src="/build-info.js"></script>
   <script>
     // Runs before the rest of the app, in plain old JavaScript, so it still works when a browser cannot run the rest.
@@ -1200,6 +1201,13 @@
   <script type="module" src="/local-models.js"></script>
 </head>
 <body>
+  <noscript>
+    <div id="noScriptNotice" role="alert" style="position:fixed;left:0;right:0;top:0;z-index:99999;padding:12px 14px;background:#182332;color:#fff;font:15px/1.45 -apple-system,system-ui,sans-serif">
+      <strong>JavaScript is turned off in this browser, so Private Local Chat cannot start.</strong>
+      Menus, icons and chat do nothing until it is on. In Safari on iPhone or iPad: Settings &rarr; Apps &rarr; Safari &rarr; Advanced &rarr; JavaScript.
+      In other browsers, allow JavaScript for this site (or turn off a content blocker or Lockdown Mode for it), then reload.
+    </div>
+  </noscript>
   <!-- Inline SVG sprite sheet for local icons -->
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -1279,7 +1287,7 @@
           <p id="setupHint" class="hint-text" role="status"></p>
         </div>
         <label for="localModelSelect">Model</label>
-        <select id="localModelSelect"><option value="light">Qwen3.5-2B — smaller download</option><option value="default">Qwen3.5-9B — higher quality</option></select>
+        <select id="localModelSelect"><option value="light">Qwen3.5-2B — smaller download</option><option value="lfm">LFM2.5-2.6B — Liquid, strong writing</option><option value="granite">Granite 4.0 H 1B — IBM, smallest download</option><option value="default">Qwen3.5-9B — higher quality</option></select>
         <p id="modelDetails"></p>
         <p id="modelStatus" role="status" aria-live="polite">Checking device capabilities…</p>
         <p class="hint-text model-help">Trouble? <a href="/help/#stalled-download" target="_blank" rel="noopener">Download stuck<span class="sr-only"> (opens in a new tab)</span></a> · <a href="/help/#load-failure" target="_blank" rel="noopener">Model will not load<span class="sr-only"> (opens in a new tab)</span></a> · <a href="/help/#model-storage" target="_blank" rel="noopener">Storage and removal<span class="sr-only"> (opens in a new tab)</span></a></p>
@@ -2690,7 +2698,7 @@
         return thread ? structuredClone({id:thread.id,systemPrompt:thread.systemPrompt,messages:thread.messages}) : null;
       };
       window.__plcDebugControl = async (action, args = {}) => {
-        if (action === 'state') return {conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,downloadRecovery:window.localModels?.downloadRecovery,status:document.getElementById('generationStatus').textContent};
+        if (action === 'state') return {storage:await navigator.storage?.estimate?.().then(e=>({usage:e.usage,quota:e.quota}),()=>null),conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,downloadRecovery:window.localModels?.downloadRecovery,status:document.getElementById('generationStatus').textContent};
         if (action === 'stop') {generationController?.abort();return {stopped:true};}
         if (generationBusy) throw new Error('A response is already running');
         if (action === 'new-chat') {newThread();return window.__plcDebugCurrentConversation();}
@@ -2698,6 +2706,8 @@
         if (action === 'download' || action === 'cancel-download') return window.__plcDebugDownloadControl(action);
         if (action === 'load') return window.localModels.ready ? window.localModels.state.load.info : window.__plcDebugModelHost.load();
         if (action === 'unload') {const result=await window.__plcDebugModelHost.unload();await window.__plcDebugModelHost.restartHost();return {state:window.localModels.state,cleanup:result?.cleanup};}
+        if (action === 'use-model') {await window.localModels.switchTier(args.tier);return {tier:window.localModels.state.selection.tier};}
+        if (action === 'remove-model') {await window.localModels.removeTier(args.tier);await window.localModels.inspectAll();const e=await navigator.storage?.estimate?.();return {removed:args.tier,storage:e?{usage:e.usage,quota:e.quota}:null};}
         if (action === 'profile') return window.__plcDebugSetComputeProfile(args);
         if (action !== 'prompt' || typeof args.text !== 'string' || !args.text.trim() || args.text.length > 16000) throw new Error('Invalid remote prompt');
         if (!window.localModels.ready) throw new Error('Load the saved model before sending a prompt');
@@ -2737,10 +2747,10 @@
       const moduleBase = () => (window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/');
       async function loadChatModules() {
         const base = moduleBase();
-        const [markdown, model, stream, context, icons] = await Promise.all([
-          import(base + 'chat/markdown.mjs'), import(base + 'chat/threads.mjs'), import(base + 'chat/stream.mjs'), import(base + 'chat/context.mjs'), import(base + 'chat/icons.mjs')
+        const [markdown, model, stream, context, icons, shellRegistry] = await Promise.all([
+          import(base + 'chat/markdown.mjs'), import(base + 'chat/threads.mjs'), import(base + 'chat/stream.mjs'), import(base + 'chat/context.mjs'), import(base + 'chat/icons.mjs'), import(base + 'chat/shell/registry.mjs')
         ]);
-        M = { markdown, model, stream, context, icons };
+        M = { markdown, model, stream, context, icons, shellRegistry };
       }
       const STATUS = () => M.model.STATUS;
       function providerName() {
@@ -3029,7 +3039,7 @@
         const unsupported = local && lm && lm.supported === false && !lm.ready && Boolean(lm.gpuHelp && lm.gpuHelp.kind !== 'ok');
         const help = unsupported ? lm.gpuHelp : null;
         const firstUse = local && lm && !lm.installed && !lm.ready && !thread.temporary && !unsupported;
-        if (!prefs.robertaDismissed && !thread.temporary && local && lm && !lm.ready && (firstUse || welcomeSetup || unsupported)) { const slot = el('div', 'roberta-slot'); box.appendChild(slot); mountRobertaHero(slot); }
+        if (!shellEnabled() && !prefs.robertaDismissed && !thread.temporary && local && lm && !lm.ready && (firstUse || welcomeSetup || unsupported)) { const slot = el('div', 'roberta-slot'); box.appendChild(slot); mountRobertaHero(slot); }
         if (unsupported) {
           // this browser cannot run the on-device models: say so and offer the other path, instead of a setup that cannot work
           box.classList.add('welcome');
@@ -3057,7 +3067,7 @@
           }
           return box;
         }
-        if (firstUse) {
+        if (firstUse && !shellEnabled()) {
           // condensed welcome for someone who has not set up on-device chat yet
           box.classList.add('welcome');
           box.appendChild(el('p', 'eyebrow', 'PRIVATE AI CHAT ON YOUR DEVICE'));
@@ -3074,7 +3084,11 @@
           box.appendChild(provider);
           return box;
         }
-        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : 'What would you like to work through?'));
+        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : (shellEnabled() ? M.shellRegistry.greeting() : 'What would you like to work through?')));
+        if (shellEnabled()) {
+          if (thread.temporary) box.appendChild(el('p', 'lede', 'Not saved to your history. Copy anything you want to keep before closing it.'));
+          return box;
+        }
         box.appendChild(el('p', 'lede', thread.temporary
           ? 'This conversation will not be added to saved history. Copy or export anything you want to keep before closing it.'
           : 'Ask about an idea, work through a choice, or describe the text you want to revise.'));
@@ -3478,6 +3492,8 @@
         } else if (arg && typeof arg === 'object') {
           options = arg;
         }
+        // controls that now live on the Settings page: open that page instead of the sidebar
+        if (options.focusTarget && window.plcShell?.ownsFocusTarget?.(options.focusTarget)) { window.plcShell.openSettings('models', options.focusTarget); return; }
         document.body.classList.add('sidebar-open');
         closeThreadMenu();
         updateSidebarAria();
@@ -3695,17 +3711,24 @@
         document.querySelectorAll('.thread-filter button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === threadView)));
         const visible = M.model.listThreads(threads, { archived: threadView === 'archived', trashed: threadView === 'trash' });
         if (threadView === 'active') {
-          const groups = [{ folder: null, items: visible.filter(t => !t.folderId || !folders.some(f => f.id === t.folderId)) }];
-          folders.forEach(f => groups.push({ folder: f, items: visible.filter(t => t.folderId === f.id) }));
-          groups.forEach(g => {
-            if (g.folder) {
-              const h = el('li', 'folder-heading'); h.setAttribute('role', 'presentation');
-              h.appendChild(el('span', 'thread-name', '📁 ' + g.folder.name));
-              const mb = el('button', 'thread-menu-btn'); mb.type = 'button'; mb.setAttribute('aria-label', 'Options for project ' + g.folder.name); mb.appendChild(createEmoji('⋮'));
-              mb.addEventListener('click', event => { event.stopPropagation(); toggleFolderMenu(g.folder.id, mb); });
-              h.appendChild(mb); threadList.appendChild(h);
-            }
-            g.items.forEach(t => threadList.appendChild(threadItem(t)));
+          const inProject = t => t.folderId && folders.some(f => f.id === t.folderId);
+          const projectsHead = el('li', 'list-heading heading-with-action'); projectsHead.setAttribute('role', 'presentation');
+          projectsHead.appendChild(el('span', null, 'Projects'));
+          const addProject = el('button', 'list-add'); addProject.type = 'button'; addProject.title = 'New project'; addProject.setAttribute('aria-label', 'New project');
+          addProject.appendChild(createEmoji('➕')); addProject.addEventListener('click', event => { event.stopPropagation(); createFolder(); });
+          projectsHead.appendChild(addProject); threadList.appendChild(projectsHead);
+          folders.forEach(f => {
+            const h = el('li', 'folder-heading'); h.setAttribute('role', 'presentation');
+            h.appendChild(el('span', 'thread-name', f.name));
+            const mb = el('button', 'thread-menu-btn'); mb.type = 'button'; mb.setAttribute('aria-label', 'Options for project ' + f.name); mb.appendChild(createEmoji('⋮'));
+            mb.addEventListener('click', event => { event.stopPropagation(); toggleFolderMenu(f.id, mb); });
+            h.appendChild(mb); threadList.appendChild(h);
+            visible.filter(t => t.folderId === f.id).forEach(t => { const li = threadItem(t); li.classList.add('in-project'); threadList.appendChild(li); });
+          });
+          const loose = visible.filter(t => !inProject(t));
+          M.shellRegistry.groupThreadsByDate(loose).forEach(group => {
+            const head = el('li', 'list-heading', group.label); head.setAttribute('role', 'presentation'); threadList.appendChild(head);
+            group.items.forEach(t => threadList.appendChild(threadItem(t)));
           });
         } else {
           if (!visible.length) threadList.appendChild(el('li', 'folder-heading', threadView === 'trash' ? 'Trash is empty. Deleted chats stay here for ' + M.model.TRASH_DAYS + ' days.' : 'Nothing archived.'));
@@ -4455,7 +4478,7 @@
         clearInterval(call.ticker); call.ticker = setInterval(() => { voiceUi.timer.textContent = voiceMod.formatDuration(callElapsed()); }, 1000);
       }
       function hideCall() {
-        clearInterval(call.ticker); clearTimeout(call.endedTimer); call.ticker = call.endedTimer = null; call.startedAt = null;
+        clearInterval(call.ticker); clearTimeout(call.endedTimer); clearTimeout(call.stallTimer); clearInterval(call.waitTicker); call.ticker = call.endedTimer = call.stallTimer = call.waitTicker = null; call.startedAt = null;
         if (voiceUi) voiceUi.root.hidden = true;
         document.body.classList.remove('voice-on');
       }
@@ -4465,7 +4488,39 @@
         thinking: ['Thinking…', ''],
         speaking: ['Speaking', '']
       };
+      // what the call is waiting on, said out loud on screen instead of a silent pause
+      function callWaitNote() {
+        const lm = window.localModels;
+        if (!lm || lm.mode !== 'local') return 'Talking with ' + providerName() + '. Answers are written by an AI model.';
+        if (lm.ready) return 'Talking with the model on this device. Answers are written by an AI model, not scripted.';
+        const st = lm.state, t = st?.transfer;
+        if (st?.busy && t) return 'Downloading the model: ' + Math.round(((t.bytesDone || 0) / Math.max(1, t.bytesTotal || 1)) * 100) + '%. The call continues when it is ready.';
+        if (st?.busy || lm.installed) return 'Loading the model into memory. The call continues when it is ready.';
+        return 'The on-device model is not downloaded yet. Pick it in the model menu to download it, then call again.';
+      }
+      // a spoken reply that never finishes (some phones stall the voice engine) is cut off, and the text stays on screen
+      function watchSpeech(state, caption) {
+        clearTimeout(call.stallTimer); call.stallTimer = null;
+        if (state !== 'speaking') return;
+        const ms = 20000 + String(caption || '').length * 90;
+        call.stallTimer = setTimeout(() => {
+          if (call.prev !== 'speaking') return;
+          try { voiceSession?.interrupt(); } catch { /* the call may already have ended */ }
+          if (voiceUi) voiceUi.hint.textContent = 'The voice stopped responding, so the reply is shown as text. You can keep talking.';
+          showToast('Spoken reply stalled; showing it as text instead.');
+        }, ms);
+      }
       function renderVoice(state, info = {}) {
+        renderVoiceInner(state, info);
+        if (!voiceUi) return;
+        watchSpeech(state, info.caption);
+        clearInterval(call.waitTicker); call.waitTicker = null;
+        if (state === 'connecting' || state === 'thinking') {
+          const put = () => { if (voiceUi && !voiceUi.hint.textContent.startsWith('The voice stopped')) voiceUi.hint.textContent = callWaitNote(); };
+          put(); call.waitTicker = setInterval(() => { if (call.prev === 'connecting' || call.prev === 'thinking') put(); else { clearInterval(call.waitTicker); call.waitTicker = null; } }, 1000);
+        } else if (state === 'listening' && !info.caption) voiceUi.hint.textContent = callWaitNote();
+      }
+      function renderVoiceInner(state, info = {}) {
         if (!voiceUi) return;
         const ui = voiceUi, before = call.prev; call.prev = state;
         if (state === 'idle') {
@@ -4814,7 +4869,7 @@
       async function openStorage() {
         const root = el('div');
         const lm = window.localModels, { store } = await loadDocModules();
-        try { await lm?.refreshStorage?.(); } catch { /* estimate unavailable */ }
+        try { await lm?.refreshStorage?.(); await lm?.inspectAll?.(); } catch { /* estimate unavailable */ }
         const stateNow = lm?.state;
         const table = el('table'); const body = el('tbody'); table.appendChild(body);
         const row = (label, value, note, action) => {
@@ -4828,7 +4883,7 @@
             const present = item.install.bytesPresent || 0;
             row('Model: ' + (item.info.modelId || tier), item.install.ok ? humanSize(present) + ' downloaded' : present ? humanSize(present) + ' partly downloaded' : 'Not downloaded',
               stateNow.load.state === 'ready' && stateNow.selection.tier === tier ? 'Loaded in memory now' : item.install.ok ? 'Not in memory' : '',
-              item.install.ok && stateNow.selection.tier === tier ? btn('Remove files', () => { document.getElementById('removeModel').click(); }) : null);
+              present > 0 ? btn('Remove files', async () => { if (!await confirmDialog('Remove ' + (item.info.label || item.info.modelId) + '?', 'This deletes the downloaded model files (' + humanSize(present) + ') from this device. Your conversations are kept, and you can download it again later.', 'Remove files', { danger: true })) return; try { await lm.removeTier(tier); showToast('Removed. ' + humanSize(present) + ' freed.'); } catch (e) { showToast(e.message); } openStorageRefresh(); }) : null);
           });
           row('Memory', stateNow.load.state === 'ready' ? 'Model is loaded' : 'Model is not loaded', 'Freeing memory keeps the download and your chats.',
             stateNow.load.state === 'ready' ? btn('Free memory', async () => { try { await lm.freeMemory(); showToast('Memory freed. The download is kept.'); } catch (e) { showToast(e.message); } openStorageRefresh(); }) : null);
@@ -5864,6 +5919,19 @@
           thread.systemPrompt = systemPromptInput.value.trim();
         });
       });
+      function shellEnabled() { try { return !localStorage.getItem('plc.shell.off'); } catch { return true; } }
+      // ---- app shell (chat/shell/): rail, settings page, search, composer menus. It rearranges the controls above; see chat/shell/shell.mjs
+      const plcApp = {
+        threads: () => threads, folders: () => folders, currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
+        newThread: opts => newThread(opts || {}), toggleThreadMenu: (id, anchor) => toggleThreadMenu(id, anchor), moduleBase, loadRoberta,
+        moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
+        setThreadView: view => { threadView = view; renderThreadList(); },
+        callOpen: () => Boolean(robertaApi?.callOpen),
+        async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
+      };
+      window.plcApp = plcApp;
+      if (shellEnabled()) import(moduleBase() + 'chat/shell/shell.mjs').then(mod => { window.plcShell = mod.createShell(plcApp); renderThreadList(); })
+        .catch(err => { console.error('Shell failed to start; the classic layout stays.', err); });
       initMarketing();
       window.__plcBooted = true;
     })();

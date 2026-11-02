@@ -16,7 +16,7 @@
 //   * a retry is a new attempt: each load() call increments `loadAttempt`; nothing retries by itself.
 //   * no network call except the model files from the catalogue's hosts (or an explicit, visibly labelled override).
 import { createProvider, openPort } from "./client.mjs";
-import { TIERS, TIER_ORDER, VARIANT_INFO, DEFAULT_VARIANT, chooseWebllmVariant, resolveSources, tierFiles, loadConfigFor } from "./catalog.mjs";
+import { TIERS, TIER_ORDER, VARIANT_INFO, DEFAULT_VARIANT, chooseWebllmVariant, resolveSources, tierFiles, loadConfigFor, isWllamaTier } from "./catalog.mjs";
 import { gatherEnv } from "./capability-probe.mjs";
 import { classifyEngineError } from "./errors.mjs";
 import { lightBackend } from "../auto-tier.mjs";
@@ -82,9 +82,9 @@ export function createModelHost({
 
   function reasonFor(tier, at) {
     const when = at ? ` on ${new Date(at).toLocaleString()}` : "";
-    return tier === "light"
-      ? `Light tier, chosen by you${when}. It uses less memory than the quality model.`
-      : `Quality tier, chosen by you${when}.`;
+    if (tier === "light") return `Light tier, chosen by you${when}. It uses less memory than the quality model.`;
+    if (tier === "default") return `Quality tier, chosen by you${when}.`;
+    return `${TIERS[tier]?.label || tier}, chosen by you${when}.`;
   }
 
   // The default model comes in two builds; the GPU decides (capability, DEC 57). Applies only to the real WebLLM tier.
@@ -231,7 +231,7 @@ export function createModelHost({
     provider() { if (!client) throw new Error("the model host has not been started; call init()"); return client; },
     /** A MessagePort wired to the shared host for one mind worker. Transfer it: mindWorker.postMessage({ port }, [port]). */
     openMindPort() { if (!worker || state.host.state !== "running") throw Object.assign(new Error("the model host is not running"), { class: "provider-unavailable", code: "host-not-running" }); return openPort(worker); },
-    tierConfig(tier = state.selection.tier) { const base = loadConfigFor(tier, { sources: src.sources, runtimeDir, variant, backend: tier === "light" ? state.backend.light : "gpu" }); return loadConfigOverride ? loadConfigOverride(tier, base) : base; },
+    tierConfig(tier = state.selection.tier) { const base = loadConfigFor(tier, { sources: src.sources, runtimeDir, variant, backend: isWllamaTier(tier) ? state.backend.light : "gpu" }); return loadConfigOverride ? loadConfigOverride(tier, base) : base; },
 
     async init({ autoLoad = false } = {}) {
       readSettings();

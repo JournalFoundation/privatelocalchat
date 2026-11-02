@@ -107,11 +107,11 @@ try{
  // Drafts are per conversation and survive a reload
  await page.click('#newChatBtn');
  await page.fill('#messageInput','draft for chat B');
- const threadsBefore=await page.locator('#threadList li').count();
- await page.locator('#threadList li:not(.new-thread-item)').nth(1).click();
+ const threadsBefore=await page.locator('#threadList li[data-id]').count();
+ await page.locator('#threadList li[data-id]').nth(1).click();
  assert((await page.inputValue('#messageInput'))==='','other chat has no draft');
  await page.fill('#messageInput','draft for chat A');
- await page.locator('#threadList li:not(.new-thread-item)').nth(0).click();
+ await page.locator('#threadList li[data-id]').nth(0).click();
  assert((await page.inputValue('#messageInput'))==='draft for chat B','first chat draft restored');
  await page.reload();await page.waitForSelector('#messageInput');await page.waitForFunction(()=>document.querySelector('#messageInput').value!=='');
  assert((await page.inputValue('#messageInput'))==='draft for chat B','draft survives reload');
@@ -126,7 +126,7 @@ try{
  assert(await count('.message')===0,'new chat is empty');
  await page.waitForFunction(()=>/Response complete/.test(document.querySelector('#generationStatus').textContent),null,{timeout:20000});
  assert(await count('.message')===0,'reply did not land in the other chat');
- await page.locator('#threadList li:not(.new-thread-item)').filter({hasText:titleA}).first().click();
+ await page.locator('#threadList li[data-id]').filter({hasText:titleA}).first().click();
  assert(/word199/.test(await page.locator('.message.assistant').innerText()),'reply is in its own chat');
  ok('replies stay in their own conversation');
 

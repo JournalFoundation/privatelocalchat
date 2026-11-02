@@ -20,10 +20,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 VERSION = '79cbff1e617b319a'
-SOURCE = 'https://assets.sonalon.com/models/memory/' + VERSION + '/'
 STATE = json.loads((ROOT / 'cdn-state.json').read_text())
 HOST = 'https://' + STATE['domain'] + '/'
 PREFIX = 'models/memory/' + VERSION + '/'
+SOURCE = HOST + PREFIX  # default: check the project's own copy; pass --source to publish from somewhere else
 # What the app fetches (chat/embedding-config.mjs, chat/vendor/embedding/worker.js). The reranker in the source set is not used and is not copied.
 FILES = [
     ('embed/config.json', 829, '258407cfa27c7e1e502a9c312abebb4f5241bf226972ffc366287f370a3567f1', 'application/json'),

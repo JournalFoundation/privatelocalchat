@@ -16,7 +16,7 @@ Roberta is the name of the app's robot: the front desk of Private Local Chat. Sh
 | First visit, on a **computer**, before a model is set up | An **incoming call** from Roberta at the top of the empty chat, styled like a video call: Answer, or Read the voicemail. Answering opens the call window. |
 | First visit, on a **phone or tablet** | A **voicemail** thread: a voice note from Roberta (nothing speaks until a tap), her numbered options as reply buttons, and a Call Roberta button. Each number tapped adds her answer as another voice note, like a chat on a messaging app. |
 | The call | A window on a computer (header with a timer, Roberta's tile, a small "You" tile, captions) and the whole screen on a phone. A **keypad** whose keys are labelled with the current menu, a **Speak** button (say what you need), Skip, Mute voice and End call. Digit keys work from a keyboard. |
-| Later | The Help & about sheet has "Call Roberta". "Not now" on the first-visit card hides it for good. |
+| Later | Roberta is a pinned agent in the sidebar; her page has a Call button, and Settings > Roberta & voice and the Help & about sheet link to it. "Not now" on the first-visit card hides it for good. |
 
 The first-visit card is shown only while on-device chat is not ready and not dismissed; it sits beside the download progress, not instead of it.
 

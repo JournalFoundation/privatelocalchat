@@ -44,7 +44,6 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 24. **Voice call polish is unverified on real phones.** The ring, pick-up and hang-up tones, vibration, the full-screen call layout, the on-screen keyboard and iOS audio unlocking (the audio context is created inside the tap that starts the call) were tested in headless Chromium with a mocked audio context only. Check them on an iPhone and an Android phone, with the ringer switch both ways.
 25. **Voice mode has no echo cancellation** beyond turning the microphone off while it speaks, so a speakerphone setup may cut replies short.
 26. **Roberta, voice notes and recording are untested on real phones and Safari.** They were built from documented browser behaviour and driven in headless Chromium with mocked speech: the voicemail layout, the keypad, `speechSynthesis` sentence queueing and pause, recording through the speech recogniser, and the labelled keypad on a small screen. Try an iPhone (Safari and home-screen app) and an Android phone before relying on them.
-27. **The semantic-matching model is served from `assets.sonalon.com`**, another project's storage (`chat/embedding-config.mjs`). It is public and content-addressed, but it is a dependency outside this project: if that host changes, Roberta falls back to keyword matching. *Fix:* follow `docs/CDN-POPULATION.md` (a verified publisher, `ops/cloudflare/publish-embedding.py`, is ready; it needs the operator's Cloudflare token).
 28. **The robot's name is defined twice** (`ROBOT_NAME` in `index.html` and `chat/ivr-content.mjs`), and the live voice call's contact name is still "Private Local Chat" rather than Roberta. Make the page import the one constant and decide whether the call should show Roberta.
 29. **The vendored embedding worker is edited after bundling** (`ops/embedding/build-worker.mjs` splits one 32-letter model class name so GitHub push protection does not mistake it for a Mistral API key). Rebuilding with the script keeps the edit; replacing the bundle by hand would bring the push block back.
 
@@ -56,7 +55,19 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 33. **Physical-device checks never done:** scanning a QR with a phone camera, a real native share sheet, enlarged text and the on-screen keyboard on a phone, and the stale-Safari / home-screen-app repair path on the reporter's device.
 34. **Known-issue entries on `/help/` were derived from repository documents**, not re-tested; each says so. Re-verify and update the dates at every release.
 
+## App layout (2026-11-02)
+
+35. **Most e2e files still test the classic layout** (`plc.shell.off`); port them to the new shell and drop the switch. Only `shell.e2e.mjs` drives the new layout.
+36. **The new layout has not been checked on a real iPhone**, nor the call screen's status text and the stalled-speech cut-off (the stall timer is a conservative guess, untested against a real stuck voice engine).
+37. **Meaning search keeps its vectors in memory only**, rebuilt each time the search opens (up to 2,500 passages, newest first). Persist them in IndexedDB if it feels slow on large histories.
+38. **No Images destination** (nothing to show), and a call does not start a model download by itself.
+
+39. **LFM2.5 and Granite are untested on a GPU and on iPhone.** They were proven end to end on the processor path only (download, hash check, load, two answers, unload, remove). The earlier speechtest work qualified LFM2.5-2.6B Q3_K_M on Mac Safari with a 16 MB bounded loader; run the same check on a real iPhone before offering them there, and measure memory (the figures in `catalog.mjs` are estimates). Granite's window is 8,192 here; its manifest allowed 16,384.
+40. **LFM2.5 prints a leading newline** before its first sentence; the Markdown view hides it, but a copied answer may start with a blank line.
+
 ## Review log
 
 * 2026-11-01: first version, written after the sharing / transfer / public-pages release.
 * 2026-11-01: added voice notes, Roberta and semantic matching items (26-29) after that release.
+* 2026-11-02: added the app layout items (35-38) after the shell release.
+* 2026-11-02: added LFM2.5 and Granite items (39-40).

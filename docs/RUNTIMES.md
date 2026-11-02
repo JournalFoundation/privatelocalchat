@@ -4,11 +4,14 @@ The model catalogue is pinned in `runtime/providers/catalog-data.mjs`. Public de
 
 - Qwen3.5-9B: `mlc-ai/Qwen3.5-9B-q4f16_1-MLC` revision `c7c5d3f5a81e37b8facbb72970940a1b131314a8`, or `mlc-ai/Qwen3.5-9B-q4f32_1-MLC` revision `f8f042bfb68cb88573af4c8e0ef9b1a26bef4ad0` when shader-f16 is unavailable. Both are derived from the Apache-2.0 Qwen model. Each variant has a matching pinned compiled model library.
 - Qwen3.5-2B: source revision `15852e8c16360a2fea060d615a32b45270f8a8fc`, Apache-2.0, quantized as Q4_0 GGUF with 13 shards.
+- LFM2.5-2.6B: `LiquidAI/LFM2.5-2.6B` revision `f4a289c8a200a5ca71005ba7abc2dad33058a450`, LFM Open License v1.0 (free below the licence's revenue threshold; the licence text is stored beside the files), quantised to Q3_K_M with llama.cpp `dd4623a74`, 6 GGUF files, 1,366,846,112 bytes.
+- Granite 4.0 H 1B: `ibm-granite/granite-4.0-h-1b` revision `d18cca4c121edb87d022116d281ce212c9136f57`, Apache-2.0, text only, quantised to Q4_K_M with llama.cpp `dd4623a74`, 12 GGUF files, 901,163,200 bytes.
+- Both run on the same retained wllama build as Qwen3.5-2B (it already contains the `lfm2` and `granitehybrid` architectures). They are served from `assets.privatelocal.chat/models/LFM2.5-2.6B-Q3_K_M/<revision>/` and `models/Granite-4.0-H-1B-Q4_K_M/<revision>/`, published by `ops/cloudflare/publish-gguf.py` from the description in `ops/cloudflare/gguf-models.json`, and listed in `models/catalog.json` (`ops/cloudflare/update-catalog-index.py`). The pins live in `runtime/providers/catalog-data.mjs`.
 - WebLLM 0.2.86: Apache-2.0. Its license accompanies the vendored bundle.
 - wllama: retained `v1q-chat-stable-slim-20260901` build of wllama/llama.cpp, MIT. `default.wasm`, `compat.wasm`, `compat-worker.js`, and `wllama.js` must remain together. The older 2.x runtime is not compatible with this configuration.
 
 The public catalogue and `ops/cloudflare/model-cdn-manifest.json` record every model file's exact size, SHA-256, and immutable URL. `model-object-verification.json` records a complete destination read-back and hash verification; `public-cdn-verification.json` records browser-delivery HTTP checks.
 
-Upstream projects: https://github.com/mlc-ai/web-llm, https://github.com/ngxson/wllama, https://github.com/ggml-org/llama.cpp, https://huggingface.co/Qwen/Qwen3.5-2B, https://huggingface.co/Qwen/Qwen3.5-9B.
+Upstream projects: https://huggingface.co/LiquidAI/LFM2.5-2.6B, https://huggingface.co/ibm-granite/granite-4.0-h-1b, https://github.com/mlc-ai/web-llm, https://github.com/ngxson/wllama, https://github.com/ggml-org/llama.cpp, https://huggingface.co/Qwen/Qwen3.5-2B, https://huggingface.co/Qwen/Qwen3.5-9B.
 
 - Processor (CPU) placement: the same wllama build runs the 2B model without WebGPU when the load config sets `n_gpu_layers: 0` and `offloadTiedEmbedding: false` (`loadConfigFor('light', { backend: 'cpu' })`). Without an adapter the runtime logs `ggml_webgpu: Failed to get an adapter` and carries on with the CPU backend. Single thread only; not used on iPhone/iPad.

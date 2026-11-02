@@ -4,7 +4,7 @@ Three flows, deliberately separate, each with its own entry label, dialog title,
 
 | Flow | Entry | Dialog | What it moves | Main action |
 |---|---|---|---|---|
-| Public recommendation | **Share** (sidebar utility row) | Share Private Local Chat | The public address only | Share, or Copy link |
+| Public recommendation | **Share** (Explore menu and Settings > About) | Share Private Local Chat | The public address only | Share, or Copy link |
 | Configuration | **Transfer settings** (Import export and transfer) | Transfer settings | Endpoint, model, theme, optionally an API token | Create transfer link |
 | Conversation data | **Transfer chats and backups** (same section, and Storage & backups) | Transfer chats and backups | Conversations and app data, as files | Export saved conversations / Create protected backup |
 
