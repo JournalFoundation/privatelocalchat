@@ -4237,18 +4237,38 @@
       let speechMod = null, voiceMod = null;
       const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
       const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice.mjs'));
+      // Optional downloaded read-aloud voice (chat/voice-upgrade.mjs). Test hook, nothing else: with localStorage plc.test.voice=1 a test page may
+      // define window.__plcVoiceEngineFactory(engineId) -> engine (and .inputs = controller options such as env/estimate/loadModule/devOffer).
+      let voiceUpPromise = null;
+      const loadVoiceUpgrade = () => (voiceUpPromise ||= (async () => {
+        const mod = await import(moduleBase() + 'chat/voice-upgrade.mjs');
+        const hook = localStorage.getItem('plc.test.voice') === '1' ? window.__plcVoiceEngineFactory : null;
+        const env = async () => {
+          let webgpu = { available: false };
+          try { const a = await navigator.gpu?.requestAdapter(); if (a) webgpu = { available: true, isFallbackAdapter: Boolean(a.isFallbackAdapter) }; } catch { /* no WebGPU */ }
+          return { deviceMemoryGB: navigator.deviceMemory, cores: navigator.hardwareConcurrency, webgpu };
+        };
+        const factory = hook || (async id => (await import(moduleBase() + 'chat/voice-engine.mjs')).createVoiceEngine({ engine: id, moduleBase: moduleBase() }));
+        const ctl = mod.createVoiceController({ factory, env, ...(hook?.inputs || {}) });
+        await ctl.init();
+        return ctl;
+      })().catch(() => null));
       let callSoundsMod = null;
       const loadCallSounds = async () => (callSoundsMod ||= await import(moduleBase() + 'chat/call-sounds.mjs'));
       let speaking = null;
       const setListenButton = (btn, on) => { btn.setAttribute('aria-pressed', String(on)); M.icons.setIconLabel(btn, on ? '⏹ Stop' : '🔊 Listen'); };
       function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => setListenButton(b, false)); } }
-      async function speakText(text, onDone) {
+      async function speakText(text, onDone, offerAnchor = null) {
         const sp = await loadSpeech();
         stopSpeaking();
         const { stripMarkdown } = (await loadDocModules()).exports;
-        const handle = sp.speak(stripMarkdown(text), { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1 });
+        const vu = await loadVoiceUpgrade(), route = vu?.route();
+        const handle = sp.speak(stripMarkdown(text), { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1, ...(route ? { engine: route.engine, ...route.options } : {}) });
         speaking = { handle };
-        try { await handle.done; } catch (err) { showToast(err.message, 8000, speechHelpAction); } finally { if (speaking?.handle === handle) speaking = null; onDone?.(); }
+        let ok = false;
+        try { await handle.done; ok = speaking?.handle === handle; } catch (err) { showToast(err.message, 8000, speechHelpAction); } finally { if (speaking?.handle === handle) speaking = null; onDone?.(); }
+        // after a first read-aloud that worked with the system voice, one quiet offer if this device can run a better voice
+        if (ok && vu && !route && offerAnchor && await vu.afterSystemSpeak()) (await import(moduleBase() + 'chat/voice-offer.mjs')).showVoiceOffer(vu, offerAnchor);
       }
       if (speechAvailable.synth) {
         messageDecorators.push((thread, msg, index, ctx, actions) => {
@@ -4265,7 +4285,7 @@
         messageActionHandlers['speak'] = async (thread, msg, btn) => {
           if (btn.getAttribute('aria-pressed') === 'true') { stopSpeaking(); return; }
           stopSpeaking(); setListenButton(btn, true);
-          await speakText(msg.content, () => { if (btn.isConnected) setListenButton(btn, false); });
+          await speakText(msg.content, () => { if (btn.isConnected) setListenButton(btn, false); }, btn.closest('.message-actions') || btn);
         };
         threadSelectedHooks.push(() => stopSpeaking());
       }
@@ -5786,7 +5806,7 @@
         openSidebar: () => openSidebar(), closeSidebar: () => closeSidebar({ restoreFocus: true }),
         moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
         setThreadView: view => { threadView = view; renderThreadList(); },
-        callOpen: () => Boolean(robertaApi?.callOpen),
+        callOpen: () => Boolean(robertaApi?.callOpen), loadVoice: () => loadVoiceUpgrade(),
         async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
       };
       window.plcApp = plcApp;

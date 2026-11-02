@@ -1,6 +1,8 @@
 // Speech through the browser's own services: on an iPhone that is Apple's, in Chrome it is Google's, elsewhere whatever the
 // browser provides. Where the browser offers no speech recognition or voices, the matching buttons are simply not shown.
 
+import { createGaplessPlayer } from "./voice-player.mjs";
+
 const win = () => globalThis;
 
 export const speechSupport = () => {
@@ -42,8 +44,44 @@ export function speechChunks(text, max = 220) {
   return out.filter(Boolean);
 }
 
+/**
+ * Optional route to a downloaded voice engine (chat/voice-upgrade.mjs hands one over only while that voice is active):
+ *   engine = { speak(text, { onChunk, signal, speed }) -> Promise, fail(error) }
+ * Chunks play gaplessly. If the engine throws, or produces nothing for `stallMs` (a stalled engine, like the stalled-reply watch in the
+ * call screen), engine.fail(error) is told and the same text is read by the system voice instead, unless audio already started.
+ */
+function speakViaEngine(text, opts) {
+  const { engine, rate = 1, onStart, stallMs = (n) => 20000 + n * 90, betweenMs = 10000, firstChunkMs = 14000, startDelayMs = 0, createContext, ...rest } = opts;
+  const ac = new AbortController(), player = createGaplessPlayer({ createContext, hold: startDelayMs > 0 });
+  let stopped = false, fallback = null, timer = null, releaseTimer = null, got = false;
+  const stop = () => { stopped = true; clearTimeout(timer); clearTimeout(releaseTimer); ac.abort(); player.stop(); fallback?.stop(); };
+  const done = (async () => {
+    let stalled = null;
+    const arm = (ms) => { clearTimeout(timer); timer = setTimeout(() => { stalled = new Error("The downloaded voice stopped responding."); ac.abort(); }, ms); };
+    try {
+      arm(Math.min(stallMs(String(text).length), firstChunkMs)); onStart?.();
+      if (startDelayMs > 0) releaseTimer = setTimeout(() => player.release(), startDelayMs); // buffer ahead, then play gaplessly
+      await engine.speak(text, { speed: rate, signal: ac.signal, onChunk: (samples, sampleRate) => { if (stopped) return; got = true; arm(betweenMs); player.push(samples, sampleRate); } });
+      clearTimeout(timer); clearTimeout(releaseTimer);
+      if (stalled) throw stalled;
+      await player.finish();
+    } catch (err) {
+      clearTimeout(timer); clearTimeout(releaseTimer);
+      if (stopped) return;
+      const failure = stalled || err;
+      player.stop();
+      try { engine.fail?.(failure); } catch { /* the caller's bookkeeping must not break reading */ }
+      if (got && player.started) return; // part of the reply was already heard; the system voice takes over from the next one
+      fallback = speak(text, { ...rest, rate, engine: null, interrupt: true });
+      await fallback.done;
+    }
+  })();
+  return { done, stop };
+}
+
 /** -> { stop(), done: Promise } ; `done` rejects with a readable Error when the browser has no voice. */
-export function speak(text, { voiceURI, rate = 1, onStart, interrupt = true } = {}) {
+export function speak(text, { voiceURI, rate = 1, onStart, interrupt = true, engine = null, ...engineOpts } = {}) {
+  if (engine) return speakViaEngine(text, { engine, voiceURI, rate, onStart, interrupt, ...engineOpts });
   const w = win(), s = w.speechSynthesis;
   let stopped = false;
   const done = (async () => {
