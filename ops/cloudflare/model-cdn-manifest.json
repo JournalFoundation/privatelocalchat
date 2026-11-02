@@ -48,6 +48,14 @@
       "firstShardUrl": "https://assets.privatelocal.chat/models/Granite-4.0-H-1B-Q4_K_M/d18cca4c121edb87d022116d281ce212c9136f57/granite-4.0-h-1b-q4-k-m-dd4623a74-00001-of-00012.gguf",
       "bytes": 901163200,
       "license": "Apache-2.0"
+    },
+    {
+      "modelId": "Kitten-TTS-Nano-0.8-int8",
+      "runtime": "onnxruntime-web",
+      "revision": "84781d74e29ee25217551556398b42f80593a813",
+      "baseUrl": "https://assets.privatelocal.chat/models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/",
+      "bytes": 27649561,
+      "license": "Apache-2.0"
     }
   ],
   "files": [
@@ -2101,6 +2109,27 @@
       "sha256": "ac4d95ff62e5ad509309371de48859e9bd20aa489e4c7622a1e6958a83f3ed76",
       "key": "models/Granite-4.0-H-1B-Q4_K_M/d18cca4c121edb87d022116d281ce212c9136f57/granite-4.0-h-1b-q4-k-m-dd4623a74-00012-of-00012.gguf",
       "url": "https://assets.privatelocal.chat/models/Granite-4.0-H-1B-Q4_K_M/d18cca4c121edb87d022116d281ce212c9136f57/granite-4.0-h-1b-q4-k-m-dd4623a74-00012-of-00012.gguf"
+    },
+    {
+      "path": "kitten_tts_nano_v0_8.onnx",
+      "bytes": 24369971,
+      "sha256": "f7b0afcbee92870b32b8e0276d855b954dc25470c9f051b376ac7eee537c76fc",
+      "key": "models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/kitten_tts_nano_v0_8.onnx",
+      "url": "https://assets.privatelocal.chat/models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/kitten_tts_nano_v0_8.onnx"
+    },
+    {
+      "path": "voices.npz",
+      "bytes": 3278902,
+      "sha256": "8aa7cee235abb0739cb51e6559685f65a4dacd95568833d05699b1633f519b3f",
+      "key": "models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/voices.npz",
+      "url": "https://assets.privatelocal.chat/models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/voices.npz"
+    },
+    {
+      "path": "config.json",
+      "bytes": 688,
+      "sha256": "b66006ccbeccd4de5fc3c9272059c47f5725df7215fd889785c03602652fab64",
+      "key": "models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/config.json",
+      "url": "https://assets.privatelocal.chat/models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/config.json"
     }
   ]
 }
