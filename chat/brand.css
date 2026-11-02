@@ -97,8 +97,7 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .new-chat-row .icon-btn:hover { border-color: var(--plc-accent); }
 .new-chat-row .primary { justify-content: center; }
 .chats-section { min-height: 0; margin-top: 0; margin-bottom: 0.5rem; }
-.thread-search { min-height: var(--plc-control-min); padding: 0.5rem 0.75rem; border: 1px solid var(--color-form-border); background: var(--plc-background); color: var(--plc-ink); margin-bottom: 0.5rem; }
-.thread-search::placeholder, textarea::placeholder, input::placeholder { color: var(--plc-muted); opacity: 1; }
+textarea::placeholder, input::placeholder { color: var(--plc-muted); opacity: 1; }
 .thread-filter { display: flex; background: var(--plc-background); border: 1px solid var(--plc-border); border-radius: var(--plc-radius-control); padding: 2px; gap: 2px; margin-bottom: 0.5rem; }
 .thread-filter button { flex: 1; border: 0; background: transparent; color: var(--plc-muted); border-radius: calc(var(--plc-radius-control) - 2px); min-height: 2.25rem; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
 .thread-filter button[aria-pressed='true'] { background: var(--plc-surface); color: var(--plc-ink); box-shadow: 0 1px 2px rgba(24, 35, 50, 0.12); }
@@ -113,11 +112,6 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .thread-list li.folder-heading { box-shadow: none; background: none; color: var(--plc-muted); min-height: 2rem; }
 .thread-list li.folder-heading:hover { background: none; }
 .chats-section .thread-list { max-height: min(42vh, 26rem); }
-.search-results li { border-radius: var(--plc-radius-control); border-bottom: 0; padding: 0.5rem 0.75rem; min-height: var(--plc-control-min); }
-.side-links { display: grid; gap: 2px; margin-top: 0.25rem; margin-bottom: 0.5rem; }
-.side-link { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: var(--plc-control-min); padding: 0 0.75rem; border: 0; background: transparent; color: var(--plc-ink); border-radius: var(--plc-radius-control); font-size: 0.95rem; text-align: left; cursor: pointer; }
-.side-link:hover { background: var(--plc-accent-tint); }
-.side-link .emoji-icon { color: var(--plc-muted); }
 .settings-group { border-top: 1px solid var(--plc-border); padding: 0.25rem 0; margin-bottom: 0; }
 .settings-group > summary { min-height: var(--plc-control-min); display: flex; align-items: center; cursor: pointer; padding: 0 0.25rem; margin: 0; list-style: none; }
 .settings-group > summary::-webkit-details-marker { display: none; }
@@ -141,9 +135,7 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .actions { margin: 0.25rem 0 0.5rem; }
 .action-group { background: transparent; }
 .side-footer { margin-top: auto; padding: 0.75rem 0 1rem; border-top: 1px solid var(--plc-border); }
-.side-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .side-footer .hint-text { margin: 0.35rem 0; font-size: 0.8rem; }
-.footer-links { margin: 0.35rem 0; font-size: 0.85rem; }
 #reloadApp { width: 100%; }
 .hint-text, .muted { color: var(--plc-muted); }
 .threads-header { margin: 0; }
@@ -154,16 +146,12 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .chat-header .thread-title { flex: 1; min-width: 0; border: 1px solid transparent; background: transparent; font-size: 1.05rem; font-weight: 600; color: var(--plc-ink); min-height: var(--plc-control-min); padding: 0 0.5rem; text-overflow: ellipsis; }
 .chat-header .thread-title:hover { border-color: var(--plc-border); }
 .chat-header .thread-title:focus { background: var(--plc-background); border-color: var(--plc-accent); outline: none; }
-.header-mark { display: none; align-items: center; }
 .header-tools { display: flex; gap: 0.25rem; }
 .mode-badge { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.25rem; padding: 0 0.85rem; border-radius: 999px; border: 0; font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; max-width: 14rem; }
 .mode-badge .mode-badge-text { overflow: hidden; text-overflow: ellipsis; }
 .mode-badge.local { background: var(--plc-success-tint); color: var(--plc-success); }
 .mode-badge.connected { background: var(--plc-warning-tint); color: var(--plc-warning); }
 .mode-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: currentColor; flex: none; }
-.mobile-toggle { display: inline-flex; }
-@media (min-width: 900px) { .mobile-toggle { display: none; } }
-@media (max-width: 899px) { .header-mark { display: inline-flex; } .header-mark img { height: 1.75rem; width: auto; } }
 #generationStatus { margin: 0.5rem 1rem 0; padding: 0.4rem 0.75rem; border: 0; border-radius: var(--plc-radius-control); background: var(--plc-accent-tint); color: var(--plc-ink); font-size: 0.85rem; max-height: 2.6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-notice { margin: 0.5rem 1rem 0; border-radius: var(--plc-radius-control); }
 .system-prompt-container { background: var(--plc-surface); border-bottom: 1px solid var(--plc-border); padding: 0 0.75rem; }
@@ -300,7 +288,7 @@ select, input[type='text'], input[type='search'], input[type='password'], textar
 .new-thread-button, .new-thread-button .btn-label { text-transform: none; letter-spacing: 0; }
 
 /* ---- refinements from review ---------------------------------------------------------------------------------------- */
-@media (min-width: 900px) { .sidebar-close, .mobile-toggle { display: none !important; } }
+@media (min-width: 900px) { .sidebar-close { display: none !important; } }
 .system-prompt-container { border-bottom: 1px solid var(--plc-border); background: var(--plc-surface); padding: 0 1rem; }
 .system-prompt-container > summary { font-weight: 500; }
 .system-prompt-container[open] { padding-bottom: 0.75rem; }
@@ -398,14 +386,9 @@ body.voice-on .message-form .composer-card, body.voice-on .message-form .accurac
 .sidebar > .sidebar-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0 1rem 0.5rem; display: flex; flex-direction: column; }
 .sidebar > .sidebar-scroll > * { flex-shrink: 0; }
 .sidebar > .side-footer { flex: 0 0 auto; margin-top: 0; padding-top: 0.5rem; background: var(--plc-surface); }
-.side-utility { display: flex; align-items: center; gap: 0.5rem; }
-.utility-btn { flex: 1 1 0; min-height: var(--plc-control-min); display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; padding: 0 0.75rem; border: 1px solid var(--plc-border); border-radius: var(--plc-radius-control); background: var(--plc-surface); color: var(--plc-ink); font: inherit; font-weight: 600; cursor: pointer; }
-.utility-btn:hover { background: var(--plc-accent-tint); }
-.utility-btn.utility-share { background: var(--plc-accent); border-color: var(--plc-accent); color: var(--plc-on-accent); }
-.utility-btn.utility-share:hover { background: var(--plc-accent-hover); }
 .flow-icon { display: inline-flex; width: 1.25rem; height: 1.25rem; flex: 0 0 auto; }
 .flow-icon svg { width: 100%; height: 100%; }
-.side-footer .footer-links, .side-footer .hint-text { font-size: 0.78rem; }
+.side-footer .hint-text { font-size: 0.78rem; }
 
 /* each flow says what it moves in words and with its own icon, so the three are told apart without relying on colour */
 .flow-list { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; }
@@ -458,9 +441,6 @@ body.voice-on .message-form .composer-card, body.voice-on .message-form .accurac
 @media (max-width: 899px) { .flow-review { grid-template-columns: 1fr; } .flow-review dd { margin-bottom: 0.4rem; } }
 .flow-check { display: flex; align-items: center; gap: 0.6rem; min-height: var(--plc-control-min); padding: 0.25rem 0; }
 .flow-check input[type='checkbox'] { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; margin: 0; }
-.utility-btn { white-space: nowrap; }
-.side-footer .side-footer-row { margin-top: 0.25rem; }
-.side-footer .footer-links { margin: 0; }
 .side-footer #releaseInfo, .side-footer #offlineStatus { margin: 0.1rem 0; font-size: 0.75rem; }
 
 /* ---- voice call: it looks and behaves like a phone call ---------------------------------------------------------------------- */
@@ -657,9 +637,6 @@ body.roberta-call-open { overflow: hidden; }
 .thread-list li .thread-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: var(--plc-control-min); padding-right: 0.25rem; }
 
 /* Sidebar footer: quiet links and one calm status line. */
-.side-footer .footer-links a { color: var(--plc-muted); text-decoration: none; }
-.side-footer .footer-links a:hover, .side-footer .footer-links a:focus-visible { color: var(--plc-ink); text-decoration: underline; }
-.side-footer .side-footer-row { margin-top: 0.5rem; }
 .side-footer #releaseInfo, .side-footer #offlineStatus { color: var(--plc-muted); }
 
 /* "Instructions for this chat": a quiet disclosure row with a chevron. */

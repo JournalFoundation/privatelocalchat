@@ -1073,18 +1073,6 @@
       animation: spin 1s linear infinite;
     }
 
-    .mobile-toggle {
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      padding: 4px 6px;
-      color: var(--color-link);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .mobile-toggle:focus,
     .sidebar-close:focus {
       outline: 2px solid var(--color-link);
       outline-offset: 2px;
@@ -1124,7 +1112,6 @@
       }
 
       #sidebarOverlay,
-      .mobile-toggle,
       .sidebar-close {
         display: none;
       }
@@ -1252,15 +1239,10 @@
       </div>
       <div class="new-chat-row">
         <button type="button" id="newChatBtn" class="new-thread-button primary"><span class="emoji-icon" aria-hidden="true">➕</span><span class="btn-label">New chat</span></button>
-        <button type="button" id="tempChatBtn" class="new-thread-button temp-chat-button icon-btn" aria-label="Temporary chat" title="Temporary chat: not saved"><span class="emoji-icon" aria-hidden="true">🕶️</span></button>
-        <button type="button" id="newProjectBtn" class="new-project-button icon-btn" aria-label="New project" title="New project: group chats that share instructions"><span class="emoji-icon" aria-hidden="true">📁</span></button>
       </div>
       <div class="sidebar-scroll">
       <section class="chats-section" aria-labelledby="chatsHeading">
         <h3 id="chatsHeading" class="sr-only">Conversations</h3>
-        <label for="threadSearch" class="sr-only">Search conversations</label>
-        <input type="search" id="threadSearch" class="thread-search" placeholder="Search titles and messages" autocomplete="off" />
-        <ul id="searchResults" class="search-results" role="listbox" aria-label="Search results" hidden></ul>
         <div class="thread-filter" role="group" aria-label="Which chats to show">
           <button type="button" data-view="active" aria-pressed="true">Recent</button>
           <button type="button" data-view="archived" aria-pressed="false">Archived</button>
@@ -1268,7 +1250,6 @@
         </div>
         <ul id="threadList" class="thread-list"></ul>
       </section>
-      <div id="featureLinks" class="side-links"></div>
       <details id="providerSettings" class="settings-group">
       <summary><strong>Model and connection</strong></summary>
       <div class="form-group">
@@ -1410,17 +1391,10 @@
       </details>
       </div>
       <footer class="side-footer">
-        <div class="side-utility" role="group" aria-label="Help and sharing">
-          <button type="button" id="aboutBtn" class="utility-btn" aria-haspopup="dialog"><span class="flow-icon" data-flow-icon="help" aria-hidden="true"></span><span>Help &amp; about</span></button>
-          <button type="button" id="shareBtn" class="utility-btn utility-share" aria-haspopup="dialog"><span class="flow-icon" data-flow-icon="share" aria-hidden="true"></span><span>Share</span></button>
-        </div>
-        <div class="side-footer-row">
-          <p class="footer-links"><a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">View source<span class="sr-only"> (opens in a new tab)</span></a> · <a href="https://github.com/JournalFoundation/privatelocalchat/issues/new/choose" target="_blank" rel="noopener">Report a problem<span class="sr-only"> (opens in a new tab)</span></a></p>
           <button type="button" id="themeToggleBtn" class="theme-toggle-btn icon-btn" aria-label="Toggle theme" aria-pressed="false">
             <span class="emoji-icon" aria-hidden="true">☀️</span>
             <span class="sr-only">Toggle theme</span>
           </button>
-        </div>
         <p id="releaseInfo" class="hint-text"></p>
         <p id="offlineStatus" class="hint-text" role="status">Preparing offline app…</p>
         <button type="button" id="reloadApp" class="secondary" hidden>Save draft and reload</button>
@@ -1431,10 +1405,6 @@
     <!-- Main chat area -->
     <main class="chat-area">
       <div id="chatHeader" class="chat-header">
-        <button type="button" id="openSidebarBtn" class="mobile-toggle icon-btn" aria-label="Open navigation">
-          <span class="emoji-icon" aria-hidden="true">☰</span>
-        </button>
-        <span class="header-mark" aria-hidden="true"><img class="logo-light" src="/brand/mark-light.svg" alt="" width="28" height="28" /><img class="logo-dark" src="/brand/mark-dark.svg" alt="" width="28" height="28" /></span>
         <label for="threadTitleInput" class="sr-only">Conversation title</label>
         <input type="text" id="threadTitleInput" class="thread-title" placeholder="Untitled chat" />
         <div id="headerTools" class="header-tools"></div>
@@ -1586,7 +1556,6 @@
       const importConfigInput = document.getElementById('importConfigInput');
       const clearSettingsBtn = document.getElementById('clearSettingsBtn');
       const importSettingsShortcut = document.getElementById('importSettingsShortcut');
-      const openSidebarBtn = document.getElementById('openSidebarBtn');
       const closeSidebarBtn = document.getElementById('closeSidebarBtn');
       const sidebarOverlay = document.getElementById('sidebarOverlay');
       const sidebarEl = document.querySelector('.sidebar');
@@ -1603,7 +1572,6 @@
       const authGuideImportBtn = document.getElementById('authGuideImportBtn');
       const authHintText = document.getElementById('authHintText');
       const themeToggleBtn = document.getElementById('themeToggleBtn');
-      const aboutBtn = document.getElementById('aboutBtn');
       const promoBanner = document.getElementById('promoBanner');
       const dismissPromoBtn = document.getElementById('dismissPromoBtn');
       const aboutModal = document.getElementById('aboutModal');
@@ -2253,7 +2221,7 @@
 
       function openAbout() {
         if (!aboutModal) return;
-        openModal(aboutModal, { focusEl: aboutCloseBtn, triggerEl: aboutBtn });
+        openModal(aboutModal, { focusEl: aboutCloseBtn, triggerEl: document.activeElement });
       }
 
       function closeAbout({ returnFocus = true } = {}) {
@@ -2262,9 +2230,6 @@
           closeModal({ returnFocus });
         } else if (!aboutModal.hidden) {
           aboutModal.hidden = true;
-          if (returnFocus && aboutBtn) {
-            aboutBtn.focus();
-          }
         }
       }
 
@@ -3479,8 +3444,8 @@
         const wasOpen = document.body.classList.contains('sidebar-open');
         if (wasOpen) {
           document.body.classList.remove('sidebar-open');
-          if (options.restoreFocus && openSidebarBtn && !desktopMediaQuery.matches) {
-            openSidebarBtn.focus({ preventScroll: true });
+          if (options.restoreFocus && !desktopMediaQuery.matches) {
+            document.querySelector('.show-panel')?.focus({ preventScroll: true });
           }
         }
         updateSidebarAria();
@@ -3659,8 +3624,6 @@
       folders = folders.filter(f => f && typeof f.id === 'string' && typeof f.name === 'string');
       const saveFolders = () => writeJson(localStorage, FOLDERS_KEY, folders);
       let threadView = 'active'; // active | archived | trash
-      const threadSearchInput = document.getElementById('threadSearch');
-      const searchResultsEl = document.getElementById('searchResults');
 
       function threadTitle(thread) { return thread.title && thread.title.trim() ? thread.title.trim() : 'Untitled'; }
 
@@ -3844,12 +3807,6 @@
         docModules = { docs, store: store.docStore, exports: exportsModule };
         return docModules;
       }
-      const featureLinks = document.getElementById('featureLinks');
-      function addFeatureLink(emoji, label, handler, id) {
-        const b = el('button', 'side-link'); b.type = 'button'; if (id) b.id = id;
-        b.append(createEmoji(emoji), el('span', 'btn-label', label)); b.addEventListener('click', handler);
-        featureLinks.appendChild(b); return b;
-      }
       const humanSize = n => (n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B');
 
       function contextWindowTokens() {
@@ -3934,10 +3891,8 @@
       const syncAttachAccept = () => { attachInput.accept = window.localModels?.mode === 'local' ? attachNoImages : attachTypes; };
       window.addEventListener('local-model-state', syncAttachAccept); syncAttachAccept();
       attachInput.addEventListener('change', () => { addFiles(attachInput.files); attachInput.value = ''; });
-      const attachBtn = el('button', 'tool-btn'); attachBtn.appendChild(createEmoji('📎')); attachBtn.type = 'button'; attachBtn.id = 'attachBtn'; attachBtn.title = 'Attach text, Markdown, CSV, PDF or code files';
-      attachBtn.setAttribute('aria-label', 'Attach files'); attachBtn.addEventListener('click', () => attachInput.click());
       const composerToolsEl = document.getElementById('composerTools');
-      composerToolsEl.append(attachBtn, attachInput);
+      composerToolsEl.append(attachInput);
       const chatAreaEl = document.querySelector('.chat-area');
       ['dragenter', 'dragover'].forEach(t => chatAreaEl.addEventListener(t, e => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); chatAreaEl.classList.add('drop-target'); } }));
       ['dragleave', 'drop'].forEach(t => chatAreaEl.addEventListener(t, e => { if (t === 'drop' && e.dataTransfer?.files?.length) { e.preventDefault(); if (getChatState().hasThread) addFiles(e.dataTransfer.files); } chatAreaEl.classList.remove('drop-target'); }));
@@ -4050,7 +4005,6 @@
         await refresh();
         openAppDialog({ title: 'Documents', content: root, actions: [{ label: 'Done', primary: true }], wide: true });
       }
-      addFeatureLink('📚', 'Documents', openLibrary, 'openLibraryBtn');
 
       // save an answer as a file
       messageDecorators.push((thread, msg, index, ctx, actions) => {
@@ -4263,7 +4217,6 @@
         }
         openAppDialog({ title: 'Memory & preferences', content: root, wide: true, actions: [{ label: 'Done', primary: true, run: () => { prefs.instructions = instr.value.trim().slice(0, 4000); savePrefs(); } }] });
       }
-      addFeatureLink('🧠', 'Memory & preferences', openPreferences, 'openPrefsBtn');
 
       // slash commands are answered here, without the model; exact results are attached to ordinary questions
       sendInterceptors.push(async (text, thread) => {
@@ -4334,12 +4287,12 @@
         const b = el('button', 'tool-btn'); b.type = 'button'; b.id = id; b.title = label; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', 'false');
         b.appendChild(createEmoji(icon === 'mic' ? '🎙️' : icon === 'phone' ? '📞' : icon === 'waveform' ? '🎚️' : '🎧')); return b;
       };
-      let recordBtn = null;
+      let recordAvailable = false;
       let micBtn = speechInputOk ? toolButton('micBtn', 'mic', 'Dictate') : null;
       let voiceBtn = speechInputOk && speechAvailable.synth ? toolButton('voiceModeBtn', 'phone', 'Voice call') : null;
       [micBtn, voiceBtn].forEach(b => b && composerToolsEl.append(b));
       const setPressed = (btn, on) => btn?.setAttribute('aria-pressed', String(on));
-      const hideSpeechInput = () => { markSpeechInputUnusable(); micBtn?.remove(); voiceBtn?.remove(); recordBtn?.remove(); micBtn = voiceBtn = recordBtn = null; };
+      const hideSpeechInput = () => { markSpeechInputUnusable(); micBtn?.remove(); voiceBtn?.remove(); micBtn = voiceBtn = null; recordAvailable = false; };
       // WebKit only shows the microphone prompt for a recognition that starts inside the tap, so the code it needs is loaded up front.
       if (speechInputOk) { loadSpeech().catch(() => hideSpeechInput()); if (voiceBtn) { voiceBtn.classList.add('call-start'); voiceBtn.title = 'Start a voice call'; loadVoice().catch(() => {}); loadCallSounds().catch(() => {}); } }
 
@@ -4614,8 +4567,7 @@
 
       // recording a voice note (also behind "leave a voice message" in Roberta's menu)
       let recorder = null, recorderUi = null, pendingVoice = null;
-      recordBtn = speechInputOk ? toolButton('recordNoteBtn', 'waveform', 'Record a voice note') : null;
-      if (recordBtn) { recordBtn.title = 'Record a voice note'; composerToolsEl.append(recordBtn); }
+      recordAvailable = Boolean(speechInputOk);
       function buildRecorderUi() {
         const root = el('section', 'vn-recorder'); root.id = 'voiceRecorder'; root.hidden = true; root.setAttribute('role', 'group'); root.setAttribute('aria-label', 'Voice note');
         const top = el('div', 'vnr-top'); const dot = el('span', 'vnr-dot'); dot.setAttribute('aria-hidden', 'true');
@@ -4681,7 +4633,7 @@
         await handleSendMessage({ preventDefault() {} });
       }
       userMessageHooks.push(message => { if (pendingVoice) { message.voice = pendingVoice; pendingVoice = null; } });
-      recordBtn?.addEventListener('click', () => { if (recorderOpen()) closeRecorder(); else startVoiceNote(); });
+      const toggleVoiceNote = () => { if (!recordAvailable) return; if (recorderOpen()) closeRecorder(); else startVoiceNote(); };
 
       // ---- Roberta: the app's robot, a phone menu of prepared messages -----------------------------------------------------------
       // She is the front desk: it works before any language model is loaded, in parallel with the model download. Pressing numbers always
@@ -4864,7 +4816,6 @@
         const handleDialog = openAppDialog({ title: 'Storage and backups', content: root, wide: true, actions: [{ label: 'Done', primary: true }] });
         function openStorageRefresh() { handleDialog.close(); openStorage(); }
       }
-      addFeatureLink('💾', 'Storage & backups', openStorage, 'openStorageBtn');
 
       const backupNudge = el('div', 'backup-nudge'); backupNudge.id = 'backupNudge'; backupNudge.hidden = true; backupNudge.setAttribute('role', 'region'); backupNudge.setAttribute('aria-label', 'Back up your chats');
       document.querySelector('.chats-section').after(backupNudge);
@@ -5032,31 +4983,10 @@
           ] });
         }
       }
-      addFeatureLink('🔒', 'App lock', openLockSettings, 'openLockBtn');
       if (lockCfg) { setLockedUi(true); syncLockUi(); }
 
       // ---- search ----------------------------------------------------------------------------------------------------
       let searchModule = null;
-      async function runSearch() {
-        const query = threadSearchInput.value.trim();
-        searchResultsEl.textContent = '';
-        if (!query) { searchResultsEl.hidden = true; threadList.hidden = false; return; }
-        searchModule ||= await import(moduleBase() + 'chat/search.mjs');
-        const results = searchModule.searchThreads(threads, query);
-        threadList.hidden = true; searchResultsEl.hidden = false;
-        if (!results.length) { searchResultsEl.appendChild(el('li', 'snippet', 'No chats or messages match “' + query + '”.')); return; }
-        results.forEach(r => {
-          const li = el('li'); li.tabIndex = 0; li.setAttribute('role', 'option');
-          li.append(el('strong', null, r.title || 'Untitled'));
-          if (r.archived) li.append(el('span', 'muted', ' (archived)'));
-          const sn = el('span', 'snippet'); sn.append(r.snippet.before); sn.append(el('mark', 'search-hit', r.snippet.match)); sn.append(r.snippet.after);
-          li.appendChild(sn);
-          const open = () => { openSearchResult(r, query); };
-          li.addEventListener('click', open);
-          li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
-          searchResultsEl.appendChild(li);
-        });
-      }
       function highlightTerms(root, terms) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         const targets = []; while (walker.nextNode()) targets.push(walker.currentNode);
@@ -5083,8 +5013,6 @@
           }
         }
       }
-      threadSearchInput.addEventListener('input', () => { window.clearTimeout(threadSearchInput._t); threadSearchInput._t = window.setTimeout(runSearch, 120); });
-      threadSearchInput.addEventListener('keydown', event => { if (event.key === 'Escape') { threadSearchInput.value = ''; runSearch(); } });
       document.querySelectorAll('.thread-filter button').forEach(b => b.addEventListener('click', () => { threadView = b.dataset.view; renderThreadList(); }));
 
       /**
@@ -5617,8 +5545,6 @@
         if (sessionStorage.getItem('plc.pendingToken.v1')) loadTransferUi();
         syncProviderOpen();
         document.getElementById('newChatBtn').addEventListener('click', () => newThread());
-        document.getElementById('tempChatBtn').addEventListener('click', () => newThread({ temporary: true }));
-        document.getElementById('newProjectBtn').addEventListener('click', () => createFolder());
         populateEndpointSelect();
         loadModels();
         loadConfig();
@@ -5803,10 +5729,6 @@
           }
         });
       }
-      if (aboutBtn) {
-        aboutBtn.addEventListener('click', async () => (await loadTransferUi()).openHelp());
-      }
-      document.getElementById('shareBtn')?.addEventListener('click', async () => (await loadTransferUi()).openShare());
       document.getElementById('transferSettingsBtn')?.addEventListener('click', async () => (await loadTransferUi()).openTransferSettings());
       document.getElementById('transferChatsBtn')?.addEventListener('click', async () => (await loadTransferUi()).openTransferChats());
       if (aboutCloseBtn) {
@@ -5825,9 +5747,6 @@
           sessionStorage.setItem('promoDismissed', '1');
           maybeShowPromo();
         });
-      }
-      if (openSidebarBtn) {
-        openSidebarBtn.addEventListener('click', openSidebar);
       }
       if (closeSidebarBtn) {
         closeSidebarBtn.addEventListener('click', () => closeSidebar({ restoreFocus: true }));
@@ -5876,6 +5795,11 @@
       const plcApp = {
         threads: () => threads, folders: () => folders, currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
         newThread: opts => newThread(opts || {}), toggleThreadMenu: (id, anchor) => toggleThreadMenu(id, anchor), moduleBase, loadRoberta,
+        createProject: () => createFolder(),
+        openLibrary: () => openLibrary(), openPreferences: () => openPreferences(), openStorage: () => openStorage(), openLockSettings: () => openLockSettings(),
+        openHelp: async () => (await loadTransferUi()).openHelp(), openShare: async () => (await loadTransferUi()).openShare(),
+        attachFiles: () => attachInput.click(), canRecordNote: () => recordAvailable, toggleVoiceNote: () => toggleVoiceNote(),
+        openSidebar: () => openSidebar(), closeSidebar: () => closeSidebar({ restoreFocus: true }),
         moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
         setThreadView: view => { threadView = view; renderThreadList(); },
         callOpen: () => Boolean(robertaApi?.callOpen),

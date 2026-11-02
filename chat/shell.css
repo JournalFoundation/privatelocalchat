@@ -28,8 +28,8 @@ body.shell .sidebar-header .brand { flex: 1; min-width: 0; }
 body.shell .sidebar-header .brand { padding-left: 6px; }
 body.shell .brand-logo img { height: 1.5rem; width: auto; max-width: 100%; }
 body.shell .panel-toggle { display: none; }
-@media (min-width: 900px) { body.shell .panel-toggle { display: inline-flex; } .legacy-close, .legacy-open { display: none !important; } }
-@media (max-width: 899px) { .legacy-open { display: none !important; } .panel-toggle { display: none; } }
+@media (min-width: 900px) { body.shell .panel-toggle { display: inline-flex; } .drawer-close { display: none !important; } }
+@media (max-width: 899px) { .panel-toggle { display: none; } }
 .shell-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--row-h); padding: 6px 10px; border: 0; border-radius: 10px; background: transparent; color: var(--color-text); font: inherit; font-size: 0.95rem; text-align: left; cursor: pointer; }
 .shell-row:hover, .shell-row:focus-visible { background: var(--color-thread-hover); }
 .shell-row .ico { width: 18px; height: 18px; color: var(--color-muted-text); }
@@ -43,7 +43,6 @@ body.shell .new-chat-row .shell-row { background: transparent; border: 0; }
 .shell-dot-avatar { width: 22px; height: 22px; border-radius: 50%; background: #c45a2b; color: #fff; font-size: 0.78rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .shell-dot-avatar.big { width: 40px; height: 40px; font-size: 1.1rem; }
 body.shell .chats-section { min-height: 0; flex: 1; }
-body.shell .thread-search, body.shell #searchResults { display: none !important; }
 body.shell .thread-filter { margin: 4px 6px 8px; }
 body.shell .thread-filter:has(button[data-view="active"][aria-pressed="true"]) { display: none; }
 body.shell .chats-section .thread-list { max-height: none; overflow: visible; padding: 0; margin: 0; list-style: none; }
@@ -65,12 +64,10 @@ body.shell .thread-list li.heading-with-action { justify-content: space-between;
 .list-add:hover { background: var(--color-thread-hover); color: var(--color-text); }
 .list-add .ico { width: 16px; height: 16px; }
 body.shell .side-footer { display: none; }
-body.shell .side-links { display: none; }
 body.shell .settings-group > summary { display: none; }
 
 /* ---- header ---- */
 body.shell .chat-header { border-bottom: 0; padding: 8px 12px; min-height: 52px; gap: 6px; }
-body.shell .header-mark { display: none; }
 body.shell .thread-title { background: transparent; border: 1px solid transparent; font-size: 1rem; font-weight: 600; padding: 6px 8px; border-radius: 10px; min-width: 0; text-overflow: ellipsis; }
 body.shell .thread-title:hover, body.shell .thread-title:focus { border-color: var(--color-border); background: var(--color-surface); }
 body.shell .mode-badge { border: 0; background: transparent; color: var(--color-muted-text); font-size: 0.82rem; padding: 4px 6px; }

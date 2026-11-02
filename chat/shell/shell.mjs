@@ -7,7 +7,6 @@ import { createRegistry } from "./registry.mjs";
 import { hybridSearch, passagesFor, defaultFilters } from "./hybrid-search.mjs";
 
 const $ = (id) => document.getElementById(id);
-const clickId = (id) => () => $(id)?.click();
 
 function h(tag, attrs = {}, ...kids) {
   const n = document.createElement(tag);
@@ -68,12 +67,12 @@ export function createShell(app) {
 
   // ---- registry entries ----
   registry.register("rail", { id: "chats", label: "Chats", icon: "chats", order: 10, open: () => { shell.closeRoberta(); closePanelOnMobile(); } });
-  registry.register("rail", { id: "library", label: "Library", icon: "book", order: 20, open: () => { shell.closeRoberta(); clickId("openLibraryBtn")(); } });
-  registry.register("explore", { id: "memory", label: "Memory & preferences", desc: "What it remembers and your defaults", icon: "bookmark", order: 10, open: clickId("openPrefsBtn") });
-  registry.register("explore", { id: "storage", label: "Storage & backups", desc: "Where chats live and how to keep them", icon: "storage", order: 20, open: clickId("openStorageBtn") });
+  registry.register("rail", { id: "library", label: "Library", icon: "book", order: 20, open: () => { shell.closeRoberta(); app.openLibrary(); } });
+  registry.register("explore", { id: "memory", label: "Memory & preferences", desc: "What it remembers and your defaults", icon: "bookmark", order: 10, open: () => app.openPreferences() });
+  registry.register("explore", { id: "storage", label: "Storage & backups", desc: "Where chats live and how to keep them", icon: "storage", order: 20, open: () => app.openStorage() });
   registry.register("explore", { id: "transfer", label: "Transfer chats and settings", desc: "Move to another browser or device", icon: "transfer", order: 30, open: () => shell.openSettings("data") });
-  registry.register("explore", { id: "help", label: "Help & about", icon: "help", order: 40, open: clickId("aboutBtn") });
-  registry.register("explore", { id: "share", label: "Share", icon: "share", order: 50, open: clickId("shareBtn") });
+  registry.register("explore", { id: "help", label: "Help & about", icon: "help", order: 40, open: () => app.openHelp() });
+  registry.register("explore", { id: "share", label: "Share", icon: "share", order: 50, open: () => app.openShare() });
 
   // ---- icon rail ----
   const rail = h("nav", { id: "shellRail", class: "shell-rail", "aria-label": "Main" });
@@ -84,11 +83,11 @@ export function createShell(app) {
   const profileBtn = h("button", { type: "button", class: "shell-avatar", "aria-label": "This device menu", title: "This device", "aria-haspopup": "menu" }); profileBtn.append(icon("device"));
   profileBtn.addEventListener("click", () => popover(profileBtn, [
     { heading: "This device" },
-    { label: "Memory & preferences", icon: "bookmark", onClick: clickId("openPrefsBtn") },
+    { label: "Memory & preferences", icon: "bookmark", onClick: () => app.openPreferences() },
     { label: "Settings", icon: "gear", onClick: () => shell.openSettings("general") },
     { divider: true },
-    { label: "Help & about", icon: "help", onClick: clickId("aboutBtn") },
-    { label: "Share", icon: "share", onClick: clickId("shareBtn") }
+    { label: "Help & about", icon: "help", onClick: () => app.openHelp() },
+    { label: "Share", icon: "share", onClick: () => app.openShare() }
   ], { above: true, cls: "wide" }));
   function exploreRows() {
     return registry.list("explore").map((i) => ({
@@ -115,15 +114,15 @@ export function createShell(app) {
   const panelToggle = iconBtn("panel", "Close sidebar", () => togglePanel(false), "panel-toggle");
   const searchBtn = iconBtn("search", "Search chats", () => shell.openSearch(), "panel-search");
   sideHeader.textContent = ""; sideHeader.append(brand, searchBtn, panelToggle);
-  if (closeBtn) { closeBtn.classList.add("legacy-close"); sideHeader.append(closeBtn); }
-  const newRow = panel.querySelector(".new-chat-row"), newChat = $("newChatBtn"), tempBtn = $("tempChatBtn"), newProject = $("newProjectBtn");
+  if (closeBtn) { closeBtn.classList.add("drawer-close"); sideHeader.append(closeBtn); }
+  const newRow = panel.querySelector(".new-chat-row"), newChat = $("newChatBtn");
   newChat.textContent = ""; newChat.append(icon("compose"), h("span", { class: "btn-label", text: "New chat" })); newChat.classList.remove("primary"); newChat.classList.add("shell-row");
   newRow.textContent = ""; newRow.append(newChat);
   // destinations that only show in the panel on a phone (the rail is hidden there)
   const navList = h("div", { class: "shell-nav" });
   const robertaRow = h("button", { type: "button", class: "shell-row shell-dot", id: "robertaDot" }, h("span", { class: "shell-dot-avatar", "aria-hidden": "true", text: "R" }), h("span", { class: "btn-label", text: "Roberta" }));
   robertaRow.addEventListener("click", () => shell.openRoberta());
-  const mobileLib = h("button", { type: "button", class: "shell-row mobile-only", onclick: () => { clickId("openLibraryBtn")(); closePanelOnMobile(); } }, icon("book"), h("span", { class: "btn-label", text: "Library" }));
+  const mobileLib = h("button", { type: "button", class: "shell-row mobile-only", onclick: () => { app.openLibrary(); closePanelOnMobile(); } }, icon("book"), h("span", { class: "btn-label", text: "Library" }));
   const mobileExplore = h("button", { type: "button", class: "shell-row mobile-only" }, icon("more"), h("span", { class: "btn-label", text: "Explore" }));
   mobileExplore.addEventListener("click", () => popover(mobileExplore, exploreRows(), { cls: "wide" }));
   const mobileSettings = h("button", { type: "button", class: "shell-row mobile-only", onclick: () => { shell.openSettings("general"); closePanelOnMobile(); } }, icon("gear"), h("span", { class: "btn-label", text: "Settings" }));
@@ -131,36 +130,27 @@ export function createShell(app) {
   newRow.after(navList);
 
   const scroll = panel.querySelector(".sidebar-scroll");
-  // everything that used to live in the sidebar and now lives in Settings is moved out of it; the old search box stays hidden for the search code
+  // everything that belongs in Settings is moved out of the sidebar
   const chatsSection = scroll.querySelector(".chats-section");
-  const store = h("div", { class: "shell-store", hidden: true });
-  const featureLinks = $("featureLinks"), providerSettings = $("providerSettings"), backupFiles = $("backupFiles"), footer = panel.querySelector(".side-footer");
-  const threadSearch = $("threadSearch"), searchResults = $("searchResults");
-  store.append(featureLinks, $("aboutBtn"), $("shareBtn")); // the buttons stay in the DOM so the rows in Settings and menus can press them
-  scroll.append(store);
-  threadSearch.closest(".chats-section")?.prepend(threadSearch); // keep it inside the section; CSS hides it
-  const filter = chatsSection.querySelector(".thread-filter");
+  const providerSettings = $("providerSettings"), backupFiles = $("backupFiles"), footer = panel.querySelector(".side-footer");
 
   // ---- panel collapse (desktop) / drawer (phone) ----
   const desktop = window.matchMedia("(min-width: 900px)");
   function togglePanel(open) {
     if (desktop.matches) { document.body.classList.toggle("shell-collapsed", open === undefined ? undefined : !open); try { localStorage.setItem("plc.shell.collapsed", document.body.classList.contains("shell-collapsed") ? "1" : ""); } catch { /* ignore */ } }
-    else if (open) $("openSidebarBtn")?.click(); else $("closeSidebarBtn")?.click();
+    else if (open) app.openSidebar(); else app.closeSidebar();
     syncToggle();
   }
-  function closePanelOnMobile() { if (!desktop.matches) $("closeSidebarBtn")?.click(); }
+  function closePanelOnMobile() { if (!desktop.matches) app.closeSidebar(); }
   try { if (localStorage.getItem("plc.shell.collapsed") === "1") document.body.classList.add("shell-collapsed"); } catch { /* ignore */ }
 
   // ---- header ----
-  const header = $("chatHeader"), headerTools = $("headerTools"), badge = $("modeBadge"), title = $("threadTitleInput"), openBtn = $("openSidebarBtn");
-  const showPanel = iconBtn("panel", "Open sidebar", () => { if (desktop.matches) togglePanel(true); else openBtn?.click(); }, "show-panel");
+  const header = $("chatHeader"), badge = $("modeBadge");
+  const showPanel = iconBtn("panel", "Open sidebar", () => { if (desktop.matches) togglePanel(true); else app.openSidebar(); }, "show-panel");
   header.prepend(showPanel);
   const tempToggle = iconBtn("ghost", "Temporary chat", () => { const t = app.currentThread(); if (t?.temporary) app.newThread({}); else app.newThread({ temporary: true }); }, "header-temp");
   const chatMenu = iconBtn("more", "Chat options", () => { const id = app.currentThreadId(); if (id) app.toggleThreadMenu(id, chatMenu); }, "header-more");
   header.append(tempToggle, chatMenu);
-  if (tempBtn) store.append(tempBtn);
-  if (newProject) store.append(newProject);
-  if (openBtn) openBtn.classList.add("legacy-open");
   badge.querySelector(".mode-badge-text").setAttribute("data-quiet", "1");
   function syncToggle() {
     const collapsed = desktop.matches ? document.body.classList.contains("shell-collapsed") : !document.body.classList.contains("sidebar-open");
@@ -189,11 +179,11 @@ export function createShell(app) {
   plusBtn.addEventListener("click", () => popover(plusBtn, plusRows(), { above: true, cls: "wide" }));
   const modelPill = h("button", { type: "button", class: "shell-model", id: "modelPill", "aria-haspopup": "menu", "aria-label": "Choose model" }, h("span", { class: "shell-model-dot", "aria-hidden": "true" }), h("span", { class: "shell-model-name" }), icon("chevron"));
   bar.prepend(plusBtn); bar.insertBefore(modelPill, tools);
-  registry.register("plus", { id: "files", label: "Add photos & files", desc: "Upload from this device", icon: "paperclip", order: 10, open: clickId("attachBtn"), visible: () => Boolean($("attachBtn")) });
-  registry.register("plus", { id: "library", label: "Add from library", desc: "Browse your saved documents", icon: "book", order: 20, open: clickId("openLibraryBtn") });
+  registry.register("plus", { id: "files", label: "Add photos & files", desc: "Upload from this device", icon: "paperclip", order: 10, open: () => app.attachFiles() });
+  registry.register("plus", { id: "library", label: "Add from library", desc: "Browse your saved documents", icon: "book", order: 20, open: () => app.openLibrary() });
   registry.register("plus", { id: "project", label: "Work in a project", desc: "Start a chat in a project", icon: "folder", order: 30, open: () => app.moveCurrentToProject() });
   registry.register("plus", { id: "instructions", label: "Instructions for this chat", desc: "Tell the model how to answer", icon: "edit", order: 40, open: () => { const d = $("systemPromptContainer"); d.open = true; d.scrollIntoView({ block: "nearest" }); $("systemPromptInput")?.focus(); } });
-  registry.register("plus", { id: "voice-note", label: "Record a voice note", desc: "Speak, then send it as a message", icon: "waveform", order: 50, open: clickId("recordNoteBtn"), visible: () => Boolean($("recordNoteBtn")) });
+  registry.register("plus", { id: "voice-note", label: "Record a voice note", desc: "Speak, then send it as a message", icon: "waveform", order: 50, open: () => app.toggleVoiceNote(), visible: () => app.canRecordNote() });
   function plusRows() { return registry.list("plus").map((i) => ({ label: i.label, desc: i.desc, icon: i.icon, onClick: i.open })); }
 
   // the mic is the dictation button; the voice button becomes the round waveform button; both swap for Send once there is text
@@ -261,7 +251,7 @@ export function createShell(app) {
   }
 
   // ---- settings page ----
-  const settings = buildSettings({ app, shell, registry, moved: { providerSettings, backupFiles, footer, featureLinks }, filter, tempBtn, newProject });
+  const settings = buildSettings({ app, shell, registry, moved: { providerSettings, backupFiles, footer } });
   shell.openSettings = settings.open; shell.ownsFocusTarget = (el) => settings.contains(el);
   badge.addEventListener("click", (e) => { e.stopImmediatePropagation(); settings.open("models", $("inferenceMode")); }, true);
 
@@ -304,11 +294,10 @@ export function createShell(app) {
 }
 
 // ---- settings --------------------------------------------------------------------------------------------------------------
-function buildSettings({ app, shell, registry, moved, filter }) {
+function buildSettings({ app, shell, registry, moved }) {
   const card = (...rows) => h("div", { class: "set-card" }, rows);
   const row = (label, desc, control) => h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-label", text: label }), desc ? h("div", { class: "set-desc", text: desc }) : null), h("div", { class: "set-control" }, control));
   const btn = (text, onclick, cls = "") => h("button", { type: "button", class: "set-btn " + cls, onclick }, text);
-  const press = (id) => () => { $(id)?.click(); };
   const sections = [];
   const add = (id, label, ico, keywords, build) => sections.push({ id, label, ico, keywords, build });
 
@@ -320,7 +309,7 @@ function buildSettings({ app, shell, registry, moved, filter }) {
     return wrap;
   });
   add("personalization", "Personalization", "user", "memory preferences instructions voice speed call sounds", () => h("div", {}, h("h2", { text: "Personalization" }), card(
-    row("Memory & preferences", "What it remembers, voice, reply speed and call sounds. Never used in temporary chats.", btn("Manage", press("openPrefsBtn"))),
+    row("Memory & preferences", "What it remembers, voice, reply speed and call sounds. Never used in temporary chats.", btn("Manage", () => app.openPreferences())),
     row("Instructions for a chat", "Set these from the + menu in any chat.", null))));
   add("models", "Models", "sliders", "model download remove delete storage provider api endpoint token device gpu", () => {
     const w = h("div", { class: "set-moved" }, h("h2", { text: "Models and connection" }));
@@ -353,24 +342,24 @@ function buildSettings({ app, shell, registry, moved, filter }) {
     w.append(card(
       row("Archived chats", "Chats you set aside.", btn("View", () => { settings.close(); app.setThreadView("archived"); openPanel(); })),
       row("Recently deleted", "Kept for 30 days, then removed for good.", btn("View", () => { settings.close(); app.setThreadView("trash"); openPanel(); })),
-      row("Storage & backups", "Where chats live on this device, and how to keep them.", btn("Open", press("openStorageBtn")))));
+      row("Storage & backups", "Where chats live on this device, and how to keep them.", btn("Open", () => app.openStorage()))));
     moved.backupFiles.open = true; w.append(h("div", { class: "set-moved" }, moved.backupFiles));
     w.append(h("p", { class: "set-note", text: "Nothing is sent anywhere to train on. There is no account." }));
     return w;
   });
-  add("security", "Security", "lock", "lock passcode app lock", () => h("div", {}, h("h2", { text: "Security" }), card(row("App lock", "Ask for a passcode before the app opens on this device.", btn("Set up", press("openLockBtn"))))));
+  add("security", "Security", "lock", "lock passcode app lock", () => h("div", {}, h("h2", { text: "Security" }), card(row("App lock", "Ask for a passcode before the app opens on this device.", btn("Set up", () => app.openLockSettings())))));
   add("roberta", "Roberta & voice", "phone", "roberta call dictation voice", () => h("div", {}, h("h2", { text: "Roberta & voice" }), card(
     row("Call Roberta", "A scripted guide to the app. She is not an AI model.", btn("Open Roberta", () => { settings.close(); shell.openRoberta(); })),
-    row("Voice, speed and call sounds", "Choose the voice used to read answers aloud.", btn("Open", press("openPrefsBtn"))))));
-  add("files", "Library", "book", "documents files library", () => h("div", {}, h("h2", { text: "Library" }), card(row("Documents", "Files you can use in any chat or in one project.", btn("Manage", press("openLibraryBtn"))))));
+    row("Voice, speed and call sounds", "Choose the voice used to read answers aloud.", btn("Open", () => app.openPreferences())))));
+  add("files", "Library", "book", "documents files library", () => h("div", {}, h("h2", { text: "Library" }), card(row("Documents", "Files you can use in any chat or in one project.", btn("Manage", () => app.openLibrary())))));
   add("about", "About", "info", "version offline privacy help share source report", () => {
     const w = h("div", {}, h("h2", { text: "About" }), card(
-      row("Help & about", "How privacy works, install tips, and answers.", btn("Open", press("aboutBtn"))),
-      row("Share this app", null, btn("Share", press("shareBtn"))),
+      row("Help & about", "How privacy works, install tips, and answers.", btn("Open", () => app.openHelp())),
+      row("Share this app", null, btn("Share", () => app.openShare())),
       row("Privacy", null, h("a", { class: "set-btn", href: "/privacy/", target: "_blank", rel: "noopener" }, "Read")),
       row("Report a problem", "A GitHub account is needed. Leave out keys and private chats.", h("a", { class: "set-btn", href: "https://github.com/JournalFoundation/privatelocalchat/issues/new/choose", target: "_blank", rel: "noopener" }, "Open")),
       row("Source code", null, h("a", { class: "set-btn", href: "https://github.com/JournalFoundation/privatelocalchat", target: "_blank", rel: "noopener" }, "View"))));
-    const foot = moved.footer; foot.querySelectorAll(".side-utility, .side-footer-row").forEach((n) => n.remove()); foot.classList.add("set-foot");
+    const foot = moved.footer; foot.classList.add("set-foot");
     w.append(foot); return w;
   });
 
@@ -409,12 +398,12 @@ function buildSettings({ app, shell, registry, moved, filter }) {
       if (fromPicker) { const mode = $("inferenceMode"); if (mode && mode.value !== "api") { mode.value = "api"; mode.dispatchEvent(new Event("change")); } }
       if (focusEl) setTimeout(() => { try { focusEl.scrollIntoView({ block: "center", behavior: "smooth" }); focusEl.focus({ preventScroll: true }); } catch { /* not focusable */ } }, 60);
       else content.focus({ preventScroll: true });
-      if (!desktopQ.matches) $("closeSidebarBtn")?.click();
+      if (!desktopQ.matches) app.closeSidebar();
     },
     close() { page.hidden = true; document.body.classList.remove("settings-open"); for (const [, w] of built) stash.append(w); lastFocus?.focus?.({ preventScroll: true }); }
   };
   const desktopQ = window.matchMedia("(min-width: 900px)");
-  const openPanel = () => { if (desktopQ.matches) document.body.classList.remove("shell-collapsed"); else $("openSidebarBtn")?.click(); };
+  const openPanel = () => { if (desktopQ.matches) document.body.classList.remove("shell-collapsed"); else app.openSidebar(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !page.hidden && !document.querySelector(".app-dialog, .shell-pop")) settings.close(); });
   return settings;
 }
@@ -519,7 +508,7 @@ function buildSearch({ app }) {
   overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
   let lastFocus = null;
   function open() {
-    closePopover(); if (document.body.classList.contains("sidebar-open")) $("closeSidebarBtn")?.click(); lastFocus = document.activeElement; overlay.hidden = false; document.body.classList.add("search-open");
+    closePopover(); if (document.body.classList.contains("sidebar-open")) app.closeSidebar(); lastFocus = document.activeElement; overlay.hidden = false; document.body.classList.add("search-open");
     folderSel.textContent = ""; folderSel.append(h("option", { value: "", text: "All projects" })); for (const f of app.folders()) folderSel.append(h("option", { value: f.id, text: f.name }));
     folderSel.value = filters.folderId || "";
     setStatus(); input.focus(); input.select(); run();

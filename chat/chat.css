@@ -85,7 +85,6 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
 /* ---- sidebar: conversations first -------------------------------------------------------------------------------- */
 .thread-tools { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
 .thread-tools button { flex: 1 1 auto; }
-.thread-search { width: 100%; margin: 0 0 8px; padding: 8px; border: 1px solid var(--color-form-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text); font-size: 1rem; }
 .thread-filter { display: flex; gap: 4px; margin: 0 0 6px; }
 .thread-filter button { flex: 1; border: 1px solid var(--color-border-strong); background: var(--color-surface); color: var(--color-text); border-radius: 6px; padding: 4px; cursor: pointer; font-size: 0.8rem; min-height: 32px; }
 .thread-filter button[aria-pressed='true'] { background: var(--color-link); color: var(--color-inverse-text); border-color: var(--color-link); }
@@ -93,12 +92,6 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
 .thread-list li .thread-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 0; }
 .thread-list li .pin-mark { margin-right: 4px; }
 .thread-list li.folder-heading { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-muted-text); background: none; cursor: default; padding-top: 10px; }
-.search-results { list-style: none; margin: 0 0 8px; padding: 0; }
-.search-results li { padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; border-bottom: 1px solid var(--color-border); }
-.search-results li:hover, .search-results li:focus-visible { background: var(--color-thread-hover); }
-.search-results .snippet { color: var(--color-muted-text); display: block; overflow-wrap: anywhere; }
-.side-links { display: grid; gap: 6px; margin: 10px 0; }
-.side-links button { text-align: left; }
 .setup-card { border: 1px solid var(--color-border-strong); border-radius: 8px; padding: 10px; margin: 8px 0; background: var(--color-surface); }
 .setup-card h3 { margin: 0 0 6px; }
 .readiness { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; font-size: 0.85rem; }
@@ -149,7 +142,6 @@ mark.search-hit { background: #fde68a; color: #111; border-radius: 2px; }
 .chat-area.drop-target { outline: 3px dashed var(--color-link); outline-offset: -6px; }
 .message-sources { margin-top: 6px; align-items: center; }
 .message-sources .cited { border-color: var(--color-link); font-weight: 600; }
-.side-links button { display: flex; align-items: center; gap: 6px; }
 .preset-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 .preset-row label { margin: 0; display: inline; }
 .preset-row select { flex: 1 1 8rem; min-height: 36px; }
