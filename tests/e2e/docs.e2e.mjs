@@ -31,7 +31,7 @@ writeFileSync(files.scan,makePdf(['','']));
 writeFileSync(files.zip,'PK');
 writeFileSync(files.png,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64'));
 writeFileSync(files.lib,'# Handbook\n\nVacation policy: employees receive twenty-five days of paid leave per year.\n\n'+filler(1).repeat(40));
-const h=await launch({shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
+const h=await launch({port:18271});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
 const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};

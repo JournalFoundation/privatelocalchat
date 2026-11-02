@@ -2,7 +2,7 @@ import {launch,assert} from './harness.mjs';
 import {writeFileSync,mkdtempSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-const h=await launch({shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
+const h=await launch({port:18271});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
 const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};

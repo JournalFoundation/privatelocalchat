@@ -3,10 +3,9 @@ import {readFileSync,writeFileSync,mkdtempSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const dir=mkdtempSync(join(tmpdir(),'plc-dev-'));
-const h=await launch({shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
+const h=await launch({port:18271});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
-const appBug=(cond,msg)=>{if(!cond)console.log('KNOWN APP BUG (assertion skipped):',msg);};
 const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};
 
 const requests=async()=>(await (await fetch(`http://127.0.0.1:${h.api.port}/__requests`)).json());
@@ -70,9 +69,11 @@ try{
  await page.selectOption('#inferenceMode','local');
  await page.waitForFunction(()=>window.localModels?.supported===false);
  assert(await page.locator('#setupPrivateChat').isHidden()&&await page.locator('#downloadModel').isHidden(),'controls that cannot work here are not shown');
- appBug(/WebAssembly|WebGPU|graphics card|software renderer|cannot run|can.t run/i.test(await page.locator('.settings-content').innerText()),'in a browser that can run no on-device model, Settings > Models only hides the setup buttons and never says why; the composer still reads "Set up on-device chat to start"'); // APP BUG: the explanation lived only in the deleted welcome screen
- await page.selectOption('#inferenceMode','api');
  await closeSettings();
+ await page.click('#newChatBtn');
+ await page.waitForSelector('#emptyState #emptyProvider',{timeout:5000});
+ assert(/cannot run|WebAssembly|graphics/i.test(await page.locator('#emptyState').innerText())&&await page.locator('#emptyProvider').isVisible(),'the empty chat explains that this browser cannot run an on-device model and offers a provider');
+ await page.selectOption('#inferenceMode','api').catch(()=>{});
  ok('readiness states');
 
  // ---- storage and backups
