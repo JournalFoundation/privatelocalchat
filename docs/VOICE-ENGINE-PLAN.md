@@ -271,20 +271,27 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 
 **Independent review.** A fresh reviewer read the whole diff. Two blockers (a stall watchdog too short for slow voices, and a hung worker that never recovered) and the main should-fix items were fixed before the release; the rest are debt items 47 to 52.
 
-**Still open**
-- Kokoro (the larger voice) has no engine; it is never offered.
-- The iPhone 15 Pro negative check on the final build.
-- Number and abbreviation expansion beyond what eSpeak does itself (debt item 43).
-- Confirm that `GPL-3.0-only` (the package licence field) is the intended choice; eSpeak NG itself is GPL-3.0-or-later.
-- `qrcode.js`: resolved. The vendored file is byte-identical to upstream's MIT-licensed `qrcode.min.js`; the licence text now sits beside it and in the notices.
+**Closed since the first release**
+- Lane 5: the dev command channel has `voice-state`, `voice-decide` and `voice-cycle` (the cycle only runs when that device's own decision is an offer; verified through the real command path).
+- `qrcode.js` licence: the vendored file is byte-identical to upstream's MIT-licensed `qrcode.min.js`; the licence text is stored beside it.
+- Number and abbreviation expansion: ported from Kitten's reference pre-processor and checked against it on a golden corpus (see the commit that adds `chat/voice-text.mjs`).
+- Kokoro: measured instead of guessed. On a real GPU the fp32 model reads back perfectly at 6.7x real time (`docs/evidence/voice/kokoro-webgpu-spike.json`); it is a 326 MB download, so it is held for the owner's decision on that storage cost rather than built.
+
+**Still needs the owner or a device**
+- The iPhone 15 Pro negative check on the final build (the phone is not attached; the iPhone 11 Pro passed on dev and production, and the dev channel can run `voice-decide` on it as soon as its page is open).
+- Cleaning the Galaxy S8+'s cached test files for the dev origin in Chrome's site settings (about 100 MB less free space than before the tests; clearing site data from a script was blocked).
+- `GPL-3.0-only` (the package licence field) was chosen by default; eSpeak NG itself is GPL-3.0-or-later. Change it if "or later" is intended.
+- The git history has five commits under a placeholder identity ("Your Name") that presumably are the owner's; confirm before relying on the relicence.
 
 ## Open items
 
-- Real-device thresholds (steps 1 and 5).
-- What the npm `phonemizer` package bundles.
-- Languages: English first; confirm Kokoro quality for others before offering it.
-- Whether a tiny engine could ever fit on iPhone beside the chat model: a separate decision after a real-phone spike.
-- Soprano and Pocket-class models: later, not now.
+Resolved during the work: the real-device thresholds (calibrated on six devices, see `docs/evidence/voice/lane-results.json`), what the npm `phonemizer` package bundles (a full eSpeak NG build, GPL-3.0; covered by the relicence and the notices), the Kitten and Kokoro runtime questions (both measured).
+
+Future, not part of this release:
+- Kokoro as a second tier for GPU desktops (326 MB, needs the owner's go-ahead; see debt item 41).
+- Languages beyond English (Kokoro covers several; the small engines are English only).
+- Whether a tiny engine could ever fit on iPhone beside the chat model: a separate decision after a real-phone spike on the iPhone 15 Pro (dev only; the shipping rule for iOS does not change).
+- Soprano and Pocket-class models: later, not now (Pocket TTS is excluded while its download is gated).
 
 ## Sources (from the earlier research; check again when hosting)
 
