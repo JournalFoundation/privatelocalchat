@@ -55,7 +55,7 @@ esbuild is a dev dependency of `ops/voice` only; the app imports none of the npm
 
 | File | Bytes | SHA-256 |
 |---|---|---|
-| `chat/vendor/voice/worker.js` | 1397091 | `45c00a0606ac563221e70417555935080691d72541589837927a57799ee222b9` |
+| `chat/vendor/voice/worker.js` | 1397342 | `cf968d2e73d70a95463dfc76701ff5b830d0475382df136ec47b3a1bc7f0b951` |
 | `chat/vendor/voice/ort-wasm-simd-threaded.mjs` | 24738 | `30ed0b5cd1182ede931fea448afb567d4dc705ec957af09f108a2be5f770dac3` |
 | `chat/vendor/voice/ort-wasm-simd-threaded.wasm` | 14848852 | `4b884c203b0fa48d057be3332c65513ff85aa3c5bddd6946acc0fab7ecda001d` |
 | `chat/vendor/voice/worker.js.LEGAL.txt` | 211 | `4054729dc1c74b457924965c7c26c781629a3968bfbdc80ab01eded2338a24d1` |

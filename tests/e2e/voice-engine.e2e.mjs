@@ -71,7 +71,7 @@ try{
  assert(result.before.installed===false,'not installed at first');
  assert(result.afterInstall.installed===true&&result.afterInstall.bytes===27649561,'installed with all bytes');
  assert(result.progress===27649561,'progress reached the total');
- assert(result.chunkCount===1,'the reference pre-processor drops sentence punctuation, so one chunk; got '+result.chunkCount);
+ assert(result.chunkCount===2,'two sentences give two chunks (sentence punctuation is kept); got '+result.chunkCount);
  const nsec=result.numSamples/24000;
  assert(result.numChunks===1&&nsec>3&&nsec<14&&result.numPeak>0.05,'a sentence with numerals produces audio: '+nsec+' s, peak '+result.numPeak);
  const seconds=result.samples/24000;

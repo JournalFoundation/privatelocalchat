@@ -63,7 +63,9 @@ test("options: roman numerals, hashtags, mentions, keeping punctuation", () => {
 });
 
 test("speechChunks normalises before chunking, as the reference generate() does", async () => {
-  const { speechChunks } = await import("../chat/voice-kitten.mjs");
-  assert.deepEqual(speechChunks("It costs $5.50. Dr. Who has 3 cats!"), ["it costs five dollars and fifty cents dr who has three cats,"]);
+  const { speechChunks, softenAbbreviations } = await import("../chat/voice-kitten.mjs");
+  assert.deepEqual(speechChunks("It costs $5.50. Dr. Who has 3 cats!"), ["it costs five dollars and fifty cents,", "dr who has three cats,"]);
+  assert.deepEqual(speechChunks("Ask Dr. Smith, e.g. about St. Louis. Then go."), ["ask dr smith, for example about st louis,", "then go,"]);
+  assert.equal(softenAbbreviations("Fine. Next one."), "Fine. Next one.");
   assert.deepEqual(speechChunks("   "), []);
 });
