@@ -3029,17 +3029,12 @@
         more._extra = extra;
         actions.appendChild(more);
       }
-      function starterPrompts() {
-        return ['Explain an idea in plain language', 'Help me make a paragraph clearer', 'Work through a choice with me', 'Brainstorm ideas for a small project'];
-      }
       function renderEmptyState(thread) {
         const box = el('div', 'empty-state');
         box.id = 'emptyState';
         const lm = window.localModels, local = lm?.mode === 'local';
         const unsupported = local && lm && lm.supported === false && !lm.ready && Boolean(lm.gpuHelp && lm.gpuHelp.kind !== 'ok');
         const help = unsupported ? lm.gpuHelp : null;
-        const firstUse = local && lm && !lm.installed && !lm.ready && !thread.temporary && !unsupported;
-        if (!shellEnabled() && !prefs.robertaDismissed && !thread.temporary && local && lm && !lm.ready && (firstUse || welcomeSetup || unsupported)) { const slot = el('div', 'roberta-slot'); box.appendChild(slot); mountRobertaHero(slot); }
         if (unsupported) {
           // this browser cannot run the on-device models: say so and offer the other path, instead of a setup that cannot work
           box.classList.add('welcome');
@@ -3067,44 +3062,8 @@
           }
           return box;
         }
-        if (firstUse && !shellEnabled()) {
-          // condensed welcome for someone who has not set up on-device chat yet
-          box.classList.add('welcome');
-          box.appendChild(el('p', 'eyebrow', 'PRIVATE AI CHAT ON YOUR DEVICE'));
-          box.appendChild(el('h2', null, 'Your thinking stays yours.'));
-          box.appendChild(el('p', 'lede', 'Run a model on your device and keep on-device conversation content off AI providers’ servers.'));
-          const row = el('div', 'welcome-actions');
-          const setup = el('button', 'primary', 'Set up on-device chat'); setup.type = 'button'; setup.id = 'emptySetup';
-          setup.addEventListener('click', () => startWelcomeSetup());
-          const how = el('button', 'secondary', 'How privacy works'); how.type = 'button'; how.addEventListener('click', () => openAbout());
-          row.append(setup, how); box.appendChild(row);
-          box.appendChild(el('p', 'muted', 'Free to use on your device. Optional providers may charge.'));
-          const provider = el('button', 'link-btn', 'Choose a connected provider'); provider.type = 'button';
-          provider.addEventListener('click', () => { const mode = document.getElementById('inferenceMode'); mode.value = 'api'; mode.dispatchEvent(new Event('change')); openSidebar({ focusTarget: document.getElementById('endpointSelect') }); });
-          box.appendChild(provider);
-          return box;
-        }
-        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : (shellEnabled() ? M.shellRegistry.greeting() : 'What would you like to work through?')));
-        if (shellEnabled()) {
-          if (thread.temporary) box.appendChild(el('p', 'lede', 'Not saved to your history. Copy anything you want to keep before closing it.'));
-          return box;
-        }
-        box.appendChild(el('p', 'lede', thread.temporary
-          ? 'This conversation will not be added to saved history. Copy or export anything you want to keep before closing it.'
-          : 'Ask about an idea, work through a choice, or describe the text you want to revise.'));
-        if (local && lm && !lm.ready) {
-          const loading = lm.installed;
-          const status = el('p', 'muted', loading ? 'Loading the model into memory. You can write a draft while it loads.' : 'Finish setting up on-device chat to get replies.');
-          box.appendChild(status);
-          if (!loading) { const setup = el('button', 'primary', 'Set up on-device chat'); setup.type = 'button'; setup.id = 'emptySetup'; setup.addEventListener('click', () => startWelcomeSetup()); box.appendChild(setup); }
-        }
-        const list = el('div', 'starter-prompts');
-        starterPrompts().forEach(text => {
-          const b = el('button', null, text); b.type = 'button';
-          b.addEventListener('click', () => { messageInput.value = text; growComposer(); persistDraftNow(); updateSendButtonDisabled(); messageInput.focus(); });
-          list.appendChild(b);
-        });
-        box.appendChild(list);
+        box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : M.shellRegistry.greeting()));
+        if (thread.temporary) box.appendChild(el('p', 'lede', 'Not saved to your history. Copy anything you want to keep before closing it.'));
         return box;
       }
       // The welcome button just starts: no dialog. Progress appears right there, and the first message can be typed meanwhile.
@@ -4789,12 +4748,6 @@
         robertaApi ||= roberta.createRoberta({ app: robertaApp });
         return robertaApi;
       }
-      const rerenderEmptyChat = () => { const t = currentThread(); if (t && !t.messages.length) renderMessages(t); };
-      /** Called while the empty chat is drawn: puts Roberta's introduction at the top for someone who has not set up yet. */
-      function mountRobertaHero(slot) {
-        if (!robertaApi) { loadRoberta().then(rerenderEmptyChat).catch(() => {}); return; }
-        robertaApi.mountHero(slot, { onDismiss: () => { prefs.robertaDismissed = true; savePrefs(); rerenderEmptyChat(); } });
-      }
       document.addEventListener('keydown', e => { if (e.key === 'Escape' && robertaApi?.callOpen && !document.querySelector('.app-dialog')) robertaApi.closeCall(); });
 
       // ---- context: how full the model's window is, and condensing older messages ----------------------------------
@@ -5919,7 +5872,6 @@
           thread.systemPrompt = systemPromptInput.value.trim();
         });
       });
-      function shellEnabled() { try { return !localStorage.getItem('plc.shell.off'); } catch { return true; } }
       // ---- app shell (chat/shell/): rail, settings page, search, composer menus. It rearranges the controls above; see chat/shell/shell.mjs
       const plcApp = {
         threads: () => threads, folders: () => folders, currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
@@ -5930,8 +5882,8 @@
         async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
       };
       window.plcApp = plcApp;
-      if (shellEnabled()) import(moduleBase() + 'chat/shell/shell.mjs').then(mod => { window.plcShell = mod.createShell(plcApp); renderThreadList(); })
-        .catch(err => { console.error('Shell failed to start; the classic layout stays.', err); });
+      import(moduleBase() + 'chat/shell/shell.mjs').then(mod => { window.plcShell = mod.createShell(plcApp); renderThreadList(); })
+        .catch(err => { console.error('The app shell failed to start.', err); showToast('Part of the app did not load. Reload the page; if it happens again, see Help.'); });
       initMarketing();
       window.__plcBooted = true;
     })();

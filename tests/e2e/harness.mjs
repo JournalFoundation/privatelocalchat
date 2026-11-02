@@ -4,7 +4,9 @@ import {createRequire} from 'node:module';
 const {chromium}=createRequire(import.meta.url)('playwright');
 import {startFakeApi} from './fake-api.mjs';
 import {setTimeout as sleep} from 'node:timers/promises';
-export async function launch({build=true,port=18271,viewport={width:1280,height:800},storage={},init=null,touch=false,shell=false}={}){
+const PORT_OFFSET=Number(process.env.E2E_PORT_OFFSET||0); // lets several suites run side by side on one machine
+export async function launch({build=true,port:basePort=18271,viewport={width:1280,height:800},storage={},init=null,touch=false}={}){
+ const port=basePort+PORT_OFFSET;
  if(build)execFileSync('node',['scripts/build.mjs'],{stdio:'pipe',env:{...process.env,DEPLOY_BRANCH:'local'}});
  const web=spawn('node',['scripts/serve.mjs'],{env:{...process.env,PORT:String(port)},stdio:'pipe'});
  const api=await startFakeApi();
@@ -13,13 +15,12 @@ export async function launch({build=true,port=18271,viewport={width:1280,height:
  const context=await browser.newContext({viewport,serviceWorkers:'block',...(touch?{isMobile:true,hasTouch:true,deviceScaleFactor:2}:{})});
  const page=await context.newPage();
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource|WebGPU|webgpu/i.test(m.text()))errors.push(m.text());});
- await page.addInitScript(({endpoint,storage,shell})=>{
+ await page.addInitScript(({endpoint,storage})=>{
   if(!sessionStorage.getItem('chatConfig'))sessionStorage.setItem('chatConfig',JSON.stringify({endpoint,token:'',model:'fake-model',theme:'light'}));
   if(!sessionStorage.getItem('chatModels'))sessionStorage.setItem('chatModels',JSON.stringify(['fake-model']));
-  if(!shell)localStorage.setItem('plc.shell.off','1');
   if(!localStorage.getItem('plc.inferenceMode.v1'))localStorage.setItem('plc.inferenceMode.v1','api');
   for(const [k,v] of Object.entries(storage))if(!localStorage.getItem(k))localStorage.setItem(k,v);
- },{endpoint:`http://127.0.0.1:${api.port}/v1`,storage,shell});
+ },{endpoint:`http://127.0.0.1:${api.port}/v1`,storage});
  if(init)await page.addInitScript(init);
  await page.goto(`http://127.0.0.1:${port}/`);
  await page.waitForSelector('#messageInput');

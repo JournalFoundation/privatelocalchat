@@ -1,7 +1,7 @@
 // The app shell: rail, panel, composer menus, model picker, settings page, search overlay, Roberta's page, phone drawer.
 import {launch,assert} from './harness.mjs';
 const ok=m=>console.log('PASS',m);
-const t=await launch({shell:true});
+const t=await launch();
 const {page}=t;
 try{
  await page.waitForSelector('#shellRail');
