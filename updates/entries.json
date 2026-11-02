@@ -14,7 +14,7 @@
         "Voice conversation now works like a phone call: a green call button, a short ring while it connects, a call screen with a running timer, Mute, Skip and End call buttons, a \"Call ended\" summary with the length of the call, and optional ring, pick-up and hang-up sounds that you can turn off in Memory & preferences. On a phone the call takes the whole screen.",
         "Voice notes: any reply can be played as a voice note (pause, jump to a sentence, change the speed, show the words), and you can record a long voice note of your own and listen back before sending. It uses your browser's own voices and speech recognition; the app never saves the audio.",
         "Roberta, the app's robot, introduces the app before any model is loaded: a voicemail on phones, an incoming call on computers. Roberta is a program, not a person, with no feelings or awareness, and is not a language model. Press a number on the keypad, or say what you want, to hear about privacy, setup, sharing, backups, export or help.",
-        "What you say to Roberta is matched to prepared answers by meaning, on your device, with a small search model (about 37 MB, downloaded once from assets.sonalon.com and kept in the browser). It generates nothing and works while your model downloads. See Privacy for details."
+        "What you say to Roberta is matched to prepared answers by meaning, on your device, with a small search model (about 37 MB, downloaded once from assets.privatelocal.chat and kept in the browser). It generates nothing and works while your model downloads. See Privacy for details."
       ],
       "help": [
         {"label": "Share", "href": "/help/#share"},

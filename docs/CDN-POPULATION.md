@@ -1,32 +1,10 @@
 # Populating the CDN (task for an agent or operator with Cloudflare access)
 
-> ## ACTION REQUIRED: someone with the Cloudflare token must run ONE command
+> ## DONE (2026-11-02): the search model is on the project CDN
 >
-> The CDN `assets.privatelocal.chat` is **missing the small search model** that Roberta uses (about 37 MB). Until it is uploaded, the app
-> downloads it from another project's host (`assets.sonalon.com`). A coding session could not upload it: it has no Cloudflare credentials
-> and GitHub refuses workflow files from it. Everything else is ready and the files were already verified byte for byte (dry run).
->
-> **Option A: from any machine with the operator token (about 1 minute):**
->
->     git checkout claude/lucid-tesla-qhjgmk        # or main once merged
->     pip install boto3
->     python3 ops/cloudflare/publish-embedding.py --dry-run     # must end "dry run: nothing uploaded", no MISMATCH
->     CLOUDFLARE_API_TOKEN=<token> python3 ops/cloudflare/publish-embedding.py    # or leave the variable unset and use
->                                                                                  # /root/.config/privatelocalchat/cloudflare-api-token
->
-> It must finish with `OK` for all 10 objects and exit 0. The token needs R2 write access to bucket `privatelocalchat-assets`.
->
-> **Option B: from GitHub (uses the repo secret `CLOUDFLARE_API_TOKEN`):**
->
->     git mv ops/cloudflare/publish-cdn-assets.workflow.yml .github/workflows/publish-cdn-assets.yml
->     git commit -m "ci: publish CDN assets" && git push
->
-> then Actions -> "Publish CDN assets" -> Run workflow (it also runs on a push to the branch named in the file). It fails with a clear error if
-> the secret's token cannot write to R2; use Option A then. Remove the workflow afterwards if you do not want it kept.
->
-> **After it succeeds, tell the next coding session "the CDN is populated"** and it will do Task 2 below (point the app at the CDN,
-> fix the Privacy page, re-run the real-model browser test). Do NOT change `EMBEDDING_ASSET_HOST` before the upload is verified: Roberta's
-> semantic matching would silently fall back to keywords.
+> `ops/cloudflare/publish-embedding.py` uploaded all 10 objects (36,858,671 bytes) to `models/memory/79cbff1e617b319a/` and verified each over
+> the public URL (bytes, CORS, content type). The app now reads it from `https://assets.privatelocal.chat/models/memory/`; Task 2 below is done
+> and `tests/e2e/ivr-semantic.e2e.mjs` passes against the new host. Task 3 is still open.
 
 **Rule:** every model file the app downloads, of any kind (language, search, and later speech-to-text and text-to-speech), is served from one
 host: `https://assets.privatelocal.chat` (R2 bucket `privatelocalchat-assets`, provisioned by `ops/cloudflare/provision-cdn.py`; see
@@ -37,7 +15,7 @@ host: `https://assets.privatelocal.chat` (R2 bucket `privatelocalchat-assets`, p
 | Kind | On `assets.privatelocal.chat`? | Notes |
 |---|---|---|
 | Qwen3.5-9B WebLLM (q4f16_1, q4f32_1) and Qwen3.5-2B GGUF | **Yes** (275 objects, 11.3 GB, `models/catalog.json`) | Done. Verified by `ops/cloudflare/verify-cdn.py`. |
-| Small search model for Roberta (MongoDB/mdbr-leaf-ir int8 ONNX + ONNX Runtime WASM, about 37 MB) | **No.** Served today from `assets.sonalon.com/models/memory/79cbff1e617b319a/` | **This is the task.** |
+| Small search model for Roberta (MongoDB/mdbr-leaf-ir int8 ONNX + ONNX Runtime WASM, about 37 MB) | **Yes** (10 objects, `models/memory/79cbff1e617b319a/`) | Done 2026-11-02; app switched over. |
 | Text-to-speech, speech-to-text models | Not used yet (the app uses the browser's own speech services) | Later; follow the layout below. |
 
 Coding sessions have no Cloudflare credentials, so this could not be done there. `ops/cloudflare/publish-embedding.py --dry-run` was run in

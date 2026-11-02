@@ -1,6 +1,5 @@
 // The embedding engine: MongoDB/mdbr-leaf-ir (Apache-2.0), int8 ONNX, on top of transformers.js (Apache-2.0).
 // The same code runs in the browser worker (worker.src.mjs, WASM) and in Node (scripts/build-intent-vectors.mjs, onnxruntime-node).
-// The approach and the published model files come from the owner's other project, Sonalon.
 //
 // The output is the model's `sentence_embedding` (encoder plus its Dense projection), cut to the first 256 dimensions (the model is trained
 // for that Matryoshka cut) and renormalised. It is NOT the mean-pooled last_hidden_state, which is the encoder output before the projection

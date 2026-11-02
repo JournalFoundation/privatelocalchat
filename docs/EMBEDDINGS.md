@@ -24,13 +24,14 @@ cannot load.
 
 ## Where the model comes from, licences, sizes
 
-The approach and the published files come from the owner's other project, Sonalon, which already ships this embedder. Files are served from its
-content-addressed asset host (see `chat/embedding-config.mjs`):
+The set is served from this project's own content-addressed asset host (see `chat/embedding-config.mjs`):
 
-    https://assets.sonalon.com/models/memory/79cbff1e617b319a/
+    https://assets.privatelocal.chat/models/memory/79cbff1e617b319a/
 
-The host sends CORS `*` and CORP `cross-origin`, which this site's cross-origin isolation (COEP `require-corp`) needs. The version is the first
-16 hex digits of the SHA-256 of every file's path and hash, so a changed byte is a new path and the objects are immutable.
+It was published on 2026-11-02 with `ops/cloudflare/publish-embedding.py`, which checks every file against the SHA-256 values below before
+uploading and re-downloads each object from the public URL afterwards. The host sends CORS `*`, which the worker's CORS-mode fetches need under
+this site's cross-origin isolation (COEP `require-corp`); it sends no `Cross-Origin-Resource-Policy` header, like the language-model files. The
+version is the first 16 hex digits of the SHA-256 of every file's path and hash, so a changed byte is a new path and the objects are immutable.
 
 | Asset | Licence | Size | SHA-256 |
 |---|---|---|---|
@@ -45,7 +46,7 @@ The host sends CORS `*` and CORP `cross-origin`, which this site's cross-origin 
 About 24 MB of model plus 13 MB of runtime is downloaded once, only when Roberta first needs it, and kept by the browser's Cache API. The
 set on the host also holds a reranker; this repository never fetches it. These hashes were checked against the host on 2026-11-01.
 
-How the model is used (same as Sonalon): the output is the model's `sentence_embedding` (encoder plus its Dense projection), cut to 256
+How the model is used: the output is the model's `sentence_embedding` (encoder plus its Dense projection), cut to 256
 dimensions and renormalised, not the mean-pooled `last_hidden_state`. Questions get the prompt
 `Represent this sentence for searching relevant passages: `; the stored example phrases (documents) do not. ONNX Runtime runs with one thread
 (no thread pool, no SharedArrayBuffer needed).
