@@ -13,6 +13,7 @@ After it succeeds, follow docs/CDN-POPULATION.md step 3 (point the app at the ne
 import argparse
 import hashlib
 import json
+import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -78,10 +79,19 @@ def main():
 
     import boto3
     from botocore.config import Config
-    token = Path(args.token_file).read_text().strip()
-    request = urllib.request.Request('https://api.cloudflare.com/client/v4/user/tokens/verify', headers={'Authorization': 'Bearer ' + token})
-    with urllib.request.urlopen(request, timeout=45) as response:
-        key_id = json.load(response)['result']['id']
+    token = os.environ.get('CLOUDFLARE_API_TOKEN', '').strip() or Path(args.token_file).read_text().strip()
+    key_id = None
+    # A user token verifies at user/tokens/verify, an account-owned token at accounts/<id>/tokens/verify.
+    for endpoint in ('user/tokens/verify', 'accounts/' + STATE['account'] + '/tokens/verify'):
+        try:
+            request = urllib.request.Request('https://api.cloudflare.com/client/v4/' + endpoint, headers={'Authorization': 'Bearer ' + token})
+            with urllib.request.urlopen(request, timeout=45) as response:
+                key_id = json.load(response)['result']['id']
+            break
+        except Exception as error:  # try the next kind of token
+            print('token check failed at', endpoint, '-', type(error).__name__, getattr(error, 'code', ''))
+    if not key_id:
+        sys.exit('Could not verify the Cloudflare token')
     client = boto3.client('s3', endpoint_url='https://' + STATE['account'] + '.r2.cloudflarestorage.com', region_name='auto',
                           aws_access_key_id=key_id, aws_secret_access_key=hashlib.sha256(token.encode()).hexdigest(),
                           config=Config(max_pool_connections=8))
