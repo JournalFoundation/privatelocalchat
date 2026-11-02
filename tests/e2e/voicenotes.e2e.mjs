@@ -7,8 +7,9 @@ const mocks=()=>{
  class Rec{constructor(){window.__recs.push(this);}start(){this.started=true;}stop(){this.started=false;this.onend&&this.onend();}abort(){this.started=false;this.aborted=true;}emit(t,f=true){this.onresult&&this.onresult({resultIndex:0,results:[Object.assign([{transcript:t}],{isFinal:f})]});}}
  window.SpeechRecognition=Rec;
 };
-const h=await launch({init:mocks});const {page}=h;
+const h=await launch({init:mocks,shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});const {page}=h;
 const ok=n=>console.log('PASS',n);
+const plusItem=async label=>{await page.click('#shellPlus');await page.click(`.shell-pop .shell-pop-row:has-text("${label}")`);};
 const settle=()=>page.waitForFunction(()=>/Response complete\./.test(document.querySelector('#generationStatus').textContent));
 try{
  await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
@@ -16,7 +17,7 @@ try{
 
  // any reply becomes a voice note
  await page.evaluate(()=>{window.__spoken.length=0;});
- await page.evaluate(()=>document.querySelector('.message.assistant [data-action="voice-note"]').click());
+ await page.click('.message.assistant [data-action="voice-note"]');
  await page.waitForSelector('.message.assistant .voice-note');
  assert(await page.locator('.message.assistant .message-body').isHidden(),'the words are tucked under the note');
  assert((await page.locator('.vn-from').innerText())==='Voice note from Roberta','named, and not a person');
@@ -38,12 +39,12 @@ try{
  // it stays a voice note after a reload, and can be shown as text again
  await page.reload();await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
  await page.waitForSelector('.message.assistant .voice-note');
- await page.evaluate(()=>{document.querySelector('.message.assistant [data-action="voice-note"]').click();});
+ await page.click('.message.assistant [data-action="voice-note"]');
  await page.waitForFunction(()=>!document.querySelector('.message.assistant .voice-note')&&document.querySelector('.message.assistant .message-body').offsetParent!==null);
  ok('persists and reverts');
 
  // recording a long voice note: live words, a review step, then it is sent as a message with its length
- await page.click('#recordNoteBtn');await page.waitForSelector('#voiceRecorder:not([hidden])');
+ await plusItem('Record a voice note');await page.waitForSelector('#voiceRecorder:not([hidden])');
  assert((await page.locator('#vnrText').innerText()).includes('start talking'),'prompting');
  await page.evaluate(()=>window.__recs.at(-1).emit('this is the first part of a long message',false));
  assert((await page.locator('#vnrText').innerText()).includes('first part of a long'),'live words');
@@ -60,9 +61,9 @@ try{
  ok('record, review, send');
 
  // cancel discards; nothing heard says so
- await page.click('#recordNoteBtn');await page.evaluate(()=>window.__recs.at(-1).emit('throw this away'));await page.click('#vnrCancel');
+ await plusItem('Record a voice note');await page.evaluate(()=>window.__recs.at(-1).emit('throw this away'));await page.click('#vnrCancel');
  assert(await page.locator('#voiceRecorder').isHidden()&&(await page.inputValue('#messageInput'))==='','cancel discards');
- await page.click('#recordNoteBtn');await page.click('#vnrStop');
+ await plusItem('Record a voice note');await page.click('#vnrStop');
  assert(/Nothing was heard/.test(await page.locator('#vnrError').innerText())&&await page.locator('#vnrSend').isHidden(),'an empty note cannot be sent');
  await page.keyboard.press('Escape');await page.waitForFunction(()=>document.querySelector('#voiceRecorder').hidden);
  ok('cancel and empty');

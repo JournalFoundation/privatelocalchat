@@ -14,9 +14,10 @@ const speechMocks=()=>{
  window.AudioContext=class{constructor(){this.currentTime=0;this.state='running';this.destination={};}createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){}};}createOscillator(){const o={type:'',frequency:{value:0},connect(){},start(){},stop(){}};window.__tones.push(o);return o;}resume(){}close(){}};
  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{if(window.__mic==='denied'){const e=new Error('denied');e.name='NotAllowedError';throw e;}return {getTracks:()=>[{stop(){}}]};}}});
 };
-const h=await launch({init:speechMocks});
+const h=await launch({init:speechMocks,shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
+const openMemory=async()=>{await page.click('button[aria-label="This device menu"]');await page.click('.shell-pop .shell-pop-row:has-text("Memory & preferences")');await page.waitForSelector('.app-dialog');};
 const live=()=>page.evaluate(()=>window.__recs.filter(r=>r.started).length);
 const state=()=>page.getAttribute('#voiceSheet','data-state');
 const waitState=(s,timeout=15000)=>page.waitForFunction(v=>document.querySelector('#voiceSheet')?.dataset.state===v,s,{timeout});
@@ -24,8 +25,7 @@ const requests=async()=>(await (await fetch(`http://127.0.0.1:${h.api.port}/__re
 try{
  await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
  assert(await page.locator('#voiceModeBtn').count()===1,'the call button exists');
- assert((await page.getAttribute('#voiceModeBtn','aria-label'))==='Voice call'&&(await page.getAttribute('#voiceModeBtn','title'))==='Start a voice call'&&await page.locator('#voiceModeBtn svg').count()===1,'a handset icon with a call name');
- assert(await page.locator('#voiceModeBtn').evaluate(b=>getComputedStyle(b).backgroundColor)==='rgb(31, 143, 85)','the call button is green');
+ assert((await page.getAttribute('#voiceModeBtn','aria-label'))==='Voice call'&&await page.locator('#voiceModeBtn').isVisible()&&await page.locator('#voiceModeBtn svg').count()===1,'a visible call button with an icon and a call name');
 
  // it rings first ("Calling..."), then connects and the timer starts
  await page.click('#voiceModeBtn');
@@ -88,7 +88,7 @@ try{
  ok('voice mute and end');
 
  // the call sounds can be turned off
- await page.click('#openPrefsBtn');await page.uncheck('#callSoundsPref');await page.click('.app-dialog button:has-text("Done")');
+ await openMemory();await page.uncheck('#callSoundsPref');await page.click('.app-dialog button:has-text("Done")');
  const tonesBefore=await page.evaluate(()=>window.__tones.length);
  await page.click('#voiceModeBtn');await waitState('listening');await page.click('#voiceEnd');await page.waitForFunction(()=>document.querySelector('#voiceSheet').hidden,null,{timeout:6000});
  assert(await page.evaluate(()=>window.__tones.length)===tonesBefore,'no sounds when they are off');

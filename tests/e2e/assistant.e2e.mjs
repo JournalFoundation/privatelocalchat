@@ -9,7 +9,7 @@ const speechMocks=()=>{
   emit(text,final=true){this.onresult&&this.onresult({resultIndex:0,results:[Object.assign([{transcript:text}],{isFinal:final})]});}}
  window.SpeechRecognition=Rec;
 };
-const h=await launch({init:speechMocks});
+const h=await launch({init:speechMocks,shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
 const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};
@@ -17,13 +17,15 @@ const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click()
 const requests=async()=>(await (await fetch(`http://127.0.0.1:${h.api.port}/__requests`)).json());
 const settle=async()=>{await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted|Answered on this device)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
 const send=async text=>{await page.fill('#messageInput',text);await page.click('#sendBtn');await settle();};
+const openMemory=async()=>{await page.click('button[aria-label="This device menu"]');await page.click('.shell-pop .shell-pop-row:has-text("Memory & preferences")');await page.waitForSelector('.app-dialog');};
+const plusItem=async label=>{await page.click('#shellPlus');await page.click(`.shell-pop .shell-pop-row:has-text("${label}")`);};
 const newChat=async()=>{await page.click('#newChatBtn');};
 const systemOfLast=async()=>{const r=(await requests()).at(-1).body.messages;return r[0].role==='system'?r[0].content:'';};
 try{
  await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
 
  // personal instructions + memory + presets
- await page.click('#openPrefsBtn');
+ await openMemory();
  await page.fill('#prefInstructions','Reply in British English and keep it short.');
  await page.fill('.app-dialog input[aria-label="New memory"]','I live in Lisbon');await page.click('.app-dialog button:has-text("Add")');
  assert(await page.locator('.app-dialog input[aria-label="Memory 1"]').inputValue()==='I live in Lisbon','memory listed');
@@ -37,7 +39,7 @@ try{
  assert(/Reply in British English/.test(await systemOfLast()),'preferences survive a reload');
  ok('personal instructions and memory');
 
- await page.click('#tempChatBtn');await send('private question');
+ await page.click('.header-temp');await send('private question');
  sys=await systemOfLast();
  assert(/standing preferences/.test(sys)&&!/Lisbon/.test(sys),'temporary chat: preferences yes, memory no');
  await page.locator('.message.user').last().locator('[data-action="more"]').click();assert(await page.locator('.thread-menu [data-menu-action="remember"]').count()===0,'no Remember in a temporary chat');await page.keyboard.press('Escape');
@@ -48,7 +50,7 @@ try{
  assert(/my cat is called Miso/.test(await systemOfLast()),'new memory used');
  await more(page.locator('.message.user').last(),'remember');
  await page.fill('.app-dialog textarea','I prefer metric units');await page.click('.app-dialog button:has-text("Remember")');
- await page.click('#openPrefsBtn');
+ await openMemory();
  assert(await page.locator('.app-dialog input[aria-label="Memory 3"]').inputValue()==='I prefer metric units','remember action stored an edited memory');
  await page.click('.app-dialog button:has-text("Forget")>>nth=0');
  assert(await page.locator('.app-dialog input[aria-label^="Memory"]').count()===2,'forgetting removes it');
@@ -56,7 +58,7 @@ try{
  ok('memory is explicit and editable');
 
  await newChat();
- await page.click('#systemPromptContainer summary');
+ await plusItem('Instructions for this chat');
  await page.selectOption('#presetSelect',{label:'Brief answers'});
  assert(/Answer as briefly as possible/.test(await page.inputValue('#systemPromptInput')),'preset fills the instructions');
  await send('define entropy');
@@ -143,7 +145,7 @@ try{
 finally{await h.close();}
 
 // a browser with no speech recognition or voices simply does not show the controls
-const h2=await launch({build:false,port:18272,init:()=>{delete window.SpeechRecognition;delete window.webkitSpeechRecognition;Object.defineProperty(window,'speechSynthesis',{configurable:true,value:undefined});}});
+const h2=await launch({build:false,shell:true,port:18272+Number(process.env.E2E_PORT_OFFSET||0),init:()=>{delete window.SpeechRecognition;delete window.webkitSpeechRecognition;Object.defineProperty(window,'speechSynthesis',{configurable:true,value:undefined});}});
 try{
  await h2.page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
  const count=async sel=>h2.page.locator(sel).count();
