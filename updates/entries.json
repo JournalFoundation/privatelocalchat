@@ -11,7 +11,14 @@
         "Settings > Models lists every model with its size on this device, with Unload and Remove buttons, so downloads never pile up unseen. Storage & backups has the same Remove buttons.",
         "The app has a new layout: a rail and sidebar, a model menu, a Settings page and a search that matches by words and meaning (Ctrl or Cmd+K)."
       ],
-      "models": "Qwen3.5-2B, Qwen3.5-9B, LFM2.5-2.6B, Granite 4.0 H 1B."
+      "models": "Qwen3.5-2B, Qwen3.5-9B, LFM2.5-2.6B, Granite 4.0 H 1B.",
+      "help": [
+        {
+          "label": "Privacy",
+          "href": "/privacy/"
+        }
+      ],
+      "issues": []
     },
     {
       "id": "share-transfer-help",

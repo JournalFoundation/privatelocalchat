@@ -137,7 +137,7 @@ test('the Privacy page covers every required topic and records its review date',
 
 // ---- the updates source, its HTML and the feed ----------------------------------------------------------------------------------------
 test('updates entries are valid, dated and include the new release entry',()=>{
- const first=data.entries[0];
+ const first=data.entries.find(e=>e.id==='share-transfer-help');
  assert.equal(first.date,'2026-11-01');assert.equal(first.title,'Share, transfer settings, and help');
  const text=JSON.stringify(first);
  for(const topic of ['Share Private Local Chat','QR code','Transfer settings','password','separately','Transfer chats and backups','Help, About, Privacy and Updates'])assert.ok(text.includes(topic),topic);
