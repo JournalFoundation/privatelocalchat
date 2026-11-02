@@ -171,7 +171,7 @@ window.localModels={
   /** Check the downloaded files of every model (storage screen, so each can be removed). Tiers are checked one after another. */
   async inspectAll(){await initFinished;for(const tier of Object.keys(host.getState().tiers)){try{await host.inspect(tier);}catch{/* recorded in the state */}}return host.getState();},
   /** Delete one model's downloaded files (the person confirmed in the page). Unloads it first when it is the loaded one. */
-  async removeTier(tier){await initFinished;downloadRecovery.cancel();for(let i=0;i<1200&&host.getState().busy;i++)await new Promise(r=>setTimeout(r,100));{const L=host.getState().load;if(L.state!=='unloaded'&&(L.tier===tier||L.tier==null||host.getState().selection.tier===tier))await host.unload();}await host.remove(tier,{confirmed:true});return host.getState();},
+  async removeTier(tier){await initFinished;downloadRecovery.cancel();for(let i=0;i<1200&&host.getState().busy;i++)await new Promise(r=>setTimeout(r,100));{const L=host.getState().load;if(L.state!=='unloaded'&&(L.tier===tier||L.tier==null||host.getState().selection.tier===tier)){userFreed=true;await host.unload();}}await host.remove(tier,{confirmed:true});return host.getState();},
   async refreshStorage(){await host.refreshStorage();return state?.storage;},
   async requestPersist(){return host.requestPersist();},
   async generate(messages,{signal,onToken,onFinish}={}) {
