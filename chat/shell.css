@@ -253,3 +253,6 @@ body.shell #generationStatus { background: none; border: 0; padding: 0 16px; mar
 @media (min-width: 761px) { .settings-nav-tabs { display: flex; flex-direction: column; gap: 2px; } }
 .shell-dot .shell-dot-avatar { width: 20px; height: 20px; font-size: 0.7rem; margin: 0 -1px; }
 body.shell .thread-list li.selected, body.shell .thread-list li.selected .thread-name { color: var(--color-text); }
+/* the model pill, mic and voice/send sit on the right; "+" stays on the left */
+body.shell .composer-bar .shell-model { margin-left: auto !important; }
+body.shell .composer-bar .composer-actions:not(:has(> :not([hidden]))) { display: none; }
