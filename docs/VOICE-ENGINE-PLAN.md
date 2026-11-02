@@ -255,6 +255,29 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 - Separate licences of the voices, tokenizer and config files, and Kitten's training-data licences.
 - Whether espeak-ng's data files carry licences other than GPL-3.0.
 
+## Rollout status (2026-11-02)
+
+**Shipped.** The optional Kitten voice, the selection rule, the measurement modules, the Settings card and the GPL-3.0 relicence are live on `dev` and `production` (commit `1f84d8c`).
+
+| Lane | Result |
+|---|---|
+| 0 Inventory | Done: six browsers on five devices (`docs/evidence/lane0/inventory.json`). |
+| 1 Unit tests | 358 pass, including the device matrix, the real S8+ numbers and the reference token ids. |
+| 2 Automated end to end | Engine install, speak, remove and storage return (`tests/e2e/voice-engine.e2e.mjs`), measurement modules, offer flow with a fake engine. A stalled worker is terminated and the system voice takes over. |
+| 3 Real desktop browsers | Boiler Chromium, Brutus Firefox on an N100, Mac Safari, Centroid Chromium/WebKit: the hosted voice installs, speaks (3.3 to 7.9 times real time), and removes. |
+| 4 Real phones | iPhone 11 Pro on dev and production: `ios-system-voice-only`, no offer, no voice file requested. Galaxy S8+: probe at its 4000 ms cap, voice at 0.26 times, not offered. **iPhone 15 Pro: not re-run on the final build** (same code path as the 11 Pro; the user had the phone). |
+| 5 Dev command channel | Not extended with voice actions; not needed (everything above was driven directly). |
+| 6 Production | `verify-release` passes; the live page contains no test hook or debug code; the debug receiver route does not exist (404); the real engine works against the live site. |
+
+**Independent review.** A fresh reviewer read the whole diff. Two blockers (a stall watchdog too short for slow voices, and a hung worker that never recovered) and the main should-fix items were fixed before the release; the rest are debt items 47 to 52.
+
+**Still open**
+- Kokoro (the larger voice) has no engine; it is never offered.
+- The iPhone 15 Pro negative check on the final build.
+- Number and abbreviation expansion beyond what eSpeak does itself (debt item 43).
+- Confirm that `GPL-3.0-only` (the package licence field) is the intended choice; eSpeak NG itself is GPL-3.0-or-later.
+- `qrcode.js` has no licence header in its file (MIT upstream); confirm before relying on the notice.
+
 ## Open items
 
 - Real-device thresholds (steps 1 and 5).
