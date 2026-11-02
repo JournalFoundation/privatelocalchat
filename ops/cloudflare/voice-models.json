@@ -1,0 +1,34 @@
+{
+ "kitten_nano_int8": {
+  "prefix": "models/Kitten-TTS-Nano-0.8-int8/84781d74e29ee25217551556398b42f80593a813/",
+  "licenseFile": "licenses/kitten-tts-nano-0.8-int8.txt",
+  "licenseName": "Apache-2.0",
+  "note": "KittenML/kitten-tts-nano-0.8-int8 at commit 84781d74e29ee25217551556398b42f80593a813. The weights are Apache-2.0; its phonemizer dependency (espeak-ng) is GPL-3.0 and is shipped separately. Immutable.",
+  "sourceBase": "https://huggingface.co/KittenML/kitten-tts-nano-0.8-int8/resolve/84781d74e29ee25217551556398b42f80593a813/",
+  "kind": "tts",
+  "model": {
+   "id": "KittenML/kitten-tts-nano-0.8-int8",
+   "sourceRevision": "84781d74e29ee25217551556398b42f80593a813",
+   "format": "onnx-int8",
+   "license": "Apache-2.0",
+   "totalBytes": 27649561
+  },
+  "files": [
+   {
+    "path": "kitten_tts_nano_v0_8.onnx",
+    "bytes": 24369971,
+    "sha256": "f7b0afcbee92870b32b8e0276d855b954dc25470c9f051b376ac7eee537c76fc"
+   },
+   {
+    "path": "voices.npz",
+    "bytes": 3278902,
+    "sha256": "8aa7cee235abb0739cb51e6559685f65a4dacd95568833d05699b1633f519b3f"
+   },
+   {
+    "path": "config.json",
+    "bytes": 688,
+    "sha256": "b66006ccbeccd4de5fc3c9272059c47f5725df7215fd889785c03602652fab64"
+   }
+  ]
+ }
+}
