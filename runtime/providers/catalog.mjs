@@ -25,8 +25,8 @@ export const OFFICIAL_SOURCES = Object.freeze({
   webllmModelBase: Object.freeze(Object.fromEntries(WEBLLM_VARIANTS.map((v) => [v, `https://huggingface.co/${W[v].repo}/resolve/${W[v].commit}/`]))),
   // binary-mlc-llm-libs (Apache-2.0) tracks the WebLLM release; each file is checked against the sha256 pinned here
   webllmLibBase: Object.freeze(Object.fromEntries(WEBLLM_VARIANTS.map((v) => [v, "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/"]))),
-  // the owner's immutable manifest-addressed repackaging of Qwen/Qwen3.5-2B (Apache-2.0) as Q4_0 GGUF shards
-  wllamaModelBase: L.baseUrl,
+  // Qwen/Qwen3.5-2B (Apache-2.0) as Q4_0 GGUF shards, served from the project's own CDN like the other two
+  wllamaModelBase: "https://assets.privatelocal.chat/models/Qwen3.5-2B/" + L.sourceRevision + "/",
   // LFM2.5 and Granite are served only from the project's own CDN (assets.privatelocal.chat), pinned file by file
   wllamaTierBase: Object.freeze({ lfm: LFM.baseUrl, granite: GRANITE.baseUrl })
 });
@@ -119,7 +119,7 @@ export function resolveSources(overrides = null) {
   // WebLLM rewrites a model URL that lacks /resolve/<rev>/ by appending resolve/main/, which would silently miss every cached file
   for (const v of WEBLLM_VARIANTS) if (!/.+\/resolve\/.+\//.test(sources.webllmModelBase[v])) throw new RangeError(`webllmModelBase.${v} must contain /resolve/<revision>/ (WebLLM would rewrite it otherwise): ${sources.webllmModelBase[v]}`);
   const flat = [...Object.values(sources.webllmModelBase), ...Object.values(sources.webllmLibBase), sources.wllamaModelBase, ...Object.values(sources.wllamaTierBase)];
-  const origins = [...new Set(flat.map((u) => { try { return new URL(u).origin; } catch { return String(u); } }).filter((o) => o !== "https://huggingface.co" && o !== "https://raw.githubusercontent.com" && o !== new URL(L.baseUrl).origin && o !== new URL(LFM.baseUrl).origin))];
+  const origins = [...new Set(flat.map((u) => { try { return new URL(u).origin; } catch { return String(u); } }).filter((o) => o !== "https://huggingface.co" && o !== "https://raw.githubusercontent.com" && o !== new URL(OFFICIAL_SOURCES.wllamaModelBase).origin && o !== new URL(LFM.baseUrl).origin))];
   return { sources, label: "OVERRIDE: " + origins.join(", "), overridden: true };
 }
 

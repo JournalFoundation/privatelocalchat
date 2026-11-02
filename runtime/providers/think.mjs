@@ -52,8 +52,8 @@ export function createThinkFilter() {
         decided = true; return out;
       }
       // not a block: after earlier blocks, the whitespace that followed them is not part of the answer
-      const out = matched ? pending.slice(skipWs(pending, 0)) : pending; pending = ""; decided = true;
-      if (matched && out === "") decided = false;
+      const out = pending.slice(skipWs(pending, 0)); pending = ""; decided = true; // an answer never starts with blank space
+      if (out === "") decided = false;
       return out;
     },
     /** End of stream: whatever was held back is real text (or a lone partial block) and is released, never dropped. */

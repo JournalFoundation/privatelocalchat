@@ -55,7 +55,7 @@ test("empty think blocks in a row are removed, streamed in any split, and real r
   const run = (parts) => { const f = createThinkFilter(); return parts.map((p) => f.push(p)).join("") + f.flush(); };
   assert.equal(run(["<think></think><think></think>ready"]), "ready");
   assert.equal(run(["<th", "ink></th", "ink><think>", "</think>\n", "ready ", "now"]), "ready now");
-  assert.equal(run(["\nThe capital"]), "\nThe capital");
+  assert.equal(run(["\nThe capital"]), "The capital");
   assert.equal(run(["<think>real thought</think>answer"]), "<think>real thought</think>answer");
   assert.equal(stripEmptyThink("<think>\n\n</think>\n\nhi"), "hi");
   assert.equal(run(["<think></think>"]), "");
