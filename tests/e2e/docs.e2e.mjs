@@ -31,7 +31,7 @@ writeFileSync(files.scan,makePdf(['','']));
 writeFileSync(files.zip,'PK');
 writeFileSync(files.png,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64'));
 writeFileSync(files.lib,'# Handbook\n\nVacation policy: employees receive twenty-five days of paid leave per year.\n\n'+filler(1).repeat(40));
-const h=await launch({});
+const h=await launch({shell:true,port:18271+Number(process.env.E2E_PORT_OFFSET||0)});
 const {page}=h;
 const ok=name=>console.log('PASS',name);
 const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click();await page.click(`.thread-menu [data-menu-action="${action}"]`);};
@@ -39,7 +39,9 @@ const more=async(loc,action)=>{await loc.locator('[data-action="more"]').click()
 const requests=async()=>(await (await fetch(`http://127.0.0.1:${h.api.port}/__requests`)).json());
 const settle=async()=>{await page.waitForFunction(()=>/^(Response complete\.|The response was interrupted)/.test(document.querySelector('#generationStatus').textContent));await page.waitForFunction(()=>!document.querySelector('#stopGeneration').offsetParent);};
 const send=async text=>{await page.fill('#messageInput',text);await page.click('#sendBtn');await settle();};
-const attach=async f=>{await page.setInputFiles('#attachInput',f);};
+// attach the way a person does: composer + menu, then "Add photos & files" opens the file picker
+const attach=async f=>{await page.click('#shellPlus');const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.click('.shell-pop-row:has-text("Add photos & files")')]);await fc.setFiles(f);};
+const library=async()=>{await page.click('#shellRail button[aria-label="Library"]');};
 const newChat=async()=>{await page.click('#newChatBtn');};
 try{
  await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
@@ -87,14 +89,14 @@ try{
  ok('image to a provider');
 
  // library
- await page.click('#openLibraryBtn');await page.setInputFiles('.app-dialog input[type=file]',files.lib);
+ await library();{const [fc]=await Promise.all([page.waitForEvent('filechooser'),page.click('.app-dialog button:has-text("Add documents")')]);await fc.setFiles(files.lib);}
  await page.waitForSelector('.app-dialog .list-row:has-text("handbook.md")');
  await page.click('.app-dialog button:has-text("Done")');
  await newChat();await send('How many days of paid leave do employees receive?');
  last=(await requests()).at(-1).body.messages;
  assert(/handbook\.md/.test(last[0].content)&&/twenty-five days of paid leave/.test(last[0].content),'library passage supplied');
  assert(await page.locator('.message-sources button:has-text("handbook.md")').count()===1,'library source cited');
- await page.click('#openLibraryBtn');await page.selectOption('.app-dialog select[aria-label^="Where handbook"]','off');await page.click('.app-dialog button:has-text("Done")');
+ await library();await page.selectOption('.app-dialog select[aria-label^="Where handbook"]','off');await page.click('.app-dialog button:has-text("Done")');
  await newChat();await send('How many days of paid leave do employees receive?');
  assert(!/handbook\.md/.test(JSON.stringify((await requests()).at(-1).body.messages)),'library off means not used');
  ok('document library');
@@ -123,7 +125,8 @@ try{
  ok('editor');
 
  // temporary chats keep documents in memory only; deleting a chat releases its documents
- await page.click('#tempChatBtn');await attach(files.txt);await page.waitForSelector('#attachmentChips .chip');
+ await page.click('#canvasPane [aria-label="Close editor"]');
+ await page.click('.header-temp');await attach(files.txt);await page.waitForSelector('#attachmentChips .chip');
  const stored=await page.evaluate(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('plc-docs',1);q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);});return new Promise(r=>{const q=db.transaction('docs').objectStore('docs').getAll();q.onsuccess=()=>r(q.result.map(d=>d.name));});});
  assert(stored.filter(n=>n==='notes.txt').length===1,'only the earlier saved chat holds notes.txt, not the temporary one: '+JSON.stringify(stored));
  ok('temporary chat documents stay in memory');
