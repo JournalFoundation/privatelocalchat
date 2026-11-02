@@ -203,6 +203,9 @@ export function createShell(app) {
     if (mic && !mic.dataset.shell) { mic.dataset.shell = "1"; mic.classList.add("shell-mic"); mic.title = "Dictate"; }
   };
   new MutationObserver(decorate).observe(tools, { childList: true }); decorate();
+  const statusEl = $("generationStatus");
+  const syncStatus = () => statusEl.classList.toggle("quiet", /^\s*(Response complete|Ready)/i.test(statusEl.textContent || ""));
+  new MutationObserver(syncStatus).observe(statusEl, { childList: true, characterData: true, subtree: true }); syncStatus();
   const syncText = () => form.classList.toggle("has-text", input.value.trim().length > 0);
   input.addEventListener("input", syncText); syncText();
   new MutationObserver(syncText).observe(input, { attributes: true }); // a draft restored by script
@@ -356,7 +359,9 @@ function buildSettings({ app, shell, registry, moved, filter }) {
   const content = h("div", { class: "settings-content", tabindex: "-1" });
   nav.append(h("div", { class: "settings-nav-head" }, h("strong", { text: "Settings" }), close), q);
   const buttons = new Map();
-  for (const s of sections) { const b = h("button", { type: "button", class: "settings-nav-item", "data-section": s.id }, icon(s.ico), h("span", { text: s.label })); b.addEventListener("click", () => show(s.id)); buttons.set(s.id, b); nav.append(b); }
+  const tabs = h("div", { class: "settings-nav-tabs" });
+  for (const s of sections) { const b = h("button", { type: "button", class: "settings-nav-item", "data-section": s.id }, icon(s.ico), h("span", { text: s.label })); b.addEventListener("click", () => show(s.id)); buttons.set(s.id, b); tabs.append(b); }
+  nav.append(tabs);
   q.addEventListener("input", () => { const t = q.value.trim().toLowerCase(); for (const s of sections) buttons.get(s.id).hidden = Boolean(t) && !(s.label + " " + s.keywords).toLowerCase().includes(t); const first = sections.find((s) => !buttons.get(s.id).hidden); if (t && first) show(first.id); });
   page.append(nav, content);
   document.body.append(page);
@@ -395,7 +400,7 @@ function buildSettings({ app, shell, registry, moved, filter }) {
 function buildSearch({ app }) {
   const overlay = h("div", { class: "search-overlay", id: "searchOverlay", hidden: true, role: "dialog", "aria-modal": "true", "aria-label": "Search chats" });
   const box = h("div", { class: "search-box" });
-  const input = h("input", { type: "search", class: "search-input", placeholder: "Search chats by words or by meaning", "aria-label": "Search chats", autocomplete: "off" });
+  const input = h("input", { type: "search", class: "search-input", placeholder: "Search chats", "aria-label": "Search chats", autocomplete: "off" });
   const filterBtn = h("button", { type: "button", class: "set-btn", "aria-expanded": "false" }, icon("filter"), h("span", { text: "Filters" }));
   const closeBtn = iconBtn("close", "Close search", () => close());
   const filters = defaultFilters();
@@ -491,7 +496,7 @@ function buildSearch({ app }) {
   overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
   let lastFocus = null;
   function open() {
-    closePopover(); lastFocus = document.activeElement; overlay.hidden = false; document.body.classList.add("search-open");
+    closePopover(); if (document.body.classList.contains("sidebar-open")) $("closeSidebarBtn")?.click(); lastFocus = document.activeElement; overlay.hidden = false; document.body.classList.add("search-open");
     folderSel.textContent = ""; folderSel.append(h("option", { value: "", text: "All projects" })); for (const f of app.folders()) folderSel.append(h("option", { value: f.id, text: f.name }));
     folderSel.value = filters.folderId || "";
     setStatus(); input.focus(); input.select(); run();

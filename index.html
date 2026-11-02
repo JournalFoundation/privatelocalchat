@@ -3037,7 +3037,7 @@
         const unsupported = local && lm && lm.supported === false && !lm.ready && Boolean(lm.gpuHelp && lm.gpuHelp.kind !== 'ok');
         const help = unsupported ? lm.gpuHelp : null;
         const firstUse = local && lm && !lm.installed && !lm.ready && !thread.temporary && !unsupported;
-        if (!prefs.robertaDismissed && !thread.temporary && local && lm && !lm.ready && (firstUse || welcomeSetup || unsupported)) { const slot = el('div', 'roberta-slot'); box.appendChild(slot); mountRobertaHero(slot); }
+        if (!shellEnabled() && !prefs.robertaDismissed && !thread.temporary && local && lm && !lm.ready && (firstUse || welcomeSetup || unsupported)) { const slot = el('div', 'roberta-slot'); box.appendChild(slot); mountRobertaHero(slot); }
         if (unsupported) {
           // this browser cannot run the on-device models: say so and offer the other path, instead of a setup that cannot work
           box.classList.add('welcome');
@@ -3065,7 +3065,7 @@
           }
           return box;
         }
-        if (firstUse) {
+        if (firstUse && !shellEnabled()) {
           // condensed welcome for someone who has not set up on-device chat yet
           box.classList.add('welcome');
           box.appendChild(el('p', 'eyebrow', 'PRIVATE AI CHAT ON YOUR DEVICE'));
@@ -3083,6 +3083,10 @@
           return box;
         }
         box.appendChild(el('h2', null, thread.temporary ? 'Temporary chat' : (shellEnabled() ? M.shellRegistry.greeting() : 'What would you like to work through?')));
+        if (shellEnabled()) {
+          if (thread.temporary) box.appendChild(el('p', 'lede', 'Not saved to your history. Copy anything you want to keep before closing it.'));
+          return box;
+        }
         box.appendChild(el('p', 'lede', thread.temporary
           ? 'This conversation will not be added to saved history. Copy or export anything you want to keep before closing it.'
           : 'Ask about an idea, work through a choice, or describe the text you want to revise.'));
