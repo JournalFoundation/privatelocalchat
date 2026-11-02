@@ -1,0 +1,98 @@
+{
+ "tier": "lfm",
+ "origin": "https://dev.privatelocal.chat/",
+ "steps": [
+  {
+   "name": "start",
+   "t": 1,
+   "device": {
+    "webgpu": false,
+    "simd": true,
+    "mem": 32,
+    "backend": "cpu"
+   },
+   "opfs": 2686
+  },
+  {
+   "name": "selected",
+   "t": 2,
+   "tier": "lfm",
+   "files": [
+    "default",
+    "light",
+    "lfm",
+    "granite"
+   ]
+  },
+  {
+   "name": "ready",
+   "t": 149,
+   "seconds": 147,
+   "opfsUsage": 1366854720,
+   "addedMB": 1367,
+   "info": {
+    "load": "ready",
+    "tier": "lfm",
+    "runtime": "wllama/privatelocalchat-owner-cleanup-debug-20261030-v1/compat",
+    "kind": "local-cpu",
+    "timings": {
+     "cacheCheckMs": 8,
+     "stagedFrom": "cache",
+     "stagedBytes": 1366846112,
+     "constructMs": 6599
+    },
+    "loadMs": 6752,
+    "installed": {
+     "state": "complete",
+     "ok": true,
+     "files": 6,
+     "okFiles": 6,
+     "missing": 0,
+     "bad": [],
+     "bytesPresent": 1366846112,
+     "bytesTotal": 1366846112,
+     "deep": false,
+     "ms": 9,
+     "where": "OPFS (wllama cache)",
+     "checkedAt": 1793611166698,
+     "verifiedByLoad": true
+    }
+   }
+  },
+  {
+   "name": "generate",
+   "t": 169,
+   "tokens": 8,
+   "firstTokenMs": 14881,
+   "totalMs": 20372,
+   "text": "\nThe capital of France is Paris."
+  },
+  {
+   "name": "generate-2",
+   "t": 206,
+   "tokens": 40,
+   "text": "\n\nThe three primary colors are:\n\n1. **Red**  \n2. **Blue**  \n3. **Yellow**  \n\nThese are the fundamental colors from which secondary colors (green, cyan,",
+   "aborted": true,
+   "error": null
+  },
+  {
+   "name": "unloaded",
+   "t": 206,
+   "load": "unloaded",
+   "installed": true
+  },
+  {
+   "name": "removed",
+   "t": 207,
+   "freedMB": 1367,
+   "opfsUsageAfter": 2842,
+   "install": {
+    "ok": false,
+    "state": "absent",
+    "bytesPresent": 0
+   }
+  }
+ ],
+ "errors": [],
+ "totalSeconds": 207
+}

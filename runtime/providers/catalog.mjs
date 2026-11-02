@@ -76,7 +76,7 @@ export const TIERS = Object.freeze({
     downloadBytes: LFM.totalBytes,
     memory: { steadyBytes: 2.2e9, peakBytes: 2.9e9, note: "estimate from the file size plus context; see docs/CHAT-FEATURES.md for what was measured" },
     sampling: { temperature: 0.3, topP: 0.9, topK: 40, repetitionPenalty: 1.05 },
-    speed: { decodeTokPerSec: "not yet measured", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "not yet measured", loadSecondsWarm: "not yet measured" },
+    speed: { decodeTokPerSec: "about 1.3 on a processor with no GPU (measured 2026-11-02, single thread); GPU not measured", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "about 15 for the first turn on a processor", loadSecondsWarm: 7 },
     strengths: "A stronger writer and reasoner than the 2B Qwen at a similar size, with a hybrid design that keeps memory low for long chats. Q3 quantisation trades a little accuracy for size.",
     cacheKind: "OPFS (wllama cache directory)"
   }),
@@ -90,7 +90,7 @@ export const TIERS = Object.freeze({
     downloadBytes: GRANITE.totalBytes,
     memory: { steadyBytes: 1.5e9, peakBytes: 2.0e9, note: "estimate from the file size plus context; see docs/CHAT-FEATURES.md for what was measured" },
     sampling: { temperature: 0.2, topP: 0.9, topK: 40, repetitionPenalty: 1.05 },
-    speed: { decodeTokPerSec: "not yet measured", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "not yet measured", loadSecondsWarm: "not yet measured" },
+    speed: { decodeTokPerSec: "about 3 on a processor with no GPU (measured 2026-11-02, single thread); GPU not measured", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "about 9 for the first turn on a processor", loadSecondsWarm: 7 },
     strengths: "The smallest download here, quick on modest devices, and a hybrid (Mamba) design that is gentle on memory. Best for short, direct answers; weaker at open-ended writing.",
     cacheKind: "OPFS (wllama cache directory)"
   })

@@ -24,12 +24,14 @@ try{
  ok('send');
 
  await page.click('#modelPill');
- assert((await page.locator('.shell-pop').innerText()).includes('fake-model'),'picker lists the connected model');
+ { const t=await page.locator('.shell-pop').innerText(); assert(t.includes('fake-model'),'picker lists the connected model'); assert(/LFM2\.5-2\.6B/.test(t)&&/Granite 4\.0 H 1B/.test(t)&&/Qwen3\.5-2B/.test(t),'picker lists the on-device models: '+t); }
  await page.keyboard.press('Escape');
  ok('model picker');
 
  await page.evaluate(()=>window.plcShell.openSettings('models'));
  assert(await page.locator('#endpointInput').isVisible(),'provider form is in settings');
+ await page.waitForFunction(()=>/LFM2\.5/.test(document.getElementById('installedModels')?.textContent||'')&&/Granite/.test(document.getElementById('installedModels')?.textContent||''),null,{timeout:15000});
+ assert(!/Remove/.test(await page.locator('#installedModels').innerText()),'nothing to remove before anything is downloaded');
  await page.keyboard.press('Escape');
  assert(!(await page.locator('#settingsPage').isVisible()),'settings closes');
  await page.evaluate(()=>window.plcShell.openSettings('data'));

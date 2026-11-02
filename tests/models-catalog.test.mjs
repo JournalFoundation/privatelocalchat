@@ -49,3 +49,14 @@ test("a model the person chose is honoured, on the GPU and on the processor; not
   assert.equal(pickTier({ env: gpu, selection: { tier: "light", chosenBy: "default" } }).tier, "default");
   assert.equal(pickTier({ env: { ...gpu, deviceMemoryGB: 4 }, selection: { tier: "light", chosenBy: "default" } }).tier, "light");
 });
+
+import { createThinkFilter, stripEmptyThink } from "../runtime/providers/think.mjs";
+test("empty think blocks in a row are removed, streamed in any split, and real reasoning is kept", () => {
+  const run = (parts) => { const f = createThinkFilter(); return parts.map((p) => f.push(p)).join("") + f.flush(); };
+  assert.equal(run(["<think></think><think></think>ready"]), "ready");
+  assert.equal(run(["<th", "ink></th", "ink><think>", "</think>\n", "ready ", "now"]), "ready now");
+  assert.equal(run(["\nThe capital"]), "\nThe capital");
+  assert.equal(run(["<think>real thought</think>answer"]), "<think>real thought</think>answer");
+  assert.equal(stripEmptyThink("<think>\n\n</think>\n\nhi"), "hi");
+  assert.equal(run(["<think></think>"]), "");
+});

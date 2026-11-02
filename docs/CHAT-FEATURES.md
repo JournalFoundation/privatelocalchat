@@ -39,6 +39,21 @@ The layout follows the familiar chat-app pattern so someone who uses one daily c
 
 Entries come from a registry (`chat/shell/registry.mjs`): adding a rail item, Explore item or "+" item is one `register()` call. Set `localStorage plc.shell.off=1` to run the classic layout; the older e2e files use it (`tests/e2e/harness.mjs`), and `tests/e2e/shell.e2e.mjs` covers the new layout.
 
+## On-device models
+
+| Model | Download | Where it runs | Notes |
+|---|---|---|---|
+| Qwen3.5-2B (Q4_0) | 1.20 GB | GPU with shader-f16, or the processor | The starting model on phones and small devices. |
+| Qwen3.5-9B (WebLLM) | about 5.6 GB | GPU only | Chosen automatically on capable desktops. |
+| LFM2.5-2.6B (Q3_K_M, Liquid) | 1.37 GB | GPU with shader-f16, or the processor | Chosen by the person. 8,192-token window. LFM Open License v1.0. |
+| Granite 4.0 H 1B (Q4_K_M, IBM) | 0.90 GB | GPU with shader-f16, or the processor | Chosen by the person. Smallest download. 8,192-token window. Apache-2.0. |
+
+LFM2.5 and Granite are never picked for someone: the app starts with Qwen3.5. Pick them from the model menu next to the message box (or Settings > Models). Each is a catalogue tier (`runtime/providers/catalog.mjs`): files pinned by SHA-256, resumable download with stall recovery, deep verify and repair, and its own sampling settings.
+
+**Storage and unloading.** Switching models starts a fresh engine, so the previous model's memory is returned at once; the downloaded files stay. Settings > Models lists every model with its size on this device, with **Unload** (free memory, keep the download) and **Remove** (delete the files) per model and a total, and Storage & backups has the same Remove buttons. `window.localModels.inspectAll()` and `removeTier(tier)` do the same from code.
+
+**Measured 2026-11-02** with `work/check-new-models.mjs` against the dev site in headless Chromium with no GPU (the processor path, single thread): Granite 4.0 H 1B downloaded 901 MB in about 90 s, loaded in 6.7 s, answered "What is the capital of France?" correctly, and removing it freed exactly 901 MB; LFM2.5-2.6B downloaded 1,367 MB in about 140 s, loaded in 6.8 s, answered correctly, and removal freed 1,367 MB. Processor speed was about 3 tokens/s for Granite and 1.3 for LFM2.5, with a first answer after about 9 s and 15 s. GPU and iPhone speed and memory use are not measured yet (see TECHNICAL-DEBT 39). Evidence: `docs/evidence/model-*-cdn-check.json`.
+
 ## Controls that cannot be used are not shown
 
 No button is ever shown disabled. If an action is unavailable (a model already downloaded, nothing to free, no speech recognition, pictures with an on-device model) the control is hidden instead, and in-flight work uses `aria-busy`. `tests/e2e/mobile.e2e.mjs` fails if a visible button is disabled.

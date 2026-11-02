@@ -5,8 +5,8 @@ const OPEN = "<think>"; const CLOSE = "</think>";
 const isWs = (c) => c === " " || c === "\n" || c === "\r" || c === "\t";
 const skipWs = (t, i) => { while (i < t.length && isWs(t[i])) i++; return i; };
 
-/** "match" (end = index after the block and trailing whitespace), "prefix" (could still become one), or "no". */
-export function emptyThinkAtStart(text) {
+/** One empty block at the start of `text`. "match" (end = index after the block and trailing whitespace), "prefix" (could still become one), or "no". */
+function oneEmptyThink(text) {
   let i = skipWs(text, 0);
   const rest = text.slice(i);
   if (rest.length < OPEN.length) return OPEN.startsWith(rest) ? { state: "prefix" } : { state: "no" };
@@ -16,6 +16,18 @@ export function emptyThinkAtStart(text) {
   if (tail.length < CLOSE.length) return CLOSE.startsWith(tail) ? { state: "prefix" } : { state: "no" };
   if (!tail.startsWith(CLOSE)) return { state: "no" };
   return { state: "match", end: skipWs(text, j + CLOSE.length) };
+}
+
+/** The empty block(s) at the start. LFM2.5's template writes two in a row ("<think></think><think></think>"), so any number in a row is accepted.
+ *  "match" (end = index after the blocks and trailing whitespace), "prefix" (the start could still become one), or "no". */
+export function emptyThinkAtStart(text) {
+  let pos = 0, matched = false;
+  for (;;) {
+    const r = oneEmptyThink(text.slice(pos));
+    if (r.state === "match") { pos += r.end; matched = true; if (pos >= text.length) return { state: "match", end: pos }; continue; }
+    if (r.state === "prefix") return { state: "prefix" };
+    return matched ? { state: "match", end: pos } : { state: "no" };
+  }
 }
 
 /** For finished text (JSON parsing, stored replies). */
@@ -38,6 +50,6 @@ export function createThinkFilter() {
       const out = pending; pending = ""; return out;
     },
     /** End of stream: whatever was held back is real text (or a lone partial block) and is released, never dropped. */
-    flush() { const out = pending; pending = ""; decided = true; return out; }
+    flush() { const out = stripEmptyThink(pending); pending = ""; decided = true; return out; }
   };
 }

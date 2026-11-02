@@ -13,6 +13,7 @@ import {shutdownNativeRuntime} from '../native-shutdown.mjs';
 import { preflight as webgpuPreflight } from "./webgpu.mjs";
 import {retryDownload} from '../download-retry.mjs';
 import {writeOpfsStream} from '../opfs-stream-writer.mjs';
+import {createThinkFilter} from '../think.mjs';
 export async function preflight(config) {
   if (config?.backend === "cpu") { // the processor runs the model: only WebAssembly is needed, not a graphics card
     if (typeof WebAssembly === "undefined") throw Object.assign(new Error("This browser cannot run WebAssembly, which running the model on the processor needs."), { name: "WebGpuUnavailable" });
@@ -250,6 +251,8 @@ export class WllamaAdapter {
     /* DEV_DIAGNOSTICS_END */
     const gen = await this.w.createChatCompletion(params);
     let usage = null; let finish = null; let timings = null;
+    // LFM2.5 writes empty think blocks ahead of its answer; they are not part of the reply
+    const thinkFilter = createThinkFilter();
     // the runtime's iterator is a down-levelled hand-written one; consumed with next() like every other token path here
     const it = gen[Symbol.asyncIterator]();
     for (;;) {
@@ -260,8 +263,9 @@ export class WllamaAdapter {
       /* DEV_DIAGNOSTICS_END */
       const choice = chunk?.choices?.[0];
       const delta = choice?.delta?.content ?? choice?.text ?? "";
-      if (delta) {
-        emit({ delta });
+      const visible = delta ? thinkFilter.push(delta) : "";
+      if (visible) {
+        emit({ delta: visible });
         /* DEV_DIAGNOSTICS_START */
         debugChunks++;
         if([1,16,64,128,256,512].includes(debugChunks))await debugFence(2,2);
@@ -271,6 +275,8 @@ export class WllamaAdapter {
       if (chunk?.usage) usage = chunk.usage;
       if (chunk?.timings) timings = chunk.timings;
     }
+    const tailText = thinkFilter.flush();
+    if (tailText) emit({ delta: tailText });
     emit({
       usage: {
         promptTokens: usage?.prompt_tokens ?? null, completionTokens: usage?.completion_tokens ?? null,

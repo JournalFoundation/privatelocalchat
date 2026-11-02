@@ -62,8 +62,12 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 37. **Meaning search keeps its vectors in memory only**, rebuilt each time the search opens (up to 2,500 passages, newest first). Persist them in IndexedDB if it feels slow on large histories.
 38. **No Images destination** (nothing to show), and a call does not start a model download by itself.
 
+39. **LFM2.5 and Granite are untested on a GPU and on iPhone.** They were proven end to end on the processor path only (download, hash check, load, two answers, unload, remove). The earlier speechtest work qualified LFM2.5-2.6B Q3_K_M on Mac Safari with a 16 MB bounded loader; run the same check on a real iPhone before offering them there, and measure memory (the figures in `catalog.mjs` are estimates). Granite's window is 8,192 here; its manifest allowed 16,384.
+40. **LFM2.5 prints a leading newline** before its first sentence; the Markdown view hides it, but a copied answer may start with a blank line.
+
 ## Review log
 
 * 2026-11-01: first version, written after the sharing / transfer / public-pages release.
 * 2026-11-01: added voice notes, Roberta and semantic matching items (26-29) after that release.
 * 2026-11-02: added the app layout items (35-38) after the shell release.
+* 2026-11-02: added LFM2.5 and Granite items (39-40).
