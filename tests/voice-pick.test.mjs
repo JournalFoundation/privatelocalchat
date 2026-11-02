@@ -1,0 +1,91 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { pickVoiceEngine, voiceIsFastEnough, loadPolicy, isIOSDevice, VOICE_CONFIG, VOICE_ENGINES } from "../runtime/voice-pick.mjs";
+
+const UA = {
+  iphone: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
+  ipadAsMac: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15",
+  android: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36",
+  linux: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+  mac: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
+};
+const GB = 1e9;
+const good = { cores: 8, deviceMemoryGB: 8 };
+const roomy = { usage: 1 * GB, quota: 40 * GB };
+const fast = { ms: 30 };
+const on = { ...VOICE_CONFIG, calibrated: true };
+const pick = (o) => pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast, config: on, ...o });
+
+test("iPhone and iPad always keep the system voice, whatever else is true", () => {
+  for (const [userAgent, maxTouchPoints] of [[UA.iphone, 5], [UA.ipadAsMac, 5]]) {
+    const r = pick({ userAgent, maxTouchPoints, env: { cores: 16, deviceMemoryGB: 64 }, storage: roomy, probe: { ms: 1 }, devOffer: true });
+    assert.equal(r.engine, "os"); assert.equal(r.offer, false); assert.equal(r.reason, "ios-system-voice-only");
+  }
+  assert.equal(isIOSDevice(UA.mac, 0), false); // a real Mac has no touch points
+});
+
+test("a powerful new Android device is offered the larger voice; an old busy one is not", () => {
+  const modern = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 8 } });
+  assert.equal(modern.offer, true); assert.equal(modern.candidate, "kokoro");
+  const old = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 4, deviceMemoryGB: 2 } });
+  assert.equal(old.offer, false); assert.equal(old.reason, "low-memory");
+  const slow = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 8 }, probe: { ms: 900 } });
+  assert.equal(slow.offer, false); assert.equal(slow.reason, "probe-too-slow");
+});
+
+test("Android with memory hidden is never offered a voice (fail safe)", () => {
+  const r = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8 } });
+  assert.equal(r.offer, false); assert.equal(r.reason, "memory-unknown-on-mobile");
+});
+
+test("a storage-starved phone gets no offer; a roomier one gets the small voice before the large one", () => {
+  const full = pick({ userAgent: UA.android, maxTouchPoints: 5, storage: { usage: 55.3 * GB, quota: 55.8 * GB } });
+  assert.equal(full.offer, false); assert.equal(full.reason, "not-enough-free-storage");
+  const medium = pick({ userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 8 }, storage: { usage: 0, quota: 0.65 * GB } });
+  assert.equal(medium.offer, true); assert.equal(medium.candidate, "kitten");
+});
+
+test("desktop with hidden memory is judged by cores, storage and the probe", () => {
+  const r = pick({ userAgent: UA.mac, maxTouchPoints: 0, env: { cores: 8, deviceMemoryGB: null } });
+  assert.equal(r.offer, true);
+  const weak = pick({ userAgent: UA.mac, env: { cores: 2, deviceMemoryGB: null } });
+  assert.equal(weak.reason, "too-few-cores");
+});
+
+test("missing signals mean no offer", () => {
+  assert.equal(pick({ env: {} }).reason, "too-few-cores");
+  assert.equal(pick({ storage: null }).reason, "storage-unknown");
+  const needsProbe = pick({ probe: null });
+  assert.equal(needsProbe.reason, "probe-needed"); assert.equal(needsProbe.needsProbe, true); assert.equal(needsProbe.offer, false);
+});
+
+test("while thresholds are uncalibrated the offer stays hidden unless the dev flag asks", () => {
+  const hidden = pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast });
+  assert.equal(hidden.offer, false); assert.equal(hidden.reason, "uncalibrated");
+  assert.equal(pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast, devOffer: true }).offer, true);
+});
+
+test("the person's choice wins, and an installed engine is used", () => {
+  assert.equal(pick({ chosen: "os" }).reason, "user-choice");
+  const r = pick({ chosen: "kokoro", installed: { kokoro: true } });
+  assert.equal(r.engine, "kokoro");
+  assert.equal(pick({ chosen: "kokoro", installed: {} }).engine, "os"); // chosen but not installed: nothing is used
+});
+
+test("other languages keep the system voice", () => {
+  assert.equal(pick({ language: "fr-FR" }).reason, "language-not-covered");
+  assert.equal(pick({ language: "en-GB" }).offer, true);
+});
+
+test("the voice waits for the chat model when memory is tight", () => {
+  assert.equal(loadPolicy({ deviceMemoryGB: 8 }, VOICE_ENGINES.kokoro, 2.3), "with-chat");
+  assert.equal(loadPolicy({ deviceMemoryGB: 4 }, VOICE_ENGINES.kokoro, 2.3), "when-idle");
+  assert.equal(loadPolicy({}, VOICE_ENGINES.kokoro, 0), "when-idle");
+});
+
+test("stage 3: a slow or slow-starting voice is rejected", () => {
+  assert.equal(voiceIsFastEnough({ realTimeFactor: 4, firstAudioMs: 600 }), true);
+  assert.equal(voiceIsFastEnough({ realTimeFactor: 1.2, firstAudioMs: 600 }), false);
+  assert.equal(voiceIsFastEnough({ realTimeFactor: 4, firstAudioMs: 9000 }), false);
+  assert.equal(voiceIsFastEnough({}), false);
+});
