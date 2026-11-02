@@ -70,7 +70,7 @@ export function createRoberta({ app, doc = document }) {
     const feed = el(doc, "div", "roberta-feed"); feed.setAttribute("role", "log"); feed.setAttribute("aria-label", `Conversation with ${ROBOT_NAME}`);
     const chips = el(doc, "div", "roberta-chips"); chips.setAttribute("role", "group"); chips.setAttribute("aria-label", "Reply by number");
     const foot = el(doc, "div", "roberta-foot");
-    const call = el(doc, "button", "roberta-call-btn"); call.type = "button"; call.id = "robertaCallBtn";
+    const call = el(doc, "button", "roberta-call-btn"); call.type = "button"; call.id = "robertaCardCallBtn";
     const ph = el(doc, "span", "roberta-ico", "☎"); ph.setAttribute("aria-hidden", "true");
     call.append(ph, doc.createTextNode(` Call ${ROBOT_NAME}`));
     const later = el(doc, "button", "roberta-link", "Not now"); later.type = "button"; later.id = "robertaDismissBtn";

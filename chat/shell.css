@@ -254,3 +254,9 @@ body.shell .composer-bar .composer-actions:not(:has(> :not([hidden]))) { display
 @media (hover: none) { body.shell .sidebar-close:focus, body.shell .shell-icon-btn:focus, .shell-pop-row:focus { outline: none; } }
 .setup-card .hint-text, #setupHint { margin-top: 10px; }
 .set-sub { font-size: 0.8rem; font-weight: 600; color: var(--color-muted-text); margin: 18px 4px 8px; text-transform: none; }
+
+/* Finger-sized targets on a touch screen. */
+@media (pointer: coarse) {
+  .shell-icon-btn, .shell-plus, .shell-mic, .shell-voice, body.shell .send-btn { width: 44px; height: 44px; min-height: 44px !important; }
+  .shell-icon-btn .ico { width: 22px; height: 22px; }
+}

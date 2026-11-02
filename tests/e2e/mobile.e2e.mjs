@@ -39,10 +39,8 @@ for(const [name,viewport,touch] of profiles){
    const sizes=await page.evaluate(()=>{const sel=['#sendBtn','#shellPlus','#modelPill','#composerTools button','.message:last-child .message-actions button','button.show-panel','.header-temp'];const out=[];for(const s of sel)for(const el of document.querySelectorAll(s)){const r=el.getBoundingClientRect();if(r.width&&r.height)out.push({s,w:Math.round(r.width),h:Math.round(r.height)});}return out;});
    await page.fill('#messageInput','');
    assert(['#sendBtn','#shellPlus','#modelPill','button.show-panel','.header-temp'].every(s=>sizes.some(x=>x.s===s)),name+': the composer and header controls are on screen: '+JSON.stringify(sizes.map(x=>x.s)));
-   // APP BUG: on a touch screen the send, + and sidebar buttons, the Temporary-chat button, and dictate/voice buttons are all 36x36, under 44px; the app's rule (and the old layout) is 44px. The 44px assertion is skipped; 36px is asserted so it cannot shrink further.
    const small=sizes.filter(x=>(x.h<43.5||x.w<43.5)&&x.s!=='#modelPill');
-   console.log('APP BUG (tap targets under 44px, not asserted):',name,JSON.stringify([...new Set(small.map(x=>x.s+' '+x.w+'x'+x.h))]));
-   assert(small.every(x=>x.h>=36&&x.w>=33),name+': tap targets are at least 36px tall: '+JSON.stringify(small));
+   assert(small.length===0,name+': tap targets are at least 44px: '+JSON.stringify(small));
    assert(sizes.filter(x=>x.s==='#modelPill').every(x=>x.h>=32),name+': the model pill is a usable height');
    // Enter is a new line on a touch device
    await page.fill('#messageInput','first line');await page.press('#messageInput','Enter');await page.keyboard.type('second');

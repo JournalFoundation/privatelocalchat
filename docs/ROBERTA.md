@@ -13,12 +13,12 @@ Roberta is the name of the app's robot: the front desk of Private Local Chat. Sh
 
 | Where | What |
 |---|---|
-| First visit, on a **computer**, before a model is set up | An **incoming call** from Roberta at the top of the empty chat, styled like a video call: Answer, or Read the voicemail. Answering opens the call window. |
-| First visit, on a **phone or tablet** | A **voicemail** thread: a voice note from Roberta (nothing speaks until a tap), her numbered options as reply buttons, and a Call Roberta button. Each number tapped adds her answer as another voice note, like a chat on a messaging app. |
+| Her page (sidebar > Roberta; on a phone, the panel drawer) on a **computer** | An **incoming call** from Roberta, styled like a video call: Answer, or Read the voicemail. Answering opens the call window. |
+| Her page on a **phone or tablet** | A **voicemail** thread: a voice note from Roberta (nothing speaks until a tap), her numbered options as reply buttons, and a Call Roberta button. Each number tapped adds her answer as another voice note, like a chat on a messaging app. |
 | The call | A window on a computer (header with a timer, Roberta's tile, a small "You" tile, captions) and the whole screen on a phone. A **keypad** whose keys are labelled with the current menu, a **Speak** button (say what you need), Skip, Mute voice and End call. Digit keys work from a keyboard. |
-| Later | Roberta is a pinned agent in the sidebar; her page has a Call button, and Settings > Roberta & voice and the Help & about sheet link to it. "Not now" on the first-visit card hides it for good. |
+| Elsewhere | Roberta is a pinned agent in the sidebar; her page has a Call button, and Settings > Roberta & voice and the Help & about sheet link to it. "Not now" returns to the chat. Nothing opens her automatically. |
 
-The first-visit card is shown only while on-device chat is not ready and not dismissed; it sits beside the download progress, not instead of it.
+Starting the download from her menu (key 3) shows the progress card in the empty chat beside her page's conversation.
 
 ## The menu
 
