@@ -11,9 +11,13 @@ export const VOICE_CONFIG = Object.freeze({
   storageHeadroomFactor: 3,  // free space must be at least this many times the download
   // stage 2 gate (compute probe, milliseconds for the reference loop in chat/voice-probe; lower is faster)
   probeMaxMs: 120,           // placeholder
-  // stage 3 (after install): audio seconds produced per second of compute; below this the system voice takes over again
-  minRealTimeFactor: 2,      // placeholder
-  qualityMinMemoryGB: 8      // placeholder: memory (or unknown on desktop) needed for the larger voice, which also needs a real GPU adapter
+  // stage 3 (after install). Real time is NICE, NOT REQUIRED (owner decision, 2026-11-02): a voice slower than playback is kept as long as playback can
+  // start soon (it buffers ahead so it does not stutter) and it is not hopelessly slow. Measured: Kitten ran at 0.26x on a Galaxy S8+, 1.5x on an N100.
+  minRealTimeFactor: 0.5,    // placeholder: audio seconds produced per second of compute; below this the system voice takes over again
+  maxFirstAudioMs: 4000,     // placeholder: time from the request to the first audible sound
+  maxStartDelayMs: 10000,    // placeholder: longest wait before gapless playback of a typical reply may begin (see startDelayMs)
+  qualityMinMemoryGB: 8,     // placeholder: memory (or unknown on desktop) needed for the larger voice
+  qualityProbeMaxMs: 70      // placeholder: the larger voice needs a real GPU adapter OR a desktop-class probe (a 16-core CPU ran Kokoro at 0.56x to 0.86x)
 });
 
 /** Candidates. `tier` orders them; sizes are the bytes the person would download (model plus voices). */
@@ -72,9 +76,11 @@ export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, 
   if (mobile && storage.writeOk !== true) return os(storage.writeOk === false ? "not-enough-free-storage" : "storage-unverified", { stage: 1, needsStorageTest: storage.writeOk === undefined });
 
   // the larger voice needs memory headroom (or, on desktop where memory is hidden, a fast probe below)
-  // Measured 2026-11-02: Kokoro q8 on WASM/CPU ran at 0.56x (1 thread) to 0.86x (8 threads) real time on a 16-core desktop, so it needs a real GPU adapter
+  // Measured 2026-11-02: Kokoro q8 on WASM/CPU ran at 0.56x (1 thread) to 0.86x (8 threads) real time on a 16-core desktop. Real time is not required,
+  // but a slow CPU would make the wait unreasonable, so the larger voice needs a real GPU adapter or a desktop-class probe.
   const realGpu = Boolean(env.webgpu?.available) && !env.webgpu?.isFallbackAdapter;
-  const wantQuality = realGpu && (mem !== null ? mem >= config.qualityMinMemoryGB : !mobile) && candidates.some((c) => c.tier === 2);
+  const fastCpu = Number.isFinite(probe?.ms) && probe.ms <= config.qualityProbeMaxMs;
+  const wantQuality = (realGpu || fastCpu) && (mem !== null ? mem >= config.qualityMinMemoryGB : !mobile) && candidates.some((c) => c.tier === 2);
   const pick = (wantQuality ? candidates.find((c) => c.tier === 2) : candidates.find((c) => c.tier === 1)) || candidates[0];
   const needMB = (pick.downloadBytes / 1e6) * config.storageHeadroomFactor;
   if (freeMB < Math.max(needMB, config.minFreeStorageMB + pick.downloadBytes / 1e6)) {
@@ -104,7 +110,19 @@ export function loadPolicy(env, engine, chatModelResidentGB = 0) {
   return mem - chatModelResidentGB >= needGB + 1 ? "with-chat" : "when-idle";
 }
 
-/** Stage 3: after install. True when the voice keeps comfortably ahead of playback and starts quickly; otherwise it is removed. */
-export function voiceIsFastEnough({ realTimeFactor, firstAudioMs }, config = VOICE_CONFIG) {
-  return Number.isFinite(realTimeFactor) && realTimeFactor >= config.minRealTimeFactor && Number.isFinite(firstAudioMs) && firstAudioMs <= 3000;
+/**
+ * How long playback must wait so it never stutters: synthesis of the rest must finish before playback catches up. 0 when the voice is at least real time.
+ * For a reply of `audioSeconds` made at `realTimeFactor` (audio seconds per compute second), the compute takes audioSeconds / rtf.
+ */
+export function startDelayMs({ audioSeconds, realTimeFactor, firstAudioMs = 0 }) {
+  if (!(realTimeFactor > 0) || !(audioSeconds > 0)) return Infinity;
+  const computeMs = (audioSeconds / realTimeFactor) * 1000;
+  return Math.max(firstAudioMs, computeMs - audioSeconds * 1000 + firstAudioMs);
+}
+
+/** Stage 3: after install. Real time is not required: it is enough that sound starts soon, the voice is not hopelessly slow, and a typical reply can play without stutter after a bearable wait. */
+export function voiceIsFastEnough({ realTimeFactor, firstAudioMs, typicalReplySeconds = 20 }, config = VOICE_CONFIG) {
+  if (!Number.isFinite(realTimeFactor) || !Number.isFinite(firstAudioMs)) return false;
+  if (realTimeFactor < config.minRealTimeFactor || firstAudioMs > config.maxFirstAudioMs) return false;
+  return startDelayMs({ audioSeconds: typicalReplySeconds, realTimeFactor, firstAudioMs }) <= config.maxStartDelayMs;
 }

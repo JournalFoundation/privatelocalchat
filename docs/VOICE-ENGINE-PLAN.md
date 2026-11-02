@@ -13,6 +13,7 @@ Read-aloud currently uses the operating system's voice (`speechSynthesis`, `chat
 - **No gated downloads.** Models that need an account or an acceptance step on another site are out for now (this excludes Pocket TTS). Letting people bring their own models is a possible much-later feature.
 - **Licences.** Apache-2.0 and MIT are accepted. GPL-3.0 is accepted for the combined app: John Benac, the sole author of the code, chose to relicense. The `LICENSE` file changes from Apache-2.0 to GPL-3.0 in the same commit that first ships a GPL component (espeak-ng), together with the GPL text, the espeak-ng source link and notices beside any hosted copy. Use-restricted (OpenRAIL-M), non-commercial and custom community licences stay excluded.
 - **One voice model on disk at a time**, with Unload and Remove in Settings, like the language models.
+- **Real-time speech is nice, not required** (owner decision, 2026-11-02). A voice slower than playback is kept if sound starts soon and playback can begin gaplessly after a bearable wait (it buffers ahead). It is rejected only when it is hopelessly slow. The person also hears a sample and decides.
 
 ## Principles for every assumption
 
@@ -30,7 +31,7 @@ A pure function next to `pickTier`, for example `pickVoiceEngine({env, userAgent
 
 1. **Cheap gate.** iPhone or iPad: stop, system voice. Otherwise read signals we already collect (`deviceMemory`, `hardwareConcurrency`, WebGPU adapter, `navigator.storage.estimate()`). Too little memory, too few cores or too little free storage: system voice, no offer.
 2. **Compute probe, no download.** A fraction-of-a-second benchmark in a worker (for example a small WASM matrix workload). Below the threshold: no offer.
-3. **Real measurement after the person opts in and the voice is installed.** Speak a sample and measure the real-time factor (audio seconds divided by synthesis seconds) and the time to first audio. If it cannot stay comfortably ahead of playback, switch back to the system voice automatically and remove the files, telling the person.
+3. **Real measurement after the person opts in and the voice is installed.** Speak a sample and measure the real-time factor (audio seconds divided by synthesis seconds), the time to first audio and the resulting start delay for a typical 20 s reply (`startDelayMs`). Real time is not required, but if sound does not start soon (`maxFirstAudioMs`), the reply would wait too long (`maxStartDelayMs`) or the voice is below `minRealTimeFactor`, switch back to the system voice automatically and remove the files, telling the person.
 
 Then keep watching: the app already detects a stalled read-aloud (`watchSpeech`). The same check applies to the downloaded voice; on a stall or underrun, use the system voice for the rest of the session and remember that for the device.
 
@@ -144,7 +145,7 @@ Each lane has an exit criterion. A later lane does not start until the earlier o
 - Storage after Remove equals the storage before install, within a small tolerance, on every device where the cycle runs.
 - Only one voice model is ever on disk; switching engines removes the previous one.
 - Every file is verified against its pinned SHA-256 before use; a mismatch is refused and cleaned up.
-- A forced-slow or stalled engine falls back to the system voice automatically and removes its files.
+- A hopelessly slow or stalled engine (below the minimum factor, first sound too late, or an unbearable start delay) falls back to the system voice automatically and removes its files. Slower-than-playback voices that start soon are kept.
 - A device that fails any gate is never offered the voice and sees no extra UI.
 - Reading aloud works offline after install.
 - Production builds contain no probe, diagnostics or remote-control code.
@@ -229,10 +230,23 @@ Everything lands on `dev` first. The dev flag keeps the offer hidden until calib
 - **`kokoro-js` voices:** the voice base URL is hard-coded to Hugging Face and cannot be configured, so we host the voice files on the CDN and load them ourselves (or patch the library).
 - **Runtime already in the repo:** `chat/vendor/embedding/worker.js` bundles transformers.js 4.2.0 and ONNX Runtime 1.26.0-dev, loaded by `chat/embedder.mjs` and redirected to our CDN by `ops/embedding/model-env.mjs`. Its pinned hashes are in `docs/EMBEDDINGS.md`. It is older than `onnxruntime-web` 1.31.1 and has no WebGPU build hosted. `kokoro-js` declares transformers.js 3.5.x, so it may need adapting.
 
-**Spike result (2026-11-02): Kokoro q8 runs in a browser, but not in real time on CPU.** `docs/evidence/voice/kokoro-wasm-spike.json`. In headless Chromium on Centroid (16 cores, no GPU, cross-origin isolated) through `kokoro-js` and transformers.js, the WASM backend produced valid 24 kHz audio, loading in about 10 s once cached. A warm 4.9 s sentence took 8.8 s with one thread (real-time factor 0.56) and 5.8 s with eight threads (0.86). Even a fast desktop CPU cannot stay ahead of playback, so:
-- Kokoro is only chosen when a real GPU adapter exists (the selection rule now requires it, and is tested). It is not a CPU voice.
+**Spike result (2026-11-02): Kokoro q8 runs in a browser, but below real time on CPU.** `docs/evidence/voice/kokoro-wasm-spike.json`. In headless Chromium on Centroid (16 cores, no GPU, cross-origin isolated) through `kokoro-js` and transformers.js, the WASM backend produced valid 24 kHz audio, loading in about 10 s once cached. A warm 4.9 s sentence took 8.8 s with one thread (real-time factor 0.56) and 5.8 s with eight threads (0.86). Even a fast desktop CPU cannot stay ahead of playback, so:
+- Real time is not required, so Kokoro is allowed on a real GPU adapter or a desktop-class CPU (probe at or below `qualityProbeMaxMs`), where it would run at 0.5 to 0.9 times playback speed with buffering. A slower CPU gets the small voice or the system voice.
 - The small voice (Kitten nano, designed for CPU) is the main candidate for everyone else. It has not been run yet: its next spike must prove it runs under ONNX Runtime Web and measure its real-time factor. If it also falls short, the honest result is that most devices keep the system voice.
 - Kokoro on the GPU path is still untested (Boiler's RTX 3060 adapter lacks `shader-f16`, so only the fp32 variant could run there, and one community export reports wrong output on fp16 WebGPU).
+
+**Spike result (2026-11-02): Kitten nano int8 runs in browsers on every device class tried.** `docs/evidence/voice/kitten-wasm-spike.json`. Same sentence (6.67 s of speech), warm second generation, ONNX Runtime Web WASM, files served from a local test server:
+
+| Device / browser | Reference loop | Threads | Real-time factor | Notes |
+|---|---|---|---|---|
+| Mac, Safari | 18 ms | 4 | **3.95** | load 24 s was my SSH tunnel moving 24 MB |
+| Centroid, Chromium (16 cores, no GPU) | 62 ms | 1 / 4 | 2.0 / 2.75 | load about 1.3 s |
+| Centroid, WebKit | 64 ms | 4 | 2.52 | |
+| Boiler, Chromium (with and without GPU flags) | 66 ms | 1 / 4 | 1.87 / 2.6 | the GPU flags change nothing for this CPU model |
+| Brutus, Firefox 156 (4-core Intel N100) | not collected | 2 / 4 | 1.54 / 1.59 | weak desktop CPU |
+| Galaxy S8+, Chrome 10 (8 cores, 4 GB) | 487 ms | 4 | **0.26** | 25.5 s to make 6.7 s of speech; load 7.9 s |
+
+The probe ordering is consistent with the real results (lower ms, faster voice). The S8+ would wait more than a minute for 20 s of speech, so it is rejected by the "hopelessly slow" test while the N100 desktop is accepted. Intelligibility of the audio is checked separately (`docs/evidence/voice/kitten-intelligibility.json` when that check finishes).
 
 **Unverified (do not rely on)**
 - That the Kitten int8 and Kokoro q8 files run under ONNX Runtime Web (WASM). This is the first thing the Lane 2 spike must prove.

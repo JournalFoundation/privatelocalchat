@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { pickVoiceEngine, voiceIsFastEnough, loadPolicy, isIOSDevice, VOICE_CONFIG, VOICE_ENGINES } from "../runtime/voice-pick.mjs";
+import { pickVoiceEngine, voiceIsFastEnough, startDelayMs, loadPolicy, isIOSDevice, VOICE_CONFIG, VOICE_ENGINES } from "../runtime/voice-pick.mjs";
 
 const UA = {
   iphone: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
@@ -84,11 +84,15 @@ test("the voice waits for the chat model when memory is tight", () => {
   assert.equal(loadPolicy({}, VOICE_ENGINES.kokoro, 0), "when-idle");
 });
 
-test("stage 3: a slow or slow-starting voice is rejected", () => {
+test("stage 3: real time is not required, but the wait must be bearable and the voice not hopeless", () => {
   assert.equal(voiceIsFastEnough({ realTimeFactor: 4, firstAudioMs: 600 }), true);
-  assert.equal(voiceIsFastEnough({ realTimeFactor: 1.2, firstAudioMs: 600 }), false);
+  assert.equal(voiceIsFastEnough({ realTimeFactor: 1.2, firstAudioMs: 600 }), true);
+  assert.equal(voiceIsFastEnough({ realTimeFactor: 0.86, firstAudioMs: 1500 }), true);   // Kokoro on a 16-core CPU: slower than playback, still fine
+  assert.equal(voiceIsFastEnough({ realTimeFactor: 0.26, firstAudioMs: 3000 }), false);  // Kitten on the Galaxy S8+: 20 s of speech would wait over a minute
   assert.equal(voiceIsFastEnough({ realTimeFactor: 4, firstAudioMs: 9000 }), false);
   assert.equal(voiceIsFastEnough({}), false);
+  assert.equal(startDelayMs({ audioSeconds: 10, realTimeFactor: 2, firstAudioMs: 500 }), 500);
+  assert.ok(startDelayMs({ audioSeconds: 20, realTimeFactor: 0.5, firstAudioMs: 500 }) > 19000);
 });
 
 test("real Galaxy S8+ numbers: a huge reported quota is not trusted without a write test, and the slow probe still declines", () => {
@@ -101,10 +105,12 @@ test("real Galaxy S8+ numbers: a huge reported quota is not trusted without a wr
   assert.equal(pick({ ...s8, storage: { ...s8.storage, writeOk: false } }).reason, "not-enough-free-storage");
 });
 
-test("without a real GPU adapter the larger voice is never chosen (it ran below real time on CPU)", () => {
-  const cpuOnly = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: false } } });
-  assert.equal(cpuOnly.candidate, "kitten");
-  const software = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: true, isFallbackAdapter: true } } });
+test("the larger voice needs a real GPU adapter or a desktop-class probe", () => {
+  const cpuOnly = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: false } }, probe: { ms: 62 } });
+  assert.equal(cpuOnly.candidate, "kokoro"); // a fast desktop CPU is acceptable now that real time is not required
+  const slowCpu = pick({ env: { cores: 8, deviceMemoryGB: 32, webgpu: { available: false } }, probe: { ms: 110 } });
+  assert.equal(slowCpu.candidate, "kitten");
+  const software = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: true, isFallbackAdapter: true } }, probe: { ms: 110 } });
   assert.equal(software.candidate, "kitten");
   assert.equal(pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: gpu } }).candidate, "kokoro");
 });
