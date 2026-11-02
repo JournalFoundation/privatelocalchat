@@ -14,6 +14,7 @@ const gpu = { available: true, isFallbackAdapter: false };
 const good = { cores: 8, deviceMemoryGB: 8, webgpu: gpu };
 const roomy = { usage: 1 * GB, quota: 40 * GB, writeOk: true };
 const fast = { ms: 30 };
+const measured = { centroid: 137, boiler: 150, n100: 216, s8plus: 4000 }; // chat/voice-probe.mjs on real devices, 2026-11-02
 const on = { ...VOICE_CONFIG, calibrated: true };
 const pick = (o) => pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast, config: on, ...o });
 
@@ -60,10 +61,10 @@ test("missing signals mean no offer", () => {
   assert.equal(needsProbe.reason, "probe-needed"); assert.equal(needsProbe.needsProbe, true); assert.equal(needsProbe.offer, false);
 });
 
-test("while thresholds are uncalibrated the offer stays hidden unless the dev flag asks", () => {
-  const hidden = pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast });
+test("with uncalibrated thresholds the offer stays hidden unless the dev flag asks", () => {
+  const hidden = pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast, config: { ...VOICE_CONFIG, calibrated: false } });
   assert.equal(hidden.offer, false); assert.equal(hidden.reason, "uncalibrated");
-  assert.equal(pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast, devOffer: true }).offer, true);
+  assert.equal(pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast, devOffer: true, config: { ...VOICE_CONFIG, calibrated: false } }).offer, true);
 });
 
 test("the person's choice wins, and an installed engine is used", () => {
@@ -96,8 +97,8 @@ test("stage 3: real time is not required, but the wait must be bearable and the 
 });
 
 test("real Galaxy S8+ numbers: a huge reported quota is not trusted without a write test, and the slow probe still declines", () => {
-  // read from the device on 2026-11-02: 8 cores, deviceMemory 4, quota 34 GB while the data partition had about 430 MB free, probe loop 487 ms
-  const s8 = { userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 4 }, storage: { usage: 0.04 * GB, quota: 34.3 * GB }, probe: { ms: 487 } };
+  // read from the device on 2026-11-02: 8 cores, deviceMemory 4, quota 34 GB while the data partition had about 430 MB free, probe loop 487 ms, the new wasm probe 4000 ms (its cap)
+  const s8 = { userAgent: UA.android, maxTouchPoints: 5, env: { cores: 8, deviceMemoryGB: 4 }, storage: { usage: 0.04 * GB, quota: 34.3 * GB }, probe: { ms: 4000 } };
   const noTest = pick(s8);
   assert.equal(noTest.offer, false); assert.equal(noTest.reason, "storage-unverified"); assert.equal(noTest.needsStorageTest, true);
   const tested = pick({ ...s8, storage: { ...s8.storage, writeOk: true } });
@@ -106,11 +107,17 @@ test("real Galaxy S8+ numbers: a huge reported quota is not trusted without a wr
 });
 
 test("the larger voice needs a real GPU adapter or a desktop-class probe", () => {
-  const cpuOnly = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: false } }, probe: { ms: 62 } });
+  const cpuOnly = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: false } }, probe: { ms: 100 } });
   assert.equal(cpuOnly.candidate, "kokoro"); // a fast desktop CPU is acceptable now that real time is not required
-  const slowCpu = pick({ env: { cores: 8, deviceMemoryGB: 32, webgpu: { available: false } }, probe: { ms: 110 } });
+  const slowCpu = pick({ env: { cores: 8, deviceMemoryGB: 32, webgpu: { available: false } }, probe: { ms: 220 } });
   assert.equal(slowCpu.candidate, "kitten");
-  const software = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: true, isFallbackAdapter: true } }, probe: { ms: 110 } });
+  const software = pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: { available: true, isFallbackAdapter: true } }, probe: { ms: 220 } });
   assert.equal(software.candidate, "kitten");
   assert.equal(pick({ env: { cores: 16, deviceMemoryGB: 32, webgpu: gpu } }).candidate, "kokoro");
+});
+
+test("calibrated probe limit: the machines that ran the voice well pass, the Galaxy S8+ does not", () => {
+  assert.equal(VOICE_CONFIG.calibrated, true);
+  for (const ms of [measured.centroid, measured.boiler, measured.n100]) assert.equal(pick({ probe: { ms }, config: VOICE_CONFIG }).offer, true, `probe ${ms} ms`);
+  assert.equal(pick({ probe: { ms: measured.s8plus }, config: VOICE_CONFIG }).reason, "probe-too-slow");
 });

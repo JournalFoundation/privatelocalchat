@@ -36,7 +36,7 @@ test("offered after a working read-aloud when every check passes", async () => {
 });
 
 test("no offer without the dev flag while thresholds are uncalibrated", async () => {
-  const { ctl } = make({ ctl: { devOffer: false } });
+  const { ctl } = make({ ctl: { devOffer: false, config: { ...VOICE_CONFIG, calibrated: false } } });
   assert.equal(await ctl.afterSystemSpeak(), false);
   assert.equal(ctl.state, "system");
 });

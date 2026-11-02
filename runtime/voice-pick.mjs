@@ -1,23 +1,23 @@
 // Choosing a text-to-speech voice for this device. The system voice is the default and the answer whenever anything is unknown:
 // every rule here fails safe (no offer, nothing downloaded). Thresholds are PLACEHOLDERS until they are calibrated on real devices
-// (docs/VOICE-ENGINE-PLAN.md, Lane 0 to 5); `calibrated` stays false until then and the offer stays hidden.
+// (docs/VOICE-ENGINE-PLAN.md). Probe and speed thresholds were calibrated on real devices on 2026-11-02; the others remain conservative placeholders.
 
 export const VOICE_CONFIG = Object.freeze({
-  calibrated: false,
+  calibrated: true,          // 2026-11-02: set from measurements on six browsers across five devices (docs/evidence/voice/lane-results.json)
   // stage 1 gate (cheap signals)
   minMemoryGB: 4,            // placeholder
   minCores: 4,               // placeholder
-  minFreeStorageMB: 600,     // placeholder: free space that must remain after the download
+  minFreeStorageMB: 600,     // placeholder (the 27.6 MB download needs far less; this keeps a phone from being filled): free space that must remain after the download
   storageHeadroomFactor: 3,  // free space must be at least this many times the download
   // stage 2 gate (compute probe, milliseconds for the reference loop in chat/voice-probe; lower is faster)
-  probeMaxMs: 120,           // placeholder
+  probeMaxMs: 800,           // calibrated: chat/voice-probe.mjs read 137 to 216 ms on machines that ran the voice at 3.3 to 5.5x, and 4000 ms (its cap) on the Galaxy S8+ at 0.26x
   // stage 3 (after install). Real time is NICE, NOT REQUIRED (owner decision, 2026-11-02): a voice slower than playback is kept as long as playback can
   // start soon (it buffers ahead so it does not stutter) and it is not hopelessly slow. Measured: Kitten ran at 0.26x on a Galaxy S8+, 1.5x on an N100.
   minRealTimeFactor: 0.5,    // placeholder: audio seconds produced per second of compute; below this the system voice takes over again
   maxFirstAudioMs: 4000,     // placeholder: time from the request to the first audible sound
   maxStartDelayMs: 10000,    // placeholder: longest wait before gapless playback of a typical reply may begin (see startDelayMs)
   qualityMinMemoryGB: 8,     // placeholder: memory (or unknown on desktop) needed for the larger voice
-  qualityProbeMaxMs: 70      // placeholder: the larger voice needs a real GPU adapter OR a desktop-class probe (a 16-core CPU ran Kokoro at 0.56x to 0.86x)
+  qualityProbeMaxMs: 160     // placeholder, unused until an engine for the larger voice exists: the larger voice needs a real GPU adapter OR a desktop-class probe (a 16-core CPU ran Kokoro at 0.56x to 0.86x)
 });
 
 /** Candidates. `tier` orders them; sizes are the bytes the person would download (model plus voices). */
