@@ -1,5 +1,5 @@
 import {launch,assert} from './harness.mjs';
-// Roberta, the app's robot: a first-visit voicemail / incoming call before any model exists, a phone menu, and a call with a keypad.
+// Roberta, the app's robot, on her own page: an incoming call (computers) or voicemail (phones) before any model exists, a phone menu, and a call with a keypad.
 // Headless browsers have no GPU and no voices, so the model bridge, speech and recognition are scripted.
 const IPHONE='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
 const mocks=(ua)=>{
@@ -22,14 +22,20 @@ const fakeModel=()=>{
  window.dispatchEvent(new Event('local-model-state'));
 };
 const run=async(label,viewport,touch,ua)=>{
- const h=await launch({build:label==='desktop',port:18800+Math.floor(Math.random()*90),viewport,touch,init:mocks,...{}});
+ const h=await launch({build:label==='desktop',port:18800+Math.floor(Math.random()*90),viewport,touch,init:mocks});
  const {page}=h;
  try{
   if(ua){await page.addInitScript(mocks,ua);await page.reload();}
   await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
   await page.evaluate(fakeModel);
   const desktop=label==='desktop';
-  await page.waitForSelector('#emptySetup');
+  // the empty chat is only a greeting: Roberta is a person-visible destination in the sidebar panel, not a card in the chat
+  await page.waitForSelector('#emptyState');
+  assert(await page.locator('.roberta-incoming, .roberta-thread').count()===0,label+': Roberta is not inside the empty chat');
+  if(!desktop){await page.click('button[aria-label="Open sidebar"]');await page.waitForSelector('#robertaDot',{state:'visible'});}
+  await page.click('#robertaDot');
+  await page.waitForSelector('#robertaPage:not([hidden])');
+  assert((await page.locator('#robertaPage .roberta-page-title').innerText()).includes('Roberta'),label+': Roberta has her own page');
 
   if(desktop){
    // a computer gets an incoming call, styled like a video call, before anything is set up
@@ -67,14 +73,12 @@ const run=async(label,viewport,touch,ua)=>{
   // 3 starts the download while she keeps talking
   await page.click('.roberta-chip[data-key="3"]');
   await page.waitForFunction(()=>window.__prepCalls===1,null,{timeout:5000});
-  await page.waitForSelector('.empty-state .roberta-thread');
-  await page.waitForSelector('.empty-state .prep-card');
-  assert(await page.locator('.roberta-thread').isVisible()&&await page.locator('.prep-card').isVisible(),label+': the download runs beside the conversation');
+  assert(await page.locator('.roberta-thread').isVisible(),label+': she keeps talking while the download starts');
   await page.click('.roberta-chip[data-key="3"]');   // asking again hears how it is going
   await page.waitForFunction(()=>window.__spoken.some(t=>/downloading: \d+ percent done/.test(t)),null,{timeout:5000});
 
   // the call: a window on a computer, the whole screen on a phone; keypad keys carry the menu
-  await page.click('#robertaCallBtn');await page.waitForSelector('#robertaCall:not([hidden])');
+  await page.click('#robertaPage .roberta-call');await page.waitForSelector('#robertaCall:not([hidden])');
   assert((await page.textContent('#rcallStatus'))==='Calling…','calling first');
   await page.waitForFunction(()=>document.querySelector('#rcallStatus').textContent!=='Calling…',null,{timeout:5000});
   const box=await page.locator('.rcall').boundingBox();
@@ -88,11 +92,14 @@ const run=async(label,viewport,touch,ua)=>{
   assert(await page.locator('#rcallSpeak').isVisible(),label+': tap to speak');
   await page.click('#rcallEnd');await page.waitForFunction(()=>document.querySelector('#robertaCall').hidden);
   ok(label);
-  // not now: the hero goes away for good, and Roberta is still one tap from the Help sheet
-  await page.click('#robertaDismissBtn');await page.waitForFunction(()=>!document.querySelector('.roberta-thread'));
-  assert((await page.evaluate(()=>JSON.parse(localStorage.getItem('plc.prefs.v1')||'{}').robertaDismissed))===true,label+': remembered');
-  if(!desktop){await page.click('#openSidebarBtn');await page.waitForTimeout(400);}
-  await page.click('#aboutBtn');await page.waitForSelector('#helpCallRoberta');await page.click('#helpCallRoberta');
+  // not now: back to the chats, and Roberta is still one tap away from the page's call button and from Help & about
+  await page.click('#robertaDismissBtn');await page.waitForFunction(()=>document.querySelector('#robertaPage').hidden);
+  assert(await page.locator('#messageInput').isVisible(),label+': Not now returns to the chat');
+  if(!desktop){await page.click('button[aria-label="Open sidebar"]');await page.waitForSelector('.sidebar .mobile-only',{state:'visible'});}
+  if(desktop)await page.click('#shellRail .shell-icon-btn[aria-label="Explore"]');
+  else await page.click('.sidebar .mobile-only:has-text("Explore")');
+  await page.locator('.shell-pop-row',{hasText:'Help & about'}).click();
+  await page.waitForSelector('#helpCallRoberta');await page.click('#helpCallRoberta');
   await page.waitForSelector('#robertaCall:not([hidden])');await page.keyboard.press('Escape');await page.waitForFunction(()=>document.querySelector('#robertaCall').hidden);
   const unexpected=h.errors.filter(e=>!/API responded with status|network error|Roberta is matching|Failed to load resource|intent-router|embedder|ivr-vectors/.test(e));
   assert(unexpected.length===0,label+': no unexpected page errors: '+JSON.stringify(unexpected));

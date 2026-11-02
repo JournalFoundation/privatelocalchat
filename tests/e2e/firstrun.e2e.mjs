@@ -36,26 +36,14 @@ const run=async(label,viewport,touch)=>{
   await page.evaluate(fakeModel);await page.evaluate(()=>window.__installFake());
   const status=()=>page.locator('#generationStatus').innerText();
 
-  // 1. the welcome button just starts: no dialog, progress right there, then the normal start screen
-  await page.waitForSelector('#emptySetup');
-  await page.evaluate(()=>{window.__holdPrep=true;});
-  await page.click('#emptySetup');
-  await page.waitForSelector('.empty-state .prep-card');
-  assert(await page.locator('.app-dialog').count()===0,label+': no confirmation dialog');
-  await page.waitForFunction(()=>document.querySelector('.empty-state .prep-bar')?.getAttribute('aria-valuenow')==='75',null,{timeout:8000});
-  const card=await page.locator('.empty-state .prep-card').innerText();
-  assert(/Downloading the model/.test(card)&&/75%/.test(card)&&/4\.2 GB of 5\.6 GB/.test(card)&&/about 5\.6 GB/.test(card)&&/works without a connection/.test(card)&&/start typing your first message/.test(card),label+': card says what is happening: '+card);
-  assert(await page.locator('.empty-state .prep-actions .link-btn:has-text("smaller")').innerText()==='Use the smaller model instead (faster to download)',label+': escape hatch on the larger model');
-  await page.click('.empty-state .prep-actions .link-btn:has-text("smaller")');
-  assert(await page.evaluate(()=>window.__switched)==='light',label+': switched to the smaller model');
-  await page.evaluate(()=>{window.__holdPrep=false;});
-  await page.waitForSelector('.empty-state:not(:has(.prep-card))',{timeout:10000});
-  assert(/What would you like to work through/.test(await page.locator('#emptyState').innerText()),label+': normal start screen once ready');
-  assert((await page.evaluate(()=>window.__prepCalls))===1,label+': prepared once');
+  // 1. a person with no model sees the plain greeting (no setup wall) and a model pill that says nothing is downloaded yet
+  await page.waitForSelector('#emptyState');
+  assert(await page.locator('#emptySetup').count()===0&&await page.locator('.starter-prompts').count()===0,label+': the empty chat is just a greeting');
+  assert(await page.locator('#emptyState').isVisible()&&(await page.locator('#emptyState h2').innerText()).trim().length>0,label+': the greeting is shown');
+  assert(await page.locator('#modelPill').isVisible()&&/Not downloaded/.test(await page.locator('#modelPill').getAttribute('title')),label+': the model pill says the model is not downloaded: '+await page.locator('#modelPill').getAttribute('title'));
 
   // 2. a first message with nothing downloaded starts the download and is answered by itself
-  await page.evaluate(()=>{window.__setReady(false);window.__tier='default';window.__stepMs=250;});
-  await page.evaluate(()=>document.querySelector('#newChatBtn').click());
+  await page.evaluate(()=>{window.__setReady(false);window.__tier='default';window.__stepMs=250;window.__holdPrep=true;});
   await page.fill('#messageInput','Hello from my wife');
   await page.click('#sendBtn');
   await page.waitForSelector('.message.assistant .prep-card');
@@ -64,6 +52,13 @@ const run=async(label,viewport,touch)=>{
   assert(await page.locator('.message.assistant .prep-card button:has-text("Cancel message")').isVisible()&&await page.locator('.message.assistant .prep-card button:has-text("Cancel download")').isVisible(),label+': both cancels offered');
   assert(/Hello from my wife/.test(await page.locator('.message.user').innerText()),label+': her message is in the chat at once');
   assert(await page.locator('#stopGeneration').isVisible()&&!(await page.locator('#sendBtn').isVisible()),label+': Stop is available while waiting');
+  await page.waitForFunction(()=>document.querySelector('.message.assistant .prep-bar')?.getAttribute('aria-valuenow')==='75',null,{timeout:8000});
+  const card=await page.locator('.message.assistant .prep-card').innerText();
+  assert(/Downloading the model/.test(card)&&/75%/.test(card)&&/4\.2 GB of 5\.6 GB/.test(card)&&/about 5\.6 GB/.test(card)&&/works without a connection/.test(card),label+': card says what is happening: '+card);
+  assert(await page.locator('.message.assistant .prep-actions .link-btn:has-text("smaller")').innerText()==='Use the smaller model instead (faster to download)',label+': escape hatch on the larger model');
+  await page.click('.message.assistant .prep-actions .link-btn:has-text("smaller")');
+  assert(await page.evaluate(()=>window.__switched)==='light',label+': switched to the smaller model');
+  await page.evaluate(()=>{window.__holdPrep=false;});
   const box=await page.locator('.message.assistant .prep-card').boundingBox();
   assert(box.x>=0&&box.x+box.width<=viewport.width+1,label+': card fits the screen '+JSON.stringify(box));
   await page.waitForFunction(()=>/Local answer to: Hello from my wife/.test(document.querySelector('.message.assistant')?.innerText||''),null,{timeout:15000});
