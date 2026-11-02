@@ -35,16 +35,11 @@ such a session on 2026-11-02: all eight files downloaded from the current host a
    `.wasm` must come back as `application/wasm`. Range requests are not needed for this set.
 5. Do not publish the source set's `rerank/` files: the app never fetches them.
 
-## Task 2: point the app at the CDN (a code change, after Task 1 verifies)
+## Task 2: point the app at the CDN (done)
 
-1. `chat/embedding-config.mjs`: change `EMBEDDING_ASSET_HOST` to `https://assets.privatelocal.chat/models/memory/`. Keep `EMBEDDING_ASSET_VERSION`.
-2. `privacy/index.html`: in the downloads table, change the search-model row's host to `assets.privatelocal.chat (the project's own storage)`
-   and drop "a sister project's storage, for now"; run `node scripts/public-site.mjs sync`. In `updates/entries.json` change the bullet that
-   says the model comes from `assets.sonalon.com`. Delete item 27 in `docs/TECHNICAL-DEBT.md`.
-3. `docs/EMBEDDINGS.md`: state that the set is on the project host; keep the Sonalon note only as provenance.
-4. `npm test`, `node tests/e2e/ivr-semantic.e2e.mjs` (it downloads the real model through `EMBEDDING_ASSET_HOST`, so it proves the new host works
-   from `https://privatelocal.chat`-style isolation), then the dev deploy (`docs/OPERATIONS.md`) and a check in a real browser that Roberta's
-   search model loads from `assets.privatelocal.chat` (network panel) and that a reload makes no request to it (Cache API).
+`EMBEDDING_ASSET_HOST` in `chat/embedding-config.mjs` is `https://assets.privatelocal.chat/models/memory/`; the Privacy page, the Updates entry and
+`docs/EMBEDDINGS.md` say the same, and `tests/e2e/ivr-semantic.e2e.mjs` proves the real model loads from the project host and that a reload
+makes no request to it (Cache API).
 
 ## Task 3: stop depending on other hosts for models
 

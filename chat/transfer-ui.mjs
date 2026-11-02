@@ -70,7 +70,6 @@ export function createTransferUi({ app, el, openAppDialog, showToast, icon, doc 
     body.appendChild(list);
     if (site.supportEmail) { const p = el("p", "hint-text"); const a = el("a", null, "Email the project team"); a.href = "mailto:" + site.supportEmail; p.append(a, " — goes to the people who run this project, for questions and support."); body.appendChild(p); }
     body.appendChild(el("p", "hint-text", "GitHub submissions are public. Leave out API keys and private conversations."));
-    const sonalon = el("p", "hint-text"); sonalon.append("Looking for AI personas? "); const sa = el("a", null, "Explore Sonalon"); sa.href = "https://sonalon.com/"; sa.target = "_blank"; sa.rel = "noopener"; sonalon.appendChild(sa); body.appendChild(sonalon);
     if (app.callRoberta) { const call = button(`Call ${ROBOT_NAME}, the app's robot`, { id: "helpCallRoberta" }); call.addEventListener("click", () => { handle.close(); app.callRoberta(); }); body.appendChild(call); }
     const about = button("Quick summary of this app"); about.addEventListener("click", () => { handle.close(); app.openAboutModal(); }); body.appendChild(about);
     const handle = openAppDialog({ title: "Help & about", content: body });
