@@ -1,7 +1,9 @@
 // The pure parts of the Kitten TTS nano 0.8 pipeline: no DOM, no worker, no ONNX Runtime, so they run under plain `node --test`.
 // They follow KittenML/KittenTTS 0.8 (kittentts/onnx_model.py, text_preprocessing.py) and the spike that proved the model under ONNX Runtime
 // Web: text -> espeak-ng IPA -> tokens -> symbol ids -> [0, ...ids, 0] -> style row -> speed -> run -> drop the last 5000 samples.
-// Number and abbreviation expansion (KittenTTS "clean_text") is NOT ported: digits and "Dr." reach the phonemizer as written.
+// KittenTTS's text pre-processor (numbers, currency, dates, ...) is ported in voice-text.mjs and applied by speechChunks() before chunking.
+
+import { normalizeForSpeech } from "./voice-text.mjs";
 
 export const SAMPLE_RATE = 24000;
 export const TRIM_SAMPLES = 5000;
@@ -78,6 +80,11 @@ export function chunkText(text, maxLen = MAX_CHUNK_CHARS) {
     if (current) chunks.push(ensurePunctuation(current.trim()));
   }
   return chunks;
+}
+
+/** The reference's generate(): normalise the text for speech (clean_text, on by default), THEN cut it into chunks. */
+export function speechChunks(text, maxLen = MAX_CHUNK_CHARS) {
+  return chunkText(normalizeForSpeech(text), maxLen);
 }
 
 /** Parse one .npy file (format 1.0/2.0/3.0, little-endian float32, C order) -> { shape, data: Float32Array }. */

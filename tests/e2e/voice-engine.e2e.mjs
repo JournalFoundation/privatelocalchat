@@ -11,6 +11,7 @@ const FILES_DIR=process.env.VOICE_FILES_DIR||'/tmp/tts-spike/site/kitten';
 const NAMES=['kitten_tts_nano_v0_8.onnx','voices.npz','config.json'];
 if(NAMES.some(n=>!existsSync(path.join(FILES_DIR,n)))){console.log('SKIPPED: the model files are not in '+FILES_DIR+' (set VOICE_FILES_DIR)');process.exit(0);}
 const wavOut=process.env.VOICE_WAV_OUT||'';
+const numWavOut=process.env.VOICE_NUMBERS_WAV_OUT||'';
 const CDN='https://voice-cdn.example.test/kitten/';
 const MIME={'.onnx':'application/octet-stream','.npz':'application/octet-stream','.json':'application/json'};
 
@@ -32,7 +33,7 @@ try{
  });
  const baseline=await opfsBytes();
 
- const result=await page.evaluate(async({base,cdn,wavOut})=>{
+ const result=await page.evaluate(async({base,cdn,wavOut,numWav})=>{
   const {createVoiceEngine}=await import(base+'chat/voice-engine.mjs');
   const engine=createVoiceEngine({baseUrl:cdn});
   window.__engine=engine;
@@ -51,16 +52,28 @@ try{
   out.peak=peak;out.rms=Math.sqrt(energy/(out.samples/10));
   out.sampleRate=24000;
   if(wavOut){const all=new Float32Array(out.samples);let at=0;for(const c of chunks){all.set(c,at);at+=c.length;}out.pcm=Array.from(all,v=>Math.max(-32768,Math.min(32767,Math.round(v*32767))));}
+  // numerals go through the ported Kitten text pre-processor before chunking
+  const nchunks=[];
+  out.numStats=await engine.speak('It costs $5.50 on Jan 3rd, and there are 365 days.',{onChunk:c=>nchunks.push(c.samples)});
+  out.numSamples=nchunks.reduce((n,c)=>n+c.length,0);
+  let npeak=0;for(const c of nchunks)for(let i=0;i<c.length;i+=10){const v=Math.abs(c[i]);if(v>npeak)npeak=v;}
+  out.numPeak=npeak;out.numChunks=nchunks.length;
+  if(numWav){const all=new Float32Array(out.numSamples);let at=0;for(const c of nchunks){all.set(c,at);at+=c.length;}out.numPcm=Array.from(all,v=>Math.max(-32768,Math.min(32767,Math.round(v*32767))));}
   out.status=await engine.status();
   return out;
- },{base,cdn:CDN,wavOut:Boolean(wavOut)});
- if(wavOut){const pcm=Int16Array.from(result.pcm);delete result.pcm;const hdr=Buffer.alloc(44);hdr.write('RIFF',0);hdr.writeUInt32LE(36+pcm.length*2,4);hdr.write('WAVEfmt ',8);hdr.writeUInt32LE(16,16);hdr.writeUInt16LE(1,20);hdr.writeUInt16LE(1,22);hdr.writeUInt32LE(24000,24);hdr.writeUInt32LE(48000,28);hdr.writeUInt16LE(2,32);hdr.writeUInt16LE(16,34);hdr.write('data',36);hdr.writeUInt32LE(pcm.length*2,40);writeFileSync(wavOut,Buffer.concat([hdr,Buffer.from(pcm.buffer)]));}
+ },{base,cdn:CDN,wavOut:Boolean(wavOut),numWav:Boolean(numWavOut)});
+ const writeWav=(file,arr)=>{const pcm=Int16Array.from(arr);const hdr=Buffer.alloc(44);hdr.write('RIFF',0);hdr.writeUInt32LE(36+pcm.length*2,4);hdr.write('WAVEfmt ',8);hdr.writeUInt32LE(16,16);hdr.writeUInt16LE(1,20);hdr.writeUInt16LE(1,22);hdr.writeUInt32LE(24000,24);hdr.writeUInt32LE(48000,28);hdr.writeUInt16LE(2,32);hdr.writeUInt16LE(16,34);hdr.write('data',36);hdr.writeUInt32LE(pcm.length*2,40);writeFileSync(file,Buffer.concat([hdr,Buffer.from(pcm.buffer)]));};
+ if(numWavOut)writeWav(numWavOut,result.numPcm);
+ delete result.numPcm;
+ if(wavOut){const pcm=result.pcm;delete result.pcm;writeWav(wavOut,pcm);}
  console.log(JSON.stringify(result,null,1));
 
  assert(result.before.installed===false,'not installed at first');
  assert(result.afterInstall.installed===true&&result.afterInstall.bytes===27649561,'installed with all bytes');
  assert(result.progress===27649561,'progress reached the total');
- assert(result.chunkCount===2,'two sentence chunks, got '+result.chunkCount);
+ assert(result.chunkCount===1,'the reference pre-processor drops sentence punctuation, so one chunk; got '+result.chunkCount);
+ const nsec=result.numSamples/24000;
+ assert(result.numChunks===1&&nsec>3&&nsec<14&&result.numPeak>0.05,'a sentence with numerals produces audio: '+nsec+' s, peak '+result.numPeak);
  const seconds=result.samples/24000;
  assert(seconds>3&&seconds<12,'plausible length for the sentence: '+seconds+' s');
  assert(Math.abs(result.stats.audioSeconds-seconds)<1e-6,'audioSeconds matches the samples');
