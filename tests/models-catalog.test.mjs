@@ -59,4 +59,6 @@ test("empty think blocks in a row are removed, streamed in any split, and real r
   assert.equal(run(["<think>real thought</think>answer"]), "<think>real thought</think>answer");
   assert.equal(stripEmptyThink("<think>\n\n</think>\n\nhi"), "hi");
   assert.equal(run(["<think></think>"]), "");
+  assert.equal(run(["<think>", "</think>", "<think>", "</think>", "ready"]), "ready");
+  assert.equal(run(["<think></think>\n", "\nready"]), "ready");
 });

@@ -38,16 +38,23 @@ export function stripEmptyThink(text) {
 
 /** Streaming filter: push deltas, get the visible part back. Output is held back only while the start could still be an empty block. */
 export function createThinkFilter() {
-  let pending = ""; let decided = false; let skipLead = false;
+  let pending = ""; let decided = false; let matched = false; let skipLead = false;
   return {
     push(delta) {
       if (decided) { if (skipLead) { const k = skipWs(delta, 0); if (k < delta.length) skipLead = false; return delta.slice(k); } return delta; }
       pending += delta;
       const r = emptyThinkAtStart(pending);
       if (r.state === "prefix") return "";
-      decided = true;
-      if (r.state === "match") { const out = pending.slice(r.end); skipLead = r.end >= pending.length; pending = ""; return out; }
-      const out = pending; pending = ""; return out;
+      if (r.state === "match") {
+        matched = true;
+        const out = pending.slice(r.end); pending = "";
+        if (out === "") return ""; // the blocks ended exactly here: more may follow, so keep watching
+        decided = true; return out;
+      }
+      // not a block: after earlier blocks, the whitespace that followed them is not part of the answer
+      const out = matched ? pending.slice(skipWs(pending, 0)) : pending; pending = ""; decided = true;
+      if (matched && out === "") decided = false;
+      return out;
     },
     /** End of stream: whatever was held back is real text (or a lone partial block) and is released, never dropped. */
     flush() { const out = stripEmptyThink(pending); pending = ""; decided = true; return out; }
