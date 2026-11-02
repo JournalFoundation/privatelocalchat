@@ -2,6 +2,16 @@
 
 What the chat experience does beyond running a model, where each part lives, what is stored where, and what it deliberately does not do. Source of truth for behaviour is the tests named below.
 
+## Better read-aloud voice (optional)
+
+Read-aloud uses the system voice by default. On a device that can run it, after a first successful read-aloud the app offers one quiet suggestion: a more natural voice, **Kitten TTS nano** (27.6 MB, English, works offline, Apache-2.0 model; the program that runs it contains eSpeak NG, GPL-3.0, see `THIRD-PARTY-NOTICES.md`). Nothing downloads without a tap.
+
+* **Who is offered it.** iPhone and iPad never are: they always use the system voice and never load a second model beside the chat model. Everywhere else the app measures the device (`chat/voice-probe.mjs`, a short WebAssembly benchmark in a worker; `chat/storage-check.mjs`, a real write test because phone browsers overstate free space) and `runtime/voice-pick.mjs` decides. On the test machines the probe read 137 to 216 ms where the voice ran at 3.3 to 5.5 times real time, and the Galaxy S8+ hit the 4,000 ms cap and ran at 0.26 times, so it is not offered.
+* **Real time is not required.** A voice slower than playback is kept if sound starts soon and playback can begin without stutter after a bearable wait. A hopelessly slow or failing voice is removed automatically and the system voice takes over again.
+* **Settings > Voice** shows the current voice, its size, Hear a sample, Unload and Remove. Remove deletes the files and the cached runtime.
+* **Where the files come from.** `assets.privatelocal.chat/models/Kitten-TTS-Nano-0.8-int8/<revision>/`, checked file by file against pinned SHA-256 hashes (`chat/voice-manifest.mjs`).
+* **Details and evidence.** `docs/VOICE-ENGINE-PLAN.md`, `docs/VOICE-RUNTIME.md`, `docs/evidence/voice/`.
+
 ## What is here
 
 | Area | Behaviour | Code |

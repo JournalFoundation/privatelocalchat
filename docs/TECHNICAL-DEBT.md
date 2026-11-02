@@ -64,9 +64,17 @@ Last reviewed: 2026-11-01. Related, not duplicated here: `docs/IPHONE-INVESTIGAT
 38. **LFM2.5 and Granite are untested on a GPU and on iPhone.** They were proven end to end on the processor path only (download, hash check, load, two answers, unload, remove). The earlier speechtest work qualified LFM2.5-2.6B Q3_K_M on Mac Safari with a 16 MB bounded loader; run the same check on a real iPhone before offering them there, and measure memory (the figures in `catalog.mjs` are estimates). Granite's window is 8,192 here; its manifest allowed 16,384.
 39. **LFM2.5 prints a leading newline** before its first sentence; the Markdown view hides it, but a copied answer may start with a blank line.
 
+41. **The larger voice (Kokoro) has no engine.** It is in the selection rule (`runtime/voice-pick.mjs`) but `IMPLEMENTED` in `chat/voice-upgrade.mjs` lists only Kitten, so it is never offered. Kokoro q8 ran at 0.56x to 0.86x on a 16-core CPU in a spike (`docs/evidence/voice/kokoro-wasm-spike.json`), its voice files are fetched from a hard-coded Hugging Face address in `kokoro-js`, and the fp16 WebGPU build is reported to give wrong output. Build it only if the quality gain is wanted.
+42. **Probe thresholds come from six devices.** `probeMaxMs` (800) was set from Centroid, Boiler, a Brutus N100, a Mac and a Galaxy S8+ (`docs/evidence/voice/lane-results.json`). The other limits in `VOICE_CONFIG` (`minFreeStorageMB`, `minRealTimeFactor`, `maxFirstAudioMs`, `maxStartDelayMs`) are conservative placeholders. Re-check them when more devices, especially mid-range Android phones, have run the harness (`work/voice-lane.js` is scratch; the method is in `docs/VOICE-ENGINE-PLAN.md`).
+43. **Text is not normalised for speech.** Kitten's own reference has a text pre-processor (abbreviations, currency, dates); only eSpeak's built-in number handling is used here. Addresses and code are read letter by letter, and "Dr." or "St." are read as written. Markdown is stripped before reading, as for the system voice.
+44. **The browser eSpeak build differs from Python's.** One of seven reference chunks differed by one vowel ("four"), so output is very slightly different from Kitten's reference.
+45. **Installing needs `createWritable()`.** Older Safari without it cannot install the voice (the offer then fails and the system voice stays).
+46. **The service worker caches the whole app on first visit (about 42 MB) regardless of voice.** Removing the voice also deletes the 13 MB ONNX Runtime cache entries, but the shell cache is the app itself and remains.
+
 ## Review log
 
 * 2026-11-01: first version, written after the sharing / transfer / public-pages release.
 * 2026-11-01: added voice notes, Roberta and semantic matching items (26-29) after that release.
 * 2026-11-02: added the app layout items (35-38) after the shell release.
 * 2026-11-02: added LFM2.5 and Granite items (39-40).
+* 2026-11-02: added the voice upgrade items (41-46).
