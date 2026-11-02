@@ -61,7 +61,7 @@ The host sees an ordinary file download (IP address, user agent), as with any ot
 
 ## Moving the files to the project's own asset host
 
-You cannot publish from a coding session (no credentials), but the move is mechanical:
+The task is written up in `docs/CDN-POPULATION.md` and `ops/cloudflare/publish-embedding.py` does the upload and verification. You cannot publish from a coding session (no credentials), but the move is mechanical:
 
 1. Download the files of the set: `embed/` (six files) and `runtime/` (two files) from the URL above, and `manifest.json`. Check each SHA-256
    against `manifest.json` and the table above.
