@@ -1503,7 +1503,7 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createEndpointTokens }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/endpoint-tokens.mjs')]);
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // DOM element references
@@ -1683,84 +1683,20 @@
       const MODELS_KEY = 'chatModels';
       const ENDPOINT_TOKENS_KEY = 'chatEndpointTokens';
 
-      let endpointTokens = {};
       const promptedCopyFor = new Set();
 
-      function loadEndpointTokens() {
-        try {
-          endpointTokens = JSON.parse(sessionStorage.getItem(ENDPOINT_TOKENS_KEY)) || {};
-        } catch (err) {
-          console.warn('Failed to load endpoint tokens from storage:', err);
-          endpointTokens = {};
-        }
-      }
-
-      function saveEndpointTokens() {
-        try {
-          sessionStorage.setItem(ENDPOINT_TOKENS_KEY, JSON.stringify(endpointTokens));
-        } catch (err) {
-          console.warn('Failed to persist endpoint tokens to storage:', err);
-        }
-      }
-
-      function canonicalizeEndpoint(value) {
-        if (!value) return '';
-        let url;
-        try {
-          url = new URL(value, window.location.href);
-        } catch (err) {
-          return '';
-        }
-        url.hash = '';
-        url.pathname = url.pathname.replace(/\/+$/, '');
-        const segments = url.pathname.split('/').filter(Boolean);
-        if (segments.length >= 2 && segments[segments.length - 2] === 'chat' && segments[segments.length - 1] === 'completions') {
-          url.pathname = '/' + segments.slice(0, -2).join('/');
-        }
-        url.pathname = url.pathname.replace(/\/+$/, '');
-        const normalizedPath = url.pathname === '/' ? '' : url.pathname;
-        // path AND query are part of a destination: a token saved for one tenant or route is never offered to another
-        return `${url.origin}${normalizedPath}${url.search}`;
-      }
-
-      function getTokenForEndpoint(endpoint) {
-        const key = canonicalizeEndpoint(endpoint);
-        if (!key) return '';
-        if (Object.prototype.hasOwnProperty.call(endpointTokens, key)) {
-          return endpointTokens[key] || '';
-        }
-        return '';
-      }
-
+      // the token saved for each endpoint (chat/provider/endpoint-tokens.mjs)
+      const endpointTokens = createEndpointTokens({
+        storage: sessionStorage, key: ENDPOINT_TOKENS_KEY, base: window.location.href,
+        onSet: endpoint => { if (sessionStorage.getItem('plc.pendingToken.v1')) loadTransferUi().then(ui => ui.tokenSetFor(endpoint)).catch(() => {}); }
+      });
+      const canonicalizeEndpoint = value => endpointTokens.canonicalize(value);
+      const getTokenForEndpoint = endpoint => endpointTokens.get(endpoint);
       /** The token for a request: the one saved for this exact destination, never one saved for another. */
-      function authTokenFor(endpoint) {
-        return getTokenForEndpoint(endpoint);
-      }
-
-      function setTokenForEndpoint(endpoint, token) {
-        const key = canonicalizeEndpoint(endpoint);
-        if (!key) return;
-        if (sessionStorage.getItem('plc.pendingToken.v1')) loadTransferUi().then(ui => ui.tokenSetFor(endpoint)).catch(() => {});
-        const trimmedToken = (token || '').trim();
-        if (!trimmedToken) {
-          if (Object.prototype.hasOwnProperty.call(endpointTokens, key)) {
-            delete endpointTokens[key];
-            saveEndpointTokens();
-          }
-          return;
-        }
-        endpointTokens[key] = trimmedToken;
-        saveEndpointTokens();
-      }
-
-      function clearTokenForEndpoint(endpoint) {
-        const key = canonicalizeEndpoint(endpoint);
-        if (!key) return;
-        if (Object.prototype.hasOwnProperty.call(endpointTokens, key)) {
-          delete endpointTokens[key];
-          saveEndpointTokens();
-        }
-      }
+      const authTokenFor = endpoint => endpointTokens.get(endpoint);
+      const setTokenForEndpoint = (endpoint, token) => endpointTokens.set(endpoint, token);
+      const clearTokenForEndpoint = endpoint => endpointTokens.clear(endpoint);
+      const loadEndpointTokens = () => endpointTokens.load();
 
       if (tokenInput) {
         const setTokenMasked = masked => {
@@ -2070,10 +2006,10 @@
         const nextCanon = canonicalizeEndpoint(nextEndpoint);
 
         let prevToken = '';
-        const hasPrevTokenStored = prevCanon ? Object.prototype.hasOwnProperty.call(endpointTokens, prevCanon) : false;
+        const hasPrevTokenStored = endpointTokens.has(prevEndpoint);
         const trimmedConfigToken = (config.token || '').trim();
         if (hasPrevTokenStored) {
-          prevToken = endpointTokens[prevCanon] || '';
+          prevToken = endpointTokens.get(prevEndpoint);
         } else if (prevCanon && trimmedConfigToken) {
           prevToken = trimmedConfigToken;
           setTokenForEndpoint(prevEndpoint, prevToken);
@@ -2082,8 +2018,8 @@
         }
 
         let deferRefresh = false;
-        const hasSavedNextToken = nextCanon && Object.prototype.hasOwnProperty.call(endpointTokens, nextCanon);
-        const savedNextToken = hasSavedNextToken ? endpointTokens[nextCanon] || '' : '';
+        const hasSavedNextToken = endpointTokens.has(nextEndpoint);
+        const savedNextToken = endpointTokens.get(nextEndpoint);
 
         if (hasSavedNextToken) {
           if (tokenInput.value !== savedNextToken) {
@@ -3879,7 +3815,7 @@
         models = [];
         transferUiDiscardPending();
         consecutiveAuthErrors = 0;
-        endpointTokens = {};
+        endpointTokens.reset();
         promptedCopyFor.clear();
         endpointInput.value = '';
         tokenInput.value = '';
@@ -4077,8 +4013,8 @@
         const initialEndpoint = (config.endpoint || '').trim();
         if (initialEndpoint) {
           const initialCanon = canonicalizeEndpoint(initialEndpoint);
-          if (initialCanon && Object.prototype.hasOwnProperty.call(endpointTokens, initialCanon)) {
-            const storedToken = endpointTokens[initialCanon] || '';
+          if (initialCanon && endpointTokens.has(initialEndpoint)) {
+            const storedToken = endpointTokens.get(initialEndpoint);
             if (tokenInput && tokenInput.value !== storedToken) {
               tokenInput.value = storedToken;
             }
