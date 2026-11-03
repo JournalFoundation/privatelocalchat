@@ -71,6 +71,12 @@ First entry: `kitten_nano_int8` = KittenML/kitten-tts-nano-0.8-int8 at commit `8
 Apache-2.0 weights). Its phonemizer dependency, espeak-ng, is GPL-3.0 and is shipped separately, not in this set. Dry run on 2026-11-02:
 all three files matched their pinned size and SHA-256; nothing was uploaded.
 
+Second entry: `kokoro_q8` = onnx-community/Kokoro-82M-v1.0-ONNX at commit `1939ad2a8e416c0acfeecc08a694d14ef25f2231`, prefix
+`models/Kokoro-82M-v1.0-ONNX-q8/<commit>/` (12 files, 96,542,690 bytes: the q8 `onnx/model_quantized.onnx`, tokenizer, config and eight voices).
+Paths in a set may be nested (`onnx/...`, `voices/...`): the publisher creates the parent directories and uses the full relative path as the
+object key. Weights are Apache-2.0; the licence file also carries the model card's data notice (Koniwa CC BY 3.0 and SIWIS CC BY 4.0 audio), and
+the eSpeak NG phonemizer (GPL-3.0) ships separately inside the app. Not uploaded yet; dry run only.
+
 ## Layout convention for anything new (speech models later)
 
 * `models/<family>/<pinned revision or content hash>/<files>`: one immutable directory per version; a changed byte is a new path. Existing

@@ -33,7 +33,7 @@ for key, (model_id, licence) in IDS.items():
         manifest['files'].append({'path': f['path'], 'bytes': f['bytes'], 'sha256': f['sha256'], 'key': m['prefix'] + f['path'], 'url': HOST + m['prefix'] + f['path']})
 VOICE_FILE = ROOT / 'voice-models.json'
 VOICE = json.loads(VOICE_FILE.read_text()) if VOICE_FILE.exists() else {}
-VOICE_IDS = {'kitten_nano_int8': 'Kitten-TTS-Nano-0.8-int8'}
+VOICE_IDS = {'kitten_nano_int8': 'Kitten-TTS-Nano-0.8-int8', 'kokoro_q8': 'Kokoro-82M-v1.0-ONNX-q8'}
 for key, model_id in VOICE_IDS.items():
     m = VOICE[key]
     manifest['models'] = [x for x in manifest['models'] if x['modelId'] != model_id]
