@@ -1,5 +1,5 @@
 // Model cache writes must release their worker even when open, write, close or cancellation fails.
-export async function writeOpfsStream(key,stream,{createWorker=()=>new Worker(new URL('./opfs-write-worker.mjs',import.meta.url),{type:'module'}),timeoutMs=30000,readTimeoutMs=60000}={}){
+export async function writeOpfsStream(key,stream,{directory,createWorker=()=>new Worker(new URL('./opfs-write-worker.mjs',import.meta.url),{type:'module'}),timeoutMs=30000,readTimeoutMs=60000}={}){
  let worker,reader,pending,sequence=0,completed=false;
  const fail=error=>{if(pending){const p=pending;pending=null;clearTimeout(p.timer);p.reject(error);}};
  try{
@@ -15,7 +15,7 @@ export async function writeOpfsStream(key,stream,{createWorker=()=>new Worker(ne
    const id=++sequence,timer=setTimeout(()=>fail(Object.assign(new Error('Model cache '+operation+' timed out'),{code:'opfs-write-timeout',phase:operation})),timeoutMs);
    pending={id,timer,resolve,reject};try{worker.postMessage({id,operation,...extra});}catch(error){fail(error);}
   });
-  await call('open',{key});reader=stream.getReader();
+  await call('open',{key,directory});reader=stream.getReader();
   for(;;){
    let timer;
    const result=await Promise.race([reader.read(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(new Error('Model download stalled'),{code:'download-read-timeout'})),readTimeoutMs);})]).finally(()=>clearTimeout(timer));

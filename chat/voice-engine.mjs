@@ -12,6 +12,7 @@
 // Limits: English only; digits and abbreviations are not expanded; OPFS writing uses createWritable() (Chrome, Edge, Firefox, Safari 26+).
 
 import { sha256 } from "../runtime/providers/vendor/noble-hashes/2.4.0/sha2.js";
+import { writeOpfsStream } from "../runtime/providers/opfs-stream-writer.mjs";
 import { retryDownload } from "../runtime/providers/download-retry.mjs";
 import { KITTEN_NANO_MANIFEST } from "./voice-manifest.mjs";
 import { KOKORO_Q8_MANIFEST } from "./voice-manifest-kokoro.mjs";
@@ -51,7 +52,7 @@ export function validateManifest(manifest) {
 }
 
 export function createVoiceEngine({
-  engine = "kitten", cachesImpl, baseUrl, manifest, fetchImpl, workerUrl, dirName, getRoot, createWorker, threads, attempts = 4, pause,
+  engine = "kitten", cachesImpl, baseUrl, manifest, fetchImpl, workerUrl, dirName, getRoot, createWorker, threads, attempts = 4, pause, writeStream, connectTimeoutMs = 30000, stallMs = 60000,
 } = {}) {
   const kind = ENGINES[engine];
   if (!kind) throw failure("bad-engine", `unknown voice engine "${engine}"`);
@@ -65,6 +66,7 @@ export function createVoiceEngine({
   });
   const base = baseUrl ? (baseUrl.endsWith("/") ? baseUrl : baseUrl + "/") : null;
   const totalBytes = () => manifest.files.reduce((n, f) => n + f.bytes, 0);
+  const write = writeStream || ((key, stream) => writeOpfsStream(key, stream, { directory: dirName, readTimeoutMs: stallMs }));
 
   let worker = null, loading = null, loaded = false, installing = null, seq = 0, queue = Promise.resolve();
   const pending = new Map();
@@ -95,29 +97,38 @@ export function createVoiceEngine({
     try { await (await root()).removeEntry(dirName, { recursive: true }); } catch (e) { if (!isMissing(e)) throw e; }
   }
 
-  async function downloadOne(dir, file, { signal, onBytes }) {
-    const handle = await dir.getFileHandle(file.name, { create: true });
+  // One request, with a time limit on the connection (a request that never answers used to wait at 0% for ever) and the same sync-access-handle writer the
+  // model downloads use: it works in every Safari, unlike FileSystemFileHandle.createWritable().
+  async function fetchWithTimeout(url, signal) {
+    const ac = new AbortController(); let timedOut = false;
+    const onAbort = () => ac.abort(signal.reason);
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const timer = setTimeout(() => { timedOut = true; ac.abort(); }, connectTimeoutMs);
+    try { return await fetchFn(url, { signal: ac.signal }); }
+    catch (error) { if (timedOut) throw Object.assign(new Error(`No answer from the download server after ${Math.round(connectTimeoutMs / 1000)} s (connection timed out)`), { name: "TimeoutError", code: "connect-timeout" }); throw error; }
+    finally { clearTimeout(timer); signal?.removeEventListener("abort", onAbort); }
+  }
+
+  async function downloadOne(file, { signal, onBytes, onPhase }) {
     return retryDownload(async () => {
       signal?.throwIfAborted();
-      const response = await fetchFn(base + (file.path || file.name), { signal });
+      onPhase?.({ file: file.name, phase: "connecting" });
+      const response = await fetchWithTimeout(base + (file.path || file.name), signal);
       if (!response.ok) throw Object.assign(new Error(`HTTP ${response.status} for ${file.name}`), { status: response.status });
       const hash = sha256.create();
       let size = 0;
-      const writable = await handle.createWritable(); // truncates: a retry starts the file over
-      let ok = false;
-      try {
-        const take = async (chunk) => { hash.update(chunk); size += chunk.byteLength; await writable.write(chunk); onBytes(chunk.byteLength, size); };
-        if (response.body?.getReader) {
-          const reader = response.body.getReader();
-          for (;;) { const { done, value } = await reader.read(); if (done) break; await take(value); }
-        } else await take(new Uint8Array(await response.arrayBuffer()));
-        await writable.close(); ok = true;
-      } finally { if (!ok) { try { await writable.abort?.(); } catch { /* already closed */ } } }
+      const counter = new TransformStream({ transform(chunk, controller) { hash.update(chunk); size += chunk.byteLength; onBytes(chunk.byteLength, size); controller.enqueue(chunk); } });
+      const body = (response.body || new Blob([await response.arrayBuffer()]).stream()).pipeThrough(counter);
+      try { await write(file.name, body); } // truncates the file first: a retry starts it over
+      catch (error) {
+        if (error?.code === "download-read-timeout") throw Object.assign(new Error(`The download stalled: no data for ${Math.round(stallMs / 1000)} s (connection timed out)`), { code: "download-stalled" });
+        throw error;
+      }
       const digest = hex(hash.digest());
       if (size !== file.bytes || digest !== file.sha256) {
         throw failure("hash-mismatch", `${file.name} does not match its pinned checksum (got ${size} bytes, SHA-256 ${digest.slice(0, 12)})`, { file: file.name });
       }
-    }, { signal, attempts, pause, onRetry: (info) => onBytes(0, 0, info) });
+    }, { signal, attempts, pause, onRetry: (info) => onPhase?.({ file: file.name, ...info, phase: "retry" }) });
   }
 
   function install(onProgress, { signal } = {}) {
@@ -128,24 +139,17 @@ export function createVoiceEngine({
       const before = await status();
       if (before.installed) return before;
       await removeDirectory(); // never build on a half-written set
-      const dir = await (await root()).getDirectoryHandle(dirName, { create: true });
       let done = 0;
       try {
         for (const file of manifest.files) {
-          let fileLoaded = 0;
-          await downloadOne(dir, file, {
+          await downloadOne(file, {
             signal,
-            onBytes: (delta, size, retry) => {
-              if (retry) { onProgress?.({ file: file.name, phase: "retry", ...retry }); return; }
-              fileLoaded = size;
-              onProgress?.({ file: file.name, loaded: fileLoaded, total: file.bytes, overallLoaded: done + fileLoaded, overallTotal: totalBytes() });
-            },
+            onPhase: (info) => onProgress?.({ ...info, overallLoaded: done, overallTotal: totalBytes() }),
+            onBytes: (delta, size) => onProgress?.({ file: file.name, loaded: size, total: file.bytes, overallLoaded: done + size, overallTotal: totalBytes() }),
           });
           done += file.bytes;
         }
-        const marker = await (await dir.getFileHandle(MARKER, { create: true })).createWritable();
-        await marker.write(JSON.stringify({ id: manifest.id, installedAt: Date.now(), files: manifest.files.map(({ name, bytes, sha256: s }) => ({ name, bytes, sha256: s })) }));
-        await marker.close();
+        await write(MARKER, new Blob([JSON.stringify({ id: manifest.id, installedAt: Date.now(), files: manifest.files.map(({ name, bytes, sha256: s }) => ({ name, bytes, sha256: s })) })]).stream());
       } catch (error) {
         await removeDirectory().catch(() => {});
         throw error;

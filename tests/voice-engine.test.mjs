@@ -160,11 +160,18 @@ function fixture() {
     const body = contents[name];
     if (!body) return { ok: false, status: 404 };
     const half = Math.ceil(body.length / 2);
-    let i = 0; const parts = [body.subarray(0, half), body.subarray(half)];
-    return { ok: true, status: 200, body: { getReader: () => ({ read: async () => (i < parts.length ? { done: false, value: new Uint8Array(parts[i++]) } : { done: true }) }) } };
+    const parts = [body.subarray(0, half), body.subarray(half)];
+    return { ok: true, status: 200, body: new ReadableStream({ start(c) { for (const part of parts) c.enqueue(new Uint8Array(part)); c.close(); } }) };
   };
   const root = new FakeDir();
-  return { contents, manifest, requests, fetchImpl, root, make: (extra = {}) => createVoiceEngine({ baseUrl: "https://cdn.example/voice", manifest, fetchImpl, getRoot: async () => root, pause: async () => {}, ...extra }) };
+  // stands in for the shared OPFS stream writer (runtime/providers/opfs-stream-writer.mjs), which needs a real worker
+  const writeStream = async (key, stream) => {
+    const reader = stream.getReader(); const parts = [];
+    for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(Buffer.from(value)); }
+    const dir = await root.getDirectoryHandle("plc-voice-kitten-nano-0.8", { create: true });
+    (await dir.getFileHandle(key, { create: true })).bytes = Buffer.concat(parts);
+  };
+  return { contents, manifest, requests, fetchImpl, root, writeStream, make: (extra = {}) => createVoiceEngine({ baseUrl: "https://cdn.example/voice", manifest, fetchImpl, getRoot: async () => root, writeStream, pause: async () => {}, ...extra }) };
 }
 
 
@@ -328,4 +335,40 @@ test("remove also clears the ONNX Runtime files the service worker cached, and n
   assert.equal(entries.get("other").size, 1);
   const noCaches = f.make({ cachesImpl: { keys: async () => { throw new Error("denied"); } } });
   await noCaches.remove(); // a cache that cannot be read does not make removal fail
+});
+
+test("a download server that never answers fails with a clear timeout instead of waiting at 0% for ever", async () => {
+  const f = fixture();
+  const hang = (url, { signal } = {}) => new Promise((_, reject) => signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))));
+  const engine = f.make({ fetchImpl: hang, connectTimeoutMs: 20, attempts: 2 });
+  const events = [];
+  await assert.rejects(engine.install((e) => events.push(e)), (e) => /connection timed out/.test(e.message) && e.name === "TimeoutError");
+  assert.equal(events.filter((e) => e.phase === "connecting").length, 2, "it said it was connecting, tried twice");
+  assert.ok(events.some((e) => e.phase === "retry"), "and showed that it was retrying");
+  assert.equal(f.root.dirs.size, 0, "nothing is left behind");
+});
+
+test("a download that stalls is retried and then succeeds; progress starts with connecting", async () => {
+  const f = fixture();
+  let stalled = 0;
+  const writeStream = async (key, stream) => {
+    if (!stalled++) { await stream.cancel(); throw Object.assign(new Error("Model download stalled"), { code: "download-read-timeout" }); }
+    return f.writeStream(key, stream);
+  };
+  const events = [];
+  const result = await f.make({ writeStream }).install((e) => events.push(e));
+  assert.equal(result.installed, true);
+  assert.equal(events[0].phase, "connecting");
+  assert.ok(events.some((e) => e.phase === "retry"), "the stall was retried, not fatal");
+  assert.equal(f.requests.length, 4, "three files plus one retry");
+});
+
+test("a cancelled install stops and leaves nothing behind", async () => {
+  const f = fixture(); const ac = new AbortController();
+  const hang = (url, { signal } = {}) => new Promise((_, reject) => signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))));
+  const engine = f.make({ fetchImpl: hang, connectTimeoutMs: 60000 });
+  const run = engine.install(() => {}, { signal: ac.signal });
+  setTimeout(() => ac.abort(), 10);
+  await assert.rejects(run, (e) => e.name === "AbortError");
+  assert.equal(f.root.dirs.size, 0);
 });

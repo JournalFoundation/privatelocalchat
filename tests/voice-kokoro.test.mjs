@@ -146,7 +146,14 @@ test("createVoiceEngine({engine:'kokoro'}) downloads by manifest path into its o
     requests.push(url);
     const body = contents[url.split("/").pop()];
     if (!body) return { ok: false, status: 404 };
-    return { ok: true, status: 200, body: { getReader: () => { let sent = false; return { read: async () => (sent ? { done: true } : (sent = true, { done: false, value: new Uint8Array(body) })) }; } } };
+    return { ok: true, status: 200, body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array(body)); c.close(); } }) };
+  };
+  // stands in for the shared OPFS stream writer, which needs a real worker (see tests/e2e/voice-kokoro.e2e.mjs for the real one)
+  const writeStream = async (key, stream) => {
+    const reader = stream.getReader(); const parts = [];
+    for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(Buffer.from(value)); }
+    const dir = await root.getDirectoryHandle(KOKORO_VOICE_DIR, { create: true });
+    (await dir.getFileHandle(key, { create: true })).bytes = Buffer.concat(parts);
   };
   const root = new FakeDir();
   // the Kitten directory exists too: removing Kokoro must keep the shared runtime files cached
@@ -168,7 +175,7 @@ test("createVoiceEngine({engine:'kokoro'}) downloads by manifest path into its o
       });
     },
   });
-  const engine = createVoiceEngine({ engine: "kokoro", baseUrl: "https://cdn.example/k", manifest, fetchImpl, getRoot: async () => root, pause: async () => {}, createWorker, cachesImpl });
+  const engine = createVoiceEngine({ engine: "kokoro", baseUrl: "https://cdn.example/k", manifest, fetchImpl, getRoot: async () => root, writeStream, pause: async () => {}, createWorker, cachesImpl });
   await engine.install();
   assert.deepEqual(requests, ["m.onnx", "tokenizer.json", "tc.json", "config.json", "af_heart.bin", "bf_emma.bin"].map((n) => "https://cdn.example/k/" + (paths[n] || n)));
   assert.ok(root.dirs.has(KOKORO_VOICE_DIR));

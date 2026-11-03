@@ -5,7 +5,7 @@ self.onmessage=async({data})=>{
  try{
   if(operation==='open'){
    const root=await navigator.storage.getDirectory();
-   const cache=await root.getDirectoryHandle('cache',{create:true});
+   const cache=await root.getDirectoryHandle(data.directory||'cache',{create:true});
    const file=await cache.getFileHandle(data.key,{create:true});
    handle=await file.createSyncAccessHandle();handle.truncate(0);
   }else if(operation==='write'){
