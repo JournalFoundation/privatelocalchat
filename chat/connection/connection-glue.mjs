@@ -7,6 +7,7 @@
 //   voice()       the voice picker snapshot (or a promise of it), or null
 //   toast(text)   the page's toast
 //   endpoint()    the connected provider's address (where an on-device provider can still answer offline)
+//   probeUrl      the address of a small file on the app's own origin used to check reachability (default /version.json)
 // Returns { connection, readiness(), subscribe(fn) -> off, fix(action), reason(kind), isNetworkError(err), noteRequest(ok, err) }.
 import { createConnection, offlineReason, providerPlace } from './connection.mjs';
 import { createOfflineFacts } from './offline-facts.mjs';
@@ -33,6 +34,25 @@ export function createConnectionGlue(host) {
     voice: () => host.voice?.(), persisted: () => navigator.storage?.persisted?.() ?? Promise.resolve(null),
     standalone: () => navigator.standalone === true || matchMedia?.('(display-mode: standalone)').matches,
   });
+  // Is the app's own origin reachable? The browser's online flag stays true behind a dead Wi-Fi, so this asks directly. It talks only to the origin that
+  // served the app, only when the page comes back to the front, when the browser reports a change, and slowly while it is open (faster while offline,
+  // to notice the return). The query string makes it skip the saved copy, so it tests the network and not the cache.
+  let probing = false;
+  async function probe() {
+    if (probing || document.visibilityState === 'hidden') return;
+    probing = true;
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 6000);
+    try {
+      const response = await fetch((host.probeUrl || '/version.json') + '?probe=' + Date.now(), { cache: 'no-store', signal: controller.signal });
+      if (response) connection.reportSuccess();
+    } catch (error) { connection.reportFailure({ definitive: true }); }
+    finally { clearTimeout(timeout); probing = false; }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') probe(); });
+  window.addEventListener('focus', probe);
+  window.addEventListener('online', () => setTimeout(probe, 300));
+  setInterval(() => { if (connection.state === 'offline') probe(); }, 15000);
+  setInterval(probe, 300000);
   const listeners = new Set();
   let timer = null;
   function notify() { clearTimeout(timer); timer = setTimeout(async () => { const r = await readiness(); for (const fn of [...listeners]) { try { fn(r, connection); } catch (e) { console.error(e); } } }, 50); }
@@ -79,7 +99,7 @@ export function createConnectionGlue(host) {
   }
 
   return {
-    connection, readiness, fix, gate, isNetworkError,
+    connection, readiness, fix, gate, isNetworkError, probe,
     reason: offlineReason,
     /** 'device' | 'network' | 'internet': where the connected provider is, so a provider on this device is not called a problem offline. */
     providerPlace: () => providerPlace(host.endpoint?.()),

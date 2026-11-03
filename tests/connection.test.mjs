@@ -84,3 +84,9 @@ test('where a provider lives: this device, your network or the internet',()=>{
   for(const u of ['http://192.168.1.20:8000/v1','http://10.0.0.5/v1','http://172.20.1.1/v1','http://nas.local/v1','http://169.254.3.4/v1'])assert.equal(providerPlace(u),'network',u);
   for(const u of ['https://api.openai.com/v1','http://172.32.0.1/v1','https://openrouter.ai/api/v1','','not a url',undefined])assert.equal(providerPlace(u),'internet',String(u));
 });
+
+test('a direct reachability check that fails is believed at once, and one that works brings the app back',()=>{
+  const r=rig();r.c.reportFailure({definitive:true});
+  assert.equal(r.c.state,'offline');assert.equal(r.c.reason,'unreachable');
+  r.c.reportSuccess();assert.equal(r.c.state,'back');
+});

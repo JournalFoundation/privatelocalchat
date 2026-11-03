@@ -109,6 +109,8 @@ Designed with the owner's brief in mind: visual, calm, informative, with the rig
 
 ## Log (newest first; add a line with every finding)
 
+- 2026-11-03: a dead connection that the browser still calls online (dead Wi-Fi, and also how the phone's development network switch looks) was invisible to the pill. The connection layer now checks the app's own origin directly (`/version.json?probe=…`, no saved copy) when the page comes to the front, when the browser reports a change, every 5 minutes while open and every 15 seconds while offline; a failed check is believed at once. Privacy page updated: it is the same file the app already fetched at start, and it carries nothing about the person.
+
 - 2026-11-03: phase 3.1 and 3.2 are in, and a provider failure while offline now says "You are offline. This provider needs a connection…" instead of "Failed to fetch". Found by the chat-core suite: a stream that drops on a working connection must not be called offline, so a network failure is only called offline when the connection layer agrees (the browser says so, or two requests in a row failed); otherwise the text is "Could not reach the provider…".
 
 - 2026-11-03: Devices. Mac Safari (macOS 26.7.1) and iPhone 11 Pro (iOS 18.6.2) both open the saved app cold with the origin or network denied, keep local data, and report "Offline app ready". Both report `persisted=false` (Safari does not promise to keep data) and the iPhone's quota is about 1 GB. The dev-only network switch served the app for `/help`; it now uses the same page lookup as production. The 15 Pro is not listed by Boiler's USB multiplexer.

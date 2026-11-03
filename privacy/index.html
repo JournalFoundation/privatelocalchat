@@ -91,7 +91,7 @@
       <table>
         <thead><tr><th scope="col">What</th><th scope="col">From</th><th scope="col">Requested by the deployed app</th></tr></thead>
         <tbody>
-          <tr><th scope="row">The app, these pages, icons and the on-device model runtimes</th><td>privatelocal.chat (Cloudflare Pages)</td><td>Yes. The app also fetches a small <code>version.json</code> from the same site to learn whether a newer version exists.</td></tr>
+          <tr><th scope="row">The app, these pages, icons and the on-device model runtimes</th><td>privatelocal.chat (Cloudflare Pages)</td><td>Yes. The app also fetches a small <code>version.json</code> from the same site to learn whether a newer version exists, and asks for it again when the app comes back to the front and every few minutes while it is open, to tell whether you are online. It contains nothing about you.</td></tr>
           <tr><th scope="row">Model files (Qwen3.5, LFM2.5-2.6B, Granite 4.0 H 1B, and the optional read-aloud voices Kitten TTS nano and Kokoro), model configuration and compiled model libraries, checked against pinned SHA-256 hashes. Each model&rsquo;s licence text is stored beside its files</th><td>assets.privatelocal.chat (the project's own storage, on Cloudflare R2)</td><td>Yes, when you set up on-device chat.</td></tr>
           <tr><th scope="row">Original model files (Hugging Face, huggingface.co) and the compiled WebLLM library (raw.githubusercontent.com, the MLC project's repository)</th><td>Hugging Face and GitHub</td><td>No. The open-source model catalogue lists them as the origin of the files, and the app's built-in defaults point there, but the deployed page is configured to use assets.privatelocal.chat instead.</td></tr>
           

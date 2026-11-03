@@ -49,10 +49,10 @@ export function createConnection(host) {
     get reason() { return reason; },
     get since() { return since; },
     get online() { return state !== 'offline'; },
-    /** A request failed because the network did (not because the server said no). */
-    reportFailure() {
+    /** A request failed because the network did (not because the server said no). `definitive`: a direct check of reachability, believed at once. */
+    reportFailure({ definitive = false } = {}) {
       failures += 1;
-      if (state !== 'offline' && (failures >= failuresToOffline || !host.isOnline())) { backTimer = clear(backTimer); set('offline', host.isOnline() ? 'unreachable' : 'browser'); }
+      if (state !== 'offline' && (definitive || failures >= failuresToOffline || !host.isOnline())) { backTimer = clear(backTimer); set('offline', host.isOnline() ? 'unreachable' : 'browser'); }
     },
     /** A request reached its server. */
     reportSuccess() {

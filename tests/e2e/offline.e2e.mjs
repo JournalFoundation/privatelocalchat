@@ -59,6 +59,18 @@ try{
  assert(await page.locator('#refreshModelsBtn').isEnabled(),'refresh works again when back online');
  ok('back online: the pill says so for a moment, then goes away');
 
+ // a dead connection that the browser still calls online (a dead Wi-Fi): the check of the app's own origin notices it
+ await context.route('**/version.json?probe=*',route=>route.abort('connectionfailed'));
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await page.waitForSelector('#connectionPill',{state:'visible',timeout:8000});
+ assert(await page.evaluate(()=>navigator.onLine===true),'the browser still says it is online');
+ assert(/Offline/.test(await page.locator('#connectionPill').innerText()),'the pill says Offline anyway');
+ await context.unroute('**/version.json?probe=*');
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await page.waitForFunction(()=>/Back online/.test(document.querySelector('#connectionPill')?.innerText||''),null,{timeout:8000});
+ await page.waitForSelector('#connectionPill',{state:'hidden',timeout:10000});
+ ok('a connection that is dead while the browser says online is noticed, and its return too');
+
  // ---- offline, in a brand-new page (the page and its workers start from the saved files)
  const foreign=[],failed=[],errors=[];
  await context.setOffline(true);
