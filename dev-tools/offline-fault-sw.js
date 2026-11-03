@@ -23,7 +23,7 @@ async function developmentOfflineResponse(event,url){
  await faultReady;if(!faultEnabled)return;
  if(event.request.method==='GET'){
   const saved=event.request.mode==='navigate'&&url.origin===location.origin
-   ?await(await caches.open(CACHE)).match('/index.html'):await caches.match(event.request);
+   ?await(await caches.open(CACHE)).match(offlinePage(url.pathname)):await caches.match(event.request);
   if(saved)return event.request.mode==='navigate'
    ?new Response(saved.body,{status:200,headers:saved.headers}):saved;
  }
