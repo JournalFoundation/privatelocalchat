@@ -107,3 +107,15 @@ reply, but the same Safari process hit its fatal 2 GB limit during a subsequent 
 See [the lifecycle failure](evidence/iphone-current-build-reload-limit.json). The retained pass
 is preserved as evidence, not treated as release qualification. Bounded native cleanup is
 the next control; production remains unchanged.
+
+## Offline operation (2026-11-03)
+
+Plan: `docs/OFFLINE-PLAN.md`; evidence: `docs/evidence/offline/`.
+
+| Check | Where | Result |
+|---|---|---|
+| Saved app opens cold with no connection, conversations kept and found, public pages, real model reply offline, back online | Chromium, real 2B model (`matrix-chromium.json`) | Passed |
+| Saved app opens cold with the origin gone, local data kept, Help from its own saved page | Mac Safari, macOS 26.7.1 (`matrix-mac-safari.json`) | Passed |
+| Saved app opens cold with the network denied in the service worker (not airplane mode), local data kept | iPhone 11 Pro, iOS 18.6.2 (`matrix-iphone11pro.json`) | Passed |
+| The same on the iPhone 15 Pro | Not run: attached to the lab machine but not listed by its USB multiplexer (needs a replug or unlock) | Open |
+| Real airplane mode on a phone | By hand | Open |

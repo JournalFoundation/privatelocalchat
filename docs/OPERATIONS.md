@@ -50,6 +50,21 @@ It creates a test conversation, generates online and offline, closes the whole b
 and reopens the same profile offline to load the model and generate again. Model files
 remain cached. Receipts and screenshots are written under `work/evidence/`.
 
+## Offline checks
+
+- **Every push** (`.github/workflows/offline-e2e.yml`): `node tests/e2e/offline.e2e.mjs`. The saved app opens cold with no
+  connection, keeps and finds its conversations, opens the public pages and Settings, shows the connection pill and the
+  offline checklist, and a provider failure while offline says so in words. No model is downloaded. `npm test` also builds
+  the app and fails if the service worker leaves a shipped file or an imported file out of its list
+  (`tests/offline-precache.test.mjs`), and if Help and the app stop using the same words (`tests/offline-help.test.mjs`).
+- **Before a release:** `OFFLINE_MATRIX_OUT=docs/evidence/offline/matrix-chromium.json node tests/e2e/offline-model.e2e.mjs`.
+  It downloads the small model (about 1.5 GB), replies online, closes the browser, cuts the network, opens cold, loads the
+  model and gets a real reply, then goes back online. It takes minutes and is not part of the per-push run.
+- **On devices:** the plan and evidence are in `docs/OFFLINE-PLAN.md` and `docs/evidence/offline/`. The iPhone is driven with
+  `dev-tools/operator-safari-controller.py` and the development-only network switch on `dev.privatelocal.chat` (it denies
+  network access in the service worker while the radios stay on); Mac Safari with the app served through the reverse tunnel
+  and the server stopped. Neither proves airplane mode; say which was used when recording a result.
+
 ## Local test storage
 
 Check free space before model downloads, native rebuilds or new browser profiles on Centroid,
