@@ -83,6 +83,9 @@ try{
  assert(!/couldn.t start/i.test(await off.locator('body').innerText()),'no failure banner');
  ok('offline: the app opens cold');
  assert(await off.evaluate(m=>(localStorage.getItem('chatThreads')||'').includes(m),MARKER),'the conversation is kept');
+ // opened on a connection the browser calls online but that is dead: the start-up check says so (the page's first request to its own origin fails)
+ await off.waitForSelector('#connectionPill',{state:'visible',timeout:10000});
+ assert(/Offline/.test(await off.locator('#connectionPill').innerText()),'a page opened with no connection shows the Offline pill');
  await off.keyboard.press('Control+k');await off.fill('.search-input',MARKER);
  await off.waitForSelector('.search-item',{timeout:8000});
  assert(/kumquat-harbour/.test(await off.locator('.search-item').first().innerText()),'search finds it by its words');

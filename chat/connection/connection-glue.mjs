@@ -51,6 +51,7 @@ export function createConnectionGlue(host) {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') probe(); });
   window.addEventListener('focus', probe);
   window.addEventListener('online', () => setTimeout(probe, 300));
+  setTimeout(probe, 2500); // once at start-up, so a page opened on a dead connection says so
   setInterval(() => { if (connection.state === 'offline') probe(); }, 15000);
   setInterval(probe, 300000);
   const listeners = new Set();
