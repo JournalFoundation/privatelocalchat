@@ -94,3 +94,11 @@ test('if aborting a stalled transfer hangs, the host worker is replaced',async()
  const hang=jobs.find(j=>j.ms===15000);assert.ok(hang,'a hang timer was set');
  await hang.fn();await flush();assert.equal(restarts,1);
 });
+test('the same failure three times in a row is reported with its message, and the retries go on; a success clears it',async()=>{
+ const f=fixture();f.host.install=async()=>{throw Error('Failed to write to file');};
+ f.recovery.resume();f.recovery.start('light');
+ await f.step();assert.equal(f.recovery.state.reason,null,'once is not yet a pattern');
+ await f.step();assert.equal(f.recovery.state.reason,null);
+ await f.step();assert.equal(f.recovery.state.reason,'repeated: Failed to write to file');assert.equal(f.recovery.state.phase,'retrying');assert.ok(f.store.getItem(KEY),'the request is still kept');
+ f.host.install=async()=>{f.complete=true;};await f.step();assert.equal(f.recovery.state.phase,'ready');assert.equal(f.recovery.state.reason,null);
+});

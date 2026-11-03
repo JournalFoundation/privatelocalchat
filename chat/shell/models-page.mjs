@@ -3,6 +3,7 @@
 // The rows come from chat/models-view.mjs (the same words the composer pickers use). Actions go through window.localModels (chat models), the voice picker
 // controller and the memory manager; nothing here reads or writes the legacy model form, which stays in the page, hidden, only because local-models.js still renders into it.
 
+import { rowParts, renderRowText } from "./model-row.mjs";
 import { languageRows, voiceRows, otherRows, stateLine, toggleAction, ACTION_LABEL, sizeText } from "../models-view.mjs";
 
 export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHint }) {
@@ -15,14 +16,8 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
   if (apiSettings) apiSettings.remove();
   moved.providerSettings.remove();
 
-  const rowEl = (vm, { controls = [], extraDesc = [] } = {}) => {
-    const desc = [stateLine(vm), vm.note, vm.license, ...extraDesc].filter(Boolean).join(" · ");
-    const text = h("div", { class: "set-text" },
-      h("div", { class: "set-label" }, vm.label, vm.inUse ? h("span", { class: "set-inuse", text: "In use" }) : null),
-      h("div", { class: "set-desc", text: desc }));
-    if (vm.state === "downloading" && vm.progress != null) text.append(h("progress", { max: "1", value: String(vm.progress), "aria-label": "Download progress" }));
-    return h("div", { class: "set-row model-row", "data-model": vm.id, "data-kind": vm.kind, "data-state": vm.state }, text, h("div", { class: "set-control" }, controls));
-  };
+  const rowEl = (vm, { controls = [], extraDesc = [] } = {}) =>
+    h("div", { class: "set-row model-row", "data-model": vm.id, "data-kind": vm.kind, "data-state": vm.state }, renderRowText(h, rowParts(vm, extraDesc)), h("div", { class: "set-control" }, controls));
 
   // ---------------------------------------------------------------- 1. Language model
   const langSection = h("section", { id: "languageModelSection", "aria-labelledby": "langHead" }, h("h3", { class: "set-sub", id: "langHead", text: "Language model" }),

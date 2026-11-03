@@ -11,7 +11,7 @@ export const sizeText = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : n >= 1
 export function stateLine(vm) {
   switch (vm.state) {
     case "none": return "Not downloaded" + (vm.sizeBytes ? " (" + sizeText(vm.sizeBytes) + ")" : "");
-    case "downloading": return vm.progress != null ? "Downloading " + Math.round(vm.progress * 100) + "%" : "Downloading…";
+    case "downloading": return vm.progressNote || (vm.progress != null ? "Downloading " + Math.round(vm.progress * 100) + "%" : "Downloading…");
     case "testing": return "Testing on this device…";
     case "downloaded": return "Downloaded" + (vm.bytesOnDevice || vm.sizeBytes ? " (" + sizeText(vm.bytesOnDevice || vm.sizeBytes) + ")" : "") + " · not in memory";
     case "loading": return "Loading into memory…";
@@ -68,7 +68,8 @@ export function voiceRows(snap) {
     if (v.state === "installing") state = "downloading"; else if (v.state === "testing") state = "testing"; else if (v.state === "failed") state = "failed";
     else if (v.state === "ready") state = v.memory === "loading" ? "loading" : v.memory === "speaking" ? "busy" : v.memory === "loaded" ? "loaded" : "downloaded";
     return { id: v.id, kind: "voice", label: v.label, note: v.note, license: v.license, sizeBytes: v.size, bytesOnDevice: v.bytesOnDevice, inUse: v.selected, state,
-      progress: v.progress?.total ? v.progress.done / v.progress.total : null, error: v.error, failures: v.failures, advice: v.advice, recommended: v.recommended };
+      progress: v.progress?.total ? v.progress.done / v.progress.total : null,
+      progressNote: v.progress?.phase === "connecting" ? "Connecting to the download server…" : v.progress?.phase === "retry" ? "Connection problem, trying again" + (v.progress.attempt ? " (" + v.progress.attempt + ")" : "") + "…" : null, error: v.error, failures: v.failures, advice: v.advice, recommended: v.recommended };
   });
 }
 

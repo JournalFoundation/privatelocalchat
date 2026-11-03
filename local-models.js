@@ -66,6 +66,7 @@ function render(s) {
   $('reloadApp').hidden=!(updatePending&&idle);V.can.reload=updatePending&&idle;
   V.can.cancel=['install','repair'].includes(s.busy)||Boolean(recovery?.pending);
   if(recovery?.pending&&!s.busy)V.status+=(recovery.phase==='offline'?' · Download will continue when connected.':' · Download will continue automatically; completed files are kept.');
+  if(recovery?.pending&&String(recovery.reason||'').startsWith('repeated:'))V.status+=` · The download keeps failing (${recovery.reason.slice(10)}). The browser may have no room left to save files for this site: free some space, close other tabs, or choose a smaller model. Saved files are kept and it keeps trying.`;
   if(recovery?.pending&&!recovery.remembered)V.status+=' Keep this page open: the browser could not save the download request yet.';
   qualityAvailable=!(!env?.webgpu.available || (env.deviceMemoryGB !== null && env.deviceMemoryGB < 8) || /iPhone|iPad|iPod|Android/.test(navigator.userAgent));
   V.diagnostics=JSON.stringify({device:env,selection:s.selection,variant:s.variant,storage:s.storage,host:s.host,load:s.load,lastError:s.lastError},null,2);

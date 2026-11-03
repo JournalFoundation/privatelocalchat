@@ -4,7 +4,7 @@ const KEY='plc.downloadIntent.v1';
 // A transfer that stops moving (a dropped mobile connection that never errors) is aborted and retried; saved files are kept.
 export const STALL_MS=120000;
 export function createDownloadRecovery({host,storage=localStorage,online=()=>navigator.onLine,onState=()=>{},beforeLoad=async()=>{},schedule=setTimeout,unschedule=clearTimeout,lock=globalThis.navigator?.locks,stallMs=STALL_MS,pollMs=5000,now=()=>Date.now(),poll=(fn,ms)=>setInterval(fn,ms),unpoll=clearInterval,visible=()=>!globalThis.document?.hidden,hangMs=15000}) {
- let intent=null,timer=null,running=false,failures=0,ready=false;
+ let intent=null,timer=null,running=false,failures=0,ready=false,lastMessage='',sameCount=0;
  try{const saved=JSON.parse(storage.getItem(KEY)||'null');if(saved?.version===1&&['light','default','lfm','granite'].includes(saved.tier)&&typeof saved.id==='string')intent=saved;}catch{}
  let remembered=!!intent;
  function persist(value){try{if(value)storage.setItem(KEY,JSON.stringify(value));else storage.removeItem(KEY);remembered=value?JSON.parse(storage.getItem(KEY)||'null')?.id===value.id:storage.getItem(KEY)===null;return remembered;}catch{remembered=false;return false;}}
@@ -65,14 +65,17 @@ export function createDownloadRecovery({host,storage=localStorage,online=()=>nav
    // reconstruct the model repeatedly on subsequent page starts.
    await beforeLoad();
    if(!current())return;
-   const cleared=persist(null);intent=null;failures=0;publish('complete');
+   const cleared=persist(null);intent=null;failures=0;sameCount=0;lastMessage='';publish('complete');
    if(cleared&&requested.autoLoad!==false){publish('loading');try{await host.load();publish('ready');}catch{publish('load-failed');}}
   }catch(error){
    if(!current())return;
    if(error?.stalled){failures=0;publish('retrying',0,'stalled');later(500);return;}
    // Even quota, worker, network and unrecognized failures keep the user's intent.
    // Backoff prevents a tight loop while storage or connectivity is unavailable.
-   failures++;const delay=Math.min(60000,1000*2**Math.min(failures-1,6));publish('retrying',delay);later(delay);
+   failures++;const delay=Math.min(60000,1000*2**Math.min(failures-1,6));
+   // The same failure again and again (the browser refusing to save more, usually) is said out loud instead of retried in silence; the retries still go on.
+   const message=String(error?.message||error||'');sameCount=message&&message===lastMessage?sameCount+1:1;lastMessage=message;
+   publish('retrying',delay,sameCount>=3?'repeated: '+message:null);later(delay);
   }
  }
  async function pump(){

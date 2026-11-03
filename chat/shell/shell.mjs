@@ -5,6 +5,7 @@
 import { iconNode } from "../icons.mjs";
 import { createRegistry } from "./registry.mjs";
 import { buildModelsPage } from "./models-page.mjs";
+import { rowParts, renderRowText } from "./model-row.mjs";
 import { languageRows as langVMs, voiceRows as voiceVMs, stateLine as vmLine } from "../models-view.mjs";
 import { hybridSearch, passagesFor, defaultFilters } from "./hybrid-search.mjs";
 
@@ -35,8 +36,14 @@ export function popover(anchor, rows, { align = "start", above = false, cls = ""
     if (r.note) { pop.append(h("div", { class: "shell-pop-note " + (r.kind || ""), role: "status", text: r.note })); continue; }
     const b = h("button", { type: "button", class: "shell-pop-row" + (r.danger ? " danger" : ""), role: r.checked != null ? "menuitemradio" : "menuitem", "aria-checked": r.checked != null ? String(Boolean(r.checked)) : null, disabled: r.disabled });
     if (r.icon) b.append(h("span", { class: "shell-pop-ico" }, icon(r.icon)));
-    const text = h("span", { class: "shell-pop-text" }, h("span", { class: "shell-pop-label", text: r.label }));
-    if (r.desc) text.append(h("span", { class: "shell-pop-desc", text: r.desc }));
+    let text;
+    if (r.parts) { // a model row: drawn by the same code as the Settings row (chat/shell/model-row.mjs)
+      b.append(h("span", { class: "shell-pop-dot", "data-state": r.parts.state, "aria-hidden": "true" }));
+      text = renderRowText(h, r.parts, { box: "shell-pop-text", label: "shell-pop-label", desc: "shell-pop-desc", badge: "shell-pop-inuse" });
+    } else {
+      text = h("span", { class: "shell-pop-text" }, h("span", { class: "shell-pop-label", text: r.label }));
+      if (r.desc) text.append(h("span", { class: "shell-pop-desc", text: r.desc }));
+    }
     b.append(text);
     if (r.right) b.append(h("span", { class: "shell-pop-right" }, r.right));
     if (r.checked) b.append(h("span", { class: "shell-pop-check" }, icon("check")));
@@ -237,7 +244,10 @@ export function createShell(app) {
     const rows = [];
     if (snap.notice) rows.push({ note: snap.notice.text, kind: snap.notice.kind });
     rows.push({ heading: "Voice for reading aloud" });
-    for (const v of snap.voices) rows.push({ label: v.label, desc: voiceDescription(v), icon: "volume", checked: v.selected, keepOpen: true, onClick: () => pickVoice(v.id) });
+    for (const vm of voiceVMs(snap)) {
+      const extra = vm.kind === "system" ? [] : [vm.recommended ? "Recommended for this device" : vm.advice, vm.failures && vm.state !== "failed" ? "failed before: " + vm.failures.reason : ""];
+      rows.push({ label: vm.label, parts: rowParts(vm, extra), checked: vm.inUse, keepOpen: true, onClick: () => pickVoice(vm.id) });
+    }
     rows.push({ divider: true });
     const total = snap.totalBytes;
     rows.push({ heading: "Voices on this device: " + (total ? voiceSize(total) : "none downloaded") });
@@ -304,7 +314,7 @@ export function createShell(app) {
     const lm = window.localModels, rows = [{ heading: "On this device" }];
     // the same rows as Settings > Models, built from the same view-model (chat/models-view.mjs)
     for (const vm of lm?.state ? langVMs(lm.state, { mode: lm.mode, hide: lm.qualityAvailable === false ? ["default"] : [] }) : []) {
-      rows.push({ label: vm.label, desc: [vmLine(vm), vm.note].filter(Boolean).join(" · "), icon: "device", checked: vm.inUse, keepOpen: true, onClick: () => toggleLocal(vm.id) });
+      rows.push({ label: vm.label, parts: rowParts(vm), checked: vm.inUse, keepOpen: true, onClick: () => toggleLocal(vm.id) });
     }
     const api = $("modelSelect");
     if (api && [...api.options].some((o) => o.value)) {

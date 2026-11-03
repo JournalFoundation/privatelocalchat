@@ -6,8 +6,7 @@ the UI shows in a view object, not in page elements); the rebuilt Settings > Mod
 Other models, Memory and storage; the Voice nav item is gone and `openSettings("voice")` opens Models at the Voice section); both composer pickers and the voice
 description built from the same view-models and words; the Storage screen lists chat models and voices in the same words; the legacy model panel (the old model
 dropdown, readiness card, Download/Load/Free buttons, advanced controls, `#inferenceMode`) is DELETED from `index.html`, and the provider form sits in a card in its own
-section. Help pages and Roberta's content were updated for the new names (Unload, Details and repair). Remaining, honestly: the two composer menus are popover menus
-that share the view-model and the words but not the Settings row component; the voice rows in Settings and the menu still build their own buttons from the same VMs.
+section. Help pages and Roberta's content were updated for the new names (Unload, Details and repair). The two composer menus and Settings now draw every model row with the same code (`chat/shell/model-row.mjs`: `rowParts` and `renderRowText`): name, In use badge, state words, progress bar, state dot. Nothing in section 10 is left open except the real-device pass on a phone with a chat model loaded.
 Written after a survey of every place a model is chosen, loaded, downloaded, removed or explained.
 Scope: all model picking and model management UI (chat models, connected providers, voices, the embedding model, memory). Companion to
 `docs/MODEL-MEMORY-PLAN.md` (the memory manager, already built) and `docs/VOICE-ENGINE-PLAN.md`.
