@@ -1,7 +1,7 @@
 // Storage behaviour of the voice engine in a real browser's OPFS, with tiny fake model files (no model is loaded, so this is fast):
 //   (d) switching from one engine to the other leaves exactly one voice directory in private storage;
 //   (e) an install that hits a storage quota error leaves no partial files and reports a clear error (the browser's own QuotaExceededError).
-// The quota failure is injected through the engine's documented option `getRoot`: a thin wrapper around the real OPFS root whose writable
+// The quota failure is injected through the engine's documented option `writeStream`: a wrapper around the real worker writer whose stream
 // throws a QuotaExceededError once a byte budget is spent.
 //
 //   node tests/e2e/voice-storage.e2e.mjs
@@ -55,29 +55,18 @@ try{
 
   // (e) storage quota error during an install
   const root=await navigator.storage.getDirectory();
-  const quotaRoot=(budget)=>{
+  // The engine writes through the shared worker writer (writeStream option). Wrap it: the stream is cut with a QuotaExceededError once a byte budget is spent.
+  const {writeOpfsStream}=await import(base+'runtime/providers/opfs-stream-writer.mjs');
+  const quotaWriter=(budget)=>{
    let used=0;
-   const wrapFile=(real)=>({
-    kind:'file',name:real.name,getFile:()=>real.getFile(),
-    createWritable:async(...a)=>{
-     const w=await real.createWritable(...a);
-     return {
-      write:async(chunk)=>{used+=chunk.byteLength??chunk.length??0;if(used>budget)throw new DOMException('The quota has been exceeded.','QuotaExceededError');return w.write(chunk);},
-      close:()=>w.close(),abort:()=>w.abort(),
-     };
-    },
-   });
-   const wrapDir=(real)=>({
-    kind:'directory',name:real.name,
-    getFileHandle:async(name,opts)=>wrapFile(await real.getFileHandle(name,opts)),
-    getDirectoryHandle:async(name,opts)=>wrapDir(await real.getDirectoryHandle(name,opts)),
-    removeEntry:(name,opts)=>real.removeEntry(name,opts),
-    entries:()=>real.entries(),
-   });
-   return async()=>wrapDir(root);
+   return async(key,stream)=>{
+    const quota=new DOMException('The quota has been exceeded.','QuotaExceededError');
+    const limited=stream.pipeThrough(new TransformStream({transform(chunk,c){used+=chunk.byteLength;if(used>budget)throw quota;c.enqueue(chunk);}}));
+    try{return await writeOpfsStream(key,limited,{directory:VOICE_DIR});}catch(e){throw (used>budget?quota:e);}
+   };
   };
   const total=kitten.manifest.files.reduce((n,f)=>n+f.bytes,0);
-  const tight=make('kitten',kitten,{getRoot:quotaRoot(Math.floor(total*0.6)),attempts:3,pause:()=>Promise.resolve()});
+  const tight=make('kitten',kitten,{writeStream:quotaWriter(Math.floor(total*0.6)),attempts:3,pause:()=>Promise.resolve()});
   let error=null;
   try{await tight.install(()=>{});}catch(e){error={name:e.name,message:e.message};}
   out.quota={error,dirs:await dirs(),opfsBytes:await walkBytes(root),status:await make('kitten',kitten).status()};
