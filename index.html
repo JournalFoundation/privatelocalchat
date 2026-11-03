@@ -3186,6 +3186,7 @@
             generationStatus.textContent = err?.code === 'cancelled' ? 'The download was stopped. Your message is still here.' : 'Response stopped. The partial response has been kept.';
           } else {
             msg.status = S.FAILED;
+            if (window.localModels?.mode === 'local' && ['out-of-memory', 'load-failed'].includes(err?.class)) window.plcMemoryReady?.().then(m => m.offerFailure?.('chat', 'the chat model')).catch(() => {});
             const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
             msg.error = isAuthError(err) ? buildAuthErrorMessage(errorText) : errorText;
             generationStatus.textContent = 'The response was interrupted. ' + errorText;
@@ -4255,6 +4256,47 @@
       const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
       const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice.mjs'));
       // The voice choice (chat/voice-choice.mjs): the system voice or a downloaded one, picked from the voice pill. Development builds also honour a test hook (see the markers below).
+      // Model memory (runtime/memory-manager.mjs): one logical place that knows what is in memory. With "One model at a time" on (Settings > Models) using a model first
+      // unloads the others; with it off nothing is unloaded for another model and the app tries whatever is asked. Each model kind registers itself.
+      let memoryPromise = null, sharedEmbedderPromise = null;
+      const memoryManager = () => (memoryPromise ||= import(moduleBase() + 'runtime/memory-manager.mjs').then(async mod => {
+        const m = mod.createMemoryManager({});
+        const sync = s => { window.plcOneAtATime = s.policy === 'one-at-a-time'; };
+        m.subscribe(sync); sync(m.snapshot());
+        // what the swap is doing, in words, on the status line (never an unexplained pause)
+        let lastText = '';
+        m.subscribe(snap => {
+          const g = document.getElementById('generationStatus'); if (!g) return;
+          if (snap.activity) { lastText = snap.activity.text; g.hidden = false; g.textContent = lastText; }
+          else if (lastText) { if (g.textContent === lastText) { g.textContent = ''; if (!generationBusy) g.hidden = true; } lastText = ''; }
+        });
+        const registerChat = () => {
+          const lm = window.localModels; if (!lm) return false;
+          const tierInfo = () => lm.state?.tiers?.[lm.state.selection.tier]?.info;
+          m.register({ id: 'chat-llm', kind: 'chat', label: () => 'the chat model' + (tierInfo()?.modelId ? ' ' + tierInfo().modelId : ''),
+            state: () => { const st = lm.state?.load?.state; return st === 'ready' ? 'loaded' : st === 'loading' ? 'loading' : st === 'unloading' ? 'unloading' : st === 'faulted' ? 'faulted' : 'unloaded'; },
+            isBusy: () => lm.generating || lm.state?.load?.state === 'loading', estimateBytes: () => tierInfo()?.memory?.steadyBytes ?? null,
+            unload: () => lm.unloadForMemory() });
+          window.addEventListener('local-model-state', () => m.notify());
+          return true;
+        };
+        if (!registerChat()) { const once = () => { if (registerChat()) window.removeEventListener('local-model-state', once); }; window.addEventListener('local-model-state', once); }
+        // the offer to turn on "One model at a time" after a model fails; it never turns it on by itself
+        await import(moduleBase() + 'chat/memory-offer.mjs').then(om => {
+          const o = om.createMemoryOffer({ memory: m }); m.offerFailure = (kind, what) => o.offer(kind, what);
+          let lastErr = null;
+          window.addEventListener('local-model-state', () => { const e = window.localModels?.state?.lastError; if (e && e !== lastErr && ['out-of-memory', 'load-failed'].includes(e.class)) { lastErr = e; o.offer('chat', 'the chat model'); } });
+        }).catch(() => {});
+        return m;
+      }));
+      window.plcMemoryReady = memoryManager;
+      // One matching/embedding model for the page (Roberta and the search overlay used to start one each); it is a light resident of the memory manager.
+      const sharedEmbedder = () => (sharedEmbedderPromise ||= import(moduleBase() + 'chat/embedder.mjs').then(async mod => {
+        const e = mod.createEmbedder({}), m = await memoryManager();
+        m.register({ id: 'matching', kind: 'embedding', light: true, label: 'the matching model', state: () => ({ loading: 'loading', ready: 'loaded' }[e.state] || 'unloaded'), isBusy: () => e.state === 'loading', estimateBytes: () => 24e6, unload: async () => e.terminate() });
+        e.onState(() => m.notify());
+        return e;
+      }));
       let voiceChoicePromise = null, voiceCtl = null;
       const loadVoiceChoice = () => (voiceChoicePromise ||= (async () => {
         const mod = await import(moduleBase() + 'chat/voice-choice.mjs');
@@ -4274,10 +4316,14 @@
           const [eng, man] = await Promise.all([import(moduleBase() + 'chat/voice-engine.mjs'), import(moduleBase() + (kokoro ? 'chat/voice-manifest-kokoro.mjs' : 'chat/voice-manifest.mjs'))]);
           return eng.createVoiceEngine({ engine: id, baseUrl: kokoro ? man.KOKORO_Q8_BASE_URL : man.KITTEN_NANO_BASE_URL, workerUrl: moduleBase() + (kokoro ? 'chat/vendor/voice/worker-kokoro.js' : 'chat/vendor/voice/worker.js') });
         });
-        const ctl = mod.createVoiceChoice({ factory, env, ...(hook?.inputs || {}) });
+        const mm = await memoryManager();
+        const ctl = mod.createVoiceChoice({ factory, env, acquireMemory: () => mm.acquire('voice'), ...(hook?.inputs || {}) });
         await ctl.init();
-        // the chat model is about to take memory: give the voice's back (its files stay; it loads again when it next reads)
-        window.addEventListener('plc-chat-model-loading', () => { ctl.release('chat model'); });
+        mm.register({ id: 'voice', kind: 'voice', label: () => ctl.memoryState().label, state: () => ctl.memoryState().state, isBusy: () => ctl.memoryState().busy, estimateBytes: () => ctl.memoryState().estimateBytes, unload: () => ctl.release('memory') });
+        ctl.subscribe(() => mm.notify());
+        let lastNotice = 0;
+        const offerOnFailure = snap => { const n = snap.notice; if (n && n.kind === 'error' && n.memory && !n.stale && n.at !== lastNotice) { lastNotice = n.at; mm.offerFailure?.('voice', ctl.memoryState().label); } };
+        ctl.subscribe(offerOnFailure); setTimeout(() => offerOnFailure(ctl.snapshot()), 0); // a failure found at start (the page was killed last time) is offered too
         voiceCtl = ctl;
         return ctl;
       })().catch(() => null));
@@ -4691,7 +4737,7 @@
           try {
             const [routerMod, embedderMod, content] = await Promise.all([import(moduleBase() + 'chat/intent-router.mjs'), import(moduleBase() + 'chat/embedder.mjs'), import(moduleBase() + 'chat/ivr-content.mjs')]);
             const vectors = await (await fetch(moduleBase() + 'chat/ivr-vectors.json')).json();
-            const embedder = embedderMod.createEmbedder({});
+            const embedder = await sharedEmbedder();
             const router = routerMod.createIntentRouter({ vectors, embedder });
             embedder.ready().catch(() => {}); // the small search model loads in the background; until then words are matched by their text
             return router;
@@ -5833,7 +5879,7 @@
         openSidebar: () => openSidebar(), closeSidebar: () => closeSidebar({ restoreFocus: true }),
         moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
         setThreadView: view => { threadView = view; renderThreadList(); },
-        callOpen: () => Boolean(robertaApi?.callOpen), loadVoice: () => loadVoiceChoice(),
+        callOpen: () => Boolean(robertaApi?.callOpen), loadVoice: () => loadVoiceChoice(), loadMemory: () => memoryManager(), getEmbedder: () => sharedEmbedder(),
         async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
       };
       window.plcApp = plcApp;

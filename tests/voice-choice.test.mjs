@@ -358,3 +358,22 @@ test("a worker that cannot start because the page is out of date asks for a relo
   assert.equal(voice(s, "kitten").failures, null);
   assert.equal(asked, 3); assert.match(s.notice.text, /updated while this page was open\. Reload the page/);
 });
+
+test("the voice asks the memory manager for the device before it reads, and gives it back after", async () => {
+  const events = [];
+  const { ctl } = make({ ctl: { acquireMemory: async () => { events.push("acquire"); return { release() { events.push("release"); } }; } } });
+  await ctl.init(); await ctl.select("kitten");
+  events.length = 0;
+  await ctl.route().engine.speak("Hello.", { onChunk() {} });
+  assert.deepEqual(events, ["acquire", "release"]);
+  assert.equal(ctl.memoryState().state, "loaded"); assert.equal(ctl.memoryState().busy, false); assert.match(ctl.memoryState().label, /Kitten voice/);
+});
+
+test("a voice failure while reading, or a crash at the last start, is flagged as memory related; an out-of-date page is not", async () => {
+  const a = make(); await a.ctl.init(); await a.ctl.select("kitten");
+  a.ctl.route().engine.fail(new Error("worker stopped")); await new Promise((r) => setTimeout(r, 5));
+  assert.equal(a.ctl.snapshot().notice.memory, true);
+  const b = make({ ctl: { outdated: async () => true, onOutdated() {} } }); await b.ctl.init(); await b.ctl.select("kitten");
+  b.ctl.route().engine.fail(new Error("the voice worker failed")); await new Promise((r) => setTimeout(r, 5));
+  assert.equal(b.ctl.snapshot().notice.stale, true); assert.notEqual(b.ctl.snapshot().notice.memory, true);
+});

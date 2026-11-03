@@ -285,3 +285,14 @@ body.shell .composer-bar .shell-voicepick { margin-left: 0 !important; }
   body.shell .composer-bar .shell-model:not(.shell-voicepick) .shell-model-name { min-width: 0; }
   body.shell .composer-bar .shell-voicepick { flex: none; }
 }
+
+/* the offer to turn on "One model at a time" after a model fails (chat/memory-offer.mjs) */
+.memory-offer { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 9000; max-width: 34rem; margin: 0 auto; padding: 14px 16px; border-radius: 14px; background: var(--plc-surface, #182332); color: var(--plc-text, #fff); border: 1px solid var(--plc-border, #3a4658); box-shadow: 0 8px 28px rgba(0,0,0,.35); font: 15px/1.4 system-ui, sans-serif; }
+.memory-offer p { margin: 0 0 10px; }
+.memory-offer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.memory-offer-btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--plc-border, #3a4658); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.memory-offer-btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+/* the chat model pill uses the same dot words as the voice pill: hollow = on the device, not in memory; pulsing amber = downloading or loading; solid = in memory */
+#modelPill[data-status="idle"] .shell-model-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--plc-success); }
+#modelPill[data-status="busy"] .shell-model-dot { animation: plc-voice-pulse 1s ease-in-out infinite; }

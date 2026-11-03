@@ -36,10 +36,7 @@ function showError(error) {
   $('modelStatus').textContent = (error?.message || String(error)) + (error?.advice ? ' '+error.advice : ' Try Verify / repair or reload the model.');
   $('modelStatus').dataset.error = 'true';
 }
-let wasLoading=false;
 function render(s) {
-  if(s.load?.state==='loading'&&!wasLoading) window.dispatchEvent(new Event('plc-chat-model-loading'));
-  wasLoading=s.load?.state==='loading';
   state = s;
   if(s.device) env=s.device;
   const tier=s.selection.tier, item=s.tiers[tier], t=s.transfer;
@@ -107,11 +104,13 @@ const cpuOk=()=>Boolean(env)&&cpuBackendSupport({env,userAgent:navigator.userAge
 const isWllama=t=>t==='light'||t==='lfm'||t==='granite';
 const isSupported=s=>{const tier=s.selection.tier;return isWllama(tier)?gpuRunsLight(env)||cpuOk():!!env?.webgpu.available;};
 const onCpu=s=>isWllama(s.selection.tier)&&!gpuRunsLight(env)&&cpuOk();
+// The model memory manager (runtime/memory-manager.mjs) is created by the page; with "One model at a time" on, using the chat model first unloads the others.
+const memoryLease=async(options)=>{try{const m=await window.plcMemoryReady?.();if(m)return await m.acquire('chat-llm',options);}catch{/* the manager is optional */}return {release(){}};};
 // A downloaded model loads by itself when the app opens (or when on-device chat is chosen), so chatting just works.
 function maybeAutoLoad() {
   if(!state)return;
   const s=host.getState(), item=s.tiers[s.selection.tier];
-  if(!shouldAutoLoad({mode,alreadyTried:autoLoadTried,userFreed,supported:isSupported(s),busy:s.busy,generating:activeGeneration,installed:item.install.ok,loadState:s.load.state,downloadPending:Boolean(downloadRecovery?.state?.pending)}))return;
+  if(!shouldAutoLoad({mode,alreadyTried:autoLoadTried,userFreed:userFreed||window.plcOneAtATime===true,supported:isSupported(s),busy:s.busy,generating:activeGeneration,installed:item.install.ok,loadState:s.load.state,downloadPending:Boolean(downloadRecovery?.state?.pending)}))return;
   autoLoadTried=true;
   action(()=>host.load());
 }
@@ -166,10 +165,14 @@ window.localModels={
   get backend(){return state&&isWllama(state.selection.tier)&&onCpu(state)?'cpu':'gpu';},
   get canPrepare(){return env&&state?Boolean(preparer.choice().tier):undefined;},
   prepareInfo(){return preparer.info();},
-  async ensureReady(options){await initFinished;userFreed=false;return preparer.ensureReady(options);},
+  async ensureReady(options){await initFinished;userFreed=false;const lease=await memoryLease({signal:options?.signal});try{return await preparer.ensureReady(options);}finally{lease.release();}},
   async switchTier(tier){await initFinished;return preparer.switchTier(tier);},
   cancelDownload(){downloadRecovery.cancel();},
   get gpuHelp(){return env&&state?explainGpu(env,{tier:state.selection.tier}):null;},
+  /** For the memory manager: is the chat model working right now, and unload it without the "person freed it" flag, so it loads again when it is next used. */
+  get generating(){return activeGeneration;},
+  get busy(){return activeGeneration||Boolean(state?.busy);},
+  async unloadForMemory(){if(activeGeneration)throw new Error('The chat model is writing a reply.');await host.unload();await host.inspect();},
   async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');userFreed=true;await host.unload();await host.inspect();},
   /** Check the downloaded files of every model (storage screen, so each can be removed). Tiers are checked one after another. */
   async inspectAll(){await initFinished;for(const tier of Object.keys(host.getState().tiers)){try{await host.inspect(tier);}catch{/* recorded in the state */}}return host.getState();},
@@ -197,7 +200,7 @@ try {const draft=sessionStorage.getItem('plc.draft');if(draft){document.querySel
 $('inferenceMode').addEventListener('change',()=>{mode=$('inferenceMode').value;applyMode();});
 $('localModelSelect').addEventListener('change',()=>action(()=>host.selectTier($('localModelSelect').value,{confirmed:true})));
 $('downloadModel').addEventListener('click',()=>action(()=>downloadRecovery.start(host.getState().selection.tier)));
-$('loadModel').addEventListener('click',()=>action(()=>host.load()));
+$('loadModel').addEventListener('click',()=>action(async()=>{const lease=await memoryLease();try{return await host.load();}finally{lease.release();}}));
 $('copyDiagnostics').addEventListener('click',async()=>{const text=$('modelDiagnostics').textContent;try{await navigator.clipboard.writeText(text);$('copyDiagnostics').textContent='Copied';}catch{window.prompt('Copy these device details:',text);}setTimeout(()=>{$('copyDiagnostics').textContent='Copy device details';},2000);});
 $('setupPrivateChat').addEventListener('click',()=>action(()=>window.localModels.ensureReady()));
 $('freeMemory').addEventListener('click',()=>action(()=>window.localModels.freeMemory()));

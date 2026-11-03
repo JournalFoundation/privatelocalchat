@@ -1,6 +1,47 @@
 # Model memory management: plan
 
-Status: PLAN ONLY, nothing below is built yet. Written 2026-11-02 after a survey of the code.
+Status: BUILT 2026-11-02 (decisions below were accepted by the owner). Written after a survey of the code.
+
+## Decisions (owner, 2026-11-02)
+
+- Name: **One model at a time**. Default **off**. The same everywhere: chats, voice calls, everything.
+- Exactly two behaviours, no third: **off** = the app tries whatever the person asks, even if it is too much for the device, and keeps saying what is
+  happening (and why, if it fails). **On** = every other model is unloaded before one is used. There is **no smart / automatic / predictive mode**.
+- The 60 s idle unload of a voice (built earlier the same day) stays: it is a plain timeout, like the matching model's 120 s one, not a guess.
+  Unloading the voice because the chat model started loading was removed; that is now only what the switch does.
+- The search overlay and Roberta share one matching-model instance.
+- The small matching model is a **light** resident: it is unloaded for a heavy model, but never makes a heavy one unload for it (otherwise every spoken
+  sentence in a call would reload the chat model).
+
+## What was built
+
+- `runtime/memory-manager.mjs` (+ `tests/memory-manager.test.mjs`): registry of residents, `acquire` / lease, policy, `snapshot` / `subscribe`.
+- Adapters in `index.html` (`memoryManager()`): chat model (`local-models.js`: `unloadForMemory`, `generating`; `ensureReady` and the Load button hold a
+  lease; auto-load is skipped while the switch is on), voice (`acquireMemory` in `chat/voice-choice.mjs`, `memoryState()`), matching model
+  (`sharedEmbedder()`, used by Roberta and the search overlay).
+- Settings > Models > **Memory** card (`chat/shell/shell.mjs`): the switch, every model with its state, Unload, Unload all.
+- Status line wording while models swap ("Unloading X to make room for Y…", "Waiting for X to finish…").
+- Same dot words on the chat model pill (`chat/shell.css`).
+- `chat/memory-offer.mjs`: the offer after a failure (chat model out-of-memory / load-failed, a voice that failed to start or read, a page killed
+  mid-load). Once per kind per page, not when the switch is on, never after "Don't ask again". Out-of-date-page failures do not trigger it.
+- Tests: `tests/memory-manager.test.mjs`, `tests/memory-offer.test.mjs`, `tests/e2e/memory.e2e.mjs`, new cases in `tests/voice-choice.test.mjs`.
+- Storage key `plc.memory.v1` `{policy, offerDeclined}`.
+
+## Not done yet
+
+- Real-device measurement of swap latency (iPhone 15 Pro: unload and reload of the chat model next to a voice).
+- Image generation and OCR do not exist; they join by registering a resident (see "Adding a model kind").
+- Unloading when a chat reply starts generating is covered only through `ensureReady` (the model loads when needed); a voice already in memory is
+  unloaded at that point only while the switch is on.
+
+## Adding a model kind
+
+Register a resident with `memoryManager().register({ id, kind, label, state(), isBusy(), unload(), estimateBytes?(), light? })` and call
+`acquire(id)` before the model works, `lease.release()` after. Keep your own loading, progress and error handling; the manager never loads anything.
+
+---
+
+(The original plan follows. Where it differs from the decisions above, the decisions win.)
 
 ## Why
 
@@ -120,6 +161,5 @@ with **Turn on**, **Not now**, **Don't ask again**. It never turns itself on, ne
 2. **Default**: off everywhere, or on by default for devices the app already knows are small (iPhone, low-memory Android)? Recommendation: off, but
    the failure offer is the path in.
 3. **Voice calls**: allow the setting during calls as is (slow turns), or exempt calls and say so?
-4. **Later, a smarter mode**: an "Automatic" policy that uses `estimateBytes` and the device memory to unload only when the models would not fit
-   together. Recommendation: build the manager so it is possible, ship "keep" and "one at a time" first.
+4. ~~A smarter mode~~: rejected by the owner. Two behaviours only.
 5. **Search embedding**: it does not share the Roberta embedder (two instances, two workers). Recommendation: make the manager's embedding resident a single shared instance that both callers use, a small change done in build step 2.

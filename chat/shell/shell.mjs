@@ -411,6 +411,27 @@ function buildSettings({ app, shell, registry, moved }) {
     }
     w.paint = paint; w.addEventListener("shell-refresh", () => paint());
     window.addEventListener("local-model-state", () => { if (!page.hidden && page.dataset.section === "models") paint(false); });
+    // Memory: one switch, and what is in memory right now (the model memory manager lists every kind of model the same way)
+    const memCard = h("div", { class: "set-card", id: "memoryCard" });
+    w.append(h("h3", { class: "set-sub", text: "Memory" }), memCard);
+    const MEM_WORDS = { unloaded: "Not in memory", loading: "Loading…", loaded: "In memory", unloading: "Unloading…", faulted: "Needs attention" };
+    let mm = null;
+    function paintMemory(snap) {
+      memCard.textContent = "";
+      const box = h("input", { type: "checkbox", id: "oneAtATime", "aria-label": "One model at a time" });
+      box.checked = snap.policy === "one-at-a-time";
+      box.addEventListener("change", () => mm.setPolicy(box.checked ? "one-at-a-time" : "keep"));
+      memCard.append(row("One model at a time", "Free the other models from memory whenever one is in use, so it gets the whole device. Replies and reading start a little later because models load again when they are needed. Off: the app tries whatever you ask, even if the device runs short, and tells you what is happening.", box));
+      if (snap.activity) memCard.append(h("div", { class: "set-note", role: "status", text: snap.activity.text }));
+      for (const r of snap.residents) {
+        const controls = h("div", { class: "set-control" });
+        if ((r.state === "loaded" || r.state === "faulted") && !r.busy) controls.append(btn("Unload", () => mm.unload(r.id)));
+        const size = r.estimateBytes ? " · about " + (r.estimateBytes >= 1e9 ? (r.estimateBytes / 1e9).toFixed(1) + " GB" : Math.round(r.estimateBytes / 1e6) + " MB") : "";
+        memCard.append(row(r.label.charAt(0).toUpperCase() + r.label.slice(1), (r.busy && r.state === "loaded" ? "Working now" : MEM_WORDS[r.state] || r.state) + size, controls));
+      }
+      if (snap.residents.some((r) => (r.state === "loaded" || r.state === "faulted") && !r.busy)) memCard.append(row("Free all memory", "Unload every model that is not working right now. Downloads are kept.", btn("Unload all", () => mm.unloadAll())));
+    }
+    (async () => { mm = await app.loadMemory?.(); if (!mm) return; const off = mm.subscribe((s) => { if (memCard.isConnected) paintMemory(s); else off(); }); paintMemory(mm.snapshot()); })();
     w.append(h("h3", { class: "set-sub", text: "Choose and download" }), moved.providerSettings); return w;
   });
   add("voice", "Voice", "phone", "voice read aloud listen speak natural download sample system tts kokoro kitten", () => {
@@ -544,7 +565,7 @@ function buildSearch({ app }) {
   async function ensureEmbedder() {
     if (embedder || embedderFailed) return embedder;
     try {
-      const mod = await import(app.moduleBase() + "chat/embedder.mjs"); embedder = mod.createEmbedder({});
+      embedder = await app.getEmbedder();
       embedder.onState?.(() => { setStatus(); });
       embedder.ready().then(buildIndex).catch((e) => { embedderFailed = e?.message || "unavailable"; setStatus(); });
     } catch (e) { embedderFailed = e?.message || "unavailable"; }

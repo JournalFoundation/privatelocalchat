@@ -12,6 +12,8 @@ import { createGaplessPlayer } from "./voice-player.mjs";
 
 export const CHOICE_KEY = "plc.voice.v2";
 const OLD_KEY = "plc.voice.v1";
+// measured peak extra memory on a desktop (docs/VOICE-MEMORY.md); phones have not been measured
+const MEMORY_ESTIMATE = Object.freeze({ kitten: 250e6, kokoro: 420e6 });
 export const SAMPLE_TEXT = "This is how I will read your answers aloud.";
 const TYPICAL_REPLY_SECONDS = 20;
 
@@ -43,6 +45,7 @@ export function createVoiceChoice({
     if (!commit || typeof fetch !== "function") return false;
     try { const r = await fetch("/version.json", { cache: "no-store" }); const v = r.ok ? await r.json() : null; return Boolean(v?.commit && v.commit !== commit); } catch { return false; }
   },
+  acquireMemory = async () => ({ release() {} }),   // () -> lease: asks the model memory manager for the device before the voice works ("One model at a time")
   idleUnloadMs = 60000,                       // a loaded voice that has not read for this long is unloaded (its files stay on the device)
   setTimer = (f, ms) => setTimeout(f, ms), clearTimer = (t) => clearTimeout(t),
   onOutdated = () => { try { globalThis.dispatchEvent?.(new Event("plc-check-update")); } catch { /* no window */ } },
@@ -73,7 +76,7 @@ export function createVoiceChoice({
   function save() { try { storage.setItem(CHOICE_KEY, JSON.stringify(record)); } catch { /* private mode: the choice lasts this page only */ } }
   function emit() { for (const f of listeners) { try { f(ctl.snapshot()); } catch { /* a listener must not break the flow */ } } }
   const setStatus = (id, patch) => { Object.assign(status[id], patch); emit(); };
-  const say = (kind, text) => { notice = { kind, text, at: now() }; emit(); };
+  const say = (kind, text, extra = {}) => { notice = { kind, text, at: now(), ...extra }; emit(); };
   async function engineFor(id) { if (!engines.has(id)) engines.set(id, await factory(id)); return engines.get(id); }
   async function removeFiles(id) { try { await (await engineFor(id)).remove(); return true; } catch { return false; } }
   const noteFailure = (id, reason) => { const f = record.failures[id]; record.failures[id] = { count: (f?.count || 0) + 1, reason: String(reason).slice(0, 240), at: now() }; save(); };
@@ -103,7 +106,7 @@ export function createVoiceChoice({
         const { id } = record.pending; record.pending = null;
         await removeFiles(id);
         noteFailure(id, "The page ended while this voice was being set up (the browser may have run out of memory).");
-        say("error", voiceOf(id).label + " could not be set up: the page ended while it was downloading. It may need more memory than this device has free. You can try again.");
+        say("error", voiceOf(id).label + " could not be set up: the page ended while it was downloading. It may need more memory than this device has free. You can try again.", { memory: true });
       }
       let crashed = null;
       if (record.speaking) { crashed = record.speaking.id; record.speaking = null; }
@@ -113,7 +116,7 @@ export function createVoiceChoice({
       if (crashed && status[crashed]?.state === "ready") {
         noteFailure(crashed, "The page ended while reading with this voice (the browser may have run out of memory).");
         if (record.selected === crashed) record.selected = "os";
-        say("error", voiceOf(crashed).label + " was in use when the page ended, so reading went back to the system voice. The voice is still downloaded; choose it again to retry.");
+        say("error", voiceOf(crashed).label + " was in use when the page ended, so reading went back to the system voice. The voice is still downloaded; choose it again to retry.", { memory: true });
       }
       if (record.selected !== "os" && status[record.selected]?.state !== "ready") record.selected = "os";
       save(); ready = true; emit();
@@ -169,6 +172,12 @@ export function createVoiceChoice({
       return { released: jobs.length, reason };
     },
     unload(id) { return ctl.release("person").then((r) => r); },
+    /** For the memory manager: which voice is in memory (if any), its state and whether it is working. */
+    memoryState() {
+      const id = ENGINE_IDS.find((e) => mem[e] !== "unloaded") || (record.selected !== "os" ? record.selected : ENGINE_IDS[0]);
+      const state = mem[id] === "speaking" ? "loaded" : mem[id] === "unloading" ? "unloading" : mem[id] || "unloaded";
+      return { id, state, label: "the " + voiceOf(id).label + " voice", busy: (speakingNow.get(id) || 0) > 0 || mem[id] === "loading", estimateBytes: MEMORY_ESTIMATE[id] ?? null };
+    },
 
     /** Stop a download that is running. Nothing is kept and it is not counted as a failure. */
     cancel(id) { aborts.get(id)?.abort(); },
@@ -192,9 +201,11 @@ export function createVoiceChoice({
       if (idleTimer) { clearTimer(idleTimer); idleTimer = null; }
       speakingNow.set(id, (speakingNow.get(id) || 0) + 1);
       if (mem[id] === "unloaded") setMem(id, "loading");
+      let lease = { release() {} };
+      try { lease = await acquireMemory(); } catch (err) { setMem(id, "unloaded"); afterSpeak(id); throw err; }
       try { await e.speak(SAMPLE_TEXT, { onChunk: (s, r) => { if (mem[id] !== "speaking") setMem(id, "speaking"); p.push(s, r); }, speed: 1 }); }
       catch (err) { setMem(id, "unloaded"); throw err; }
-      finally { afterSpeak(id); }
+      finally { lease.release(); afterSpeak(id); }
       await p.finish();
       return true;
     },
@@ -236,6 +247,8 @@ export function createVoiceChoice({
         if (idleTimer) { clearTimer(idleTimer); idleTimer = null; }
         speakingNow.set(id, (speakingNow.get(id) || 0) + 1);
         if (mem[id] !== "loaded" && mem[id] !== "speaking") setMem(id, "loading");
+        let lease = { release() {} };
+        try { lease = await acquireMemory(); } catch (e) { setMem(id, "unloaded"); markSpeaking(id, false); afterSpeak(id); throw e; }
         const onChunk = o?.onChunk; const opts = onChunk ? { ...o, onChunk: (...a) => { if (mem[id] !== "speaking") setMem(id, "speaking"); return onChunk(...a); } } : o;
         try {
           const r = await engine.speak(t, opts);
@@ -248,7 +261,7 @@ export function createVoiceChoice({
           }
           return r;
         } catch (e) { setMem(id, "unloaded"); throw e; }
-        finally { markSpeaking(id, false); afterSpeak(id); }
+        finally { lease.release(); markSpeaking(id, false); afterSpeak(id); }
       };
       return {
         engine: { speak, terminate: () => engine.terminate?.(), fail: (err) => ctl.engineFailed(err) },
@@ -267,13 +280,13 @@ export function createVoiceChoice({
       Promise.resolve().then(outdated).catch(() => false).then((stale) => {
         if (stale) {
           sessionFallback = false; onOutdated();
-          say("error", voiceOf(id).label + " could not start because the app was updated while this page was open. Reload the page and it will work; the voice is still downloaded. This reply was read by the system voice.");
+          say("error", voiceOf(id).label + " could not start because the app was updated while this page was open. Reload the page and it will work; the voice is still downloaded. This reply was read by the system voice.", { stale: true });
           return;
         }
         failStreak++;
         noteFailure(id, "while reading: " + reason);
-        if (failStreak >= 2) { record.selected = "os"; save(); say("error", voiceOf(id).label + " failed twice (" + reason + "), so reading went back to the system voice. Choose it again to retry."); }
-        else say("error", voiceOf(id).label + " could not read that (" + reason + "). The system voice read it instead.");
+        if (failStreak >= 2) { record.selected = "os"; save(); say("error", voiceOf(id).label + " failed twice (" + reason + "), so reading went back to the system voice. Choose it again to retry.", { memory: true }); }
+        else say("error", voiceOf(id).label + " could not read that (" + reason + "). The system voice read it instead.", { memory: true });
       });
     },
   };
@@ -282,6 +295,7 @@ export function createVoiceChoice({
     const ac = new AbortController(); aborts.set(id, ac);
     record.pending = { id, at: now() }; save();
     const plain = (e) => String(e?.message || e);
+    let stage = "download";
     try {
       const engine = await engineFor(id);
       setStatus(id, { state: "installing", progress: { done: 0, total: voiceOf(id).bytes, phase: "connecting" }, error: null });
@@ -290,7 +304,7 @@ export function createVoiceChoice({
         const o = a && typeof a === "object";
         setStatus(id, { progress: { done: o ? a.overallLoaded : a, total: o ? a.overallTotal : b, phase: o ? a.phase || null : null, attempt: o ? a.retryAttempt || null : null } });
       }, { signal: ac.signal });
-      setStatus(id, { state: "testing", progress: null });
+      stage = "test"; setStatus(id, { state: "testing", progress: null });
       // the self-test cannot wait for ever: with no sound inside the limit the worker is stopped and the setup fails with that reason
       const chunks = []; let timer;
       const metrics = await Promise.race([
@@ -312,7 +326,7 @@ export function createVoiceChoice({
       status[id] = { state: "failed", progress: null, bytes: 0, error: plain(err), metrics: null };
       let stale = false; try { stale = await outdated(); } catch { /* ignore */ }
       if (stale) onOutdated();
-      say("error", voiceOf(id).label + " could not be set up: " + plain(err) + ". Nothing was kept. " + (stale ? "The app was updated while this page was open: reload the page, then try again." : "You can try again."));
+      say("error", voiceOf(id).label + " could not be set up: " + plain(err) + ". Nothing was kept. " + (stale ? "The app was updated while this page was open: reload the page, then try again." : "You can try again."), { stale, memory: stage === "test" && !stale });
       return { ok: false, reason: plain(err), outdated: stale };
     } finally { aborts.delete(id); }
   }
