@@ -9,6 +9,8 @@ import { languageRows, voiceRows, otherRows, stateLine, toggleAction, ACTION_LAB
 export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHint }) {
   const $ = (id) => document.getElementById(id);
   const lm = () => window.localModels;
+  // the page's own confirmation dialog (index.html), never the browser's
+  const ask = (title, message, label) => (window.plcDialogs ? window.plcDialogs.confirm(title, message, label, { danger: true }) : Promise.resolve(false));
   const w = h("div", { class: "set-models" }, h("h2", { text: "Models" }));
 
   // The provider form (its element ids are used by the page's API code) moves into its own section below.
@@ -41,7 +43,7 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
     h("div", { class: "set-actions" },
       btn("Restart model engine", () => lm()?.restartEngine()),
       btn("Verify / repair", () => lm()?.repair()),
-      btn("Remove this download", () => { if (confirm("Remove this downloaded model? Your conversations will be kept.")) lm()?.removeSelected(); }, "danger"),
+      btn("Remove this download", async () => { if (await ask("Remove this download?", "Your conversations will be kept. You can download the model again later.", "Remove")) lm()?.removeSelected(); }, "danger"),
       copyBtn),
     diag,
     h("p", { class: "hint-text" }, "Trouble? ", h("a", { href: "/help/#stalled-download", target: "_blank", rel: "noopener", text: "Download stuck" }), " · ", h("a", { href: "/help/#load-failure", target: "_blank", rel: "noopener", text: "Load failure" })));
@@ -56,7 +58,7 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
       if (run) controls.push(btn(ACTION_LABEL[act], run, act === "unload" || act === "cancel" ? "" : "primary"));
     }
     if (!vm.inUse && vm.installed && canRun) controls.push(btn("Use", () => { L.setMode("local"); L.selectTier(vm.id); }));
-    if (vm.bytesOnDevice > 0 && vm.state !== "downloading") controls.push(btn("Remove", async () => { if (!confirm("Remove " + vm.label + " from this device? Your chats are kept. You can download it again later.")) return; try { await L.removeTier(vm.id); await L.inspectAll(); } catch (e) { app.toast?.(e.message); } paintLanguage(); }, "danger"));
+    if (vm.bytesOnDevice > 0 && vm.state !== "downloading") controls.push(btn("Remove", async () => { if (!await ask("Remove " + vm.label + "?", "It is deleted from this device. Your chats are kept, and you can download it again later.", "Remove")) return; try { await L.removeTier(vm.id); await L.inspectAll(); } catch (e) { app.toast?.(e.message); } paintLanguage(); }, "danger"));
     return controls;
   }
   function paintLanguage() {
@@ -110,7 +112,7 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
         if (!vm.inUse && (vm.state === "downloaded" || vm.state === "loaded" || vm.state === "busy")) controls.push(btn("Use", () => vctl.select(vm.id)));
         if (vm.state === "downloaded" || vm.state === "loaded" || vm.state === "busy") {
           controls.push(btn("Hear a sample", () => vctl.hearSample(vm.id).catch((e) => app.toast?.(e.message))));
-          controls.push(btn("Remove", () => { if (confirm("Remove " + vm.label + " from this device? Reading aloud goes back to the system voice if it was in use. You can download it again any time.")) vctl.remove(vm.id); }, "danger"));
+          controls.push(btn("Remove", async () => { if (await ask("Remove " + vm.label + "?", "It is deleted from this device. Reading aloud goes back to the system voice if it was in use. You can download it again any time.", "Remove")) vctl.remove(vm.id); }, "danger"));
         }
       }
       const extra = vm.kind === "system" ? [] : [vm.recommended ? "Recommended for this device" : vm.advice, vm.failures && vm.state !== "failed" ? "failed before: " + vm.failures.reason : ""];

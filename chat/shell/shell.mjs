@@ -98,7 +98,7 @@ async function chooseVoice(ctl, id, toast, { toggle = false } = {}) {
   let r = await (toggle ? ctl.toggle(id) : ctl.select(id));
   if (r.needsConfirm) {
     const v = ctl.voices.find((x) => x.id === id);
-    if (!confirm(v.label + " already failed on this device:\n\n" + r.reason + "\n\nTry again?")) return r;
+    if (!(await window.plcDialogs?.confirm(v.label + " failed before", "It already failed on this device:\n\n" + r.reason + "\n\nTry again?", "Try again"))) return r;
     r = await (toggle ? ctl.toggle(id, { confirmed: true }) : ctl.select(id, { confirmed: true }));
   }
   if (r.busy) toast?.("A voice is being downloaded already. You can cancel it from the voice menu.");
@@ -253,7 +253,7 @@ export function createShell(app) {
     rows.push({ heading: "Voices on this device: " + (total ? voiceSize(total) : "none downloaded") });
     for (const v of snap.voices) {
       if (v.state === "installing" || v.state === "testing") rows.push({ label: "Cancel " + v.label + " download", icon: "close", onClick: () => voiceCtl.cancel(v.id) });
-      else if (v.id !== "os" && v.state === "ready") rows.push({ label: "Remove " + v.label + " (" + voiceSize(v.bytesOnDevice || v.size) + ")", icon: "trash", danger: true, onClick: () => { if (confirm("Remove " + v.label + " from this device? Reading aloud goes back to the system voice if it was selected. You can download it again any time.")) voiceCtl.remove(v.id); } });
+      else if (v.id !== "os" && v.state === "ready") rows.push({ label: "Remove " + v.label + " (" + voiceSize(v.bytesOnDevice || v.size) + ")", icon: "trash", danger: true, onClick: async () => { if (await window.plcDialogs?.confirm("Remove " + v.label + "?", "It is deleted from this device. Reading aloud goes back to the system voice if it was selected. You can download it again any time.", "Remove", { danger: true })) voiceCtl.remove(v.id); } });
     }
     const sel = snap.voices.find((v) => v.selected);
     const inMemory = snap.voices.filter((v) => v.memory === "loaded" || v.memory === "speaking" || v.memory === "loading");

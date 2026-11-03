@@ -18,7 +18,9 @@ const mocks=()=>{
  window.__plcVoiceEngineFactory=factory;
 };
 const h=await launch({init:mocks,port:19401,storage:{'plc.test.voice':'1'}});const {page}=h;
-let confirms=[];page.on('dialog',d=>{confirms.push(d.message());d.accept();});
+let confirms=[]; // the page's own confirmation dialogs (never the browser's): what each said
+const answer=async label=>{await page.waitForSelector('.app-dialog');confirms.push(await page.locator('.app-dialog').innerText());await page.locator('.app-dialog button',{hasText:label}).last().click();await page.waitForSelector('.app-dialog',{state:'detached'});};
+page.on('dialog',d=>{console.error('NATIVE DIALOG (not allowed):',d.message());d.dismiss();process.exitCode=1;});
 const ok=n=>console.log('PASS',n);
 const pill=()=>page.locator('#voicePill');
 const open=async()=>{await pill().click();await page.waitForSelector('.shell-pop');};
@@ -92,10 +94,11 @@ try{
  assert(/Failed: Connection timed out\. Tap to try again\./.test(await rowText('Kokoro')),'Kokoro says why it failed: '+await rowText('Kokoro'));
  confirms=[];
  await vrow('Kokoro').click();
+ await answer('Try again');
  await page.waitForFunction(()=>window.__fake.calls.filter(c=>c==='install:kokoro').length===2,null,{timeout:8000});
- assert(confirms.length===1&&/already failed/.test(confirms[0]),'trying again asked once: '+confirms[0]);
+ assert(confirms.length===1&&/already failed/.test(confirms[0]),'trying again asked once, in the page\'s own dialog: '+confirms[0]);
  ok('after a failure the next try asks once, then goes ahead');
- for(let i=0;i<3;i++){await page.waitForTimeout(700);await open();await vrow('Kokoro').click();await page.waitForTimeout(100);}
+ for(let i=0;i<3;i++){await page.waitForTimeout(700);await open();await vrow('Kokoro').click();await answer('Try again');await page.waitForTimeout(100);}
  assert(await page.evaluate(()=>window.__fake.calls.filter(c=>c==='install:kokoro').length)>=4,'there is no limit on tries');
  ok('there is no limit on tries');
 
@@ -110,6 +113,7 @@ try{
  await open();
  assert(/Voices on this device: 124 MB/.test(await page.locator('.shell-pop-heading',{hasText:'Voices on this device'}).textContent()),'the menu shows the total on the device');
  await page.locator('.shell-pop-row',{hasText:'Remove Kokoro'}).click();
+ await answer('Remove');
  await page.waitForFunction(()=>window.__fake.files.kokoro===false&&/Kitten|System/.test(document.querySelector('#voicePill').textContent));
  assert((await pill().textContent()).includes('System'),'removing the selected voice returns to the system voice');
  assert(await page.evaluate(()=>window.__fake.files.kitten===true),'the other downloaded voice is untouched');

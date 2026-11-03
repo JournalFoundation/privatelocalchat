@@ -52,7 +52,7 @@ export async function startDiagnostics(){
  $('debugDisk').addEventListener('change',applySettings);
  $('debugSend').onclick=async()=>{applySettings();await refreshContentPolicy();await captureSnapshot();t.flush({force:true});};
  $('debugExport').onclick=async()=>{const data=await t.export();const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='private-local-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
- $('debugClear').onclick=async()=>{if(confirm('Clear saved diagnostic events? Your chats and models will be kept.')){await t.clear();update();}};
+ $('debugClear').onclick=async()=>{if(await window.plcDialogs.confirm('Clear saved diagnostic events?','Your chats and models will be kept.','Clear',{danger:true})){await t.clear();update();}};
  for(const event of ['online','offline','pageshow','pagehide'])window.addEventListener(event,()=>{record(event,{online:navigator.onLine,visibility:document.visibilityState});if(event==='online'){refreshContentPolicy();t.flush();}});
  document.addEventListener('visibilitychange',()=>record('visibility',{visibility:document.visibilityState}));
  window.addEventListener('error',event=>{let source='';try{source=new URL(event.filename).pathname;}catch{}record('page-error',{errorName:event.error?.name||'Error',source,line:event.lineno,column:event.colno});});

@@ -39,6 +39,8 @@ There is no linter. Commits must be Conventional Commits with body lines ≤100 
 
 ## Constraints
 
+- Never use the browser's `confirm`, `alert` or `prompt`: ask with `window.plcDialogs.confirm(title, message, label, { danger })`, tell with `.alert(...)`, and offer text that could not be copied with `.copyText(title, text)`. `tests/no-native-dialogs.test.mjs` enforces it.
+
 - Never commit credentials, browser profiles, or user conversations; diagnostics must not capture prompts/replies/API keys.
 - No references to the project the runtime was originally sourced from may appear in code, UI, docs, or public metadata.
 - Browser tests on this box use dedicated profiles on `/media/Vivarium/…`; don't clear unrelated browser storage.

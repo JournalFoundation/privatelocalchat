@@ -730,3 +730,7 @@ label.list-row > input[type='checkbox'], .app-dialog label.list-row > input[type
 .call-notice { margin: 0.3rem 0 0; padding: 0.45rem 0.7rem; border-radius: 0.7rem; background: rgba(255, 107, 107, 0.16); border: 1px solid rgba(255, 107, 107, 0.45); color: #ffd3d3; font-size: 0.85rem; line-height: 1.35; }
 .call-notice[hidden] { display: none; }
 @media (max-width: 899px) { .call-avatar { margin: 0.4rem 0; } .call-log { max-height: 30vh; } }
+
+/* a confirmation that deletes something: a red button with white text, not red text on the blue primary button */
+.app-dialog .dialog-actions button.primary.danger, .app-dialog .dialog-actions button.danger.primary { background: var(--color-danger, #c9262f); border-color: var(--color-danger, #c9262f); color: #fff; }
+.app-dialog .dialog-actions button.primary.danger:hover { filter: brightness(0.92); }

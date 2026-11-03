@@ -177,7 +177,7 @@ window.localModels={
   repair(){downloadRecovery.cancel();return action(()=>host.repair());},
   removeSelected(){downloadRecovery.cancel();return action(()=>host.remove(undefined,{confirmed:true}));},
   persist(){return action(()=>host.requestPersist());},
-  async copyDetails(){const text=V.diagnostics;try{await navigator.clipboard.writeText(text);return true;}catch{window.prompt('Copy these device details:',text);return false;}},
+  async copyDetails(){const text=V.diagnostics;try{await navigator.clipboard.writeText(text);return true;}catch{window.plcDialogs?.copyText('Copy your device details',text);return false;}},
   reloadApp(){$('reloadApp').click();},
   async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');userFreed=true;await host.unload();await host.inspect();},
   /** Check the downloaded files of every model (storage screen, so each can be removed). Tiers are checked one after another. */
