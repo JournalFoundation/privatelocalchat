@@ -350,10 +350,24 @@ function buildSettings({ app, shell, registry, moved }) {
       box.textContent = "";
       const ctl = await app.loadVoice?.();
       if (!ctl) { box.append(row("Current voice", "System voice (the one your device provides).", null)); return; }
-      if (ctl.isIOS()) { box.append(row("Current voice", "System voice. iPhone and iPad always use the system voice: a downloaded voice would not fit in the memory the browser allows beside the chat model.", null)); return; }
       const snap = ctl.snapshot(), has = Boolean(snap.engine) && snap.state === "active";
       if (!has) {
-        box.append(row("Current voice", "System voice (the one your device provides)." + (snap.state === "fallback" ? " A downloaded voice was tried and removed: " + (snap.reason || "it did not work well here") + "." : " If this device can run a more natural voice, it is offered once after you listen to a reply."), null));
+        // Not using a downloaded voice. Say what is used, why a downloaded one is not, and let the person try: every remembered refusal is set aside by the button.
+        const why = snap.state === "fallback" ? " A downloaded voice was tried and removed: " + (snap.reason || "it did not work well here") + "." : "";
+        const iosNote = ctl.isIOS() ? (ctl.iosOptedIn()
+          ? " Experimental on iPhone and iPad: a downloaded voice may use more memory than Safari allows. The app checks your device, removes the voice again if it does not work, and the system voice always stays available."
+          : " iPhone and iPad use the system voice unless you choose to try a downloaded one (experimental: Safari limits memory per page, so it may not fit beside the chat model).") : "";
+        const status = h("div", { class: "set-note", id: "voiceTryStatus", role: "status" });
+        const tryBtn = btn("Try a more natural voice", async () => {
+          tryBtn.disabled = true; status.textContent = "Checking this device…";
+          try {
+            const r = await ctl.tryNow();
+            if (r.offered) { status.textContent = ""; await app.showVoiceOffer?.(box); }
+            else { const { explainDecision } = await import("../voice-upgrade.mjs"); status.textContent = r.decision?.reason === "busy" ? "A voice is being set up already." : explainDecision(r.decision?.reason) + " The system voice stays."; }
+          } catch (e) { status.textContent = "The check could not run: " + (e?.message || e); }
+          tryBtn.disabled = false;
+        });
+        box.append(row("Current voice", "System voice (the one your device provides)." + why + " A more natural voice (27 to 97 MB, English, works offline) can be downloaded after the device passes a quick check; nothing downloads until you tap Try it." + iosNote, tryBtn), status);
         return;
       }
       const bytes = await ctl.bytes();

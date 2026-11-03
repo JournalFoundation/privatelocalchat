@@ -65,7 +65,10 @@ test("missing measurement modules mean no offer", async () => {
 test("a slow probe or too little storage gives no offer", async () => {
   let { ctl } = make({ modules: { "voice-probe.mjs": { runVoiceProbe: async () => ({ ms: VOICE_CONFIG.probeMaxMs * 5 }) } } });
   assert.equal(await ctl.afterSystemSpeak(), false);
-  ({ ctl } = make({ ctl: { estimate: async () => ({ usage: 0, quota: 1e7 }) } }));
+  // the real write test is what decides now; the estimate alone is never trusted
+  ({ ctl } = make({ modules: { "storage-check.mjs": { checkStorage: async () => ({ usage: 0, quota: 1e7, writeOk: true }) } } }));
+  assert.equal(await ctl.afterSystemSpeak(), false);
+  ({ ctl } = make({ modules: { "storage-check.mjs": { checkStorage: async () => ({ usage: 0, quota: 5e10, writeOk: false }) } } }));
   assert.equal(await ctl.afterSystemSpeak(), false);
 });
 
@@ -119,7 +122,10 @@ test("an engine that errors during install or test is removed", async () => {
     await ctl.afterSystemSpeak();
     const r = await ctl.accept();
     assert.equal(r.ok, false);
-    assert.equal(ctl.state, "fallback");
+    assert.match(r.reason, /^error:/);
+    // a failed download or test is not a verdict on the voice: nothing is remembered, so the offer can come back and Settings can retry
+    assert.equal(ctl.state, "system");
+    assert.equal(ctl.record.fallback, null);
     assert.equal(engine.filesOnDisk, false);
   }
 });
@@ -211,4 +217,115 @@ test("the player holds chunks until released, then plays them back to back", asy
   p.release(); p.push(new Float32Array(100), 100);
   await p.finish();
   assert.equal(ctx.scheduled.length, 2);
+});
+
+// ---------- the review's lock-out and safety findings ----------
+const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari";
+const seeded = (record) => { const st = mem(); st.setItem(VOICE_KEY, JSON.stringify({ v: 1, engine: null, chosen: null, declinedAt: null, fallback: null, ...record })); return st; };
+const DAY = 864e5;
+
+test("Try a more natural voice sets aside a decline, a remembered failure and a measured no", async () => {
+  const st = seeded({ chosen: "os", declinedAt: Date.now(), fallback: { reason: "too-slow", engine: "kitten", at: Date.now() }, gate: { reason: "probe-too-slow", at: Date.now() } });
+  const { ctl } = make({ storage: st });
+  assert.equal(await ctl.afterSystemSpeak(), false, "nothing is offered automatically");
+  const r = await ctl.tryNow();
+  assert.equal(r.offered, true); assert.equal(ctl.state, "offered");
+  assert.equal(ctl.record.chosen, null); assert.equal(ctl.record.fallback, null); assert.equal(ctl.record.declinedAt, null); assert.equal(ctl.record.gate, null);
+});
+
+test("a manual try still obeys the device checks and says why it declined", async () => {
+  const { ctl } = make({ modules: { "voice-probe.mjs": { runVoiceProbe: async () => ({ ms: VOICE_CONFIG.probeMaxMs * 5 }) } } });
+  const r = await ctl.tryNow();
+  assert.equal(r.offered, false); assert.equal(r.decision.reason, "probe-too-slow");
+  const { explainDecision } = await import("../chat/voice-upgrade.mjs");
+  assert.match(explainDecision(r.decision.reason), /too slow/);
+  assert.match(explainDecision("storage-unverified"), /free storage/);
+  assert.match(explainDecision("weird"), /weird/);
+});
+
+test("a remembered failure stops automatic offers for a week, not forever", async () => {
+  const fallback = (days) => ({ reason: "too-slow", engine: "kitten", at: Date.now() - days * DAY });
+  assert.equal(await make({ storage: seeded({ fallback: fallback(1) }) }).ctl.afterSystemSpeak(), false);
+  assert.equal(await make({ storage: seeded({ fallback: fallback(8) }) }).ctl.afterSystemSpeak(), true);
+});
+
+test("on iPhone and iPad nothing is offered until the person opts in, and then only the small voice", async () => {
+  const ios = { userAgent: IPHONE_UA, maxTouchPoints: 5, env: () => ({ cores: 6, webgpu: { available: true, isFallbackAdapter: false } }) };
+  const { ctl } = make({ ctl: ios });
+  assert.equal(ctl.isIOS(), true); assert.equal(ctl.iosOptedIn(), false);
+  assert.equal(await ctl.afterSystemSpeak(), false);
+  assert.equal(ctl.info.candidate, null);
+  const r = await ctl.tryNow();
+  assert.equal(r.offered, true, JSON.stringify(r.decision));
+  assert.equal(ctl.info.candidate, "kitten", "a GPU phone is still only offered the small voice");
+  assert.equal(ctl.iosOptedIn(), true); assert.equal(ctl.record.iosTry, true);
+});
+
+test("an iPhone that fails the speed check is still declined after opting in", async () => {
+  const { ctl } = make({ ctl: { userAgent: IPHONE_UA, maxTouchPoints: 5, env: () => ({ cores: 6 }) }, modules: { "voice-probe.mjs": { runVoiceProbe: async () => ({ ms: VOICE_CONFIG.probeMaxMs * 5 }) } } });
+  const r = await ctl.tryNow();
+  assert.equal(r.offered, false); assert.equal(r.decision.reason, "probe-too-slow");
+});
+
+test("removing the voice while it is reading does not count as the voice failing", async () => {
+  const engine = createFakeVoiceEngine(); let ref = null; const real = engine.remove;
+  engine.remove = async () => { ref.engineFailed(new Error("the voice worker stopped")); return real.call(engine); }; // what terminating the worker does to a pending speak
+  const { ctl } = make({ engine }); ref = ctl;
+  await ctl.afterSystemSpeak(); await ctl.accept(); ctl.keep();
+  await ctl.remove();
+  assert.equal(ctl.record.fallback, null); assert.equal(ctl.state, "system");
+});
+
+test("a page that was killed while a voice was being set up cleans up and waits a week", async () => {
+  const engine = createFakeVoiceEngine({ installed: true });
+  const { ctl } = make({ engine, storage: seeded({ pending: { id: "kitten", at: Date.now() } }) });
+  await ctl.init();
+  assert.equal(engine.filesOnDisk, false);
+  assert.equal(ctl.record.fallback.reason, "page-ended-during-setup"); assert.equal(ctl.record.pending, null);
+  assert.equal(await ctl.afterSystemSpeak(), false);
+});
+
+test("on an opted-in iPhone, a page killed while the voice was reading removes the voice", async () => {
+  const engine = createFakeVoiceEngine({ installed: true });
+  const { ctl } = make({ engine, ctl: { userAgent: IPHONE_UA, maxTouchPoints: 5, env: () => ({ cores: 6 }) }, storage: seeded({ iosTry: true, engine: "kitten", chosen: "kitten", speaking: Date.now() }) });
+  await ctl.init();
+  assert.equal(engine.filesOnDisk, false); assert.equal(ctl.record.engine, null);
+  assert.equal(ctl.record.fallback.reason, "page-ended-while-reading");
+});
+
+test("files that could not be deleted are tried again at the next start instead of being left behind", async () => {
+  const st = mem(); const engine = createFakeVoiceEngine();
+  engine.remove = async () => { throw new Error("handle is locked"); };
+  const { ctl } = make({ engine, storage: st });
+  await ctl.afterSystemSpeak(); const offered = ctl.info.candidate; await ctl.accept(); ctl.keep();
+  await ctl.remove();
+  assert.equal(ctl.record.cleanup, offered); assert.equal(ctl.record.engine, null);
+  const later = createFakeVoiceEngine({ installed: true });
+  const second = make({ engine: later, storage: st }).ctl;
+  await second.init();
+  assert.equal(later.filesOnDisk, false); assert.equal(second.record.cleanup, null);
+});
+
+test("the speed is re-measured on every reply and two slow ones in a row retire the voice", async () => {
+  const engine = createFakeVoiceEngine();
+  const { ctl } = make({ engine });
+  await ctl.afterSystemSpeak(); await ctl.accept(); ctl.keep();
+  engine.speak = async () => ({ audioSeconds: 4, synthSeconds: 40, realTimeFactor: VOICE_CONFIG.minRealTimeFactor / 5, firstAudioMs: 300 });
+  const route = ctl.route();
+  await route.engine.speak("one", {});
+  assert.equal(ctl.state, "active", "one slow reply is tolerated");
+  await route.engine.speak("two", {});
+  assert.equal(ctl.state, "fallback"); assert.match(ctl.record.fallback.reason, /too slow while reading/);
+});
+
+test("the stall watchdog is sized from the measured speed, not a fixed 75 to 90 seconds", async () => {
+  const fast = make({ engine: createFakeVoiceEngine({ metrics: { audioSeconds: 4, synthSeconds: 1, realTimeFactor: 4, firstAudioMs: 300 } }) }).ctl;
+  await fast.afterSystemSpeak(); await fast.accept(); fast.keep();
+  const f = fast.route().options;
+  assert.ok(f.betweenMs <= 20000 && f.betweenMs >= 15000, "a fast voice is given about 19 s between chunks: " + f.betweenMs);
+  assert.ok(f.firstChunkMs < 30000, "and about 23 s for the first: " + f.firstChunkMs);
+  const slowRtf = 0.8, slow = make({ engine: createFakeVoiceEngine({ metrics: { audioSeconds: 4, synthSeconds: 4 / slowRtf, realTimeFactor: slowRtf, firstAudioMs: 500 } }) }).ctl;
+  await slow.afterSystemSpeak(); await slow.accept(); slow.keep();
+  const s = slow.route().options;
+  assert.ok(s.betweenMs > f.betweenMs && s.betweenMs <= 75000 && s.firstChunkMs <= 90000, "a slow voice gets longer, with a ceiling");
 });

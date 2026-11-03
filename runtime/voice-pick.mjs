@@ -50,18 +50,25 @@ const os = (reason, extra = {}) => ({ engine: "os", offer: false, reason, ...ext
  * @param {boolean} a.devOffer        dev flag that shows the offer while thresholds are uncalibrated
  * @param {object} a.config
  * @param {string[]|null} a.only      engine ids that are actually implemented in this build; others are never offered (null = all, for tests)
+ * @param {boolean} a.manual          the person explicitly asked to try a voice now. On iPhone and iPad this is the only way in (and only the small voice is considered);
+ *                                    everywhere it also skips the "memory is hidden on mobile" refusal, because the person decided. The storage write test,
+ *                                    the probe and the after-install speed check still apply.
  */
-export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, storage = null, probe = null, language = "en", chosen = null, installed = {}, chatModelResidentGB = 0, devOffer = false, config = VOICE_CONFIG, only = null } = {}) {
+export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, storage = null, probe = null, language = "en", chosen = null, installed = {}, chatModelResidentGB = 0, devOffer = false, config = VOICE_CONFIG, only = null, manual = false } = {}) {
   // 1. what the person decided always wins
   if (chosen === "os") return os("user-choice");
   if (chosen && VOICE_ENGINES[chosen] && installed[chosen]) return { engine: chosen, offer: false, reason: "user-choice-installed", loadWhen: loadPolicy(env, VOICE_ENGINES[chosen], chatModelResidentGB) };
 
-  // 2. hard evidence: iPhone and iPad never load a second model beside the chat model
-  if (isIOSDevice(userAgent, maxTouchPoints)) return os("ios-system-voice-only");
+  // 2. iPhone and iPad: a process memory limit of about 2 GB was measured on one iPhone 15 Pro while the chat model was loaded (docs/IPHONE-INVESTIGATION.md). It
+  //    is a conservative default for every iPhone and iPad, not evidence about all of them, so it is not applied when the person opts in. Only the small voice is
+  //    then considered.
+  const ios = isIOSDevice(userAgent, maxTouchPoints);
+  if (ios && !manual) return os("ios-system-voice-only");
+  const engineIds = ios ? ["kitten"].filter((id) => !only || only.includes(id)) : only;
 
   // 3. coverage: the small engines are English only
   const lang = String(language || "").toLowerCase().split("-")[0];
-  const candidates = Object.values(VOICE_ENGINES).filter((e) => e.languages.includes(lang) && (!only || only.includes(e.id)));
+  const candidates = Object.values(VOICE_ENGINES).filter((e) => e.languages.includes(lang) && (!engineIds || engineIds.includes(e.id)));
   if (!candidates.length) return os("language-not-covered");
 
   // 4. stage 1: cheap signals. Anything missing is "no", never "yes".
@@ -69,13 +76,13 @@ export function pickVoiceEngine({ env = {}, userAgent = "", maxTouchPoints = 0, 
   const mem = Number.isFinite(env.deviceMemoryGB) ? env.deviceMemoryGB : null;
   const cores = Number.isFinite(env.cores) ? env.cores : null;
   if (cores === null || cores < config.minCores) return os("too-few-cores", { stage: 1 });
-  if (mobile && mem === null) return os("memory-unknown-on-mobile", { stage: 1 });
+  if (mobile && mem === null && !manual) return os("memory-unknown-on-mobile", { stage: 1 });
   if (mem !== null && mem < config.minMemoryGB) return os("low-memory", { stage: 1 });
   if (!storage || !Number.isFinite(storage.quota) || !Number.isFinite(storage.usage)) return os("storage-unknown", { stage: 1 });
   const freeMB = (storage.quota - storage.usage) / 1e6;
   // a mobile browser's estimate can overstate free space by orders of magnitude: it must be proven with a real write
-  if (storage.writeOk === false) return os("not-enough-free-storage", { stage: 1 });
-  if (mobile && storage.writeOk !== true) return os(storage.writeOk === false ? "not-enough-free-storage" : "storage-unverified", { stage: 1, needsStorageTest: storage.writeOk === undefined });
+  // (desktop Chrome and Safari size the quota from total disk too, so every platform needs the proof, not only phones)
+  if (storage.writeOk !== true) return os(storage.writeOk === false ? "not-enough-free-storage" : "storage-unverified", { stage: 1, needsStorageTest: storage.writeOk === undefined });
 
   // the larger voice needs memory headroom (or, on desktop where memory is hidden, a fast probe below)
   // Measured 2026-11-02: Kokoro q8 on WASM/CPU ran at 0.56x (1 thread) to 0.86x (8 threads) real time on a 16-core desktop. Real time is not required,

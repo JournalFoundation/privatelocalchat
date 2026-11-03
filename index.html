@@ -5836,7 +5836,7 @@
         openSidebar: () => openSidebar(), closeSidebar: () => closeSidebar({ restoreFocus: true }),
         moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
         setThreadView: view => { threadView = view; renderThreadList(); },
-        callOpen: () => Boolean(robertaApi?.callOpen), loadVoice: () => loadVoiceUpgrade(),
+        callOpen: () => Boolean(robertaApi?.callOpen), loadVoice: () => loadVoiceUpgrade(), showVoiceOffer: async (anchor) => { const ctl = await loadVoiceUpgrade(); return ctl ? (await import(moduleBase() + 'chat/voice-offer.mjs')).showVoiceOffer(ctl, anchor) : null; },
         async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
       };
       window.plcApp = plcApp;

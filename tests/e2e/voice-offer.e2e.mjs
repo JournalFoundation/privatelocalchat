@@ -64,6 +64,17 @@ try{
  await page.waitForFunction(()=>window.__fake.files===false);
  await page.waitForFunction(()=>/System voice/.test(document.querySelector('#voiceCard').textContent));
  ok('keep, settings card, remove');
+ // after Remove the person can always try again from Settings, even though Remove quiets the automatic offer for 30 days
+ await page.waitForSelector('#voiceCard .set-btn:has-text("Try a more natural voice")');
+ await page.click('#voiceCard .set-btn:has-text("Try a more natural voice")');
+ await page.waitForSelector('#voiceOfferTry');
+ await page.click('#voiceOfferTry');
+ await page.waitForSelector('#voiceOfferKeep');
+ await page.click('#voiceOfferSystem');
+ await page.waitForFunction(()=>window.__fake.files===false);
+ await page.waitForSelector('#voiceCard .set-btn:has-text("Try a more natural voice")');
+ ok('Settings can always try again');
+
  assert(h.errors.length===0,'no page errors: '+h.errors.join('|'));
  console.log('voice-offer e2e passed');
 }catch(e){console.error(e);console.error(h.errors);process.exitCode=1;}finally{await h.close();}

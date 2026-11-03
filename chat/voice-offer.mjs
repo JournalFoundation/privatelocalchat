@@ -4,7 +4,8 @@
 const mb = (n) => Math.max(1, Math.round(n / 1e6)) + " MB";
 
 export function showVoiceOffer(ctl, anchor, { doc = document } = {}) {
-  if (ctl.state !== "offered" || !anchor?.parentNode || doc.getElementById("voiceOffer")) return null;
+  if (ctl.state !== "offered" || !anchor?.parentNode) return null;
+  doc.getElementById("voiceOffer")?.remove(); // a fresh offer (for example from Settings) replaces an earlier line that is still showing
   const line = doc.createElement("div");
   line.id = "voiceOffer"; line.className = "set-note"; line.setAttribute("role", "group"); line.setAttribute("aria-label", "Voice offer");
   const text = doc.createElement("span"), controls = doc.createElement("span");
@@ -20,7 +21,11 @@ export function showVoiceOffer(ctl, anchor, { doc = document } = {}) {
     const off = ctl.subscribe((s) => { if (s.state === "installing" && s.progress?.total) text.textContent = "Downloading the voice, " + Math.round((s.progress.done / s.progress.total) * 100) + "%. "; });
     show("Downloading the voice, 0%.");
     const r = await ctl.accept(); off();
-    if (!r.ok) { show("The voice did not work well enough on this device, so it was removed. The system voice stays."); setTimeout(gone, 6000); return; }
+    if (!r.ok) {
+      const failed = String(r.reason || "").startsWith("error:"); // a failed download or setup says so and can be retried; only a slow voice is "not good enough"
+      show(failed ? "The download or setup failed (" + String(r.reason).slice(6).trim().slice(0, 120) + "). Nothing was kept. You can try again from Settings > Voice." : "The voice did not work well enough on this device, so it was removed. The system voice stays.");
+      setTimeout(gone, 8000); return;
+    }
     verdict();
   }
   line.append(text, controls);
