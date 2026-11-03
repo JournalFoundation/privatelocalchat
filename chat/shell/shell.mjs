@@ -68,7 +68,7 @@ const progressText = (p) => !p ? "Starting…" : p.phase === "connecting" ? "Con
 function voiceDescription(v) {
   let line;
   if (v.id === "os") line = v.note;
-  else if (v.state === "installing") line = progressText(v.progress);
+  else if (v.state === "installing") line = "Downloading the " + v.label + " voice: " + progressText(v.progress).replace(/^Downloading\s*/, "");
   else if (v.state === "testing") line = "Testing on this device…";
   else if (v.state === "ready") line = "Downloaded (" + voiceSize(v.bytesOnDevice || v.size) + ") · " + v.license;
   else if (v.state === "failed") line = "Failed: " + String(v.error || "unknown problem").replace(/[.\s]*$/, "") + ". Tap to try again.";

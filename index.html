@@ -2890,7 +2890,8 @@
           const key = p.phase + (p.phase === 'offline' ? '' : '');
           if (key !== lastPhase) {
             lastPhase = key;
-            phase.textContent = { starting: 'Starting\u2026', download: 'Downloading the model', check: 'Checking the download\u2026', load: 'Loading the model into memory\u2026', offline: 'Waiting for a connection. Your progress is saved and the download will continue.', retrying: 'The download was interrupted. Trying again\u2026', stalled: 'The download stalled. Restarting it now; nothing already downloaded is lost.', 'another-tab': 'Another tab is downloading the model. This one continues when it finishes.', ready: 'Ready.' }[p.phase] || 'Working\u2026';
+            const nm = 'the chat model' + (p.modelName ? ' ' + p.modelName : '');
+            phase.textContent = { starting: 'Starting\u2026', download: 'Downloading ' + nm, check: 'Checking the download\u2026', load: 'Loading ' + nm + ' into memory\u2026', offline: 'Waiting for a connection. Your progress is saved and the download will continue.', retrying: 'The download was interrupted. Trying again\u2026', stalled: 'The download stalled. Restarting it now; nothing already downloaded is lost.', 'another-tab': 'Another tab is downloading ' + nm + '. This one continues when it finishes.', ready: 'Ready.' }[p.phase] || 'Working\u2026';
             bar.classList.toggle('indeterminate', p.phase !== 'download');
             const anchor = p.phase === 'stalled' || p.phase === 'retrying' ? 'stalled-download' : p.phase === 'offline' ? 'offline-readiness' : null;
             help.hidden = !anchor; help.textContent = ''; if (anchor) help.appendChild(helpLink(anchor, 'Download stuck? Get help'));
@@ -3150,7 +3151,7 @@
             await window.localModels.ensureReady({ signal: controller.signal, onProgress: p => {
               if (!prep) return;
               prep.progress = p; prep.card?.update(p);
-              generationStatus.textContent = p.phase === 'download' ? 'Downloading the model… ' + Math.round((p.fraction || 0) * 100) + '%' : p.phase === 'load' ? 'Loading the model into memory…' : 'Getting on-device chat ready…';
+              generationStatus.textContent = p.phase === 'download' ? 'Downloading the chat model' + (p.modelName ? ' ' + p.modelName : '') + '… ' + Math.round((p.fraction || 0) * 100) + '%' : p.phase === 'load' ? 'Loading the chat model' + (p.modelName ? ' ' + p.modelName : '') + ' into memory…' : 'Getting on-device chat ready…';
             } });
             prep = null;
             msg.status = S.STREAMING;
@@ -4436,9 +4437,9 @@
         const lm = window.localModels;
         if (!lm || lm.mode !== 'local') return 'Talking with ' + providerName() + '. Answers are written by an AI model.';
         if (lm.ready) return 'Talking with the model on this device. Answers are written by an AI model, not scripted.';
-        const st = lm.state, t = st?.transfer;
-        if (st?.busy && t) return 'Downloading the model: ' + Math.round(((t.bytesDone || 0) / Math.max(1, t.bytesTotal || 1)) * 100) + '%. The call continues when it is ready.';
-        if (st?.busy || lm.installed) return 'Loading the model into memory. The call continues when it is ready.';
+        const st = lm.state, t = st?.transfer, cm = 'the chat model' + (st?.tiers?.[st.selection.tier]?.info?.modelId ? ' ' + st.tiers[st.selection.tier].info.modelId : '');
+        if (st?.busy && t) return 'Downloading ' + cm + ': ' + Math.round(((t.bytesDone || 0) / Math.max(1, t.bytesTotal || 1)) * 100) + '%. The call continues when it is ready.';
+        if (st?.busy || lm.installed) return 'Loading ' + cm + ' into memory. The call continues when it is ready.';
         return 'The on-device model is not downloaded yet. Pick it in the model menu to download it, then call again.';
       }
       // a spoken reply that never finishes (some phones stall the voice engine) is cut off, and the text stays on screen

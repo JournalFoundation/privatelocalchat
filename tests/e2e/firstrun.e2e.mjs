@@ -54,7 +54,7 @@ const run=async(label,viewport,touch)=>{
   assert(await page.locator('#stopGeneration').isVisible()&&!(await page.locator('#sendBtn').isVisible()),label+': Stop is available while waiting');
   await page.waitForFunction(()=>document.querySelector('.message.assistant .prep-bar')?.getAttribute('aria-valuenow')==='75',null,{timeout:8000});
   const card=await page.locator('.message.assistant .prep-card').innerText();
-  assert(/Downloading the model/.test(card)&&/75%/.test(card)&&/4\.2 GB of 5\.6 GB/.test(card)&&/about 5\.6 GB/.test(card)&&/works without a connection/.test(card),label+': card says what is happening: '+card);
+  assert(/Downloading the chat model/.test(card)&&/75%/.test(card)&&/4\.2 GB of 5\.6 GB/.test(card)&&/about 5\.6 GB/.test(card)&&/works without a connection/.test(card),label+': card says what is happening: '+card);
   assert(await page.locator('.message.assistant .prep-actions .link-btn:has-text("smaller")').innerText()==='Use the smaller model instead (faster to download)',label+': escape hatch on the larger model');
   await page.click('.message.assistant .prep-actions .link-btn:has-text("smaller")');
   assert(await page.evaluate(()=>window.__switched)==='light',label+': switched to the smaller model');
