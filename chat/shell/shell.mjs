@@ -297,8 +297,9 @@ export function createShell(app) {
     const label = lm?.state?.tiers?.[lm.state.selection.tier]?.info?.label || "On-device model";
     const s = lm?.state, t = s?.transfer;
     if (lm?.ready) return { name: label, status: "ready", detail: "Ready on this device" };
-    if (s?.busy && t) return { name: label, status: "busy", detail: "Downloading " + Math.round(((t.bytesDone || 0) / Math.max(1, t.bytesTotal || 1)) * 100) + "%" };
-    if (s?.busy) return { name: label, status: "busy", detail: "Loading…" };
+    // only a real download or load shows as one: the check of saved files at start-up is "busy" too, and used to read "Downloading 0%"
+    if ((s?.busy === "install" || s?.busy === "repair") && t) return { name: label, status: "busy", detail: "Downloading " + Math.round(((t.bytesDone || 0) / Math.max(1, t.bytesTotal || 1)) * 100) + "%" };
+    if (s?.busy === "load") return { name: label, status: "busy", detail: "Loading…" };
     if (lm?.installed) return { name: label, status: "idle", detail: "Downloaded, not loaded" };
     return { name: label, status: "none", detail: "Not downloaded" };
   };

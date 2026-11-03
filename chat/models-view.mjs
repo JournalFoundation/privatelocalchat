@@ -49,7 +49,8 @@ export function languageRows(lmState, { mode = "local", notes = TIER_NOTES, hide
     const loadedHere = lmState.load?.state === "ready" && lmState.load?.tier === tier;
     let state = installed ? "downloaded" : "none", progress = null;
     if (loadedHere) state = "loaded";
-    else if (isSel && lmState.busy && lmState.transfer) { state = "downloading"; progress = (lmState.transfer.bytesDone || 0) / Math.max(1, lmState.transfer.bytesTotal || 1); }
+    // a download or a load only: the check of saved files at start-up is busy too (with a transfer of its own), and is neither
+    else if (isSel && (lmState.busy === "install" || lmState.busy === "repair") && lmState.transfer) { state = "downloading"; progress = (lmState.transfer.bytesDone || 0) / Math.max(1, lmState.transfer.bytesTotal || 1); }
     else if (isSel && (lmState.busy === "load" || lmState.load?.state === "loading")) state = "loading";
     else if (isSel && lmState.busy === "install") state = "downloading";
     const failed = isSel && lmState.lastError && state !== "loaded" && !lmState.busy;

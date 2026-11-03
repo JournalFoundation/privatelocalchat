@@ -46,3 +46,12 @@ test("other models come from the memory manager, minus the chat model and the vo
   const rows = otherRows({ residents: [{ id: "chat-llm", label: "x", state: "loaded" }, { id: "voice", label: "y", state: "loaded" }, { id: "matching", kind: "embedding", label: "the embedding model", state: "unloaded", busy: false }] });
   assert.deepEqual(rows.map((r) => [r.id, r.label, r.state]), [["matching", "The embedding model", "downloaded"]]);
 });
+
+test("the check of saved files at start-up is not a download: no 'Downloading 0%' while it runs", () => {
+  const s = { ...base(), busy: "inspect", transfer: { bytesDone: 0, bytesTotal: 1.2e9, phase: "inspect" } };
+  const row = languageRows(s)[0];
+  assert.equal(row.state, "downloaded", "the row keeps what is known about the files");
+  assert.notEqual(row.state, "downloading");
+  const r2 = languageRows({ ...base(), tiers: { light: item("Q", false) }, busy: "inspect", transfer: { bytesDone: 0, bytesTotal: 1e9, phase: "inspect" } })[0];
+  assert.equal(r2.state, "none");
+});

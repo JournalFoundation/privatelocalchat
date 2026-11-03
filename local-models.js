@@ -48,7 +48,8 @@ function render(s) {
   V.details=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':onCpu(s)?'Smaller model. No usable graphics card was found, so it runs on your processor: it works, but replies are slower.':(tier==='light'?'Smaller model; lower memory use.':item.info.strengths));
   V.statusError=false;
   const modelName='the chat model '+(item.info.modelId||'');
-  if(s.busy) V.status=t ? `Downloading ${modelName}: ${gb(t.bytesDone || 0)} of ${gb(t.bytesTotal || item.info.downloadBytes)} downloaded${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy==='load'?`Loading ${modelName} into memory…`:s.busy==='install'?`Downloading ${modelName}…`:s.busy==='repair'?'Repairing the model download…':s.busy==='remove'?'Removing model files…':s.busy+'…';
+  if(s.busy==='inspect') V.status='Checking the saved files…';
+  else if(s.busy) V.status=(t&&(s.busy==='install'||s.busy==='repair')) ? `Downloading ${modelName}: ${gb(t.bytesDone || 0)} of ${gb(t.bytesTotal || item.info.downloadBytes)} downloaded${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy==='load'?`Loading ${modelName} into memory…`:s.busy==='install'?`Downloading ${modelName}…`:s.busy==='repair'?'Repairing the model download…':s.busy==='remove'?'Removing model files…':s.busy+'…';
   else if(s.lastError) showError(s.lastError);
   else if(s.load.state==='ready') V.status='Loaded \u00B7 ready on this device';
   else V.status=item.install.ok?'Downloaded \u00B7 not loaded':'Download a model to use on-device chat.';

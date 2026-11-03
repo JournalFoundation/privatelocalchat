@@ -7,8 +7,8 @@ A static, no-framework browser app: one HTML page, ES modules, no build step for
 1. **Pure modules** (no DOM, everything the browser provides is passed in). They read on their own and are unit-tested in plain Node.
    `chat/voice.mjs` (call turn-taking), `chat/voice-choice.mjs` (voice picker), `runtime/memory-manager.mjs`, `chat/models-view.mjs`, `runtime/download-recovery.mjs`, `chat/intent-router.mjs`, `chat/markdown.mjs`, `chat/crypto.mjs`, the provider layer in `runtime/providers/`.
 2. **Feature modules** (own the DOM of one feature). Each is a `createX({...everything it needs...})` function that the page calls once; it returns a small object. They never reach into the page's variables.
-   `chat/lock/lock.mjs` (app lock and the not-locked reminder), `chat/dialogs.mjs` (modal dialogs), `chat/shell/` (rail, panel, Settings, pickers, search), `chat/transfer-ui.mjs`, `chat/roberta-ui.mjs`, `chat/memory-offer.mjs`.
-3. **The host page**, `index.html`: boot, the chat core (threads, sending, streaming, rendering), and the glue that creates the feature modules and hands them what they need. It is still large (about 5,800 lines, most of it one script) and is being shrunk one feature at a time: **move a feature out by turning its block into `createX({...})`, passing in what it used from the page, and replacing outside uses with the returned object.** The lock and the dialogs are the worked example (`git show` the commit that added `chat/lock/lock.mjs`).
+   `chat/lock/lock.mjs` (app lock and the not-locked reminder), `chat/call/call.mjs` (the voice call screen: orb, status, model chips, message list, stall notice), `chat/dialogs.mjs` (modal dialogs), `chat/shell/` (rail, panel, Settings, pickers, search), `chat/transfer-ui.mjs`, `chat/roberta-ui.mjs`, `chat/memory-offer.mjs`.
+3. **The host page**, `index.html`: boot, the chat core (threads, sending, streaming, rendering), and the glue that creates the feature modules and hands them what they need. It is still large (about 5,500 lines, most of it one script) and is being shrunk one feature at a time: **move a feature out by turning its block into `createX({...})`, passing in what it used from the page, and replacing outside uses with the returned object.** The lock, the dialogs and the voice call are the worked examples: `createCall(host)` in `chat/call/call.mjs` lists the page's capabilities it needs in its header comment, which is the pattern to copy.
 
 ## How features talk to each other
 
@@ -49,6 +49,7 @@ runtime/providers/      the on-device model runtimes (WebLLM, wllama) behind one
 chat/                   feature code, still flat (voice-*, ivr/roberta, documents, transfer...)
 chat/shell/             the app shell: rail, panel, Settings page and pickers
 chat/lock/              the app lock
+chat/call/              the voice call screen
 chat/vendor/            bundled third-party code (voice worker, embedding worker, pdf.js, qr)
 ops/                    publishing and build tooling for models and workers (not shipped)
 tests/                  unit tests (fast) and tests/e2e (real browser)
