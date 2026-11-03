@@ -34,7 +34,7 @@ for(const [file,pin] of Object.entries(productionNative.files)){
 let html=await readFile(path.join(out,'index.html'),'utf8');
 const appBuildScript='<script>window.APP_BUILD='+JSON.stringify(build)+';</script>';
 html=html.replace('<script src="/build-info.js"></script>',appBuildScript+siteConfigScript(siteConfig));
-html=html.replace('href="/chat/chat.css"','href="/'+releasePath+'/chat/chat.css"').replace('href="/chat/brand.css"','href="/'+releasePath+'/chat/brand.css"').replace('href="/chat/shell.css"','href="/'+releasePath+'/chat/shell.css"').replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');
+html=html.replace('href="/chat/page.css"','href="/'+releasePath+'/chat/page.css"').replace('href="/chat/chat.css"','href="/'+releasePath+'/chat/chat.css"').replace('href="/chat/brand.css"','href="/'+releasePath+'/chat/brand.css"').replace('href="/chat/shell.css"','href="/'+releasePath+'/chat/shell.css"').replace('href="/local-models.css"','href="/'+releasePath+'/local-models.css"').replace('src="/local-models.js"','src="/'+releasePath+'/local-models.js"');
 if(branch==='dev') {
  const debugRuntime=path.join('dev-tools','native-runtime');
  const native=developmentNative;

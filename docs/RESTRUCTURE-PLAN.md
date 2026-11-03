@@ -2,11 +2,11 @@
 
 This is the **plan**: where we are, where we are going, and the order. `docs/ARCHITECTURE.md` is the other half: it says how the app is put together *now* and stays short. When a step here is finished, tick it, date it, and make sure the architecture page still tells the truth (a test checks the folders and the events).
 
-Started 2026-11-03. Last updated 2026-11-03. **All nine steps are done** (see the notes under each).
+Started 2026-11-03. Last updated 2026-11-03. **All nine steps are done and the size target is met** (see the notes under each).
 
 ## Where we need to be
 
-- `index.html` is boot and the glue that creates feature modules. Target was **under about 1,500 lines**; it is **2,262** (from 6,013), of which about 1,490 are markup (the forms and About text), so the script is about 770 lines. The target counted the markup too, so it was not reached; moving the markup into the owning modules is the only way to go lower and is not planned.
+- `index.html` is boot and the glue that creates feature modules. Target: **under about 1,500 lines**, down from 6,013 on 2026-11-03. **Met: 1,167 lines** (2026-11-03). The last 1,095 lines were the page's inline `<style>`, now `chat/page.css`.
 - Every feature is a module built as `createX(host)`: it gets what it needs as arguments, lists them in a header comment, and does not look things up in the page. `chat/call/call.mjs` is the pattern.
 - Features take part in each other's moments only through the event list in `chat/events.mjs`.
 - `chat/` has one folder per feature. New code goes in the folder of its feature.
