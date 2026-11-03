@@ -36,7 +36,7 @@ Started 2026-11-03. Last updated 2026-11-03.
 The order puts the pieces with the clearest edges first and the chat core and its state last, because everything else leans on them. Sizes are approximate lines of `index.html` on 2026-11-03.
 
 - [x] **1. `chat/shell/` stops reaching into the page** (2026-11-03): the page hands `createShell(app)` named `app.parts` (the controls the shell moves or watches), `app.models`, `app.dialogs`, `app.build` and `app.lock`; the shell asks for a part by name and a name the page did not provide is an error. No `window.*` page globals and no page lookups by id remain in `chat/shell/`.
-- [ ] **2. Documents** (about 270): attach, read on this device, cite. `chat/documents/` already has the pure parts; the DOM and the attach flow follow.
+- [x] **2. Documents** (2026-11-03): attach, read, cite, the library, sources under an answer in `chat/documents/documents-ui.mjs`; save-as-file and the draft editor in `chat/documents/drafts.mjs`. `index.html` 5,456 -> 5,214 lines.
 - [ ] **3. Sharing, transfer glue, URL parameters** (about 420): `applyImportedSettings`, `applyConfigFromUrl`, `parseUrlParams`; `chat/transfer/transfer-ui.mjs` is already out.
 - [ ] **4. Provider endpoint and model refresh, history and settings import/export, clear history and settings** (about 380): a `chat/provider/` and a `chat/history/`, with the endpoint and token logic first (debt item 8: two sources of truth for the token).
 - [ ] **5. Conversation list and search results** (about 180 + the search part of the 380).
