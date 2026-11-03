@@ -12,7 +12,7 @@ try{
  const {page}=h;
  const base=await page.evaluate(()=>new URL(/^(.*\/releases\/[^/]+\/)/.exec(document.querySelector('link[href*="/releases/"]').getAttribute('href'))[1],location.href).href);
  const result=await page.evaluate(async(base)=>{
-  const {createVoiceEngine,VOICE_DIR,KOKORO_VOICE_DIR}=await import(base+'chat/voice-engine.mjs');
+  const {createVoiceEngine,VOICE_DIR,KOKORO_VOICE_DIR}=await import(base+'chat/voice/voice-engine.mjs');
   const enc=new TextEncoder();
   const sha=async(bytes)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
   // a tiny file set per engine: same roles as the real manifests, a few hundred bytes each, with real SHA-256 values

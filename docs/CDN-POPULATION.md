@@ -38,7 +38,7 @@ such a session on 2026-11-02: all eight files downloaded from the current host a
 
 ## Task 2: point the app at the CDN (done)
 
-`EMBEDDING_ASSET_HOST` in `chat/embedding-config.mjs` is `https://assets.privatelocal.chat/models/memory/`; the Privacy page, the Updates entry and
+`EMBEDDING_ASSET_HOST` in `chat/embedding/embedding-config.mjs` is `https://assets.privatelocal.chat/models/memory/`; the Privacy page, the Updates entry and
 `docs/EMBEDDINGS.md` say the same, and `tests/e2e/ivr-semantic.e2e.mjs` proves the real model loads from the project host and that a reload
 makes no request to it (Cache API).
 
@@ -53,7 +53,7 @@ files come from. Then simplify the three "No, a catalogue default" rows on the P
 1. Describe it in `ops/cloudflare/gguf-models.json` (source host, per-file size and SHA-256, destination prefix, licence file, load context and sampling).
 2. `python3 ops/cloudflare/publish-gguf.py <key> --dry-run`, then without `--dry-run` (needs boto3 and the operator token; a throw-away venv works). It refuses to replace a different object.
 3. `python3 ops/cloudflare/update-catalog-index.py` adds it to the public `models/catalog.json` index and to `model-cdn-manifest.json`.
-4. Add it to `runtime/providers/catalog-data.mjs` and a tier in `runtime/providers/catalog.mjs`, a short note in `TIER_NOTES` (`chat/models-view.mjs`) (the model menus and Settings > Models list every catalogue tier on their own), the Privacy page and the Updates feed.
+4. Add it to `runtime/providers/catalog-data.mjs` and a tier in `runtime/providers/catalog.mjs`, a short note in `TIER_NOTES` (`chat/models/models-view.mjs`) (the model menus and Settings > Models list every catalogue tier on their own), the Privacy page and the Updates feed.
 5. Prove it with a real download: `node work/check-new-models.mjs <tier> <origin>` (download, verify, load, generate, unload, remove; writes `docs/evidence/model-<tier>-cdn-check.json`).
 
 ## Adding any other immutable file set (the recipe for speech models)

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {kindOf,parseCsv,describeTable,chunkText,buildDocument,planContext,excerptPreamble,citedNumbers,estimateTokens} from '../chat/documents.mjs';
-import {buildIndex,rank,tokenize} from '../chat/retrieval.mjs';
+import {kindOf,parseCsv,describeTable,chunkText,buildDocument,planContext,excerptPreamble,citedNumbers,estimateTokens} from '../chat/documents/documents.mjs';
+import {buildIndex,rank,tokenize} from '../chat/documents/retrieval.mjs';
 test('file kinds',()=>{
  assert.equal(kindOf('a.PDF'),'pdf');assert.equal(kindOf('x.png'),'image');assert.equal(kindOf('notes.md'),'text');assert.equal(kindOf('data.csv'),'text');
  assert.equal(kindOf('archive.zip'),null);assert.equal(kindOf('weird','text/plain'),'text');

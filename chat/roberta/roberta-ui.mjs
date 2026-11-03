@@ -1,4 +1,4 @@
-// Roberta's front desk, on screen. One menu engine (chat/ivr.mjs), two ways to meet it:
+// Roberta's front desk, on screen. One menu engine (chat/roberta/ivr.mjs), two ways to meet it:
 //   * a voicemail thread: voice notes from Roberta with numbered replies. This is what phones get first: a message waiting, like WhatsApp or
 //     visual voicemail, nothing speaks until a person taps play.
 //   * a call: a video-call window on a computer, a full-screen phone call on a phone, with a keypad whose keys are labelled with the menu,
@@ -8,8 +8,8 @@
 // Roberta is a robot with a name, not a person and not the language model; the words are the prepared text in ivr-content.mjs.
 import { ROBOT_NAME, ROBOT_TAGLINE, describeContext } from "./ivr-content.mjs";
 import { createIvr } from "./ivr.mjs";
-import { mountVoiceNote, stopOtherNotes } from "./voice-note.mjs";
-import { iconNode } from "./icons.mjs";
+import { mountVoiceNote, stopOtherNotes } from "../voice/voice-note.mjs";
+import { iconNode } from "../icons.mjs";
 
 /** Groups the engine's transcript for the voicemail thread: consecutive spoken lines are one voice note; menu prompts become buttons instead. */
 export function groupTranscript(transcript) {

@@ -6,9 +6,9 @@ import { createRequire } from "node:module";
 import {
   SYMBOLS, SYMBOL_INDEX, tokenizePhonemes, chunkToIds, phonemizeChunk, phonemesToIds, chunkText, ensurePunctuation, parseNpy, parseNpz, resolveVoice, effectiveSpeed,
   styleFor, trimAudio,
-} from "../chat/voice-kitten.mjs";
-import { createVoiceEngine, validateManifest } from "../chat/voice-engine.mjs";
-import { KITTEN_NANO_MANIFEST } from "../chat/voice-manifest.mjs";
+} from "../chat/voice/voice-kitten.mjs";
+import { createVoiceEngine, validateManifest } from "../chat/voice/voice-engine.mjs";
+import { KITTEN_NANO_MANIFEST } from "../chat/voice/voice-manifest.mjs";
 
 // ---------- symbol table ----------
 test("the symbol table has the reference's 178 entries and indexes", () => {

@@ -15,7 +15,7 @@ return (async()=>{
   out.storageBefore=await est();
   try{
     // 1. the device advice from the real voice controller (the picker's "recommended" / "may be slow" labels). It never blocks a choice, and nothing is installed here.
-    const choice=await import(base+'chat/voice-choice.mjs');
+    const choice=await import(base+'chat/voice/voice-choice.mjs');
     const env=async()=>{let webgpu={available:false};try{const a=await navigator.gpu?.requestAdapter();if(a)webgpu={available:true,isFallbackAdapter:!!a.isFallbackAdapter};}catch{}return {deviceMemoryGB:navigator.deviceMemory,cores:navigator.hardwareConcurrency,webgpu};};
     const store={};const scratch={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=v;},removeItem:k=>{delete store[k];}};
     const ctl=choice.createVoiceChoice({factory:async()=>{throw new Error('advice only');},env,storage:scratch});
@@ -26,7 +26,7 @@ return (async()=>{
   // 2. the real engine, hosted files: install, speak, measure, remove
   try{
     const id=(out.decision&&out.decision.candidate)||'kitten';const kk=id==='kokoro';
-    const [eng,man]=await Promise.all([import(base+'chat/voice-engine.mjs'),import(base+(kk?'chat/voice-manifest-kokoro.mjs':'chat/voice-manifest.mjs'))]);
+    const [eng,man]=await Promise.all([import(base+'chat/voice/voice-engine.mjs'),import(base+(kk?'chat/voice/voice-manifest-kokoro.mjs':'chat/voice/voice-manifest.mjs'))]);
     const engine=eng.createVoiceEngine({engine:id,baseUrl:kk?man.KOKORO_Q8_BASE_URL:man.KITTEN_NANO_BASE_URL,workerUrl:base+(kk?'chat/vendor/voice/worker-kokoro.js':'chat/vendor/voice/worker.js')});out.engineUsed=id;
     const t0=performance.now();
     await engine.install(()=>{});

@@ -1,5 +1,5 @@
 // Lexical retrieval (BM25) over text chunks. No embedding model: it works offline at any size and can be explained to the reader.
-import { fold } from "./search.mjs";
+import { fold } from "../search.mjs";
 
 const STOP = new Set("a an and are as at be but by for from has have he her his i in is it its of on or she that the their them they this to was we were what when where which who will with you your about into than then there these those not can could would should do does did how why".split(" "));
 export const tokenize = (text) => fold(text).split(/[^\p{L}\p{N}]+/u).filter((t) => t.length > 1 && !STOP.has(t));

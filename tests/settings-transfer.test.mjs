@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {TRANSFER_FORMAT,TOKEN_SUITE,PBKDF2_ITERATIONS,MAX_ENCODED_LENGTH,MAX_JSON_BYTES,createTransfer,readEnvelope,readTransferFragment,readTransferText,readConfigFile,readLegacyQuery,readIncoming,unlockToken,endpointIdentity,sameDestination,tokenBelongsTo,pickSettings,toBase64Url,fromBase64Url,authenticatedData} from '../chat/settings-transfer.mjs';
+import {TRANSFER_FORMAT,TOKEN_SUITE,PBKDF2_ITERATIONS,MAX_ENCODED_LENGTH,MAX_JSON_BYTES,createTransfer,readEnvelope,readTransferFragment,readTransferText,readConfigFile,readLegacyQuery,readIncoming,unlockToken,endpointIdentity,sameDestination,tokenBelongsTo,pickSettings,toBase64Url,fromBase64Url,authenticatedData} from '../chat/transfer/settings-transfer.mjs';
 const SETTINGS={endpoint:'https://provider.example/v1?tenant=a',model:'big-model',theme:'dark'};
 const TOKEN='sk-synthetic-token-0123456789';
 const make=(over={})=>createTransfer({settings:SETTINGS,includeToken:true,token:TOKEN,password:'correct horse',...over});

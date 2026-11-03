@@ -1,7 +1,7 @@
 // The Kokoro voice worker, bundled by ops/voice/build-worker.mjs into chat/vendor/voice/worker-kokoro.js.
 // Kokoro-82M q8 on ONNX Runtime Web (WASM, SIMD, threaded when the page is cross-origin isolated) with the phonemizer package (an espeak-ng
 // build, GPL-3.0). The text is synthesised here, on the device; the worker never touches the network: the model files are read from the
-// page's private storage (OPFS) directory the main thread installed them into. The pipeline is chat/voice-kokoro.mjs.
+// page's private storage (OPFS) directory the main thread installed them into. The pipeline is chat/voice/voice-kokoro.mjs.
 //
 // Protocol (requests carry an id; every reply carries the same id), the same as worker.src.mjs:
 //   { op: "load", dir, files: { model, tokenizer, tokenizer_config }, voiceFiles: { voiceId: fileName }, threads? } -> { ok: true, voices: [...], loadMs }
@@ -16,7 +16,7 @@ import * as ort from "onnxruntime-web/wasm";
 import { phonemize } from "phonemizer";
 import {
   SAMPLE_RATE, DEFAULT_VOICE, kokoroChunks, phonemizeText, createTokenizer, parseVoice, styleFor, resolveVoice,
-} from "../../chat/voice-kokoro.mjs";
+} from "../../chat/voice/voice-kokoro.mjs";
 
 let session = null;
 let voices = null;

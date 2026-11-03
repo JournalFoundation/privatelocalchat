@@ -1,13 +1,13 @@
 // Model services: the three things that put a model in memory, created once for the page.
 //   memoryManager()   runtime/memory-manager.mjs: one place that knows what is loaded; the chat model registers here
 //   sharedEmbedder()  the small matching model used by Roberta and by search (one instance, a resident of the manager)
-//   loadVoiceChoice() chat/voice-choice.mjs: the system voice or a downloaded one; registers as a resident and offers "One model at a time" after a failure
+//   loadVoiceChoice() chat/voice/voice-choice.mjs: the system voice or a downloaded one; registers as a resident and offers "One model at a time" after a failure
 //   voiceOpts()       engine options for anything that speaks: the chosen voice, or nothing for the system voice
 // createModelServices({ moduleBase, isGenerating, testVoiceHook }): moduleBase() is where the app's modules live, isGenerating() says whether a reply is being
 // written (so a swap message does not hide the reply's status line), testVoiceHook() returns a stand-in voice factory in development builds and null otherwise.
 
 export function createModelServices({ moduleBase, isGenerating = () => false, testVoiceHook = null }) {
-  // The voice choice (chat/voice-choice.mjs): the system voice or a downloaded one, picked from the voice pill. Development builds also honour a test hook (see the markers below).
+  // The voice choice (chat/voice/voice-choice.mjs): the system voice or a downloaded one, picked from the voice pill. Development builds also honour a test hook (see the markers below).
   // Model memory (runtime/memory-manager.mjs): one logical place that knows what is in memory. With "One model at a time" on (Settings > Models) using a model first
   // unloads the others; with it off nothing is unloaded for another model and the app tries whatever is asked. Each model kind registers itself.
   let memoryPromise = null, sharedEmbedderPromise = null;
@@ -34,7 +34,7 @@ export function createModelServices({ moduleBase, isGenerating = () => false, te
     };
     if (!registerChat()) { const once = () => { if (registerChat()) window.removeEventListener('local-model-state', once); }; window.addEventListener('local-model-state', once); }
     // the offer to turn on "One model at a time" after a model fails; it never turns it on by itself
-    await import(moduleBase() + 'chat/memory-offer.mjs').then(om => {
+    await import(moduleBase() + 'chat/models/memory-offer.mjs').then(om => {
       const o = om.createMemoryOffer({ memory: m }); m.offerFailure = (kind, what) => o.offer(kind, what);
       let lastErr = null;
       // only a failure of the model itself (loading it, or writing a reply) counts: a storage check that failed at start-up is not the chat model failing
@@ -43,7 +43,7 @@ export function createModelServices({ moduleBase, isGenerating = () => false, te
     return m;
   }));
   // One matching/embedding model for the page (Roberta and the search overlay used to start one each); it is a resident of the memory manager like any other model.
-  const sharedEmbedder = () => (sharedEmbedderPromise ||= import(moduleBase() + 'chat/embedder.mjs').then(async mod => {
+  const sharedEmbedder = () => (sharedEmbedderPromise ||= import(moduleBase() + 'chat/embedding/embedder.mjs').then(async mod => {
     const e = mod.createEmbedder({}), m = await memoryManager();
     m.register({ id: 'matching', kind: 'embedding', label: 'the embedding model', state: () => ({ loading: 'loading', ready: 'loaded' }[e.state] || 'unloaded'), isBusy: () => e.state === 'loading', estimateBytes: () => null, unload: async () => e.terminate() });
     e.onState(() => m.notify());
@@ -56,7 +56,7 @@ export function createModelServices({ moduleBase, isGenerating = () => false, te
   }));
   let voiceChoicePromise = null, voiceCtl = null;
   const loadVoiceChoice = () => (voiceChoicePromise ||= (async () => {
-    const mod = await import(moduleBase() + 'chat/voice-choice.mjs');
+    const mod = await import(moduleBase() + 'chat/voice/voice-choice.mjs');
     const hook = testVoiceHook?.() || null; // development builds only: a test page may stand in for the voice engines (the page decides, see index.html)
     const env = async () => {
       let webgpu = { available: false };
@@ -66,7 +66,7 @@ export function createModelServices({ moduleBase, isGenerating = () => false, te
     const factory = hook || (async id => {
       if (id !== 'kitten' && id !== 'kokoro') throw new Error('No engine for ' + id);
       const kokoro = id === 'kokoro';
-      const [eng, man] = await Promise.all([import(moduleBase() + 'chat/voice-engine.mjs'), import(moduleBase() + (kokoro ? 'chat/voice-manifest-kokoro.mjs' : 'chat/voice-manifest.mjs'))]);
+      const [eng, man] = await Promise.all([import(moduleBase() + 'chat/voice/voice-engine.mjs'), import(moduleBase() + (kokoro ? 'chat/voice/voice-manifest-kokoro.mjs' : 'chat/voice/voice-manifest.mjs'))]);
       return eng.createVoiceEngine({ engine: id, baseUrl: kokoro ? man.KOKORO_Q8_BASE_URL : man.KITTEN_NANO_BASE_URL, workerUrl: moduleBase() + (kokoro ? 'chat/vendor/voice/worker-kokoro.js' : 'chat/vendor/voice/worker.js') });
     });
     const mm = await memoryManager();

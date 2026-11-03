@@ -6,7 +6,7 @@ import { iconNode } from "../icons.mjs";
 import { createRegistry } from "./registry.mjs";
 import { buildModelsPage } from "./models-page.mjs";
 import { rowParts, renderRowText } from "./model-row.mjs";
-import { languageRows as langVMs, voiceRows as voiceVMs, stateLine as vmLine } from "../models-view.mjs";
+import { languageRows as langVMs, voiceRows as voiceVMs, stateLine as vmLine } from "../models/models-view.mjs";
 import { hybridSearch, passagesFor, defaultFilters } from "./hybrid-search.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -81,7 +81,7 @@ const progressText = (p) => !p ? "Starting…" : p.phase === "connecting" ? "Con
 // Where a downloaded voice is right now: on the device only, or also in memory. The dot on the voice pill follows the same words.
 const MEMORY_TEXT = { unloaded: "Not in memory (loads when it reads)", loading: "Loading into memory…", loaded: "In memory, ready", speaking: "Reading now", unloading: "Unloading…" };
 function voiceDescription(v) {
-  // the state words come from chat/models-view.mjs, the same ones Settings and the storage screen use
+  // the state words come from chat/models/models-view.mjs, the same ones Settings and the storage screen use
   const vm = voiceVMs({ voices: [v] })[0];
   let line;
   if (v.id === "os") line = v.note;
@@ -313,7 +313,7 @@ export function createShell(app) {
   setInterval(syncModel, 1500); syncModel();
   function modelRows() {
     const lm = window.localModels, rows = [{ heading: "On this device" }];
-    // the same rows as Settings > Models, built from the same view-model (chat/models-view.mjs)
+    // the same rows as Settings > Models, built from the same view-model (chat/models/models-view.mjs)
     for (const vm of lm?.state ? langVMs(lm.state, { mode: lm.mode, hide: lm.qualityAvailable === false ? ["default"] : [] }) : []) {
       rows.push({ label: vm.label, parts: rowParts(vm), checked: vm.inUse, keepOpen: true, onClick: () => toggleLocal(vm.id) });
     }

@@ -1,7 +1,7 @@
 # Model UI: one integrated plan
 
 Status (2026-11-03): ALL BUILT (decisions in section 9 were taken as recommended by the owner). The wording fix; the picker toggle for chat models and voices
-(`toggleLocal`, `ctl.toggle`); `chat/models-view.mjs` (one vocabulary, `TIER_NOTES`, tested); `window.localModels` actions and `view` (`local-models.js` keeps what
+(`toggleLocal`, `ctl.toggle`); `chat/models/models-view.mjs` (one vocabulary, `TIER_NOTES`, tested); `window.localModels` actions and `view` (`local-models.js` keeps what
 the UI shows in a view object, not in page elements); the rebuilt Settings > Models page (`chat/shell/models-page.mjs`: Language model, Connected provider, Voice,
 Other models, Memory and storage; the Voice nav item is gone and `openSettings("voice")` opens Models at the Voice section); both composer pickers and the voice
 description built from the same view-models and words; the Storage screen lists chat models and voices in the same words; the legacy model panel (the old model
@@ -27,7 +27,7 @@ Places where a person picks or manages a model, and what each one is:
 | 8 | First message / prep card | `index.html` `prep` card, `runtime/prepare.mjs` | Downloads and loads a chat model as part of sending a message. |
 | 9 | Mode badge | `shell.mjs` `badge` click -> Settings > Models | A shortcut into 5. |
 | 10 | Roberta / calls | `index.html` Roberta actions, `callWaitNote` | Start a model download from a menu; explain model state during a call. |
-| 11 | Embedding model (Roberta, search) | `chat/embedder.mjs` | No user-facing control at all; only visible in the Memory card. |
+| 11 | Embedding model (Roberta, search) | `chat/embedding/embedder.mjs` | No user-facing control at all; only visible in the Memory card. |
 
 Problems, in the owner's words and mine:
 
@@ -36,7 +36,7 @@ Problems, in the owner's words and mine:
 - Memory is sandwiched between the chat-model list and the legacy panel.
 - Picking a row only ever turns a model **on**; there is no way to turn it off from the picker. (Request: it must be a toggle, for chat models and voices.)
 - The shell drives the hidden legacy form by writing values and firing `change` events (`chooseLocal`), so the new UI depends on the old one.
-- Wording: "Free and instant" on the System voice (`chat/voice-choice.mjs` `VOICES`) implies the downloaded voices cost something. The system voice is not a model.
+- Wording: "Free and instant" on the System voice (`chat/voice/voice-choice.mjs` `VOICES`) implies the downloaded voices cost something. The system voice is not a model.
 
 ## 2. Words (one vocabulary, used everywhere)
 
@@ -63,7 +63,7 @@ A single `model-row` component (new `chat/shell/model-row.mjs`) renders any mode
 
 It shows: radio mark (in use), name, one line of description (state words from section 2), the dot, and the size. The same row is used in the composer pickers, the Settings sections and the Storage screen. Overflow actions (Remove, Hear a sample, Verify, Details) appear the same way everywhere.
 
-A single aggregator, `chat/models-view.mjs`, builds the view-models from the three real sources (`window.localModels`, the voice picker controller, the memory manager) and notifies on change. Nothing in the new UI reads or writes the legacy form.
+A single aggregator, `chat/models/models-view.mjs`, builds the view-models from the three real sources (`window.localModels`, the voice picker controller, the memory manager) and notifies on change. Nothing in the new UI reads or writes the legacy form.
 
 ## 4. Click behaviour: a toggle (the owner's request)
 

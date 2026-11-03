@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {deflateRawSync,inflateRawSync} from 'node:zlib';
-import {convertForeign,describeForeign} from '../chat/foreign-import.mjs';
-import {readConversationsJson,listEntries} from '../chat/zip.mjs';
+import {convertForeign,describeForeign} from '../chat/transfer/foreign-import.mjs';
+import {readConversationsJson,listEntries} from '../chat/transfer/zip.mjs';
 const chatgpt=[{title:'Trip planning',create_time:1700000000,update_time:1700000100,current_node:'c',mapping:{
  a:{id:'a',parent:null,children:['b'],message:{author:{role:'system'},content:{content_type:'text',parts:['']}}},
  b:{id:'b',parent:'a',children:['c','x'],message:{author:{role:'user'},create_time:1700000010,content:{content_type:'text',parts:['Where should I go in May?']}}},

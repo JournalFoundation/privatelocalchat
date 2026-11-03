@@ -14,7 +14,7 @@ const gpu = { available: true, isFallbackAdapter: false };
 const good = { cores: 8, deviceMemoryGB: 8, webgpu: gpu };
 const roomy = { usage: 1 * GB, quota: 40 * GB, writeOk: true };
 const fast = { ms: 30 };
-const measured = { centroid: 137, boiler: 150, n100: 216, s8plus: 4000 }; // chat/voice-probe.mjs on real devices, 2026-11-02
+const measured = { centroid: 137, boiler: 150, n100: 216, s8plus: 4000 }; // chat/voice/voice-probe.mjs on real devices, 2026-11-02
 const on = { ...VOICE_CONFIG, calibrated: true };
 const pick = (o) => pickVoiceEngine({ userAgent: UA.linux, env: good, storage: roomy, probe: fast, config: on, ...o });
 

@@ -8,7 +8,7 @@ Three flows, deliberately separate, each with its own entry label, dialog title,
 | Configuration | **Transfer settings** (Import export and transfer) | Transfer settings | Endpoint, model, theme, optionally an API token | Create transfer link |
 | Conversation data | **Transfer chats and backups** (same section, and Storage & backups) | Transfer chats and backups | Conversations and app data, as files | Export saved conversations / Create protected backup |
 
-Code: `chat/product-share.mjs` (fixed public payload and the share panel, also used on the public About and Help pages), `chat/settings-transfer.mjs` (format, encryption, readers; no DOM), `chat/transfer-ui.mjs` (the dialogs, import review, unlock, pending token), `chat/qr.mjs` (local QR, capacity check). The page owns storage and tokens and gives them to the dialogs through the `transferApp` facade in `index.html`.
+Code: `chat/transfer/product-share.mjs` (fixed public payload and the share panel, also used on the public About and Help pages), `chat/transfer/settings-transfer.mjs` (format, encryption, readers; no DOM), `chat/transfer/transfer-ui.mjs` (the dialogs, import review, unlock, pending token), `chat/transfer/qr.mjs` (local QR, capacity check). The page owns storage and tokens and gives them to the dialogs through the `transferApp` facade in `index.html`.
 
 ## Share
 

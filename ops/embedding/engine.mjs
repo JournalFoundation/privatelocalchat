@@ -5,7 +5,7 @@
 // for that Matryoshka cut) and renormalised. It is NOT the mean-pooled last_hidden_state, which is the encoder output before the projection
 // and ranks short phrases poorly. Questions get the retrieval prompt; the stored phrases do not.
 
-import { EMBEDDING_MODEL } from "../../chat/embedding-model.mjs";
+import { EMBEDDING_MODEL } from "../../chat/embedding/embedding-model.mjs";
 
 export const EMBED_DIM = EMBEDDING_MODEL.dim;
 export const QUERY_PROMPT = EMBEDDING_MODEL.queryPrompt;

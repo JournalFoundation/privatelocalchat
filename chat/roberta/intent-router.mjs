@@ -1,7 +1,7 @@
 // Roberta's intent router: what someone said (typed, or a browser speech-to-text transcript) -> which prepared topic it means.
 // No language model and no generation. Two arms are fused:
-//   semantic  the sentence is embedded on this device (chat/embedder.mjs, 256 numbers) and compared with the precomputed vectors of every
-//             example phrase of every topic (chat/ivr-vectors.json), so "who has my data" finds "where are my chats saved" by meaning;
+//   semantic  the sentence is embedded on this device (chat/embedding/embedder.mjs, 256 numbers) and compared with the precomputed vectors of every
+//             example phrase of every topic (chat/roberta/ivr-vectors.json), so "who has my data" finds "where are my chats saved" by meaning;
 //   lexical   normalised words, stop words, light stemming, synonyms, each topic's keywords and example words. It needs no model, so Roberta
 //             answers at once, before anything is downloaded, and keeps answering if the model fails or Data saver is on.
 // route(text) never throws and always answers: if the embedder is not ready within a short budget the answer is lexical (method "lexical").

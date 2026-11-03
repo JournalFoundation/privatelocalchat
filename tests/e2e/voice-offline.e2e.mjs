@@ -37,7 +37,7 @@ try{
 
  // online: install and use the voice once (this is what fills the service worker cache)
  await page.evaluate(async({base,cdn})=>{
-  const {createVoiceEngine}=await import(base+'chat/voice-engine.mjs');
+  const {createVoiceEngine}=await import(base+'chat/voice/voice-engine.mjs');
   window.__engine=createVoiceEngine({baseUrl:cdn});
   await window.__engine.install(()=>{});
  },{base,cdn:CDN});

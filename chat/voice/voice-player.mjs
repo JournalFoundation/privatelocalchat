@@ -8,7 +8,7 @@
 // A second, independent route for the same promise: on iOS the sound is also sent through an <audio> element (a MediaStream from the page's audio graph). A media
 // element plays as "media", which the ringer switch does not mute, and it works on iOS versions that have no audioSession. Used on iPhone and iPad only: other
 // browsers play straight to the speakers as before.
-import { isIOSDevice } from "../runtime/voice-pick.mjs";
+import { isIOSDevice } from "../../runtime/voice-pick.mjs";
 const onIOS = () => isIOSDevice(globalThis.navigator?.userAgent || "", globalThis.navigator?.maxTouchPoints || 0);
 let sessionUsers = 0, sessionBefore = null;
 function claimSpeaker(session) {

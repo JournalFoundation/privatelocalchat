@@ -1,5 +1,5 @@
 // Roberta's semantic matching in a real browser: the REAL worker and the REAL model (downloaded from the asset host, about 37 MB with the
-// WASM runtime) through chat/embedder.mjs, then the held-out queries through chat/intent-router.mjs. Network dependent by design: it fails
+// WASM runtime) through chat/embedding/embedder.mjs, then the held-out queries through chat/roberta/intent-router.mjs. Network dependent by design: it fails
 // with a clear message if the asset host cannot be reached. It also proves the Cache API keeps the model: a second page load asks the asset
 // host for nothing.
 //
@@ -7,7 +7,7 @@
 import {readFileSync} from 'node:fs';
 import {launch,assert} from './harness.mjs';
 import {summarise,SPLITS} from '../../scripts/eval-intent-router.mjs';
-import {EMBEDDING_ASSET_HOST} from '../../chat/embedding-config.mjs';
+import {EMBEDDING_ASSET_HOST} from '../../chat/embedding/embedding-config.mjs';
 
 const queries=JSON.parse(readFileSync(new URL('../fixtures/ivr-eval-queries.json',import.meta.url),'utf8')).queries;
 const CDN_HOST=new URL(EMBEDDING_ASSET_HOST).host;
@@ -22,7 +22,7 @@ const releaseBase=async page=>page.evaluate(()=>new URL(/^(.*\/releases\/[^/]+\/
 
 async function loadEmbedder(page,base){
  return page.evaluate(async base=>{
-  const {createEmbedder}=await import(base+'chat/embedder.mjs');
+  const {createEmbedder}=await import(base+'chat/embedding/embedder.mjs');
   const embedder=createEmbedder({force:true});
   window.__embedder=embedder;
   const t0=performance.now();
@@ -53,9 +53,9 @@ try{
 
  // ---- the held-out queries with the real embedder -------------------------------------------------------------------------------
  const rows=await page.evaluate(async ({base,queries})=>{
-  const {createIntentRouter,loadIntentVectors}=await import(base+'chat/intent-router.mjs');
-  const vectors=await loadIntentVectors(new URL(base+'chat/ivr-vectors.json'));
-  if(!vectors)throw new Error('could not load chat/ivr-vectors.json');
+  const {createIntentRouter,loadIntentVectors}=await import(base+'chat/roberta/intent-router.mjs');
+  const vectors=await loadIntentVectors(new URL(base+'chat/roberta/ivr-vectors.json'));
+  if(!vectors)throw new Error('could not load chat/roberta/ivr-vectors.json');
   const router=createIntentRouter({vectors,embedder:window.__embedder,nearFloor:0});
   const out=[];
   for(const query of queries){const t=performance.now();const result=await router.route(query.text);out.push({query,result,ms:performance.now()-t});}

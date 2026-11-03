@@ -7,7 +7,7 @@
 import * as ST from "./settings-transfer.mjs";
 import { PRODUCT, mountProductShare, canShareNatively } from "./product-share.mjs";
 import { renderQr, fitsQr } from "./qr.mjs";
-import { ROBOT_NAME } from "./ivr-content.mjs";
+import { ROBOT_NAME } from "../roberta/ivr-content.mjs";
 
 export const NOTICE_SETTINGS = "This transfer includes the settings listed below. These settings may contain sensitive information. Anyone with the link, QR code, or settings file can read the listed settings. An included API token is encrypted with your chosen password. Communicate that password separately.";
 export const NOTICE_EXPORT = "This file includes the conversations and items listed below. Anyone able to open the file can read its included content. Choose where to save it and who to give it to.";

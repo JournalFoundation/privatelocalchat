@@ -1,5 +1,5 @@
 // Conversion of other chatbots' data exports into this app's threads. Only text transfers; the result says what did not.
-import { normalizeThread, newId } from "./threads.mjs";
+import { normalizeThread, newId } from "../threads.mjs";
 
 const toMs = (v) => { if (typeof v === "number") return v < 1e11 ? Math.round(v * 1000) : v; const t = Date.parse(v); return Number.isFinite(t) ? t : undefined; };
 const textOfParts = (parts, report) => {

@@ -10,7 +10,7 @@ Four static documents served from the product domain, with a sitemap, a robots f
 | `/updates/` | `updates/index.html` + `updates/entries.json` | Release notes and known-issue summary; feed at `/updates/rss.xml` |
 | `/sitemap.xml`, `/robots.txt` | generated | Root plus the four pages; robots allows everything and names the sitemap |
 
-Shared pieces: `chat/public-pages.css` (brand tokens from `/brand/design-tokens.css`, light and dark by `prefers-color-scheme`, 44 px targets, reduced motion) and `chat/public-pages.mjs` (mounts `mountProductShare` from `chat/product-share.mjs` on Help and About; the only script on the pages). Both live in `chat/` so the build moves them into the versioned release folder like the other chat assets. Pages load no external fonts, scripts or images.
+Shared pieces: `chat/public-pages.css` (brand tokens from `/brand/design-tokens.css`, light and dark by `prefers-color-scheme`, 44 px targets, reduced motion) and `chat/transfer/public-pages.mjs` (mounts `mountProductShare` from `chat/transfer/product-share.mjs` on Help and About; the only script on the pages). Both live in `chat/` so the build moves them into the versioned release folder like the other chat assets. Pages load no external fonts, scripts or images.
 
 ## How the build handles them
 

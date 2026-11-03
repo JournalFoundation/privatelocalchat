@@ -17,12 +17,12 @@ Status: BUILT 2026-11-02 (decisions below were accepted by the owner). Written a
 
 - `runtime/memory-manager.mjs` (+ `tests/memory-manager.test.mjs`): registry of residents, `acquire` / lease, policy, `snapshot` / `subscribe`.
 - Adapters in `index.html` (`memoryManager()`): chat model (`local-models.js`: `unloadForMemory`, `generating`; `ensureReady` and the Load button hold a
-  lease; auto-load is skipped while the switch is on), voice (`acquireMemory` in `chat/voice-choice.mjs`, `memoryState()`), matching model
+  lease; auto-load is skipped while the switch is on), voice (`acquireMemory` in `chat/voice/voice-choice.mjs`, `memoryState()`), matching model
   (`sharedEmbedder()`, used by Roberta and the search overlay).
 - Settings > Models > **Memory** card (`chat/shell/shell.mjs`): the switch, every model with its state, Unload, Unload all.
 - Status line wording while models swap ("Unloading X to make room for Y…", "Waiting for X to finish…").
 - Same dot words on the chat model pill (`chat/shell.css`).
-- `chat/memory-offer.mjs`: the offer after a failure (chat model out-of-memory / load-failed, a voice that failed to start or read, a page killed
+- `chat/models/memory-offer.mjs`: the offer after a failure (chat model out-of-memory / load-failed, a voice that failed to start or read, a page killed
   mid-load). Once per kind per page, not when the switch is on, never after "Don't ask again". Out-of-date-page failures do not trigger it.
 - Tests: `tests/memory-manager.test.mjs`, `tests/memory-offer.test.mjs`, `tests/e2e/memory.e2e.mjs`, new cases in `tests/voice-choice.test.mjs`.
 - Storage key `plc.memory.v1` `{policy, offerDeclined}`.
@@ -59,10 +59,10 @@ model manages its own memory in its own way, so nothing can say "give this model
 | Model kind | Code | Load / unload today | Idle handling | Memory estimate |
 |---|---|---|---|---|
 | Chat model, on device (WebLLM on GPU; wllama on CPU) | `runtime/providers/model-host.mjs` (`load`, `unload`, `state.load.state` = unloaded / loading / ready / faulted / unloading), `runtime/providers/client.mjs`, `local-models.js` (`freeMemory`, `ensureReady`, `userFreed`, `shouldAutoLoad` in `runtime/auto-load.mjs`), `runtime/prepare.mjs` | Loaded by `ensureReady` before a send (`index.html` ~3151, ~3171) and by auto-load at start; unloaded only by the person ("Free memory") or a tier switch | None | `item.info.memory.steadyBytes` |
-| Voice (Kitten, Kokoro), ONNX Runtime Web in a worker | `chat/voice-choice.mjs`, `chat/voice-engine.mjs` | Loads at the first read; `release()` unloads (idle 60 s, chat model loading, "Free the memory") | 60 s idle, built 2026-11-02 | about +250 MB / +420 MB (`docs/VOICE-MEMORY.md`, desktop only) |
-| Matching / embedding model (`mdbr-leaf-ir`, about 24 MB) | `chat/embedder.mjs`, used by `chat/intent-router.mjs` (Roberta) | `ready()` loads, `terminate()` stops it | own 120 s idle terminate | small (tens of MB) |
+| Voice (Kitten, Kokoro), ONNX Runtime Web in a worker | `chat/voice/voice-choice.mjs`, `chat/voice/voice-engine.mjs` | Loads at the first read; `release()` unloads (idle 60 s, chat model loading, "Free the memory") | 60 s idle, built 2026-11-02 | about +250 MB / +420 MB (`docs/VOICE-MEMORY.md`, desktop only) |
+| Matching / embedding model (`mdbr-leaf-ir`, about 24 MB) | `chat/embedding/embedder.mjs`, used by `chat/roberta/intent-router.mjs` (Roberta) | `ready()` loads, `terminate()` stops it | own 120 s idle terminate | small (tens of MB) |
 | Search embedding (Ctrl/Cmd+K, `chat/shell/shell.mjs` ~545) | creates its **own** `createEmbedder({})` instance, separate from Roberta's in `index.html` ~4694: the same model can be in memory twice, each in its own worker | same `ready()` / `terminate()`, same 120 s idle | same | same, doubled |
-| PDF.js | `chat/pdf.mjs` | loaded on demand, no resident model | none needed | transient |
+| PDF.js | `chat/documents/pdf.mjs` | loaded on demand, no resident model | none needed | transient |
 | Speech recognition | browser's own `SpeechRecognition` | not our memory | n/a | n/a |
 | Image generation, OCR | none (`docs/CHAT-FEATURES.md`: "OCR is not available offline yet") | | | |
 | Remote API mode | nothing local | nothing to unload | n/a | n/a |

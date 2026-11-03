@@ -1,23 +1,23 @@
 // Precompute the example-phrase embeddings for Roberta's intent router: one 256-number vector per phrase in INTENT_PHRASES
-// (chat/ivr-content.mjs), embedded as DOCUMENTS (no query prompt) by the same engine the browser runs, then written compactly to
-// chat/ivr-vectors.json. The page only has to embed what the person says.
+// (chat/roberta/ivr-content.mjs), embedded as DOCUMENTS (no query prompt) by the same engine the browser runs, then written compactly to
+// chat/roberta/ivr-vectors.json. The page only has to embed what the person says.
 //
-//   EMBEDDING_NODE_MODULES=<scratch>/node_modules node scripts/build-intent-vectors.mjs          write chat/ivr-vectors.json
+//   EMBEDDING_NODE_MODULES=<scratch>/node_modules node scripts/build-intent-vectors.mjs          write chat/roberta/ivr-vectors.json
 //   EMBEDDING_NODE_MODULES=<scratch>/node_modules node scripts/build-intent-vectors.mjs --check  exit 1 if the file is stale or malformed
 //
 // <scratch>/node_modules needs @huggingface/transformers@4.2.0 and onnxruntime-node (not repository dependencies; docs/EMBEDDINGS.md).
-// The model files are fetched from the asset host in chat/embedding-config.mjs and kept in EMBEDDING_CACHE_DIR (default: the system temp
+// The model files are fetched from the asset host in chat/embedding/embedding-config.mjs and kept in EMBEDDING_CACHE_DIR (default: the system temp
 // directory). Behind an HTTPS proxy, run node with NODE_USE_ENV_PROXY=1 (and NODE_EXTRA_CA_CERTS if the proxy needs its own CA).
 // Nothing a person said is involved: only the phrases written in the content file.
 
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { INTENT_PHRASES } from "../chat/ivr-content.mjs";
-import { EMBEDDING_MODEL } from "../chat/embedding-model.mjs";
-import { canonicalPhrases, encodeVector, VECTORS_FORMAT, VECTOR_QUANT } from "../chat/intent-router.mjs";
+import { INTENT_PHRASES } from "../chat/roberta/ivr-content.mjs";
+import { EMBEDDING_MODEL } from "../chat/embedding/embedding-model.mjs";
+import { canonicalPhrases, encodeVector, VECTORS_FORMAT, VECTOR_QUANT } from "../chat/roberta/intent-router.mjs";
 
-export const VECTORS_PATH = fileURLToPath(new URL("../chat/ivr-vectors.json", import.meta.url));
+export const VECTORS_PATH = fileURLToPath(new URL("../chat/roberta/ivr-vectors.json", import.meta.url));
 export const phraseHashOf = (phrases) => createHash("sha256").update(canonicalPhrases(phrases)).digest("hex");
 
 export async function buildVectors(engine, phrases = INTENT_PHRASES) {

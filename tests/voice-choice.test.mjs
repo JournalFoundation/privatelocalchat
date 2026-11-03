@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createVoiceChoice, CHOICE_KEY, VOICES, SAMPLE_TEXT } from "../chat/voice-choice.mjs";
+import { createVoiceChoice, CHOICE_KEY, VOICES, SAMPLE_TEXT } from "../chat/voice/voice-choice.mjs";
 import { VOICE_CONFIG } from "../runtime/voice-pick.mjs";
 import { createFakeVoiceEngine, fakeAudioContext } from "./helpers/fake-voice-engine.mjs";
 
@@ -379,7 +379,7 @@ test("a voice failure while reading, or a crash at the last start, is flagged as
 });
 
 test("what the voice makes reaches the speaker: the real engine's chunk objects are played, in the self-test sample, the picker's sample and a read-aloud", async () => {
-  const { speak } = await import("../chat/speech.mjs");
+  const { speak } = await import("../chat/voice/speech.mjs");
   const contexts = [];
   const createContext = () => { const c = fakeAudioContext(); contexts.push(c); return c; };
   const { ctl } = make({ ctl: { createContext } });
@@ -391,7 +391,7 @@ test("what the voice makes reaches the speaker: the real engine's chunk objects 
   assert.ok(scheduled() > before, "Hear a sample plays");
   const route = ctl.route(); const mid = scheduled();
   await speak("Hello there.", { engine: route.engine, ...route.options, createContext }).done;
-  assert.ok(scheduled() > mid, "a read-aloud through chat/speech.mjs plays");
+  assert.ok(scheduled() > mid, "a read-aloud through chat/voice/speech.mjs plays");
   for (const c of contexts) for (const s of c.scheduled) assert.ok(s.duration > 0.05, "a real length of audio, not an empty chunk");
 });
 

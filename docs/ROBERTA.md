@@ -5,9 +5,9 @@
 Roberta is the name of the app's robot: the front desk of Private Local Chat. She is a program that plays **prepared messages** in a numbered phone menu and matches what a person says to the right message by meaning. That is all.
 
 * She is **not a person**. She says so in her first sentences ("I'm a program, not a person. I don't have feelings or awareness") and no script claims feelings, memories, a life or consciousness. `tests/ivr.test.mjs` fails if copy starts to.
-* She is **not the language model**. Her messages are fixed text (`chat/ivr-content.mjs`); nothing she says is generated. She says what the model will do once it is ready: "replies in the chat are written by that language model on your device. I'm only the front desk."
+* She is **not the language model**. Her messages are fixed text (`chat/roberta/ivr-content.mjs`); nothing she says is generated. She says what the model will do once it is ready: "replies in the chat are written by that language model on your device. I'm only the front desk."
 * She works **before any model exists**, and in parallel with the model download.
-* The name is one constant, `ROBOT_NAME` in `chat/ivr-content.mjs` (and `ROBOT_NAME` in `index.html`, which names the sender of voice notes). Change both together. The live chat call (the green phone button) still says "Private Local Chat" as the contact; making it say Roberta too is a one-line change if you want one identity everywhere.
+* The name is one constant, `ROBOT_NAME` in `chat/roberta/ivr-content.mjs` (and `ROBOT_NAME` in `index.html`, which names the sender of voice notes). Change both together. The live chat call (the green phone button) still says "Private Local Chat" as the contact; making it say Roberta too is a one-line change if you want one identity everywhere.
 
 ## What a visitor sees
 
@@ -30,7 +30,7 @@ Press `1` privacy (cloud, storage, outside providers, accounts), `2` talking and
 
 ## Understanding what is said
 
-Pressing numbers always works. Speech goes through the browser's speech recognition (one utterance per tap of Speak, so there is no echo of her own voice) and is matched to a topic by `chat/intent-router.mjs`: word matching works immediately and a small embedding model improves it once it has loaded in the background. See `docs/EMBEDDINGS.md`. A confident match behaves like pressing the key; an unsure one says it could not match and offers the two nearest topics; the keypad is always there.
+Pressing numbers always works. Speech goes through the browser's speech recognition (one utterance per tap of Speak, so there is no echo of her own voice) and is matched to a topic by `chat/roberta/intent-router.mjs`: word matching works immediately and a small embedding model improves it once it has loaded in the background. See `docs/EMBEDDINGS.md`. A confident match behaves like pressing the key; an unsure one says it could not match and offers the two nearest topics; the keypad is always there.
 
 ## Voice notes and voicemail
 
@@ -40,7 +40,7 @@ Pressing numbers always works. Speech goes through the browser's speech recognit
 
 ## Editing and guarding the copy
 
-Scripts, menu, example phrases and keywords are all in `chat/ivr-content.mjs`. `tests/ivr.test.mjs` checks the menu numbering, that every item has copy, that example phrases are unique across topics, that the owner's own sample questions are present, that no script claims a human inner life, and that scripts adapt to device and model state. If you change `examples`, regenerate the vectors (see `docs/EMBEDDINGS.md`); a test fails until you do.
+Scripts, menu, example phrases and keywords are all in `chat/roberta/ivr-content.mjs`. `tests/ivr.test.mjs` checks the menu numbering, that every item has copy, that example phrases are unique across topics, that the owner's own sample questions are present, that no script claims a human inner life, and that scripts adapt to device and model state. If you change `examples`, regenerate the vectors (see `docs/EMBEDDINGS.md`); a test fails until you do.
 
 ## Not verified here
 

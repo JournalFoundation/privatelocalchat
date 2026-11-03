@@ -5,9 +5,9 @@ import { existsSync, readFileSync } from "node:fs";
 import {
   normalizeText, postProcessPhonemes, phonemizeText, splitSentences, splitLongSentence, kokoroChunks, createTokenizer, parseVoice, styleFor, resolveVoice,
   languageForVoice, KOKORO_VOICES, STYLE_DIM,
-} from "../chat/voice-kokoro.mjs";
-import { KOKORO_Q8_MANIFEST, KOKORO_Q8_BASE_URL, KOKORO_Q8_COMMIT } from "../chat/voice-manifest-kokoro.mjs";
-import { createVoiceEngine, validateManifest, KOKORO_VOICE_DIR } from "../chat/voice-engine.mjs";
+} from "../chat/voice/voice-kokoro.mjs";
+import { KOKORO_Q8_MANIFEST, KOKORO_Q8_BASE_URL, KOKORO_Q8_COMMIT } from "../chat/voice/voice-manifest-kokoro.mjs";
+import { createVoiceEngine, validateManifest, KOKORO_VOICE_DIR } from "../chat/voice/voice-engine.mjs";
 
 const golden = JSON.parse(readFileSync(new URL("./fixtures/kokoro-golden.json", import.meta.url), "utf8"));
 const tokenizerJson = JSON.parse(readFileSync(new URL("./fixtures/kokoro-tokenizer.json", import.meta.url), "utf8"));

@@ -62,7 +62,7 @@ Still placeholders and not supported by this data: `minMemoryGB`, `minCores`, `m
 
 Measured, one factor at a time, on this machine:
 
-1. **Our pipeline** (worker, `chat/voice-engine.mjs`), no slowdown: 1 thread 0.98x to 1.15x; 4 threads 2.1x to 2.8x; 8 threads 2.4x to 2.7x. Sentence length 2.3 s, 5.2 s, 9.6 s and 20.2 s made no difference (1.04x to 1.15x at 1 thread). Warm-up: the first run of a text is about 5 percent slower than later ones. Not the cause. Threads matter (x2.4 from 1 to 4) but the spike also tried 1 and 8.
+1. **Our pipeline** (worker, `chat/voice/voice-engine.mjs`), no slowdown: 1 thread 0.98x to 1.15x; 4 threads 2.1x to 2.8x; 8 threads 2.4x to 2.7x. Sentence length 2.3 s, 5.2 s, 9.6 s and 20.2 s made no difference (1.04x to 1.15x at 1 thread). Warm-up: the first run of a text is about 5 percent slower than later ones. Not the cause. Threads matter (x2.4 from 1 to 4) but the spike also tried 1 and 8.
 2. **The spike code re-run** (kokoro-js 1.2.1 on transformers.js 3.8.1, the same model file, this machine): 1 thread 0.53x to 0.56x, 4 threads 0.82x to 0.89x, 8 threads 0.78x to 0.87x. That reproduces the spike (0.56 and 0.86).
 3. **The same kokoro-js code with ONNX Runtime Web 1.31.1** swapped in (the version the app vendors; kokoro-js bundles 1.22.0-dev from April 2025): 1 thread 1.02x to 1.08x, 4 threads 1.8x to 2.6x, 8 threads 1.6x to 2.2x. That equals our own pipeline.
 

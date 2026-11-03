@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {speechChunks,speechSupport,voices,bestVoice,speak,startDictation,probeMicrophone} from '../chat/speech.mjs';
+import {speechChunks,speechSupport,voices,bestVoice,speak,startDictation,probeMicrophone} from '../chat/voice/speech.mjs';
 const clean=()=>{for(const k of ['speechSynthesis','SpeechSynthesisUtterance','SpeechRecognition','webkitSpeechRecognition'])delete globalThis[k];};
 test('text is read in sentence-sized pieces',()=>{
  const text='First sentence here. Second one follows! And a question? '+'word '.repeat(80)+'\nNew paragraph.';

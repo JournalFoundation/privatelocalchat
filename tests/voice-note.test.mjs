@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {splitSegments,estimateSeconds,wordCount,formatClock,waveformBars,createVoicePlayer,SPEEDS} from '../chat/voice-note.mjs';
+import {splitSegments,estimateSeconds,wordCount,formatClock,waveformBars,createVoicePlayer,SPEEDS} from '../chat/voice/voice-note.mjs';
 test('text is split into sentences to speak, with tiny ones joined and no empties',()=>{
  assert.deepEqual(splitSegments('First sentence is long enough to stand alone. Second one is also quite long here! Third?'),['First sentence is long enough to stand alone.','Second one is also quite long here! Third?']);
  assert.deepEqual(splitSegments('Hi. Yes. This one is a reasonably long sentence that stays whole.'),['Hi. Yes. This one is a reasonably long sentence that stays whole.']);

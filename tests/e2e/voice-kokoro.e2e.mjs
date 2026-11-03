@@ -7,7 +7,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import {launch,assert} from './harness.mjs';
-import {KOKORO_Q8_MANIFEST} from '../../chat/voice-manifest-kokoro.mjs';
+import {KOKORO_Q8_MANIFEST} from '../../chat/voice/voice-manifest-kokoro.mjs';
 import {voiceFilesDir} from './voice-files.mjs';
 
 const FILES_DIR=await voiceFilesDir('kokoro');
@@ -43,7 +43,7 @@ try{
  const baseline=await opfsBytes();
 
  const result=await page.evaluate(async({base,cdn,text,wavOut})=>{
-  const {createVoiceEngine}=await import(base+'chat/voice-engine.mjs');
+  const {createVoiceEngine}=await import(base+'chat/voice/voice-engine.mjs');
   const engine=createVoiceEngine({engine:'kokoro',baseUrl:cdn});
   window.__engine=engine;
   const out={};

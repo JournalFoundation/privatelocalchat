@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { languageRows, voiceRows, otherRows, stateLine, toggleAction, sizeText } from "../chat/models-view.mjs";
+import { languageRows, voiceRows, otherRows, stateLine, toggleAction, sizeText } from "../chat/models/models-view.mjs";
 
 const item = (label, ok, bytes = 0) => ({ info: { label, modelId: label, downloadBytes: 2e9, memory: { steadyBytes: 3e9 } }, install: { ok, bytesPresent: bytes } });
 const base = () => ({ selection: { tier: "light" }, tiers: { light: item("Qwen3.5-2B", true, 2e9), granite: item("Granite", false) }, load: { state: "unloaded" }, busy: false, transfer: null, lastError: null });

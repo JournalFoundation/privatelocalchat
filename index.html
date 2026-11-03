@@ -2813,7 +2813,7 @@
 
       const messageDecorators = []; // later features add buttons/meta here: (thread, msg, index, ctx) => void
       let noteSupport = false;       // voice notes need the browser's text-to-speech; set by the speech block
-      const ROBOT_NAME = 'Roberta';  // the app's robot (chat/ivr-content.mjs holds the same name for the menu)
+      const ROBOT_NAME = 'Roberta';  // the app's robot (chat/roberta/ivr-content.mjs holds the same name for the menu)
       /** A link to the Help page section for a problem, opened in a new tab so the chat and draft stay put. */
       function helpLink(anchor, label) {
         const a = el('a', 'help-link', label); a.href = '/help/#' + anchor; a.target = '_blank'; a.rel = 'noopener';
@@ -3700,7 +3700,7 @@
       async function loadDocModules() {
         if (docModules) return docModules;
         const base = moduleBase();
-        const [docs, store, exportsModule] = await Promise.all([import(base + 'chat/documents.mjs'), import(base + 'chat/doc-store.mjs'), import(base + 'chat/exports.mjs')]);
+        const [docs, store, exportsModule] = await Promise.all([import(base + 'chat/documents/documents.mjs'), import(base + 'chat/documents/doc-store.mjs'), import(base + 'chat/transfer/exports.mjs')]);
         docModules = { docs, store: store.docStore, exports: exportsModule };
         return docModules;
       }
@@ -3725,14 +3725,14 @@
           if (window.localModels?.mode === 'local') throw new Error('Pictures can only go to an API provider whose model can see images. The on-device models here read text only.');
           if (file.size > L.imageBytes) throw new Error('“' + file.name + '” is larger than ' + humanSize(L.imageBytes) + '.');
           onStatus?.('Preparing ' + file.name + '…');
-          const img = await (await import(moduleBase() + 'chat/images.mjs')).prepareImage(file);
+          const img = await (await import(moduleBase() + 'chat/documents/images.mjs')).prepareImage(file);
           await store.put({ id, name: file.name, kind: 'image', size: img.size, addedAt: Date.now(), dataUrl: img.dataUrl, width: img.width, height: img.height, chars: 0, temporary });
           return { id, name: file.name, kind: 'image', size: img.size };
         }
         if (file.size > L.fileBytes) throw new Error('“' + file.name + '” is larger than ' + humanSize(L.fileBytes) + '.');
         let rec;
         if (kind === 'pdf') {
-          const { extractPdf } = await import(moduleBase() + 'chat/pdf.mjs');
+          const { extractPdf } = await import(moduleBase() + 'chat/documents/pdf.mjs');
           const out = await extractPdf(new Uint8Array(await file.arrayBuffer()), { onProgress: (n, total) => onStatus?.('Reading ' + file.name + ' (page ' + n + ' of ' + total + ')…') });
           rec = docs.buildDocument({ id, name: file.name, size: file.size, kind, pages: out.pages });
           if (out.emptyPages) rec.note = out.emptyPages + ' page' + (out.emptyPages === 1 ? '' : 's') + ' had no selectable text and were skipped.';
@@ -4142,8 +4142,8 @@
       try { localStorage.removeItem('plc.speechInputUnusable'); } catch { /* private mode */ }
       const speechInputOk = speechAvailable.recognition;
       let speechMod = null, voiceMod = null;
-      const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
-      const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice.mjs'));
+      const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/voice/speech.mjs'));
+      const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice/voice.mjs'));
       // ---- model services (chat/models/services.mjs): memory manager, shared embedder, voice choice ----
       let voiceTestHook = null;
       /* DEV_DIAGNOSTICS_START */
@@ -4154,7 +4154,7 @@
       const { memoryManager, sharedEmbedder, loadVoiceChoice, voiceOpts } = services;
       window.plcMemoryReady = memoryManager;
       let callSoundsMod = null;
-      const loadCallSounds = async () => (callSoundsMod ||= await import(moduleBase() + 'chat/call-sounds.mjs'));
+      const loadCallSounds = async () => (callSoundsMod ||= await import(moduleBase() + 'chat/call/call-sounds.mjs'));
       let speaking = null;
       const setListenButton = (btn, on) => { btn.setAttribute('aria-pressed', String(on)); M.icons.setIconLabel(btn, on ? '⏹ Stop' : '🔊 Listen'); };
       function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => setListenButton(b, false)); } }
@@ -4266,11 +4266,11 @@
       });
 
       // ---- voice notes: any reply can be played like a voice message; long messages can be recorded as notes ------------------------
-      // The sound is the browser's own text-to-speech, one sentence at a time (chat/voice-note.mjs). Nothing is recorded as audio:
+      // The sound is the browser's own text-to-speech, one sentence at a time (chat/voice/voice-note.mjs). Nothing is recorded as audio:
       // a note you record is kept as its transcript.
       let voiceNoteMod = null, voiceRecorderMod = null;
       const loadNoteModules = async () => {
-        await Promise.all([loadSpeech(), voiceNoteMod ? null : import(moduleBase() + 'chat/voice-note.mjs').then(m => { voiceNoteMod = m; }), loadDocModules().then(m => { loadedDocExports = m.exports; }).catch(() => {})]);
+        await Promise.all([loadSpeech(), voiceNoteMod ? null : import(moduleBase() + 'chat/voice/voice-note.mjs').then(m => { voiceNoteMod = m; }), loadDocModules().then(m => { loadedDocExports = m.exports; }).catch(() => {})]);
       };
       if (noteSupport) loadNoteModules().catch(() => {});
       function mountMessageVoiceNote(div, body, msg) {
@@ -4325,7 +4325,7 @@
       async function startVoiceNote() {
         if (call.active || recorderOpen()) return;
         endDictation({ abort: true }); stopSpeaking(); stopNotes();
-        if (!speechMod || !voiceRecorderMod) await Promise.all([loadSpeech(), import(moduleBase() + 'chat/voice-recorder.mjs').then(m => { voiceRecorderMod = m; })]);
+        if (!speechMod || !voiceRecorderMod) await Promise.all([loadSpeech(), import(moduleBase() + 'chat/voice/voice-recorder.mjs').then(m => { voiceRecorderMod = m; })]);
         recorderUi ||= buildRecorderUi();
         const ui = recorderUi;
         ui.root.hidden = false; document.body.classList.add('voice-on'); ui.edit.hidden = true; ui.edit.value = ''; ui.err.textContent = ''; ui.live.hidden = false;
@@ -4361,8 +4361,8 @@
 
       // ---- Roberta: the app's robot, a phone menu of prepared messages -----------------------------------------------------------
       // She is the front desk: it works before any language model is loaded, in parallel with the model download. Pressing numbers always
-      // works; what a person says is matched to a topic by meaning (chat/intent-router.mjs, with a small search model that loads in the
-      // background). She is not the language model and says so (chat/ivr-content.mjs).
+      // works; what a person says is matched to a topic by meaning (chat/roberta/intent-router.mjs, with a small search model that loads in the
+      // background). She is not the language model and says so (chat/roberta/ivr-content.mjs).
       let robertaApi = null, contentMod = null, routerPromise = null;
       function robertaModelFacts() {
         const lm = window.localModels, base = { state: 'none', tierLabel: null, bytes: null, progress: 0, backend: null };
@@ -4379,8 +4379,8 @@
       async function loadRouter() {
         routerPromise ||= (async () => {
           try {
-            const [routerMod, embedderMod, content] = await Promise.all([import(moduleBase() + 'chat/intent-router.mjs'), import(moduleBase() + 'chat/embedder.mjs'), import(moduleBase() + 'chat/ivr-content.mjs')]);
-            const vectors = await (await fetch(moduleBase() + 'chat/ivr-vectors.json')).json();
+            const [routerMod, embedderMod, content] = await Promise.all([import(moduleBase() + 'chat/roberta/intent-router.mjs'), import(moduleBase() + 'chat/embedding/embedder.mjs'), import(moduleBase() + 'chat/roberta/ivr-content.mjs')]);
+            const vectors = await (await fetch(moduleBase() + 'chat/roberta/ivr-vectors.json')).json();
             const embedder = await sharedEmbedder();
             const router = routerMod.createIntentRouter({ vectors, embedder });
             embedder.ready().catch(() => {}); // the small search model loads in the background; until then words are matched by their text
@@ -4418,7 +4418,7 @@
       };
       async function loadRoberta() {
         if (robertaApi) return robertaApi;
-        const [, , roberta, content] = await Promise.all([loadSpeech(), loadCallSounds().catch(() => null), import(moduleBase() + 'chat/roberta-ui.mjs'), import(moduleBase() + 'chat/ivr-content.mjs')]);
+        const [, , roberta, content] = await Promise.all([loadSpeech(), loadCallSounds().catch(() => null), import(moduleBase() + 'chat/roberta/roberta-ui.mjs'), import(moduleBase() + 'chat/roberta/ivr-content.mjs')]);
         contentMod = content;
         if (callSoundsMod && !callSounds) callSounds = callSoundsMod.createCallSounds({ enabled: callSoundsOn });
         robertaApi ||= roberta.createRoberta({ app: robertaApp });
@@ -4508,7 +4508,7 @@
         };
         const btn = (label, fn, cls = 'secondary') => { const b = el('button', cls, label); b.type = 'button'; b.addEventListener('click', fn); return b; };
         if (stateNow) {
-          const mv = await import(moduleBase() + 'chat/models-view.mjs');
+          const mv = await import(moduleBase() + 'chat/models/models-view.mjs');
           mv.languageRows(stateNow, { mode: lm.mode }).forEach(vm => {
             const tier = vm.id, item = stateNow.tiers[tier], present = vm.bytesOnDevice || 0;
             row('Chat model: ' + (item.info.modelId || tier), mv.stateLine(vm), vm.state === 'loaded' ? 'In memory now' : '',
@@ -4519,7 +4519,7 @@
         }
         // the downloaded voices, in the same words as the pickers
         try {
-          const vctl = await loadVoiceChoice(), mv2 = await import(moduleBase() + 'chat/models-view.mjs');
+          const vctl = await loadVoiceChoice(), mv2 = await import(moduleBase() + 'chat/models/models-view.mjs');
           if (vctl) mv2.voiceRows(vctl.snapshot()).filter(vm => vm.kind === 'voice').forEach(vm => row('Voice: ' + vm.label, mv2.stateLine(vm), vm.state === 'loaded' ? 'In memory now' : '',
             vm.bytesOnDevice > 0 ? btn('Remove files', async () => { if (!await confirmDialog('Remove ' + vm.label + '?', 'This deletes the downloaded voice (' + humanSize(vm.bytesOnDevice) + ') from this device. Reading aloud goes back to the system voice if it was in use. You can download it again later.', 'Remove files', { danger: true })) return; await vctl.remove(vm.id); openStorageRefresh(); }) : null));
         } catch { /* voices are optional */ }
@@ -4853,7 +4853,7 @@
 
       async function readImportFile(file) {
         if (/\.zip$/i.test(file.name) || file.type === 'application/zip') {
-          const zip = await import(moduleBase() + 'chat/zip.mjs');
+          const zip = await import(moduleBase() + 'chat/transfer/zip.mjs');
           return zip.readConversationsJson(new Uint8Array(await file.arrayBuffer()));
         }
         return file.text();
@@ -4873,7 +4873,7 @@
           let extras = null;
           if ((await loadCrypto()).isEncryptedBackup(data)) { data = await askPassphrase(data); if (!data) return; }
           if (data && data.format === 'plc-backup/1') extras = data;
-          const foreignModule = await import(moduleBase() + 'chat/foreign-import.mjs');
+          const foreignModule = await import(moduleBase() + 'chat/transfer/foreign-import.mjs');
           const foreign = foreignModule.convertForeign(data);
           let incoming, note = '';
           if (foreign) { incoming = foreign.threads; note = foreignModule.describeForeign(foreign); }
@@ -5007,11 +5007,11 @@
         showToast('Settings cleared.');
       }
 
-      // ---- sharing and transfer flows (dialogs live in chat/transfer-ui.mjs) -------------------------------------------------
+      // ---- sharing and transfer flows (dialogs live in chat/transfer/transfer-ui.mjs) -------------------------------------------------
       let transferUi = null, transferUiLoading = null;
-      const settingsTransferModule = () => import(moduleBase() + 'chat/settings-transfer.mjs');
+      const settingsTransferModule = () => import(moduleBase() + 'chat/transfer/settings-transfer.mjs');
       function loadTransferUi() {
-        transferUiLoading ||= import(moduleBase() + 'chat/transfer-ui.mjs').then(mod => {
+        transferUiLoading ||= import(moduleBase() + 'chat/transfer/transfer-ui.mjs').then(mod => {
           transferUi = mod.createTransferUi({
             app: transferApp, el, openAppDialog, showToast,
             icon: name => (M && M.icons ? M.icons.iconNode(name) : null)

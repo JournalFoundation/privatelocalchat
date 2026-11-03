@@ -1,7 +1,7 @@
 // Long-form voice messages. The browser's speech recognition listens (restarting itself when the browser ends a session, which browsers do
 // after a pause) and the words are kept; the AUDIO is never recorded or stored. A message is the transcript plus how long it took to say.
 //
-//   const rec = createVoiceRecorder({ listen, onChange });   listen(handlers) -> { abort() }   (chat/speech.mjs startDictation)
+//   const rec = createVoiceRecorder({ listen, onChange });   listen(handlers) -> { abort() }   (chat/voice/speech.mjs startDictation)
 //   rec.start();  ...  const { text, seconds } = rec.stop();   or rec.cancel()
 
 export function createVoiceRecorder({ listen, onChange = () => {}, now = () => Date.now(), setTimer = setTimeout, clearTimer = clearTimeout, maxSeconds = 1800, restartMs = 200 }) {

@@ -35,7 +35,7 @@ try{
  const baseline=await opfsBytes();
 
  const result=await page.evaluate(async({base,cdn,wavOut,numWav})=>{
-  const {createVoiceEngine}=await import(base+'chat/voice-engine.mjs');
+  const {createVoiceEngine}=await import(base+'chat/voice/voice-engine.mjs');
   const engine=createVoiceEngine({baseUrl:cdn});
   window.__engine=engine;
   const out={};

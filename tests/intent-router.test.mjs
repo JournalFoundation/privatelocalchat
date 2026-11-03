@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync,statSync} from 'node:fs';
-import {createIntentRouter,canonicalPhrases,encodeVector,decodeVector,vectorsMatch,normalise,tokens,stem,VECTORS_FORMAT,ROUTER_DEFAULTS} from '../chat/intent-router.mjs';
-import {NODES,INTENT_PHRASES,INTENT_IDS} from '../chat/ivr-content.mjs';
-import {EMBEDDING_MODEL} from '../chat/embedding-model.mjs';
+import {createIntentRouter,canonicalPhrases,encodeVector,decodeVector,vectorsMatch,normalise,tokens,stem,VECTORS_FORMAT,ROUTER_DEFAULTS} from '../chat/roberta/intent-router.mjs';
+import {NODES,INTENT_PHRASES,INTENT_IDS} from '../chat/roberta/ivr-content.mjs';
+import {EMBEDDING_MODEL} from '../chat/embedding/embedding-model.mjs';
 import {routeAll,summarise,SPLITS} from '../scripts/eval-intent-router.mjs';
 
-const VECTORS_URL=new URL('../chat/ivr-vectors.json',import.meta.url);
+const VECTORS_URL=new URL('../chat/roberta/ivr-vectors.json',import.meta.url);
 const vectors=JSON.parse(readFileSync(VECTORS_URL,'utf8'));
 const queries=JSON.parse(readFileSync(new URL('./fixtures/ivr-eval-queries.json',import.meta.url),'utf8')).queries;
 const REGENERATE='EMBEDDING_NODE_MODULES=<scratch>/node_modules node scripts/build-intent-vectors.mjs   (docs/EMBEDDINGS.md)';
@@ -17,7 +17,7 @@ test('the precomputed vectors were made from exactly the phrases in the content 
  assert.equal(vectors.model,EMBEDDING_MODEL.id);assert.equal(vectors.revision,EMBEDDING_MODEL.revision);
  assert.equal(vectors.dim,256);assert.equal(vectors.queryPrompt,EMBEDDING_MODEL.queryPrompt);
  const hash=createHash('sha256').update(canonicalPhrases(INTENT_PHRASES)).digest('hex');
- assert.equal(vectors.phraseHash,hash,'INTENT_PHRASES changed since chat/ivr-vectors.json was made. Regenerate: '+REGENERATE);
+ assert.equal(vectors.phraseHash,hash,'INTENT_PHRASES changed since chat/roberta/ivr-vectors.json was made. Regenerate: '+REGENERATE);
  assert.equal(vectors.count,INTENT_PHRASES.length,'the number of phrases changed. Regenerate: '+REGENERATE);
  assert.equal(vectors.phrases.length,vectors.count);
  assert.ok(vectorsMatch(vectors,INTENT_PHRASES),'phrase order or text differs. Regenerate: '+REGENERATE);

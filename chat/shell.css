@@ -286,7 +286,7 @@ body.shell .composer-bar .shell-voicepick { margin-left: 0 !important; }
   body.shell .composer-bar .shell-voicepick { flex: none; }
 }
 
-/* the offer to turn on "One model at a time" after a model fails (chat/memory-offer.mjs) */
+/* the offer to turn on "One model at a time" after a model fails (chat/models/memory-offer.mjs) */
 .memory-offer { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 9000; max-width: 34rem; margin: 0 auto; padding: 14px 16px; border-radius: 14px; background: var(--color-bg); color: var(--color-text); border: 1px solid var(--color-border-strong, #8896a8); box-shadow: 0 8px 28px rgba(0,0,0,.35); font: 15px/1.4 system-ui, sans-serif; }
 .memory-offer p { margin: 0 0 10px; }
 .memory-offer-actions { display: flex; flex-wrap: wrap; gap: 8px; }

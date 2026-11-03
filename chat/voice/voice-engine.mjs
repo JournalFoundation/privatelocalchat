@@ -11,9 +11,9 @@
 //
 // Limits: English only; digits and abbreviations are not expanded; OPFS writing uses createWritable() (Chrome, Edge, Firefox, Safari 26+).
 
-import { sha256 } from "../runtime/providers/vendor/noble-hashes/2.4.0/sha2.js";
-import { writeOpfsStream } from "../runtime/providers/opfs-stream-writer.mjs";
-import { retryDownload } from "../runtime/providers/download-retry.mjs";
+import { sha256 } from "../../runtime/providers/vendor/noble-hashes/2.4.0/sha2.js";
+import { writeOpfsStream } from "../../runtime/providers/opfs-stream-writer.mjs";
+import { retryDownload } from "../../runtime/providers/download-retry.mjs";
 import { KITTEN_NANO_MANIFEST } from "./voice-manifest.mjs";
 import { KOKORO_Q8_MANIFEST } from "./voice-manifest-kokoro.mjs";
 import { SAMPLE_RATE } from "./voice-kitten.mjs"; // 24 kHz for both engines
@@ -27,7 +27,7 @@ const ENGINES = Object.freeze({
 });
 const MARKER = "installed.json";
 const SAMPLE_SENTENCE = "Hello, this is a sample of the voice that runs on your device.";
-const workerUrlFor = (name) => new URL(`./vendor/voice/${name}`, import.meta.url).href;
+const workerUrlFor = (name) => new URL(`../vendor/voice/${name}`, import.meta.url).href;
 const SAFE_PATH = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");

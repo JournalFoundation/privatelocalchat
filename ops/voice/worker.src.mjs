@@ -17,7 +17,7 @@ import { phonemize } from "phonemizer";
 import { unzipSync } from "fflate";
 import {
   SAMPLE_RATE, speechChunks, chunkToIds, parseNpz, resolveVoice, effectiveSpeed, styleFor, trimAudio,
-} from "../../chat/voice-kitten.mjs";
+} from "../../chat/voice/voice-kitten.mjs";
 
 let session = null;
 let voices = null;

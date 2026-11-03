@@ -1,7 +1,7 @@
 // The browser worker entry, bundled by ops/embedding/build-worker.mjs into chat/vendor/embedding/worker.js.
 // Protocol: { id, op: "init" | "embedDocuments" | "embedQuery", ... } -> { id, ok: true, ... } | { id, ok: false, error }.
 // Every failure is posted with its message; nothing is swallowed. The model files and the WASM runtime come from config.modelBase and
-// config.wasmBase (chat/embedding-config.mjs). The worker script itself must be same-origin.
+// config.wasmBase (chat/embedding/embedding-config.mjs). The worker script itself must be same-origin.
 // The text of a query is embedded here, on the device; the only network traffic is the one-time download of the model files.
 
 import * as transformers from "@huggingface/transformers";

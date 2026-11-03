@@ -14,11 +14,11 @@
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { createIntentRouter } from "../chat/intent-router.mjs";
-import { NODES } from "../chat/ivr-content.mjs";
+import { createIntentRouter } from "../chat/roberta/intent-router.mjs";
+import { NODES } from "../chat/roberta/ivr-content.mjs";
 
 const fixturePath = fileURLToPath(new URL("../tests/fixtures/ivr-eval-queries.json", import.meta.url));
-const vectorsPath = fileURLToPath(new URL("../chat/ivr-vectors.json", import.meta.url));
+const vectorsPath = fileURLToPath(new URL("../chat/roberta/ivr-vectors.json", import.meta.url));
 export const loadQueries = async () => JSON.parse(await readFile(fixturePath, "utf8")).queries;
 export const loadVectors = async () => JSON.parse(await readFile(vectorsPath, "utf8"));
 

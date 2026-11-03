@@ -1,4 +1,4 @@
-// An in-memory FAKE of the voice engine interface (chat/voice-engine.mjs) for tests. It makes no sound and downloads nothing.
+// An in-memory FAKE of the voice engine interface (chat/voice/voice-engine.mjs) for tests. It makes no sound and downloads nothing.
 //   createVoiceEngine -> { status(), install(onProgress), remove(), load(), unload(), speak(text, {onChunk, signal, speed, voice}), sample() }
 // Options: bytes, metrics (what speak() reports), failInstall, failSpeak, hangSpeak (never produces audio, honours signal), installed.
 export function createFakeVoiceEngine({ bytes = 30e6, metrics = { audioSeconds: 4, synthSeconds: 1, realTimeFactor: 4, firstAudioMs: 300 }, failInstall = false, failSpeak = false, hangSpeak = false, installed = false } = {}) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runComputeProbe, buildDotModule, measureKernel } from '../chat/voice-probe.mjs';
+import { runComputeProbe, buildDotModule, measureKernel } from '../chat/voice/voice-probe.mjs';
 
 test('the hand-assembled wasm module is valid and computes a dot product', () => {
   const bytes = buildDotModule();

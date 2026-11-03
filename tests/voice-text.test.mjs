@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { normalizeForSpeech, numberToWords } from "../chat/voice-text.mjs";
+import { normalizeForSpeech, numberToWords } from "../chat/voice/voice-text.mjs";
 
 // Golden cases: the output of the KittenTTS reference (TextPreprocessor()) for each input, made by ops/voice/gen-preprocess-golden.py.
 const golden = JSON.parse(fs.readFileSync(new URL("./fixtures/kitten-preprocess-golden.json", import.meta.url), "utf8"));
@@ -63,7 +63,7 @@ test("options: roman numerals, hashtags, mentions, keeping punctuation", () => {
 });
 
 test("speechChunks normalises before chunking, as the reference generate() does", async () => {
-  const { speechChunks, softenAbbreviations } = await import("../chat/voice-kitten.mjs");
+  const { speechChunks, softenAbbreviations } = await import("../chat/voice/voice-kitten.mjs");
   assert.deepEqual(speechChunks("It costs $5.50. Dr. Who has 3 cats!"), ["it costs five dollars and fifty cents,", "dr who has three cats,"]);
   assert.deepEqual(speechChunks("Ask Dr. Smith, e.g. about St. Louis. Then go."), ["ask dr smith, for example about st louis,", "then go,"]);
   assert.equal(softenAbbreviations("Fine. Next one."), "Fine. Next one.");

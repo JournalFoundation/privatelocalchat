@@ -6,7 +6,7 @@
 //     const port = host.openMindPort();                              one MessagePort per mind worker (after host.getState().host.state === "running")
 //     mindWorker.postMessage({ port }, [port]);
 //   mind worker
-//     import { createProvider } from "../providers/client.mjs";
+//     import { createProvider } from "./client.mjs";
 //     const provider = createProvider(port);  await provider.ready();
 //     const call = provider.generate({ attemptId, messages, maxTokens, responseFormat? }, { onToken, signal });
 //     const terminal = await call.done;           // never rejects; exactly one of attempt-completed | attempt-failed | attempt-aborted

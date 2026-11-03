@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createCallSounds} from '../chat/call-sounds.mjs';
+import {createCallSounds} from '../chat/call/call-sounds.mjs';
 function fakeContext(){
  const log={osc:[],gains:0,resumed:0,closed:0};
  const param=()=>({setValueAtTime(){},linearRampToValueAtTime(){}});

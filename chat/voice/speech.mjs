@@ -45,7 +45,7 @@ export function speechChunks(text, max = 220) {
 }
 
 /**
- * Optional route to a downloaded voice engine (chat/voice-choice.mjs hands one over while a downloaded voice is selected):
+ * Optional route to a downloaded voice engine (chat/voice/voice-choice.mjs hands one over while a downloaded voice is selected):
  *   engine = { speak(text, { onChunk, signal, speed }) -> Promise, fail(error) }
  * Chunks play gaplessly. If the engine throws, or produces nothing for `stallMs` (a stalled engine, like the stalled-reply watch in the
  * call screen), engine.fail(error) is told and the same text is read by the system voice instead, unless audio already started.

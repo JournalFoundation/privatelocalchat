@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { shouldOffer } from "../chat/memory-offer.mjs";
+import { shouldOffer } from "../chat/models/memory-offer.mjs";
 
 test("the offer is made once per kind, never when the setting is on, never after Don't ask again", () => {
   const offered = new Set();

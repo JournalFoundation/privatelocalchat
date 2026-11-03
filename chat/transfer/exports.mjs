@@ -1,5 +1,5 @@
 // What an answer can be saved as: the whole text, each code block as a file, a table as CSV, a JSON block as JSON.
-import { parseMarkdown, parseInline } from "./markdown.mjs";
+import { parseMarkdown, parseInline } from "../markdown.mjs";
 
 const EXT = { javascript: "js", js: "js", typescript: "ts", ts: "ts", python: "py", py: "py", html: "html", css: "css", json: "json", bash: "sh", sh: "sh", shell: "sh", markdown: "md", md: "md", csv: "csv", sql: "sql", c: "c", cpp: "cpp", java: "java", go: "go", rust: "rs", yaml: "yml", yml: "yml", xml: "xml", text: "txt", "": "txt" };
 const MIME = { csv: "text/csv", json: "application/json", html: "text/html", md: "text/markdown", xml: "application/xml" };

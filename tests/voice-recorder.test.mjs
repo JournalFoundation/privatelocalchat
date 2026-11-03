@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createVoiceRecorder} from '../chat/voice-recorder.mjs';
+import {createVoiceRecorder} from '../chat/voice/voice-recorder.mjs';
 function rig(opts={}){
  let t=0,timers=[],id=0;const states=[];let rec=null,opens=0,aborts=0;
  const setTimer=(fn,ms)=>{timers.push({id:++id,at:t+ms,fn});return id;},clearTimer=i=>{timers=timers.filter(x=>x.id!==i);};

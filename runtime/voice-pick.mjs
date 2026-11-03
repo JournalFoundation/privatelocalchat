@@ -1,4 +1,4 @@
-// Advice about text-to-speech voices for this device. As of the voice picker (chat/voice-choice.mjs) NOTHING here blocks a choice: every voice can always be picked
+// Advice about text-to-speech voices for this device. As of the voice picker (chat/voice/voice-choice.mjs) NOTHING here blocks a choice: every voice can always be picked
 // and downloaded on every device. The picker asks `pickVoiceEngine` (with `manual: true`) which voice suits this device and shows it as "Recommended for this
 // device", and the limits below decide only when a voice is labelled "may be slow here" or reported as slow after download. The probe and speed limits were
 // calibrated on real devices and simulated slow CPUs (docs/VOICE-CALIBRATION.md); the others remain conservative values.

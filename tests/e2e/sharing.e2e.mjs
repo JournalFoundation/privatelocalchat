@@ -18,7 +18,7 @@ await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:h.or
 const ready=()=>page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
 const clip=()=>page.evaluate(()=>navigator.clipboard.readText());
 const modules=()=>page.evaluate(()=>`/releases/${window.APP_BUILD.commit}/chat/`);
-const makeTransfer=async(opts)=>{const base=await modules();return page.evaluate(async({base,opts})=>{const st=await import(base+'settings-transfer.mjs');const t=await st.createTransfer(opts);return {encoded:t.encoded,url:t.url,fileText:t.fileText};},{base,opts});};
+const makeTransfer=async(opts)=>{const base=await modules();return page.evaluate(async({base,opts})=>{const st=await import(base+'transfer/settings-transfer.mjs');const t=await st.createTransfer(opts);return {encoded:t.encoded,url:t.url,fileText:t.fileText};},{base,opts});};
 const tokens=()=>page.evaluate(()=>JSON.parse(sessionStorage.getItem('chatEndpointTokens')||'{}'));
 let navCount=0;
 // a distinct query forces a full page load even when only the fragment differs

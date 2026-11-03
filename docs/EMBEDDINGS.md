@@ -10,21 +10,21 @@ cannot load.
 
 | File | What it is |
 |---|---|
-| `chat/embedding-config.mjs` | The ONE place that names the asset host and version of the model files. |
-| `chat/embedding-model.mjs` | What the model is: id, revision, licence, 256 dimensions, the query prompt. |
-| `chat/embedder.mjs` | The page's client: `createEmbedder()`, lazy worker, shared load promise, idle termination, Data saver. |
+| `chat/embedding/embedding-config.mjs` | The ONE place that names the asset host and version of the model files. |
+| `chat/embedding/embedding-model.mjs` | What the model is: id, revision, licence, 256 dimensions, the query prompt. |
+| `chat/embedding/embedder.mjs` | The page's client: `createEmbedder()`, lazy worker, shared load promise, idle termination, Data saver. |
 | `chat/vendor/embedding/worker.js` | The same-origin worker (transformers.js + ONNX Runtime WASM bundled, 561 kB). `VERSIONS.json`, `worker.js.LEGAL.txt` beside it. |
-| `chat/intent-router.mjs` | `createIntentRouter()`: semantic + lexical fusion, thresholds, controls (repeat/back). Pure. |
-| `chat/ivr-vectors.json` | Precomputed embeddings of every example phrase (`INTENT_PHRASES`), 160 kB. |
+| `chat/roberta/intent-router.mjs` | `createIntentRouter()`: semantic + lexical fusion, thresholds, controls (repeat/back). Pure. |
+| `chat/roberta/ivr-vectors.json` | Precomputed embeddings of every example phrase (`INTENT_PHRASES`), 160 kB. |
 | `ops/embedding/` | Engine (shared by worker and Node), model-environment, worker source, `build-worker.mjs`, Node loader. |
-| `scripts/build-intent-vectors.mjs` | Regenerates `chat/ivr-vectors.json` (`--check` tells whether it is stale). |
+| `scripts/build-intent-vectors.mjs` | Regenerates `chat/roberta/ivr-vectors.json` (`--check` tells whether it is stale). |
 | `scripts/eval-intent-router.mjs` | Runs the held-out queries with the real model in Node; prints the table below. |
 | `tests/fixtures/ivr-eval-queries.json` | 359 in-scope and 68 off-topic held-out queries. |
 | `tests/embedder.test.mjs`, `tests/intent-router.test.mjs`, `tests/e2e/ivr-semantic.e2e.mjs` | Unit tests (fake worker, synthetic vectors, lexical floors) and the browser test with the real model. |
 
 ## Where the model comes from, licences, sizes
 
-The set is served from this project's own content-addressed asset host (see `chat/embedding-config.mjs`):
+The set is served from this project's own content-addressed asset host (see `chat/embedding/embedding-config.mjs`):
 
     https://assets.privatelocal.chat/models/memory/79cbff1e617b319a/
 
@@ -72,12 +72,12 @@ The task is written up in `docs/CDN-POPULATION.md` and `ops/cloudflare/publish-e
    object (`docs/OPERATIONS.md`), and verify each object over its public URL.
 3. The host must answer `Access-Control-Allow-Origin: *` and `Cross-Origin-Resource-Policy: cross-origin` (the app is cross-origin isolated).
    Content types: `.json` application/json, `.onnx` and `.onnx_data` application/octet-stream, `.wasm` application/wasm, `.mjs` text/javascript.
-4. Change `EMBEDDING_ASSET_HOST` (and `EMBEDDING_ASSET_VERSION` if the set changed) in `chat/embedding-config.mjs`. Nothing else: the worker
+4. Change `EMBEDDING_ASSET_HOST` (and `EMBEDDING_ASSET_VERSION` if the set changed) in `chat/embedding/embedding-config.mjs`. Nothing else: the worker
    gets the base from the page. The files are NOT in the service worker's precache (they are too big and are kept by the Cache API instead).
 
 ## Regenerating the example vectors
 
-`chat/ivr-vectors.json` holds the document embedding of every phrase in `INTENT_PHRASES` (every node's `examples` in `chat/ivr-content.mjs`).
+`chat/roberta/ivr-vectors.json` holds the document embedding of every phrase in `INTENT_PHRASES` (every node's `examples` in `chat/roberta/ivr-content.mjs`).
 `tests/intent-router.test.mjs` fails when the phrases and the file disagree (it compares a SHA-256 of the ordered intents and texts). After
 adding or rewording any example:
 

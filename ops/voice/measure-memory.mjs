@@ -167,7 +167,7 @@ async function run(engine,threads,files){
 
  // install (not part of the memory question, but recorded: it shows what OPFS writing costs the renderer)
  await page.evaluate(async({base,cdn,engine,threads})=>{
-  const {createVoiceEngine}=await import(base+'chat/voice-engine.mjs');
+  const {createVoiceEngine}=await import(base+'chat/voice/voice-engine.mjs');
   window.__engine=createVoiceEngine({engine,baseUrl:cdn,threads});
   await window.__engine.install(()=>{});
  },{base,cdn:CDN,engine,threads});

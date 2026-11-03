@@ -12,8 +12,8 @@ import {createHash} from 'node:crypto';
 import {existsSync,mkdirSync,readFileSync,writeFileSync,renameSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {KITTEN_NANO_MANIFEST,KITTEN_NANO_BASE_URL} from '../../chat/voice-manifest.mjs';
-import {KOKORO_Q8_MANIFEST,KOKORO_Q8_BASE_URL} from '../../chat/voice-manifest-kokoro.mjs';
+import {KITTEN_NANO_MANIFEST,KITTEN_NANO_BASE_URL} from '../../chat/voice/voice-manifest.mjs';
+import {KOKORO_Q8_MANIFEST,KOKORO_Q8_BASE_URL} from '../../chat/voice/voice-manifest-kokoro.mjs';
 
 const KINDS={
  kitten:{manifest:KITTEN_NANO_MANIFEST,base:KITTEN_NANO_BASE_URL,env:'VOICE_FILES_DIR'},

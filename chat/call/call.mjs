@@ -1,7 +1,7 @@
 // The voice call: a phone call with the assistant. It rings, connects, shows how long it has run, and ends with a summary. The orb moves differently for listening,
 // thinking, writing the reply, making the voice and speaking; two chips show the chat model and the voice with their memory state; the call's messages are listed with older
 // ones fading; a spoken reply whose sound never starts is given up on and explained. Underneath: listen -> send -> speak the reply while it is written -> listen again
-// (chat/voice.mjs, which has no DOM). The page provides everything this needs in `host`; createCall(host) returns { active, start, end, stop }.
+// (chat/voice/voice.mjs, which has no DOM). The page provides everything this needs in `host`; createCall(host) returns { active, start, end, stop }.
 //
 // host: el, icons, prefs(), showToast, providerName, messageForm, messageInput, growComposer, sendMessage(), abortReply(), currentThreadId(), chatReady(),
 //       loadSpeech(), loadVoice(), ensureCallSounds(), callSounds(), callSoundsOn(), loadVoiceChoice(), voiceOpts(), cleanText(text), moduleBase(),
@@ -111,7 +111,7 @@ export function createCall(host) {
   const chipWord = vm => ({ loaded: 'loaded', busy: 'working', loading: 'loading…', downloaded: 'unloaded', none: 'not downloaded', testing: 'testing…', failed: 'failed' }[vm.state] || (vm.state === 'downloading' ? 'downloading' + (vm.progress != null ? ' ' + Math.round(vm.progress * 100) + '%' : '') : ''));
   async function refreshCallChips() {
     if (!voiceUi || voiceUi.root.hidden) return;
-    modelsViewMod ||= await import(host.moduleBase() + 'chat/models-view.mjs');
+    modelsViewMod ||= await import(host.moduleBase() + 'chat/models/models-view.mjs');
     const lm = window.localModels, ui = voiceUi;
     if (lm?.mode === 'api') { ui.chipChat.dataset.state = 'provider'; ui.chipChat.querySelector('.call-chip-text').textContent = 'Replies: ' + providerName(); }
     else if (lm?.state) {

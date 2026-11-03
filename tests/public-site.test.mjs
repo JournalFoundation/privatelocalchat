@@ -102,7 +102,7 @@ test('pages are semantic documents with one h1, a way into the app and shared na
   assert.ok(html.includes('<main id="main">')&&html.includes('class="skip-link"'),'landmarks on '+page.name);
   for(const other of PAGES)assert.ok(html.includes('href="'+other.path+'"'),page.name+' links to '+other.path);
   assert.equal([...html.matchAll(/aria-current="page"/g)].length,2,'current page marked in both navs on '+page.name);
-  assert.ok(!/<script(?![^>]*type="module"[^>]*src="\/chat\/public-pages\.mjs")[^>]*>/.test(html),'only the page script on '+page.name);
+  assert.ok(!/<script(?![^>]*type="module"[^>]*src="\/chat\/transfer\/public-pages\.mjs")[^>]*>/.test(html),'only the page script on '+page.name);
   for(const ref of html.matchAll(/<(?:link rel="stylesheet"|script|img|source)[^>]*\s(?:href|src|srcset)="([^"]+)"/g))assert.ok(ref[1].startsWith('/'),'same-origin only: '+ref[1]);
  }
  assert.ok(source.updates.includes('<link rel="alternate" type="application/rss+xml"')&&source.updates.includes('href="/updates/rss.xml"'));
@@ -123,7 +123,7 @@ test('the About page uses the intro verbatim, three examples, ownership, source 
 });
 
 test('the share panel is mounted on Help and About only',()=>{
- for(const name of ['help','about']){assert.equal([...source[name].matchAll(/data-product-share/g)].length,1,name);assert.ok(source[name].includes('<h2 id="share-title">Share Private Local Chat</h2>'));assert.ok(source[name].includes('/chat/public-pages.mjs'));}
+ for(const name of ['help','about']){assert.equal([...source[name].matchAll(/data-product-share/g)].length,1,name);assert.ok(source[name].includes('<h2 id="share-title">Share Private Local Chat</h2>'));assert.ok(source[name].includes('/chat/transfer/public-pages.mjs'));}
  for(const name of ['privacy','updates'])assert.ok(!source[name].includes('data-product-share'));
 });
 
@@ -240,8 +240,8 @@ test('the build emits the documents, sitemap, robots.txt and feed at their root 
   assert.ok(await exists(path.join(built,'releases',version.commit,'chat/public-pages.css')));
   assert.match(html,/<!--plc:site-nav-->\n<ul class="site-nav-list">/);
  }
- assert.ok((await read(built,'help/index.html')).includes('src="/releases/'+version.commit+'/chat/public-pages.mjs"'));
- assert.ok(await exists(path.join(built,'releases',version.commit,'chat/public-pages.mjs')));
+ assert.ok((await read(built,'help/index.html')).includes('src="/releases/'+version.commit+'/chat/transfer/public-pages.mjs"'));
+ assert.ok(await exists(path.join(built,'releases',version.commit,'chat/transfer/public-pages.mjs')));
  assert.equal(await read(built,'robots.txt'),ROBOTS_TXT);
  const sitemap=await read(built,'sitemap.xml');
  assert.deepEqual([...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]),[ORIGIN+'/',...PAGES.map(p=>ORIGIN+p.path)]);

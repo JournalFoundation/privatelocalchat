@@ -12,7 +12,7 @@ export function loadQrLibrary(base = import.meta.url) {
   if (globalThis.QRCode) return Promise.resolve(globalThis.QRCode);
   loading ||= new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = new URL("./vendor/qrcode.js", base).href;
+    script.src = new URL("../vendor/qrcode.js", base).href;
     script.onload = () => (globalThis.QRCode ? resolve(globalThis.QRCode) : reject(new Error("The QR code encoder did not start.")));
     script.onerror = () => { loading = null; reject(new Error("The QR code encoder could not be loaded.")); };
     document.head.appendChild(script);

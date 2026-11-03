@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createEmbedder} from '../chat/embedder.mjs';
-import {EMBEDDING_MODEL_BASE,EMBEDDING_WASM_BASE,EMBEDDING_ASSET_HOST,EMBEDDING_ASSET_VERSION} from '../chat/embedding-config.mjs';
+import {createEmbedder} from '../chat/embedding/embedder.mjs';
+import {EMBEDDING_MODEL_BASE,EMBEDDING_WASM_BASE,EMBEDDING_ASSET_HOST,EMBEDDING_ASSET_VERSION} from '../chat/embedding/embedding-config.mjs';
 
 // A fake worker that speaks the real protocol: init, embedQuery, embedDocuments.
 function fakeWorkers({initError=null,delay=0,dim=256}={}){

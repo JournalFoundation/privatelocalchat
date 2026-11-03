@@ -1,5 +1,5 @@
 // The page's side of the small sentence-embedding model (MongoDB/mdbr-leaf-ir, 256 numbers per sentence, run in a same-origin worker by
-// ONNX Runtime WASM). It turns what a person says into a vector so Roberta can match it to a topic by meaning (chat/intent-router.mjs).
+// ONNX Runtime WASM). It turns what a person says into a vector so Roberta can match it to a topic by meaning (chat/roberta/intent-router.mjs).
 // It generates nothing and sends nothing: the sentence is embedded on this device; only the model files are downloaded, once, and the
 // browser's Cache API keeps them (the worker enables it), so a reload or an offline visit does not fetch them again.
 //
@@ -14,7 +14,7 @@
 import { EMBEDDING_MODEL_BASE, EMBEDDING_WASM_BASE } from "./embedding-config.mjs";
 import { EMBEDDING_MODEL } from "./embedding-model.mjs";
 
-const DEFAULT_WORKER_URL = () => new URL("./vendor/embedding/worker.js", import.meta.url).href;
+const DEFAULT_WORKER_URL = () => new URL("../vendor/embedding/worker.js", import.meta.url).href;
 // a rejection nobody awaits (fire-and-forget ready()) must not be reported as unhandled
 const refuse = (failure) => { const p = Promise.reject(failure); p.catch(() => {}); return p; };
 const SAVE_DATA_REASON = "Data saver is on, so the small matching model (about 24 megabytes) is not downloaded.";

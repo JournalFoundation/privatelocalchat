@@ -5,16 +5,16 @@
 // note), nothing is hidden, and nothing is locked out. A failure is explained in plain words; trying the same voice again after a failure asks the person to
 // confirm once ("this already failed: ...") and then goes ahead, as often as they like. The system voice is the default and is always available.
 //
-// Engine interface (chat/voice-engine.mjs): { status(), install(onProgress, {signal}), remove(), speak(text, {onChunk, ...}), unload(), terminate() }.
+// Engine interface (chat/voice/voice-engine.mjs): { status(), install(onProgress, {signal}), remove(), speak(text, {onChunk, ...}), unload(), terminate() }.
 
-import { VOICE_ENGINES, VOICE_CONFIG, voiceIsFastEnough, startDelayMs, pickVoiceEngine, isIOSDevice } from "../runtime/voice-pick.mjs";
+import { VOICE_ENGINES, VOICE_CONFIG, voiceIsFastEnough, startDelayMs, pickVoiceEngine, isIOSDevice } from "../../runtime/voice-pick.mjs";
 import { createGaplessPlayer } from "./voice-player.mjs";
 
 export const CHOICE_KEY = "plc.voice.v2";
 const OLD_KEY = "plc.voice.v1";
 // measured peak extra memory on a desktop (docs/VOICE-MEMORY.md); phones have not been measured
 const MEMORY_ESTIMATE = Object.freeze({ kitten: 250e6, kokoro: 420e6 });
-// The real engine (chat/voice-engine.mjs) hands each chunk to onChunk as ONE object { samples, sampleRate, index, count, text }; the player and chat/speech.mjs
+// The real engine (chat/voice/voice-engine.mjs) hands each chunk to onChunk as ONE object { samples, sampleRate, index, count, text }; the player and chat/voice/speech.mjs
 // take (samples, sampleRate). Everything here goes through this one conversion. (A mismatch between the two made every downloaded voice silent, with no error.)
 const unpackChunk = (c, rate) => (c && typeof c === "object" && c.samples ? [c.samples, c.sampleRate ?? rate] : [c, rate]);
 export const SAMPLE_TEXT = "This is how I will read your answers aloud.";
@@ -275,7 +275,7 @@ export function createVoiceChoice({
       return advice;
     },
 
-    /** For chat/speech.mjs: an engine route while a downloaded voice is selected, otherwise null (system voice). */
+    /** For chat/voice/speech.mjs: an engine route while a downloaded voice is selected, otherwise null (system voice). */
     route() {
       const id = record.selected;
       if (id === "os" || sessionFallback || status[id]?.state !== "ready") return null;

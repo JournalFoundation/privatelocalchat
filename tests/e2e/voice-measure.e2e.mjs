@@ -7,7 +7,7 @@ try {
   const { page } = h;
   // the modules are imported from Blob URLs built from the source files, so the test does not depend on the release path
   const src = async (f) => readFile(new URL('../../chat/' + f, import.meta.url), 'utf8');
-  const vp = { code: await src('voice-probe.mjs') }, sc = { code: await src('storage-check.mjs') };
+  const vp = { code: await src('voice/voice-probe.mjs') }, sc = { code: await src('storage-check.mjs') };
   const opfsBytes = () => page.evaluate(async () => {
     const root = await navigator.storage.getDirectory(); let n = 0, size = 0; const names = [];
     for await (const [nm, hd] of root.entries()) { if (hd.kind !== 'file') continue; n++; names.push(nm); size += (await hd.getFile()).size; }

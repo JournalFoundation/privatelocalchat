@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {exportsFor,stripMarkdown,slug,extensionFor} from '../chat/exports.mjs';
+import {exportsFor,stripMarkdown,slug,extensionFor} from '../chat/transfer/exports.mjs';
 const answer='# Plan\n\nSome **bold** text with `code`.\n\n| item | qty |\n|---|---|\n| apples, red | 3 |\n| "pears" | 4 |\n\n```json\n{"a":1,"b":[2,3]}\n```\n\n```python\nprint("hi")\n```\n';
 test('answers can be saved whole, as text, per table and per code block',()=>{
  const e=exportsFor(answer,'Fruit plan!');

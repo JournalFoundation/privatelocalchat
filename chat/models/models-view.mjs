@@ -60,7 +60,7 @@ export function languageRows(lmState, { mode = "local", notes = TIER_NOTES, hide
   });
 }
 
-/** Voice rows from the voice picker's snapshot (chat/voice-choice.mjs). The system voice is a "system" row, not a model. */
+/** Voice rows from the voice picker's snapshot (chat/voice/voice-choice.mjs). The system voice is a "system" row, not a model. */
 export function voiceRows(snap) {
   if (!snap) return [];
   return snap.voices.map((v) => {

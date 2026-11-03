@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 
 test("on iPhone the audio session is set to playback while a player plays and put back after, so the ringer switch and the earpiece do not silence it", async () => {
-  const { createGaplessPlayer } = await import("../chat/voice-player.mjs");
+  const { createGaplessPlayer } = await import("../chat/voice/voice-player.mjs");
   const { fakeAudioContext } = await import("./helpers/fake-voice-engine.mjs");
   const audioSession = { type: "auto" };
   const a = createGaplessPlayer({ createContext: fakeAudioContext, audioSession });
@@ -19,7 +19,7 @@ test("on iPhone the audio session is set to playback while a player plays and pu
 });
 
 test("a browser without audioSession plays as before", async () => {
-  const { createGaplessPlayer } = await import("../chat/voice-player.mjs");
+  const { createGaplessPlayer } = await import("../chat/voice/voice-player.mjs");
   const { fakeAudioContext } = await import("./helpers/fake-voice-engine.mjs");
   const p = createGaplessPlayer({ createContext: fakeAudioContext, audioSession: undefined });
   p.push(new Float32Array(2400).fill(0.1), 24000); await p.finish();
@@ -34,7 +34,7 @@ function mediaContext() {
 }
 
 test("on iOS the sound also goes through an audio element, which the ringer switch does not mute; elsewhere it goes straight to the speakers", async () => {
-  const { createGaplessPlayer } = await import("../chat/voice-player.mjs");
+  const { createGaplessPlayer } = await import("../chat/voice/voice-player.mjs");
   let played = 0; const audio = { setAttribute() {}, play() { played++; return Promise.resolve(); }, pause() {}, srcObject: null };
   const ios = mediaContext();
   const a = createGaplessPlayer({ createContext: () => ios, viaMedia: true, createAudio: () => audio, audioSession: undefined });
@@ -47,7 +47,7 @@ test("on iOS the sound also goes through an audio element, which the ringer swit
 });
 
 test("if the audio element cannot start (no tap behind it), later chunks go straight to the speakers", async () => {
-  const { createGaplessPlayer } = await import("../chat/voice-player.mjs");
+  const { createGaplessPlayer } = await import("../chat/voice/voice-player.mjs");
   const audio = { setAttribute() {}, play() { return Promise.reject(new Error("NotAllowedError")); }, pause() {}, srcObject: null };
   const ctx = mediaContext();
   const p = createGaplessPlayer({ createContext: () => ctx, viaMedia: true, createAudio: () => audio, audioSession: undefined });

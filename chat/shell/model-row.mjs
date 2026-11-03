@@ -1,6 +1,6 @@
 // The one description of a model row, used by Settings > Models and by both composer menus, so a model reads the same everywhere:
-// its name, an "In use" badge, one line of state words (chat/models-view.mjs), a progress bar while it downloads, and the action a click will do.
-import { stateLine, toggleAction } from "../models-view.mjs";
+// its name, an "In use" badge, one line of state words (chat/models/models-view.mjs), a progress bar while it downloads, and the action a click will do.
+import { stateLine, toggleAction } from "../models/models-view.mjs";
 
 export function rowParts(vm, extra = []) {
   return {
