@@ -377,3 +377,20 @@ test("a voice failure while reading, or a crash at the last start, is flagged as
   b.ctl.route().engine.fail(new Error("the voice worker failed")); await new Promise((r) => setTimeout(r, 5));
   assert.equal(b.ctl.snapshot().notice.stale, true); assert.notEqual(b.ctl.snapshot().notice.memory, true);
 });
+
+test("what the voice makes reaches the speaker: the real engine's chunk objects are played, in the self-test sample, the picker's sample and a read-aloud", async () => {
+  const { speak } = await import("../chat/speech.mjs");
+  const contexts = [];
+  const createContext = () => { const c = fakeAudioContext(); contexts.push(c); return c; };
+  const { ctl } = make({ ctl: { createContext } });
+  await ctl.init(); await ctl.select("kitten");
+  const scheduled = () => contexts.reduce((n, c) => n + c.scheduled.length, 0);
+  assert.ok(scheduled() >= 2, "the sample played after the download reaches the audio context: " + scheduled());
+  const before = scheduled();
+  await ctl.hearSample("kitten");
+  assert.ok(scheduled() > before, "Hear a sample plays");
+  const route = ctl.route(); const mid = scheduled();
+  await speak("Hello there.", { engine: route.engine, ...route.options, createContext }).done;
+  assert.ok(scheduled() > mid, "a read-aloud through chat/speech.mjs plays");
+  for (const c of contexts) for (const s of c.scheduled) assert.ok(s.duration > 0.05, "a real length of audio, not an empty chunk");
+});

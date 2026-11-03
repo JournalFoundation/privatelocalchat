@@ -2,6 +2,15 @@
 
 Status: **shipped (gated flow with fixes) on production; the redesigned voice picker is built and verified on `dev`** (2026-11-02). This document is the plan and the record of how it was carried out; the current state, the review findings and what was done about them are in *Rollout status* near the end. Sections written before the work (the candidate table, the stages, the lanes) keep their original wording, and numbers marked *unverified* there were third-party figures at the time; they have since been replaced by this project's own measurements, listed in *Progress and findings* and in `docs/evidence/voice/`.
 
+## Silent voices, found 2026-11-03 (read this first)
+
+The owner heard nothing from Kitten or Kokoro on an iPhone and a Mac, with no error. Cause: the real engine (`chat/voice-engine.mjs`) calls `onChunk` with one
+object `{ samples, sampleRate, ... }`; the player and `chat/speech.mjs` take `(samples, sampleRate)`, and the player ignored the object. The test fakes used the
+two-argument form, so every test passed. Earlier "speaks at 4x real time" figures were durations, not proof of sound. Fixed in `chat/voice-choice.mjs`
+(`unpackChunk`), the fakes now use the real contract, `tests/voice-choice.test.mjs` plays through `chat/speech.mjs`, and `tests/e2e/voice-audible.e2e.mjs`
+records what reaches the AudioContext with the real engines (also in the Voice e2e workflow). Checked by transcription (faster-whisper base.en) of the
+recorded audio: both voices say the test sentences correctly. Not yet heard on the owner's devices.
+
 ## Goal
 
 Read-aloud currently uses the operating system's voice (`speechSynthesis`, `chat/speech.mjs`). On devices that can handle it, offer a more natural on-device voice with as little friction as possible. People who cannot run one keep the system voice and never see an offer. This follows the way the app already picks a language model for the device (`runtime/auto-tier.mjs`, `runtime/prepare.mjs`).

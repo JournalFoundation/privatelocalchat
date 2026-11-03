@@ -32,7 +32,7 @@ jobs:
         env:
           TMPDIR: ${{ runner.temp }}
         run: |
-          for f in voice-engine voice-kokoro voice-offline voice-storage voice-measure; do
+          for f in voice-engine voice-kokoro voice-audible voice-offline voice-storage voice-measure; do
             echo "::group::$f"
             node "tests/e2e/$f.e2e.mjs"
             echo "::endgroup::"

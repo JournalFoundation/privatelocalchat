@@ -12,7 +12,7 @@ const mocks=()=>{
    p({overallLoaded:50,overallTotal:100,file:'x'});await sleep(250);p({overallLoaded:100,overallTotal:100});window.__fake.files[id]=true;},
   async remove(){window.__fake.calls.push('remove:'+id);window.__fake.files[id]=false;},
   async load(){},async unload(){},terminate(){},
-  async speak(t,{onChunk}){window.__fake.speaks.push(id+':'+t.slice(0,20));onChunk(new Float32Array(2400),24000);return {audioSeconds:4,synthSeconds:1,realTimeFactor:4,firstAudioMs:200};}
+  async speak(t,{onChunk}){window.__fake.speaks.push(id+':'+t.slice(0,20));onChunk({samples:new Float32Array(2400).fill(0.1),sampleRate:24000,index:0,count:1,text:t});return {audioSeconds:4,synthSeconds:1,realTimeFactor:4,firstAudioMs:200};}
  });
  factory.inputs={env:()=>({deviceMemoryGB:8,cores:8,webgpu:{available:false}}),loadModule:async()=>({runComputeProbe:async()=>({ms:100})})};
  window.__plcVoiceEngineFactory=factory;

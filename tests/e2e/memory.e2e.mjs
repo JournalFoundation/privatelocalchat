@@ -6,7 +6,7 @@ const mocks=()=>{
  const factory=async id=>({
   async status(){return {installed:true,bytes:27.6e6};},
   async install(){},async remove(){},async load(){},async unload(){},terminate(){},
-  async speak(t,{onChunk}){window.__fake.speaks.push(id);onChunk(new Float32Array(2400),24000);return {audioSeconds:4,synthSeconds:1,realTimeFactor:4,firstAudioMs:200};}
+  async speak(t,{onChunk}){window.__fake.speaks.push(id);onChunk({samples:new Float32Array(2400).fill(0.1),sampleRate:24000,index:0,count:1,text:t});return {audioSeconds:4,synthSeconds:1,realTimeFactor:4,firstAudioMs:200};}
  });
  factory.inputs={env:()=>({deviceMemoryGB:8,cores:8,webgpu:{available:false}}),loadModule:async()=>({runComputeProbe:async()=>({ms:100})})};
  window.__plcVoiceEngineFactory=factory;

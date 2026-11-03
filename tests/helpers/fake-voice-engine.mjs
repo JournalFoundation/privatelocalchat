@@ -23,8 +23,8 @@ export function createFakeVoiceEngine({ bytes = 30e6, metrics = { audioSeconds: 
       if (failSpeak) throw new Error("synthesis failed");
       if (hangSpeak) await new Promise((_, rej) => signal?.addEventListener("abort", () => rej(new Error("aborted"))));
       loaded = true;
-      onChunk?.(new Float32Array(2400).fill(0.1), 24000);
-      onChunk?.(new Float32Array(2400).fill(0.1), 24000);
+      onChunk?.({ samples: new Float32Array(2400).fill(0.1), sampleRate: 24000, index: 0, count: 2, text }); // the REAL engine's contract: one object per chunk
+      onChunk?.({ samples: new Float32Array(2400).fill(0.1), sampleRate: 24000, index: 1, count: 2, text });
       return { ...metrics };
     },
     async sample() { return this.speak("sample", {}); }

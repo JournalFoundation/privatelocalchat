@@ -14,6 +14,9 @@ export const CHOICE_KEY = "plc.voice.v2";
 const OLD_KEY = "plc.voice.v1";
 // measured peak extra memory on a desktop (docs/VOICE-MEMORY.md); phones have not been measured
 const MEMORY_ESTIMATE = Object.freeze({ kitten: 250e6, kokoro: 420e6 });
+// The real engine (chat/voice-engine.mjs) hands each chunk to onChunk as ONE object { samples, sampleRate, index, count, text }; the player and chat/speech.mjs
+// take (samples, sampleRate). Everything here goes through this one conversion. (A mismatch between the two made every downloaded voice silent, with no error.)
+const unpackChunk = (c, rate) => (c && typeof c === "object" && c.samples ? [c.samples, c.sampleRate ?? rate] : [c, rate]);
 export const SAMPLE_TEXT = "This is how I will read your answers aloud.";
 const TYPICAL_REPLY_SECONDS = 20;
 
@@ -203,7 +206,7 @@ export function createVoiceChoice({
       if (mem[id] === "unloaded") setMem(id, "loading");
       let lease = { release() {} };
       try { lease = await acquireMemory(); } catch (err) { setMem(id, "unloaded"); afterSpeak(id); throw err; }
-      try { await e.speak(SAMPLE_TEXT, { onChunk: (s, r) => { if (mem[id] !== "speaking") setMem(id, "speaking"); p.push(s, r); }, speed: 1 }); }
+      try { await e.speak(SAMPLE_TEXT, { onChunk: (c, rate) => { if (mem[id] !== "speaking") setMem(id, "speaking"); p.push(...unpackChunk(c, rate)); }, speed: 1 }); }
       catch (err) { setMem(id, "unloaded"); throw err; }
       finally { lease.release(); afterSpeak(id); }
       await p.finish();
@@ -249,7 +252,7 @@ export function createVoiceChoice({
         if (mem[id] !== "loaded" && mem[id] !== "speaking") setMem(id, "loading");
         let lease = { release() {} };
         try { lease = await acquireMemory(); } catch (e) { setMem(id, "unloaded"); markSpeaking(id, false); afterSpeak(id); throw e; }
-        const onChunk = o?.onChunk; const opts = onChunk ? { ...o, onChunk: (...a) => { if (mem[id] !== "speaking") setMem(id, "speaking"); return onChunk(...a); } } : o;
+        const onChunk = o?.onChunk; const opts = onChunk ? { ...o, onChunk: (c, rate) => { if (mem[id] !== "speaking") setMem(id, "speaking"); return onChunk(...unpackChunk(c, rate)); } } : o;
         try {
           const r = await engine.speak(t, opts);
           failStreak = 0;
@@ -308,7 +311,7 @@ export function createVoiceChoice({
       // the self-test cannot wait for ever: with no sound inside the limit the worker is stopped and the setup fails with that reason
       const chunks = []; let timer;
       const metrics = await Promise.race([
-        engine.speak(SAMPLE_TEXT, { onChunk: (s, r) => chunks.push([s, r]), speed: 1 }),
+        engine.speak(SAMPLE_TEXT, { onChunk: (c, rate) => chunks.push(unpackChunk(c, rate)), speed: 1 }),
         new Promise((_, reject) => { timer = setTimeout(() => { try { engine.terminate?.(); } catch { /* gone */ } reject(Object.assign(new Error("the voice made no sound within " + Math.round(selfTestTimeoutMs / 1000) + " s"), { name: "TimeoutError" })); }, selfTestTimeoutMs); })
       ]).finally(() => clearTimeout(timer));
       let bytes = 0; try { bytes = (await engine.status()).bytes || 0; } catch { /* unknown */ }
