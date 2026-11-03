@@ -75,6 +75,7 @@ def main():
     print('working in', work)
     for f in m['files']:
         dest = work / f['path']
+        dest.parent.mkdir(parents=True, exist_ok=True)  # nested paths such as onnx/model_quantized.onnx
         size, sha = download(source + f['path'], dest)
         if size != f['bytes'] or sha != f['sha256']:
             sys.exit('MISMATCH %s: %d bytes, sha256 %s' % (f['path'], size, sha))

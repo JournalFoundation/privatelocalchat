@@ -11,7 +11,7 @@ test("every voice model file has a path, a byte count and a SHA-256, and the tot
     assert.ok(m.files.length > 0, key);
     const paths = new Set();
     for (const f of m.files) {
-      assert.ok(typeof f.path === "string" && f.path && !f.path.includes("/") && !f.path.includes(".."), f.path);
+      assert.ok(typeof f.path === "string" && f.path && !f.path.startsWith("/") && !f.path.includes("..") && !f.path.includes("\\") && !f.path.includes("//"), f.path);
       assert.ok(Number.isInteger(f.bytes) && f.bytes > 0, f.path);
       assert.match(f.sha256, /^[0-9a-f]{64}$/, f.path);
       assert.ok(!paths.has(f.path), "duplicate " + f.path);
@@ -59,7 +59,31 @@ test("each licence file exists and names the model and Apache-2.0", () => {
     const url = new URL(m.licenseFile, dir);
     assert.ok(existsSync(url), key);
     const text = readFileSync(url, "utf8");
-    assert.match(text, /KittenML\/kitten-tts-nano-0\.8-int8/);
+    assert.ok(text.includes(m.model.id) || text.includes("KittenML/kitten-tts-nano-0.8-int8"), key);
     assert.match(text, /Apache License/);
   }
+});
+
+test("Kokoro q8 pins the real commit, nested paths, hashes and the data notice", () => {
+  const m = voice.kokoro_q8;
+  const by = Object.fromEntries(m.files.map((f) => [f.path, f]));
+  const commit = "1939ad2a8e416c0acfeecc08a694d14ef25f2231";
+  assert.equal(m.model.sourceRevision, commit);
+  assert.equal(m.prefix, "models/Kokoro-82M-v1.0-ONNX-q8/" + commit + "/");
+  assert.equal(m.files.length, 12);
+  assert.equal(by["onnx/model_quantized.onnx"].bytes, 92361116);
+  assert.ok(by["onnx/model_quantized.onnx"].sha256.startsWith("fbae9257e1e0"));
+  for (const v of ["af_heart", "af_bella", "af_nicole", "af_sarah", "am_michael", "am_adam", "bf_emma", "bm_george"]) {
+    assert.equal(by["voices/" + v + ".bin"].bytes, 522240, v);
+  }
+  for (const p of ["tokenizer.json", "tokenizer_config.json", "config.json"]) assert.ok(by[p], p);
+  assert.equal(m.licenseName, "Apache-2.0");
+  assert.match(m.note, /eSpeak NG/);
+  assert.match(m.note, /GPL-3\.0/);
+  const text = readFileSync(new URL(m.licenseFile, dir), "utf8");
+  assert.match(text, /Data notice/);
+  assert.match(text, /Koniwa/);
+  assert.match(text, /CC BY 3\.0/);
+  assert.match(text, /SIWIS/);
+  assert.match(text, /CC BY 4\.0/);
 });
