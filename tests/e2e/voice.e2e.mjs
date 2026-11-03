@@ -104,16 +104,20 @@ try{
  assert(await page.locator('#voiceModeBtn').count()===1&&await page.locator('#micBtn').count()===1,'still offered when the person can fix it');
  ok('blocked microphone is explained');
 
- // a browser that never lets sites use speech recognition: the first failure asks to try again, the second removes the controls
+ // a browser that keeps refusing speech recognition: the first failure asks to try again, the second explains what to check. The controls are
+ // NEVER removed or remembered as unusable (an older version hid them for days, which locked people out with no explanation).
  await page.evaluate(()=>{window.__mic='granted';});
  await page.click('#micBtn');
  await page.waitForFunction(()=>/allowed now/.test(document.querySelector('#toast').textContent));
  await page.click('#micBtn');
- await page.waitForFunction(()=>/does not let websites/.test(document.querySelector('#toast').textContent));
- assert(await page.locator('#micBtn').count()===0&&await page.locator('#voiceModeBtn').count()===0,'unusable controls are removed');
+ await page.waitForFunction(()=>/did not let the page use speech recognition/.test(document.querySelector('#toast').textContent));
+ assert(await page.locator('#micBtn').count()===1&&await page.locator('#voiceModeBtn').count()===1,'the controls stay after repeated refusals');
+ assert((await page.evaluate(()=>localStorage.getItem('plc.speechInputUnusable')))===null,'nothing is remembered about the failure');
+ await page.evaluate(()=>localStorage.setItem('plc.speechInputUnusable',String(Date.now()))); // a flag left by an older version
  await page.reload();await page.waitForSelector('#messageInput');
- assert(await page.locator('#micBtn').count()===0,'and stay removed');
- ok('unusable speech input is hidden');
+ assert(await page.locator('#micBtn').count()===1&&await page.locator('#voiceModeBtn').count()===1,'an old stored block no longer hides the controls');
+ assert((await page.evaluate(()=>localStorage.getItem('plc.speechInputUnusable')))===null,'and it is cleared');
+ ok('speech input is never locked out');
 
  const unexpected=h.errors.filter(e=>!/API responded with status 500|network error|aborted/i.test(e));
  assert(unexpected.length===0,'no unexpected page errors: '+JSON.stringify(unexpected));

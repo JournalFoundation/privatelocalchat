@@ -4253,12 +4253,10 @@
         recognition: Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
       };
       noteSupport = speechAvailable.synth;
-      // Some browsers (an app's built-in web view, for one) expose speech recognition but never allow a website to use it. Once that has
-      // been seen the controls stay hidden for a while instead of failing every time.
-      const SPEECH_BLOCK_KEY = 'plc.speechInputUnusable';
-      const speechInputUnusable = () => { try { const t = Number(localStorage.getItem(SPEECH_BLOCK_KEY)); return Boolean(t) && Date.now() - t < 14 * 864e5; } catch { return false; } };
-      const markSpeechInputUnusable = () => { try { localStorage.setItem(SPEECH_BLOCK_KEY, String(Date.now())); } catch { /* private mode */ } };
-      const speechInputOk = speechAvailable.recognition && !speechInputUnusable();
+      // Speech input is never hidden because of an earlier failure: a failure shows its message and the buttons stay. (An older version hid them for
+      // days after one refusal; that stored flag is removed here so nobody stays locked out by it.)
+      try { localStorage.removeItem('plc.speechInputUnusable'); } catch { /* private mode */ }
+      const speechInputOk = speechAvailable.recognition;
       let speechMod = null, voiceMod = null;
       const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
       const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice.mjs'));
@@ -4332,7 +4330,7 @@
       let voiceBtn = speechInputOk && speechAvailable.synth ? toolButton('voiceModeBtn', 'phone', 'Voice call') : null;
       [micBtn, voiceBtn].forEach(b => b && composerToolsEl.append(b));
       const setPressed = (btn, on) => btn?.setAttribute('aria-pressed', String(on));
-      const hideSpeechInput = () => { markSpeechInputUnusable(); micBtn?.remove(); voiceBtn?.remove(); micBtn = voiceBtn = null; recordAvailable = false; };
+      const hideSpeechInput = () => { micBtn?.remove(); voiceBtn?.remove(); micBtn = voiceBtn = null; recordAvailable = false; };
       // WebKit only shows the microphone prompt for a recognition that starts inside the tap, so the code it needs is loaded up front.
       if (speechInputOk) { loadSpeech().catch(() => hideSpeechInput()); if (voiceBtn) { voiceBtn.classList.add('call-start'); voiceBtn.title = 'Start a voice call'; loadVoice().catch(() => {}); loadCallSounds().catch(() => {}); } }
 
@@ -4349,8 +4347,7 @@
         if (probe.state === 'none') return sp.dictationMessage('audio-capture');
         speechFailures++;
         if (probe.state === 'granted' && speechFailures === 1) return 'The microphone is allowed now. Tap again to start.';
-        hideSpeechInput();
-        return 'This browser does not let websites use speech recognition, so dictation and voice conversation are turned off here. Safari and Chrome support them.';
+        return 'This browser did not let the page use speech recognition just now. Check that Dictation is on and the microphone is allowed for this site (iPhone: Settings > General > Keyboard > Enable Dictation; in Safari: the aA menu, then Website Settings, then Microphone), then tap again. Safari and Chrome support it.';
       }
 
       // dictation: words go into the composer while the microphone is on

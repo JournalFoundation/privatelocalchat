@@ -65,6 +65,16 @@ try{
  assert(await page.locator('.sidebar').isVisible(),'panel returns');
  ok('collapse');
 
+ // the build number is shown in Settings
+ await page.evaluate(()=>window.plcShell.openSettings('general'));
+ await page.waitForSelector('#settingsBuild');
+ const buildText=await page.locator('#settingsBuild').textContent();
+ const buildId=await page.evaluate(()=>String(window.APP_BUILD&&window.APP_BUILD.commit||'').slice(0,7));
+ assert(buildId&&buildText.includes('build '+buildId),'Settings shows the running build: '+buildText+' vs '+buildId);
+ await page.keyboard.press('Escape');
+ await page.waitForTimeout(300);
+ ok('build number in Settings');
+
  await page.setViewportSize({width:390,height:800});
  await page.waitForTimeout(300);
  assert(!(await page.locator('#shellRail').isVisible()),'rail is hidden on a phone');

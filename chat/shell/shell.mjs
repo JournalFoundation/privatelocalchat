@@ -301,11 +301,15 @@ function buildSettings({ app, shell, registry, moved }) {
   const sections = [];
   const add = (id, label, ico, keywords, build) => sections.push({ id, label, ico, keywords, build });
 
-  add("general", "General", "gear", "theme appearance dark light", () => {
+  add("general", "General", "gear", "theme appearance dark light build version microphone voice dictation", () => {
     const wrap = h("div");
     wrap.append(h("h2", { text: "General" }), card(
       row("Theme", "Light or dark. Saved on this device.", $("themeToggleBtn")),
       row("Where replies run", "On this device, or an outside provider you choose.", btn("Models and connection", () => settings.open("models")))));
+    // The build this page is running, so a stale copy is easy to spot: compare it with the one at /version.json.
+    const b = window.APP_BUILD || {};
+    const builtAt = b.builtAt ? new Date(b.builtAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+    wrap.append(h("p", { class: "set-about", id: "settingsBuild", text: "Private Local Chat " + (b.version ? b.version + " · " : "") + "build " + (b.commit ? String(b.commit).slice(0, 7) : "unknown") + (b.environment && b.environment !== "production" ? " (" + b.environment + ")" : "") + (builtAt ? " · built " + builtAt : "") }));
     return wrap;
   });
   add("personalization", "Personalization", "user", "memory preferences instructions voice speed call sounds", () => h("div", {}, h("h2", { text: "Personalization" }), card(
