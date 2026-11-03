@@ -38,10 +38,28 @@ Each phase: write the failing test first, fix, run `npm test` and `npm run e2e -
 ### Phase 0: learn what is true (no product change except fixes for what is proven broken)
 
 - [x] **0.1 Precache completeness** (2026-11-03, `tests/offline-precache.test.mjs`; the build now skips the root control files by exact name, so `_md.js` and `_u64.js` are saved). A unit test over the built `dist/`: walk the import graph of every module the page, workers and `local-models.js` can load and fail if any file is not in the service worker's list. Fix the `_` rule in `build.mjs` (skip by exact name, not by prefix). This test catches the whole class of bug, not only these two files.
-- [ ] **0.2 Cold-offline matrix in Chromium** (script now, a suite in phase 3): open online and wait for ready; cut the network; close the page and open a new one; then try each feature and write down what fails: boot, conversations, a downloaded model (the real 2B), checksum verify on load, documents, search (including the embedding model), voice read-aloud, voice call, lock, backups, export, public pages. Produce `docs/evidence/offline/matrix-chromium.json`. Include the variants: offline before any model was used; offline in the middle of a download; update available while cached.
-- [ ] **0.3 Request audit.** Record every request the page attempts while offline and every third-party host contacted online; any request that is not needed for the feature in use is a finding.
+- [x] **0.2 Cold-offline matrix in Chromium** (2026-11-03, `tests/e2e/offline-model.e2e.mjs`, result in `docs/evidence/offline/matrix-chromium.json`; the matrix below the list). Still to run: offline before any model was used, offline mid-download, update available while cached. Original plan text: (script now, a suite in phase 3): open online and wait for ready; cut the network; close the page and open a new one; then try each feature and write down what fails: boot, conversations, a downloaded model (the real 2B), checksum verify on load, documents, search (including the embedding model), voice read-aloud, voice call, lock, backups, export, public pages. Produce `docs/evidence/offline/matrix-chromium.json`. Include the variants: offline before any model was used; offline in the middle of a download; update available while cached.
+- [x] **0.3 Request audit** (2026-11-03, both suites record every failed and every outside request). Original plan text: Record every request the page attempts while offline and every third-party host contacted online; any request that is not needed for the feature in use is a finding.
 - [ ] **0.4 Device lanes back.** Restore the iPhone bridge from Boiler (usbmux socket, pairing cache, Remote Automation) and confirm the Mac lane; run 0.2 by hand on the iPhone 15 Pro (iOS 26.x) and on Mac Safari, record `matrix-iphone15pro.json` and `matrix-mac-safari.json`. Safari differs on service-worker lifetime, storage eviction, and what "offline" means in airplane mode versus a cut tunnel; the matrix must say which was used. The iPhone 11 Pro (no WebGPU, about 1 GB quota) is added if the owner wants the old-iPhone case.
 - [ ] **0.5 Review this plan** with the results and rewrite phases 1 to 5 where the facts disagree with it. This is the step that makes the plan honest.
+
+### What the Chromium matrix showed (2026-11-03, build `59e18b7`, real 2B model, fresh profile)
+
+| Check | Result |
+|---|---|
+| App saved by the worker after first visit | yes (165 files; 8 of them the model runtime) |
+| Real reply from the downloaded model, online | yes, 194 s including the download, on this machine's CPU |
+| New browser process, network cut: the app opens cold | **yes**, no banner, page finished starting |
+| The earlier conversation is there | yes |
+| The model is still installed and loads | yes |
+| A real reply from the model with no connection | **yes** (the checksum step loads: the `_md.js` fix is in this build) |
+| Help opens its own page offline | yes |
+| Search by words offline | the first run's check used the wrong selectors; the fast suite now proves it (passes) |
+| A connection indicator a person can see | **no** (phase 3) |
+| Back online: opens, keeps the conversation | yes |
+| Requests while offline | one: the matching model's `tokenizer_config.json` from the CDN (search asks for the matching model the first time; it fails quietly and keyword search still works). Allowed, but the UI should say "Matching model not downloaded" instead of failing silently (phase 3.2 lists it) |
+
+Not shown by this run, still open: how the old build (without the `_` fix) behaves offline in practice (the fix is already in; not worth rebuilding the old state to prove it), the runtime-before-first-use variant, mid-download, and every device. On this desktop the runtime files are saved within about 20 s of the first visit, so debt item 16 is a risk for slow connections and phones, not a measured gap here.
 
 ### Phase 1: make it work (fix what Phase 0 proved)
 
@@ -49,9 +67,9 @@ Likely, to be confirmed or struck by phase 0: the `_` files (0.1); saving the mo
 
 ### Phase 2: the connection layer (small, pure, tested)
 
-- [ ] **2.1 `chat/connection/connection.mjs`: `createConnection(host)`** (pure state machine: `online`, `offline`, `reconnecting`, with a settle delay so a flicker does not flash a banner; the browser's `navigator.onLine` is a hint, not truth, so a failed request from the app can also mark offline and a success can mark online). Fires `connection:changed` on the event list in `chat/events.mjs`; `window.plcApp` gets `connection` for modules outside the page.
-- [ ] **2.2 `runtime/offline-readiness.mjs`** (pure): turns the facts the app already has (service-worker cache present and current, runtime files present, model downloaded, voice downloaded, matching model downloaded, storage persistent) into a checklist of items, each `ready | missing | partial | unknown` with the action that fixes it. Replaces the single yes/no.
-- [ ] **2.3 A reason for every refusal**: one function mapping "needs a connection" to the sentence a person sees, used by every control that cannot run offline, so the wording is the same everywhere.
+- [~] **2.1 `chat/connection/connection.mjs`: `createConnection(host)`** (module and `tests/connection.test.mjs` done 2026-11-03; not yet created by the page, and the `connection:changed` event and `plcApp.connection` are still to add) (pure state machine: `online`, `offline`, `reconnecting`, with a settle delay so a flicker does not flash a banner; the browser's `navigator.onLine` is a hint, not truth, so a failed request from the app can also mark offline and a success can mark online). Fires `connection:changed` on the event list in `chat/events.mjs`; `window.plcApp` gets `connection` for modules outside the page.
+- [~] **2.2 `runtime/offline-readiness.mjs`** (pure; module and `tests/offline-readiness.test.mjs` done 2026-11-03; the page does not feed it facts yet): turns the facts the app already has (service-worker cache present and current, runtime files present, model downloaded, voice downloaded, matching model downloaded, storage persistent) into a checklist of items, each `ready | missing | partial | unknown` with the action that fixes it. Replaces the single yes/no.
+- [~] **2.3 A reason for every refusal** (`offlineReason(kind)` in `chat/connection/connection.mjs`, tested; no control uses it yet): one function mapping "needs a connection" to the sentence a person sees, used by every control that cannot run offline, so the wording is the same everywhere.
 
 ### Phase 3: the interface
 
@@ -66,8 +84,8 @@ Designed with the owner's brief in mind: visual, calm, informative, with the rig
 
 ### Phase 4: the test suite and the device checks
 
-- [ ] **4.1 `tests/e2e/offline.e2e.mjs`** (fast, in CI): shell-only cold-offline; the pill appears and goes; the checklist reflects reality; refusals explain themselves; no unexpected requests.
-- [ ] **4.2 `tests/e2e/offline-model.e2e.mjs`** (release check, minutes, downloads the 2B): the full lifecycle in "Phase 0.2", with a real reply offline, a voice read-aloud offline, then back online.
+- [~] **4.1 `tests/e2e/offline.e2e.mjs`** (fast, in CI; written and passing 2026-11-03 for the shell-only checks; the pill, the checklist and the refusals are added as phase 3 lands; not yet in the CI workflow): shell-only cold-offline; the pill appears and goes; the checklist reflects reality; refusals explain themselves; no unexpected requests.
+- [~] **4.2 `tests/e2e/offline-model.e2e.mjs`** (written; passed on 2026-11-03 except for one check that was then corrected): (release check, minutes, downloads the 2B): the full lifecycle in "Phase 0.2", with a real reply offline, a voice read-aloud offline, then back online.
 - [ ] **4.3 Real devices, scripted as far as the platform allows**: the same scenarios on the iPhone 15 Pro and Mac Safari through the owned bridge, evidence files committed (no identifiers), including airplane mode on the phone if the bridge survives it (it may not; if so, the result says "by hand" and records what the owner saw).
 - [ ] **4.4 CI wiring**: 4.1 runs on every push; 4.2 is in the release checklist (`docs/OPERATIONS.md`) and the device runs are listed in `docs/ACCEPTANCE.md` as qualified or open.
 
@@ -90,6 +108,8 @@ Designed with the owner's brief in mind: visual, calm, informative, with the rig
 4. Is a full model download in CI acceptable? [No; keep it a release check.]
 
 ## Log (newest first; add a line with every finding)
+
+- 2026-11-03: Chromium matrix with the real 2B model: cold offline open, conversation kept, real offline reply, public pages, back online all pass. The only request while offline is the matching model for search. New: `tests/e2e/offline.e2e.mjs` (fast) and `offline-model.e2e.mjs` (release). Pure modules for the connection state, the readiness checklist and the refusal sentences are in with tests; the page does not use them yet.
 
 - 2026-11-03: 0.1 done. The new test builds `main` and `dev` into a temp folder, checks every shipped file is in the worker's list (except the voice files fetched on demand) and every relative import resolves to a saved file. It fails on the old build rule and passes on the new one.
 - 2026-11-03: baseline on `155d2a6`. Shell reopens offline (163 files saved). Found `_md.js` and `_u64.js` missing from the service worker list (cause: `walk` in `scripts/build.mjs` skips names starting with `_`). Mac Safari reachable over SSH; Boiler up with two iPhones and a Galaxy on USB; the iPhone bridge needs `pymobiledevice3` and a usbmux socket, not present on this machine.
