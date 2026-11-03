@@ -1,4 +1,5 @@
-// The page's side of the on-device text-to-speech engine (Kitten TTS nano 0.8 int8 in a same-origin worker, ONNX Runtime Web WASM).
+// The page's side of the on-device text-to-speech engine (Kitten TTS nano 0.8 int8, or Kokoro-82M q8 with `engine: "kokoro"`, each in a
+// same-origin worker on ONNX Runtime Web WASM).
 // Nothing in the app calls this yet. It downloads the three model files once, verifies each against a pinned manifest, keeps them in the
 // origin's private storage (OPFS) under their own directory, and synthesises speech on the device. The text never leaves the page.
 //
@@ -13,12 +14,20 @@
 import { sha256 } from "../runtime/providers/vendor/noble-hashes/2.4.0/sha2.js";
 import { retryDownload } from "../runtime/providers/download-retry.mjs";
 import { KITTEN_NANO_MANIFEST } from "./voice-manifest.mjs";
-import { SAMPLE_RATE } from "./voice-kitten.mjs";
+import { KOKORO_Q8_MANIFEST } from "./voice-manifest-kokoro.mjs";
+import { SAMPLE_RATE } from "./voice-kitten.mjs"; // 24 kHz for both engines
 
 export const VOICE_DIR = "plc-voice-kitten-nano-0.8";
+export const KOKORO_VOICE_DIR = "plc-voice-kokoro-q8";
+// Per engine: its manifest, its OPFS directory and its worker bundle (both bundles sit in chat/vendor/voice/ and share the ONNX Runtime files).
+const ENGINES = Object.freeze({
+  kitten: Object.freeze({ manifest: KITTEN_NANO_MANIFEST, dirName: VOICE_DIR, worker: "worker.js" }),
+  kokoro: Object.freeze({ manifest: KOKORO_Q8_MANIFEST, dirName: KOKORO_VOICE_DIR, worker: "worker-kokoro.js" }),
+});
 const MARKER = "installed.json";
 const SAMPLE_SENTENCE = "Hello, this is a sample of the voice that runs on your device.";
-const DEFAULT_WORKER_URL = () => new URL("./vendor/voice/worker.js", import.meta.url).href;
+const workerUrlFor = (name) => new URL(`./vendor/voice/${name}`, import.meta.url).href;
+const SAFE_PATH = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
 
 const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 const failure = (code, message, extra = {}) => Object.assign(new Error(message), { code, ...extra });
@@ -33,15 +42,21 @@ export function validateManifest(manifest) {
     if (!f || typeof f.name !== "string" || !/^[A-Za-z0-9._-]+$/.test(f.name) || f.name === MARKER) throw failure("bad-manifest", `bad file name in the voice manifest: ${f?.name}`);
     if (!Number.isSafeInteger(f.bytes) || f.bytes <= 0) throw failure("bad-manifest", `bad size for ${f.name}`);
     if (!/^[0-9a-f]{64}$/.test(f.sha256 || "")) throw failure("bad-manifest", `bad SHA-256 for ${f.name}`);
+    if (f.path !== undefined && (typeof f.path !== "string" || !SAFE_PATH.test(f.path) || f.path.split("/").includes(".."))) throw failure("bad-manifest", `bad path for ${f.name}`);
     roles.add(f.role);
   }
-  for (const role of ["model", "voices", "config"]) if (!roles.has(role)) throw failure("bad-manifest", `the voice manifest has no ${role} file`);
+  if (new Set(manifest.files.map((f) => f.name)).size !== manifest.files.length) throw failure("bad-manifest", "the voice manifest repeats a file name");
+  for (const role of manifest.requiredRoles || ["model", "voices", "config"]) if (!roles.has(role)) throw failure("bad-manifest", `the voice manifest has no ${role} file`);
   return manifest;
 }
 
 export function createVoiceEngine({
-  cachesImpl, baseUrl, manifest = KITTEN_NANO_MANIFEST, fetchImpl, workerUrl, dirName = VOICE_DIR, getRoot, createWorker, threads, attempts = 4, pause,
+  engine = "kitten", cachesImpl, baseUrl, manifest, fetchImpl, workerUrl, dirName, getRoot, createWorker, threads, attempts = 4, pause,
 } = {}) {
+  const kind = ENGINES[engine];
+  if (!kind) throw failure("bad-engine", `unknown voice engine "${engine}"`);
+  manifest = manifest || kind.manifest;
+  dirName = dirName || kind.dirName;
   const fetchFn = fetchImpl || ((...args) => globalThis.fetch(...args));
   const root = getRoot || (() => globalThis.navigator.storage.getDirectory());
   const makeWorker = createWorker || ((url) => {
@@ -84,7 +99,7 @@ export function createVoiceEngine({
     const handle = await dir.getFileHandle(file.name, { create: true });
     return retryDownload(async () => {
       signal?.throwIfAborted();
-      const response = await fetchFn(base + file.name, { signal });
+      const response = await fetchFn(base + (file.path || file.name), { signal });
       if (!response.ok) throw Object.assign(new Error(`HTTP ${response.status} for ${file.name}`), { status: response.status });
       const hash = sha256.create();
       let size = 0;
@@ -175,10 +190,12 @@ export function createVoiceEngine({
     loading = (async () => {
       const current = await status();
       if (!current.installed) throw failure("not-installed", "the voice is not installed");
-      worker = makeWorker(workerUrl || DEFAULT_WORKER_URL());
+      worker = makeWorker(workerUrl || workerUrlFor(kind.worker));
       wire(worker);
-      const files = Object.fromEntries(manifest.files.map((f) => [f.role, f.name]));
-      const reply = await call({ op: "load", dir: dirName, files, threads });
+      const files = Object.fromEntries(manifest.files.filter((f) => f.role !== "voice").map((f) => [f.role, f.name]));
+      // several voice files (Kokoro): { voiceId: fileName }, the id being the file name without ".bin"
+      const voiceFiles = Object.fromEntries(manifest.files.filter((f) => f.role === "voice").map((f) => [f.name.replace(/\.bin$/, ""), f.name]));
+      const reply = await call({ op: "load", dir: dirName, files, ...(Object.keys(voiceFiles).length ? { voiceFiles } : {}), threads });
       loaded = true;
       return { voices: reply.voices, loadMs: reply.loadMs };
     })().catch((error) => { discardWorker(error); throw error; });
@@ -190,16 +207,32 @@ export function createVoiceEngine({
     discardWorker("unloaded");
   }
 
-  /** The service worker keeps the voice worker and the 13 MB ONNX Runtime files in the app cache the first time they are used (they are not precached, so nobody who never uses the voice pays for them). Removing the voice removes those too. */
+  /**
+   * The service worker keeps the voice workers and the 13 MB ONNX Runtime files in the app cache the first time they are used (they are not
+   * precached, so nobody who never uses the voice pays for them). Removing a voice removes its own worker file; the shared runtime files go too,
+   * unless the other engine is still installed and needs them.
+   */
   async function purgeRuntimeCache() {
     const store = cachesImpl || globalThis.caches;
     if (!store?.keys) return 0;
+    let otherInstalled = false;
+    try {
+      for (const [other, info] of Object.entries(ENGINES)) {
+        if (other === engine || info.dirName === dirName) continue;
+        try { await (await root()).getDirectoryHandle(info.dirName); otherInstalled = true; } catch { /* not there */ }
+      }
+    } catch { /* storage not readable: treat as not installed */ }
+    const workers = new Set(Object.values(ENGINES).map((e) => e.worker));
     let removed = 0;
     try {
       for (const name of await store.keys()) {
         const cache = await store.open(name);
         for (const request of await cache.keys()) {
-          if (/\/vendor\/voice\/[^/]+$/.test(new URL(request.url).pathname) && await cache.delete(request)) removed++;
+          const file = /\/vendor\/voice\/([^/]+)$/.exec(new URL(request.url).pathname)?.[1];
+          if (!file) continue;
+          const mine = file === kind.worker || file === kind.worker + ".LEGAL.txt";
+          const shared = !workers.has(file) && !/^worker.*\.js(\.LEGAL\.txt)?$/.test(file);
+          if ((mine || (shared && !otherInstalled)) && await cache.delete(request)) removed++;
         }
       }
     } catch { /* a cache that cannot be cleaned is not fatal; the model files are already gone */ }
