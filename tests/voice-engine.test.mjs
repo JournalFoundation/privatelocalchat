@@ -372,3 +372,23 @@ test("a cancelled install stops and leaves nothing behind", async () => {
   await assert.rejects(run, (e) => e.name === "AbortError");
   assert.equal(f.root.dirs.size, 0);
 });
+
+test("a threaded runtime that runs out of memory on a phone is retried once with one thread in a fresh worker; other errors are not retried", async () => {
+  const f = fixture();
+  const loads = [];
+  const make = (failFirst, message) => () => {
+    const w = { terminate() { this.dead = true; },
+      postMessage(m) { queueMicrotask(() => { if (m.op !== "load") return;
+        loads.push({ threads: m.threads, worker: w });
+        if (failFirst && loads.length === 1) this.onmessage({ data: { id: m.id, ok: false, error: { name: "Error", message } } });
+        else this.onmessage({ data: { id: m.id, ok: true, voices: ["v"], loadMs: 5 } }); }); } };
+    return w;
+  };
+  const a = f.make({ createWorker: make(true, "no available backend found. ERR: [wasm] RangeError: WebAssembly.Memory(): could not allocate memory") });
+  await a.install(); await a.load();
+  assert.equal(loads.length, 2); assert.equal(loads[1].threads, 1, "the second try asks for one thread");
+  assert.ok(loads[0].worker.dead, "the failed worker was stopped"); assert.notEqual(loads[0].worker, loads[1].worker);
+  loads.length = 0;
+  const b = f.make({ createWorker: make(true, "the model file is corrupt") });
+  await b.install(); await assert.rejects(b.load(), /corrupt/); assert.equal(loads.length, 1, "an unrelated failure is not retried");
+});

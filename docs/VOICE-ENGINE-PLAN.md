@@ -15,7 +15,7 @@ recorded audio: both voices say the test sentences correctly. Heard by the owner
 Audio defaults to the ambient audio session, which the ringer switch mutes. `chat/voice-player.mjs` now sets `navigator.audioSession.type = "playback"` while it plays
 (checked on iOS 26.6.2: the type changes to `playback`; whether it overrides the switch is for the owner to confirm by ear). The page cannot detect the switch, so after the
 sample on an iPhone the picker says to check the volume and the silent switch (and, on an iOS without `audioSession`, says the switch mutes downloaded voices).
-Open: Kitten once failed on the owner's iPhone with a WebAssembly out-of-memory error in a tab that had run Granite earlier; not reproduced.
+Kitten once failed on the owner's iPhone with a WebAssembly out-of-memory error ("no available backend ... RangeError") in a tab that had run Granite earlier. Not reproduced (a Granite download in the automation context stopped at ~370 MB with "Failed to write to file" and never loaded). The engine now retries a load that fails that way once, in a fresh worker, with a single thread (`chat/voice-engine.mjs`): the threaded runtime reserves a large shared-memory block and the single-threaded one needs far less. Unit-tested; not verified on a device under real memory pressure.
 
 ## Goal
 

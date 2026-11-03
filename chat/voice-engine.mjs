@@ -194,12 +194,19 @@ export function createVoiceEngine({
     loading = (async () => {
       const current = await status();
       if (!current.installed) throw failure("not-installed", "the voice is not installed");
-      worker = makeWorker(workerUrl || workerUrlFor(kind.worker));
-      wire(worker);
       const files = Object.fromEntries(manifest.files.filter((f) => f.role !== "voice").map((f) => [f.role, f.name]));
       // several voice files (Kokoro): { voiceId: fileName }, the id being the file name without ".bin"
       const voiceFiles = Object.fromEntries(manifest.files.filter((f) => f.role === "voice").map((f) => [f.name.replace(/\.bin$/, ""), f.name]));
-      const reply = await call({ op: "load", dir: dirName, files, ...(Object.keys(voiceFiles).length ? { voiceFiles } : {}), threads });
+      const start = (n) => { worker = makeWorker(workerUrl || workerUrlFor(kind.worker)); wire(worker); return call({ op: "load", dir: dirName, files, ...(Object.keys(voiceFiles).length ? { voiceFiles } : {}), threads: n }); };
+      let reply;
+      try { reply = await start(threads); }
+      catch (error) {
+        // The threaded runtime reserves a large block of shared memory; on a phone short of memory that fails ("no available backend ... out of memory"). The runtime
+        // cannot be started again in the same worker, so a fresh worker tries once with a single thread, which needs far less.
+        if (threads === 1 || !/out of memory|no available backend|RangeError/i.test(String(error?.message || error))) throw error;
+        discardWorker("retrying with one thread");
+        reply = await start(1);
+      }
       loaded = true;
       return { voices: reply.voices, loadMs: reply.loadMs };
     })().catch((error) => { discardWorker(error); throw error; });
