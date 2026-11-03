@@ -329,3 +329,30 @@ test("the stall watchdog is sized from the measured speed, not a fixed 75 to 90 
   const s = slow.route().options;
   assert.ok(s.betweenMs > f.betweenMs && s.betweenMs <= 75000 && s.firstChunkMs <= 90000, "a slow voice gets longer, with a ceiling");
 });
+
+test("the download percentage is shown from the engine's progress objects, with connecting and retry states", async () => {
+  const engine = createFakeVoiceEngine();
+  engine.install = async (onProgress) => {
+    onProgress({ phase: "connecting", overallLoaded: 0, overallTotal: 100 });
+    onProgress({ phase: "retry", retryAttempt: 1, overallLoaded: 0, overallTotal: 100 });
+    onProgress({ loaded: 40, total: 100, overallLoaded: 40, overallTotal: 100 });
+  };
+  const { ctl } = make({ engine });
+  await ctl.afterSystemSpeak();
+  const seen = []; ctl.subscribe((s) => { if (s.state === "installing") seen.push({ ...s.progress }); });
+  await ctl.accept();
+  assert.deepEqual(seen.map((p) => p.phase), [undefined, "connecting", "retry", null]); // the first is the start of the setup itself
+  assert.equal(seen[3].done, 40); assert.equal(seen[3].total, 100);
+});
+
+test("a self-test that never makes a sound fails with a reason instead of leaving the setup stuck", async () => {
+  const engine = createFakeVoiceEngine(); let terminated = 0;
+  engine.speak = () => new Promise(() => {}); // the iPhone stall: it never returns
+  engine.terminate = () => { terminated++; };
+  const { ctl } = make({ engine, ctl: { selfTestTimeoutMs: 30 } });
+  await ctl.afterSystemSpeak();
+  const r = await ctl.accept();
+  assert.equal(r.ok, false); assert.match(r.reason, /made no sound within/);
+  assert.equal(terminated, 1); assert.equal(ctl.state, "system", "not stuck in testing: the person can try again");
+  assert.equal(engine.filesOnDisk, false);
+});

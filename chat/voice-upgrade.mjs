@@ -55,6 +55,7 @@ export function createVoiceController({
   now = () => Date.now(),
   config = VOICE_CONFIG,
   devOffer = false,
+  selfTestTimeoutMs = 90000,
   createContext
 } = {}) {
   let record = read();
@@ -145,10 +146,15 @@ export function createVoiceController({
       record.pending = { id, at: now() }; save(); // cleared when setup ends; if the page is killed first, the next start cleans up
       try {
         const e = await engineFor(id);
-        await e.install((done, total) => set("installing", { progress: { done, total } }));
+        // the engine reports one object per step ({ overallLoaded, overallTotal, phase }); older fakes call (done, total)
+        await e.install((a, b) => { const o = a && typeof a === "object"; set("installing", { progress: { done: o ? a.overallLoaded : a, total: o ? a.overallTotal : b, phase: o ? a.phase || null : null, attempt: o ? a.retryAttempt || null : null } }); });
         set("testing", { progress: null });
         const chunks = [];
-        const metrics = await e.speak(SAMPLE_TEXT, { onChunk: (s, r) => chunks.push([s, r]), speed: 1 });
+        // the self-test can never wait for ever: if no sound comes back in 90 s the worker is stopped and the setup fails with that reason
+        let timer; const metrics = await Promise.race([
+          e.speak(SAMPLE_TEXT, { onChunk: (s, r) => chunks.push([s, r]), speed: 1 }),
+          new Promise((_, reject) => { timer = setTimeout(() => { try { e.terminate?.(); } catch { /* gone */ } reject(Object.assign(new Error("the voice made no sound within " + Math.round(selfTestTimeoutMs / 1000) + " s"), { name: "TimeoutError" })); }, selfTestTimeoutMs); })
+        ]).finally(() => clearTimeout(timer));
         lastMetrics = metrics;
         if (!voiceIsFastEnough({ ...metrics, typicalReplySeconds: TYPICAL_REPLY_SECONDS }, config)) return await giveUp(id, "too-slow");
         record.pending = null; save();

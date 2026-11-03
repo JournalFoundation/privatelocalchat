@@ -18,7 +18,12 @@ export function showVoiceOffer(ctl, anchor, { doc = document } = {}) {
     button("Keep this voice", () => { ctl.keep(); show("Done. Replies will be read in this voice. You can change it in Settings."); setTimeout(gone, 4000); }, "voiceOfferKeep"),
     button("Use the system voice", async () => { await ctl.decline(); gone(); }, "voiceOfferSystem"));
   async function try_() {
-    const off = ctl.subscribe((s) => { if (s.state === "installing" && s.progress?.total) text.textContent = "Downloading the voice, " + Math.round((s.progress.done / s.progress.total) * 100) + "%. "; });
+    const off = ctl.subscribe((s) => {
+      if (s.state === "testing") { text.textContent = "Testing the voice on this device… "; return; }
+      if (s.state !== "installing" || !s.progress) return;
+      const { done, total, phase, attempt } = s.progress;
+      text.textContent = phase === "connecting" ? "Connecting to the download server… " : phase === "retry" ? "Connection problem, trying again" + (attempt ? " (" + attempt + ")" : "") + "… " : total ? "Downloading the voice, " + Math.round((done / total) * 100) + "%. " : "Downloading the voice… ";
+    });
     show("Downloading the voice, 0%.");
     const r = await ctl.accept(); off();
     if (!r.ok) {
