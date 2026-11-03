@@ -12,10 +12,11 @@ test('inline application script remains valid JavaScript',()=>{
  for(const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)){if(/application\/ld\+json/.test(match[0].slice(0,match[0].indexOf('>'))))JSON.parse(match[1]);else if(match[1].trim())execFileSync('node',['--check','--input-type=commonjs'],{input:match[1]});}
 });
 test('local inference gates API requests and supports cancellation',async()=>{
+ const html=await readFile('chat/core/sender.mjs','utf8');
  const gate=html.search(/if \(window.localModels\?\.mode === 'local'\) \{[\s\S]*?window.localModels.generate[\s\S]*?return \{ text, finishReason \};\s*\}\s*if \(!provider.config.endpoint\)/);
  assert.ok(gate>=0,'local mode must return before any API request is prepared');
  assert.ok(html.indexOf('fetch(chatEndpoint',gate)>gate,'the only chat fetch comes after the local-mode gate');
- assert.match(html,/generationController\?\.abort\(\)/);
+ assert.match(await readFile('index.html','utf8'),/generationController\?\.abort\(\)/);
  const bridge=await readFile('local-models.js','utf8');
  assert.match(bridge,/call.done/);assert.match(bridge,/attempt-completed/);
  assert.doesNotMatch(bridge,/fetch\([^)]*chat\/completions/);
