@@ -6,13 +6,25 @@ Status: **shipped and verified** (2026-11-02, production commit `ca2d90d`). This
 
 Read-aloud currently uses the operating system's voice (`speechSynthesis`, `chat/speech.mjs`). On devices that can handle it, offer a more natural on-device voice with as little friction as possible. People who cannot run one keep the system voice and never see an offer. This follows the way the app already picks a language model for the device (`runtime/auto-tier.mjs`, `runtime/prepare.mjs`).
 
+## Redesign after the owner's direction (2026-11-02, supersedes the gating parts of this plan)
+
+The plan below was written around a gatekeeper: an offer shown only to devices that passed measured tests, with remembered refusals and an iOS block. The owner rejected that design: it put friction between a person and a download they wanted to try, and it hid the control in Settings. What replaced it (`chat/voice-choice.mjs`, the voice pill in `chat/shell/shell.mjs`):
+
+- **A voice picker of its own**, beside (not inside) the model picker: System voice, Kitten, Kokoro, each with size, licence and state, like the language-model list. Choosing a voice that is not downloaded downloads it at once with visible progress ("Connecting…", "Downloading 42%", "Testing…" on the pill and in the menu), then selects it and plays a sample.
+- **No gate.** Every voice is choosable on every device, including an old Android tablet and an iPhone. The device measurements (`runtime/voice-pick.mjs`, `docs/VOICE-CALIBRATION.md`) now only give advice: a "Recommended for this device" label and a "may be slow on this device" note.
+- **Failures are explained and never lock anyone out.** A failure shows its reason in the menu. Trying the same voice again asks for one confirmation ("this already failed: ...") and then goes ahead, without limit. A voice that reads slower than speech is kept and the person is told how slow it is.
+- **It uses the same download machinery as the language models** (the worker-based OPFS writer, a connect timeout, a stall timeout with retry, cancel), after a hang on an iPhone showed the first installer did not.
+- **Voices are used everywhere the app speaks**: Listen, voice calls and Roberta.
+
+The sections below keep their original wording for the record; where they conflict with this section, this section wins.
+
 ## Settled decisions
 
-- **System voice stays the default.** Nothing changes for anyone until they accept an offer.
-- **iPhone and iPad always keep the system voice.** Safari hides the device model, and the investigation in `docs/IPHONE-INVESTIGATION.md` shows a hard process memory limit (about 2 GB) that the 2B chat model already nearly fills. No voice model is loaded, offered or downloaded there. Revisit only after a real-phone test and a separate decision.
+- **System voice stays the default.** Nothing changes for anyone until they choose another voice in the voice picker.
+- **iPhone and iPad can choose any voice (SUPERSEDED).** The plan first said iPhone and iPad would always keep the system voice, on the strength of a 2 GB per-page memory limit measured on one iPhone with the chat model loaded. The owner overruled this: every device gets the full choice, a failure is explained, and trying again is never blocked. The iPhone 15 Pro was then tested for real (the voice installs, speaks at about 4 times real time and removes cleanly once the Safari stream bug below was fixed), and the picker shows a plain note that Safari limits memory per page.
 - **No gated downloads.** Models that need an account or an acceptance step on another site are out for now (this excludes Pocket TTS). Letting people bring their own models is a possible much-later feature.
 - **Licences.** Apache-2.0 and MIT are accepted. GPL-3.0 is accepted for the combined app: John Benac, the sole author of the code, chose to relicense. The `LICENSE` file changes from Apache-2.0 to GPL-3.0 in the same commit that first ships a GPL component (espeak-ng), together with the GPL text, the espeak-ng source link and notices beside any hosted copy. Use-restricted (OpenRAIL-M), non-commercial and custom community licences stay excluded.
-- **One voice model on disk at a time**, with Unload and Remove in Settings, like the language models.
+- **Voices on the device (REVISED).** More than one downloaded voice may be kept, each with its own Remove, and the picker shows the total, like the language-model list. Choosing a voice that is not downloaded downloads it at once with visible progress; there is no offer line, no device test that blocks a choice, and no remembered refusal.
 - **Real-time speech is nice, not required** (owner decision, 2026-11-02). A voice slower than playback is kept if sound starts soon and playback can begin gaplessly after a bearable wait (it buffers ahead). It is rejected only when it is hopelessly slow. The person also hears a sample and decides.
 
 ## Principles for every assumption

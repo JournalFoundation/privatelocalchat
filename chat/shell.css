@@ -261,3 +261,13 @@ body.shell .composer-bar .composer-actions:not(:has(> :not([hidden]))) { display
   .shell-icon-btn, .shell-plus, .shell-mic, .shell-voice, body.shell .send-btn { width: 44px; height: 44px; min-height: 44px !important; }
   .shell-icon-btn .ico { width: 22px; height: 22px; }
 }
+
+/* ---- voice picker (beside the model picker) ---- */
+.shell-voicepick { margin-left: 0 !important; }
+body.shell .composer-bar .shell-voicepick { margin-left: 0 !important; }
+.shell-voicepick[data-status="error"] .shell-model-dot { background: var(--plc-danger); }
+.shell-voicepick .shell-model-name { max-width: 9.5em; }
+@media (max-width: 520px) { .shell-voicepick .shell-model-name { max-width: 6.5em; } .shell-voicepick[data-status="none"] .shell-model-name, .shell-voicepick[data-status="ready"] .shell-model-name { display: none; } }
+.shell-pop-note { margin: 6px 8px; padding: 8px 10px; border-radius: 10px; font-size: 0.82rem; line-height: 1.35; background: var(--plc-warning-tint); color: var(--plc-warning); max-width: 24em; }
+.shell-pop-note.error { background: var(--plc-danger-tint); color: var(--plc-danger); }
+.set-note.error { color: var(--plc-danger); } .set-note.slow { color: var(--plc-warning); }

@@ -1,6 +1,7 @@
-// Choosing a text-to-speech voice for this device. The system voice is the default and the answer whenever anything is unknown:
-// every rule here fails safe (no offer, nothing downloaded). Thresholds are PLACEHOLDERS until they are calibrated on real devices
-// (docs/VOICE-ENGINE-PLAN.md). Probe and speed thresholds were calibrated on real devices on 2026-11-02; the others remain conservative placeholders.
+// Advice about text-to-speech voices for this device. As of the voice picker (chat/voice-choice.mjs) NOTHING here blocks a choice: every voice can always be picked
+// and downloaded on every device. The picker asks `pickVoiceEngine` (with `manual: true`) which voice suits this device and shows it as "Recommended for this
+// device", and the limits below decide only when a voice is labelled "may be slow here" or reported as slow after download. The probe and speed limits were
+// calibrated on real devices and simulated slow CPUs (docs/VOICE-CALIBRATION.md); the others remain conservative values.
 
 export const VOICE_CONFIG = Object.freeze({
   calibrated: true,          // 2026-11-02: set from measurements on six browsers across five devices (docs/evidence/voice/lane-results.json)

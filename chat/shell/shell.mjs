@@ -27,9 +27,10 @@ export function closePopover() { if (openPop) { openPop.cleanup(); openPop = nul
 export function popover(anchor, rows, { align = "start", above = false, cls = "" } = {}) {
   closePopover();
   const pop = h("div", { class: "shell-pop " + cls, role: "menu" });
-  for (const r of rows) {
+  const fill = (list) => { for (const r of list) {
     if (r.divider) { pop.append(h("div", { class: "shell-pop-sep", role: "separator" })); continue; }
     if (r.heading) { pop.append(h("div", { class: "shell-pop-heading", text: r.heading })); continue; }
+    if (r.note) { pop.append(h("div", { class: "shell-pop-note " + (r.kind || ""), role: "status", text: r.note })); continue; }
     const b = h("button", { type: "button", class: "shell-pop-row" + (r.danger ? " danger" : ""), role: r.checked != null ? "menuitemradio" : "menuitem", "aria-checked": r.checked != null ? String(Boolean(r.checked)) : null, disabled: r.disabled });
     if (r.icon) b.append(h("span", { class: "shell-pop-ico" }, icon(r.icon)));
     const text = h("span", { class: "shell-pop-text" }, h("span", { class: "shell-pop-label", text: r.label }));
@@ -39,7 +40,10 @@ export function popover(anchor, rows, { align = "start", above = false, cls = ""
     if (r.checked) b.append(h("span", { class: "shell-pop-check" }, icon("check")));
     b.addEventListener("click", (e) => { e.stopPropagation(); if (r.keepOpen) { r.onClick?.(e); return; } closePopover(); anchor.focus?.({ preventScroll: true }); r.onClick?.(e); }); // focus goes back to the control that opened the menu, so a dialog opened next returns there
     pop.append(b);
-  }
+  } };
+  fill(rows);
+  // a menu that shows live state (a download running) is redrawn in place, keeping what had focus
+  pop.update = (list) => { const keep = pop.querySelector(":focus")?.textContent; pop.textContent = ""; fill(list); const again = keep && [...pop.querySelectorAll("button")].find((b) => b.textContent === keep); again?.focus({ preventScroll: true }); };
   document.body.append(pop);
   const rect = anchor.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
   let left = align === "end" ? rect.right - pw : rect.left;
@@ -56,6 +60,35 @@ export function popover(anchor, rows, { align = "start", above = false, cls = ""
   pop.querySelector("button:not([disabled])")?.focus();
   return pop;
 }
+
+// ---- voices (the picker in the composer and the Voice section of Settings share these) ----
+const voiceSize = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : n >= 1e6 ? (n / 1e6 < 10 ? (n / 1e6).toFixed(1) : Math.round(n / 1e6)) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB");
+const progressText = (p) => !p ? "Starting…" : p.phase === "connecting" ? "Connecting to the download server…" : p.phase === "retry" ? "Connection problem, trying again" + (p.attempt ? " (" + p.attempt + ")" : "") + "…" : p.total ? "Downloading " + Math.round((p.done / p.total) * 100) + "%" : "Downloading…";
+/** One line about a voice, like the language-model list: what it is, whether it is on this device, what to do, and the device advice. */
+function voiceDescription(v) {
+  let line;
+  if (v.id === "os") line = v.note;
+  else if (v.state === "installing") line = progressText(v.progress);
+  else if (v.state === "testing") line = "Testing on this device…";
+  else if (v.state === "ready") line = "Downloaded (" + voiceSize(v.bytesOnDevice || v.size) + ") · " + v.license;
+  else if (v.state === "failed") line = "Failed: " + String(v.error || "unknown problem").replace(/[.\s]*$/, "") + ". Tap to try again.";
+  else line = "Not downloaded (" + voiceSize(v.size) + ") · " + v.license + (v.failures ? " · failed before: " + v.failures.reason : "");
+  if (v.recommended) line += " · Recommended for this device";
+  else if (v.advice) line += " · " + v.advice;
+  return line;
+}
+/** Choose a voice from the picker or from Settings: downloads it when it is not on the device; after a failure asks once, then goes ahead. */
+async function chooseVoice(ctl, id, toast) {
+  let r = await ctl.select(id);
+  if (r.needsConfirm) {
+    const v = ctl.voices.find((x) => x.id === id);
+    if (!confirm(v.label + " already failed on this device:\n\n" + r.reason + "\n\nTry again?")) return r;
+    r = await ctl.select(id, { confirmed: true });
+  }
+  if (r.busy) toast?.("A voice is being downloaded already. You can cancel it from the voice menu.");
+  return r;
+}
+const voiceBusy = (snap) => snap.voices.find((v) => v.state === "installing" || v.state === "testing");
 
 // ---- the shell ---------------------------------------------------------------------------------------------------------
 export function createShell(app) {
@@ -179,6 +212,41 @@ export function createShell(app) {
   plusBtn.addEventListener("click", () => popover(plusBtn, plusRows(), { above: true, cls: "wide" }));
   const modelPill = h("button", { type: "button", class: "shell-model", id: "modelPill", "aria-haspopup": "menu", "aria-label": "Choose model" }, h("span", { class: "shell-model-dot", "aria-hidden": "true" }), h("span", { class: "shell-model-name" }), icon("chevron"));
   bar.prepend(plusBtn); bar.insertBefore(modelPill, tools);
+  // ---- voice picker: its own pill beside the model picker. Choosing a voice that is not downloaded downloads it at once, like choosing a model. ----
+  const voicePill = h("button", { type: "button", class: "shell-model shell-voicepick", id: "voicePill", "aria-haspopup": "menu", "aria-label": "Choose voice", title: "Choose voice", hidden: true },
+    h("span", { class: "shell-model-dot", "aria-hidden": "true" }), icon("volume"), h("span", { class: "shell-model-name", text: "System" }));
+  bar.insertBefore(voicePill, tools);
+  let voiceCtl = null;
+  function syncVoice(snap) {
+    const busy = voiceBusy(snap), sel = snap.voices.find((v) => v.selected);
+    const name = voicePill.querySelector(".shell-model-name");
+    if (busy) { const pct = busy.progress?.total && busy.state === "installing" ? Math.round((busy.progress.done / busy.progress.total) * 100) + "%" : busy.state === "testing" ? "testing" : "connecting"; name.textContent = busy.label + " " + pct; voicePill.dataset.status = "busy"; voicePill.title = busy.label + " — " + voiceDescription(busy); }
+    else { name.textContent = sel.id === "os" ? "System" : sel.label; voicePill.dataset.status = snap.notice?.kind === "error" ? "error" : sel.id === "os" ? "none" : "ready"; voicePill.title = "Voice: " + sel.label + (snap.notice ? " — " + snap.notice.text : ""); }
+  }
+  const pickVoice = (id) => chooseVoice(voiceCtl, id, app.toast);
+  function voiceRows(snap) {
+    const rows = [];
+    if (snap.notice) rows.push({ note: snap.notice.text, kind: snap.notice.kind });
+    rows.push({ heading: "Voice for reading aloud" });
+    for (const v of snap.voices) rows.push({ label: v.label, desc: voiceDescription(v), icon: "volume", checked: v.selected, onClick: () => pickVoice(v.id) });
+    rows.push({ divider: true });
+    const total = snap.totalBytes;
+    rows.push({ heading: "Voices on this device: " + (total ? voiceSize(total) : "none downloaded") });
+    for (const v of snap.voices) {
+      if (v.state === "installing" || v.state === "testing") rows.push({ label: "Cancel " + v.label + " download", icon: "close", onClick: () => voiceCtl.cancel(v.id) });
+      else if (v.id !== "os" && v.state === "ready") rows.push({ label: "Remove " + v.label + " (" + voiceSize(v.bytesOnDevice || v.size) + ")", icon: "trash", danger: true, onClick: () => { if (confirm("Remove " + v.label + " from this device? Reading aloud goes back to the system voice if it was selected. You can download it again any time.")) voiceCtl.remove(v.id); } });
+    }
+    const sel = snap.voices.find((v) => v.selected);
+    if (sel && sel.id !== "os" && sel.state === "ready") rows.push({ label: "Hear a sample of " + sel.label, icon: "play", onClick: () => voiceCtl.hearSample(sel.id).catch((e) => app.toast?.(e.message)) });
+    return rows;
+  }
+  voicePill.addEventListener("click", () => {
+    if (!voiceCtl) return;
+    const pop = popover(voicePill, voiceRows(voiceCtl.snapshot()), { align: "end", above: true, cls: "wide" });
+    const off = voiceCtl.subscribe((s) => { if (pop.isConnected) pop.update(voiceRows(s)); else off(); });
+    voiceCtl.advise(); // measured now, shown as advice in the list when it is ready; it never blocks a choice
+  });
+  (async () => { voiceCtl = await app.loadVoice?.(); if (!voiceCtl) return; voiceCtl.subscribe(syncVoice); syncVoice(voiceCtl.snapshot()); voicePill.hidden = false; })();
   registry.register("plus", { id: "files", label: "Add photos & files", desc: "Upload from this device", icon: "paperclip", order: 10, open: () => app.attachFiles() });
   registry.register("plus", { id: "library", label: "Add from library", desc: "Browse your saved documents", icon: "book", order: 20, open: () => app.openLibrary() });
   registry.register("plus", { id: "project", label: "Work in a project", desc: "Start a chat in a project", icon: "folder", order: 30, open: () => app.moveCurrentToProject() });
@@ -341,43 +409,31 @@ function buildSettings({ app, shell, registry, moved }) {
     window.addEventListener("local-model-state", () => { if (!page.hidden && page.dataset.section === "models") paint(false); });
     w.append(h("h3", { class: "set-sub", text: "Choose and download" }), moved.providerSettings); return w;
   });
-  add("voice", "Voice", "phone", "voice read aloud listen speak natural download sample system tts", () => {
+  add("voice", "Voice", "phone", "voice read aloud listen speak natural download sample system tts kokoro kitten", () => {
     const w = h("div", { class: "set-moved" }, h("h2", { text: "Voice for reading aloud" }));
     const box = h("div", { class: "set-card", id: "voiceCard" });
     w.append(box);
-    const size = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : Math.max(1, Math.round(n / 1e6)) + " MB");
-    async function paint() {
+    let ctl = null, off = null;
+    function paint(snap) {
       box.textContent = "";
-      const ctl = await app.loadVoice?.();
-      if (!ctl) { box.append(row("Current voice", "System voice (the one your device provides).", null)); return; }
-      const snap = ctl.snapshot(), has = Boolean(snap.engine) && snap.state === "active";
-      if (!has) {
-        // Not using a downloaded voice. Say what is used, why a downloaded one is not, and let the person try: every remembered refusal is set aside by the button.
-        const why = snap.state === "fallback" ? " A downloaded voice was tried and removed: " + (snap.reason || "it did not work well here") + "." : "";
-        const iosNote = ctl.isIOS() ? (ctl.iosOptedIn()
-          ? " Experimental on iPhone and iPad: a downloaded voice may use more memory than Safari allows. The app checks your device, removes the voice again if it does not work, and the system voice always stays available."
-          : " iPhone and iPad use the system voice unless you choose to try a downloaded one (experimental: Safari limits memory per page, so it may not fit beside the chat model).") : "";
-        const status = h("div", { class: "set-note", id: "voiceTryStatus", role: "status" });
-        const tryBtn = btn("Try a more natural voice", async () => {
-          tryBtn.disabled = true; status.textContent = "Checking this device…";
-          try {
-            const r = await ctl.tryNow();
-            if (r.offered) { status.textContent = ""; await app.showVoiceOffer?.(box); }
-            else { const { explainDecision } = await import("../voice-upgrade.mjs"); status.textContent = r.decision?.reason === "busy" ? "A voice is being set up already." : explainDecision(r.decision?.reason) + " The system voice stays."; }
-          } catch (e) { status.textContent = "The check could not run: " + (e?.message || e); }
-          tryBtn.disabled = false;
-        });
-        box.append(row("Current voice", "System voice (the one your device provides)." + why + " A more natural voice (27 to 97 MB, English, works offline) can be downloaded after the device passes a quick check; nothing downloads until you tap Try it." + iosNote, tryBtn), status);
-        return;
+      if (!snap) { box.append(row("Voice", "System voice (the one your device provides).", null)); return; }
+      if (snap.notice) box.append(h("div", { class: "set-note " + snap.notice.kind, role: "status", text: snap.notice.text }));
+      for (const v of snap.voices) {
+        const controls = h("div", { class: "set-control" });
+        if (v.state === "installing" || v.state === "testing") controls.append(btn("Cancel", () => ctl.cancel(v.id)));
+        else if (v.selected) controls.append(h("span", { class: "set-desc", text: "In use" }));
+        else controls.append(btn(v.id === "os" || v.state === "ready" ? "Use" : v.state === "failed" ? "Try again" : "Download", () => chooseVoice(ctl, v.id, app.toast)));
+        if (v.id !== "os" && v.state === "ready") {
+          controls.append(btn("Hear a sample", () => ctl.hearSample(v.id).catch((e) => app.toast?.(e.message))));
+          controls.append(btn("Remove", () => { if (confirm("Remove " + v.label + " from this device? Reading aloud goes back to the system voice if it was in use. You can download it again any time.")) ctl.remove(v.id); }, "danger"));
+        }
+        box.append(row(v.label, voiceDescription(v), controls));
       }
-      const bytes = await ctl.bytes();
-      const controls = h("div", { class: "set-control" });
-      controls.append(btn("Hear a sample", async () => { try { await ctl.hearSample(); } catch (e) { app.toast?.(e.message); } }));
-      controls.append(btn("Unload", async () => { await ctl.unload(); paint(); }));
-      controls.append(btn("Remove", async () => { if (!confirm("Remove " + snap.label + " from this device? Reading aloud goes back to the system voice. You can download it again later.")) return; await ctl.remove(); paint(); }, "danger"));
-      box.append(h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-label", text: snap.label || "Downloaded voice" }), h("div", { class: "set-desc", text: size(bytes) + " on this device · works offline" })), controls));
+      box.append(row("Total on this device", snap.totalBytes ? voiceSize(snap.totalBytes) : "No voices downloaded", null));
     }
-    w.paint = paint; w.addEventListener("shell-refresh", () => paint()); paint();
+    async function start() { ctl = await app.loadVoice?.(); if (!ctl) { paint(null); return; } off?.(); off = ctl.subscribe(paint); paint(ctl.snapshot()); ctl.advise(); }
+    w.addEventListener("shell-refresh", () => { if (ctl) { paint(ctl.snapshot()); ctl.advise(); } });
+    start();
     return w;
   });
   add("data", "Data controls", "shield", "export import backup transfer delete archive trash storage", () => {

@@ -2,15 +2,17 @@
 
 What the chat experience does beyond running a model, where each part lives, what is stored where, and what it deliberately does not do. Source of truth for behaviour is the tests named below.
 
-## Better read-aloud voice (optional)
+## Voice picker
 
-Read-aloud uses the system voice by default. On a device that can run it, after a first successful read-aloud the app offers one quiet suggestion: a more natural voice: **Kokoro** (96.5 MB) on a desktop-class machine or one with a real graphics card, otherwise **Kitten TTS nano** (27.6 MB). Both are English, work offline and have Apache-2.0 models; the program that runs it contains eSpeak NG, GPL-3.0, see `THIRD-PARTY-NOTICES.md`). Nothing downloads without a tap.
+A **voice menu** beside the model menu in the composer (and Settings > Voice, which shows the same list) chooses how answers are read aloud: the **system voice** (built in, the default), **Kitten** (28 MB) or **Kokoro** (97 MB). Both downloadable voices are English, work offline and have Apache-2.0 models; the program that runs them contains eSpeak NG (GPL-3.0, see `THIRD-PARTY-NOTICES.md`).
 
-* **Who is offered it.** iPhone and iPad never are: they always use the system voice and never load a second model beside the chat model. Everywhere else the app measures the device (`chat/voice-probe.mjs`, a short WebAssembly benchmark in a worker; `chat/storage-check.mjs`, a real write test because phone browsers overstate free space) and `runtime/voice-pick.mjs` decides. On the test machines the probe read 137 to 216 ms where the voice ran at 3.3 to 5.5 times real time, and the Galaxy S8+ hit the 4,000 ms cap and ran at 0.26 times, so it is not offered.
-* **Real time is not required.** A voice slower than playback is kept if sound starts soon and playback can begin without stutter after a bearable wait. A hopelessly slow or failing voice is removed automatically and the system voice takes over again.
-* **Settings > Voice** shows the current voice, its size, Hear a sample, Unload and Remove. Remove deletes the files and the cached runtime.
-* **Where the files come from.** `assets.privatelocal.chat/models/Kitten-TTS-Nano-0.8-int8/<revision>/`, checked file by file against pinned SHA-256 hashes (`chat/voice-manifest.mjs`).
-* **Details and evidence.** `docs/VOICE-ENGINE-PLAN.md`, `docs/VOICE-RUNTIME.md`, `docs/evidence/voice/`.
+* **Choosing a voice that is not downloaded downloads it at once**, like choosing a language model: the pill shows "Connecting…", "Downloading 42%", "Testing…", then the voice is selected and a sample plays. The download uses the same worker-based OPFS writer as the models, with a connect timeout, a stall timeout that retries, and Cancel.
+* **Everyone can choose any voice on any device**, including iPhone, iPad and old Android phones. Device measurements only give advice ("Recommended for this device", "May be slow on this device"). A voice that reads slower than speech is kept and the person is told how slow it is.
+* **Failures are explained and never lock anyone out.** The menu shows the reason. Trying the same voice again asks for one confirmation ("this already failed: …") and then goes ahead, as many times as the person likes. If a voice fails while reading, that reply is read by the system voice and the choice stays; two failures in a row return to the system voice with a message.
+* **The chosen voice is used everywhere the app speaks:** Listen, voice calls and Roberta.
+* **What is on the device** is listed with sizes and a total; each downloaded voice has Remove (it deletes the files and the cached program). More than one voice may be kept.
+* **If the page was killed** while a voice was downloading or reading (usually the browser running out of memory) the next start says so, cleans up the half-made files and goes back to the system voice, keeping the downloaded voice.
+* Code: `chat/voice-choice.mjs` (controller), `chat/shell/shell.mjs` (pill, menu, Settings), `chat/voice-engine.mjs` and `chat/voice-kokoro.mjs`/`voice-kitten.mjs` (engines), `runtime/voice-pick.mjs` (advice only). Plan and evidence: `docs/VOICE-ENGINE-PLAN.md`, `docs/evidence/voice/`.
 
 ## What is here
 

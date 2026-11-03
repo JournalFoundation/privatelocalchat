@@ -2661,29 +2661,21 @@
         const thread = getThread(currentThreadId);
         return thread ? structuredClone({id:thread.id,systemPrompt:thread.systemPrompt,messages:thread.messages}) : null;
       };
-      // Voice upgrade checks for the dev command channel. voice-state: what is installed. voice-decide: the controller's decision on this device, nothing
-      // downloaded. voice-cycle: install, speak a sentence, measure, remove, only when this device's own decision is an offer (never on iPhone or iPad).
+      // Voice checks for the dev command channel (all on the real controller, so what is read here is what a person gets). voice-state: the picker's snapshot.
+      // voice-decide: the device advice (never a gate). voice-cycle: choose the recommended voice, wait for it, measure it, remove it again.
       window.__plcDebugVoice = async (action) => {
-        const base = moduleBase(), est = async () => { try { const e = await navigator.storage.estimate(); return { usageMB: +(e.usage / 1e6).toFixed(1), quotaMB: Math.round(e.quota / 1e6) }; } catch { return null; } };
-        const [eng, up] = await Promise.all([import(base + 'chat/voice-engine.mjs'), import(base + 'chat/voice-upgrade.mjs')]);
-        const make = async (id) => {
-          const kokoro = id === 'kokoro', man = await import(base + (kokoro ? 'chat/voice-manifest-kokoro.mjs' : 'chat/voice-manifest.mjs'));
-          return eng.createVoiceEngine({ engine: id, baseUrl: kokoro ? man.KOKORO_Q8_BASE_URL : man.KITTEN_NANO_BASE_URL, workerUrl: base + (kokoro ? 'chat/vendor/voice/worker-kokoro.js' : 'chat/vendor/voice/worker.js') });
-        };
-        if (action === 'voice-state') return { kitten: await (await make('kitten')).status(), kokoro: await (await make('kokoro')).status(), storage: await est(), record: localStorage.getItem('plc.voice.v1') };
-        const env = async () => { let webgpu = { available: false }; try { const a = await navigator.gpu?.requestAdapter(); if (a) webgpu = { available: true, isFallbackAdapter: Boolean(a.isFallbackAdapter) }; } catch { /* none */ } return { deviceMemoryGB: navigator.deviceMemory, cores: navigator.hardwareConcurrency, webgpu }; };
-        const memory = {}, scratch = { getItem: k => memory[k] ?? null, setItem: (k, v) => { memory[k] = v; }, removeItem: k => { delete memory[k]; } };
-        const ctl = up.createVoiceController({ factory: async () => { throw new Error('decision only'); }, env, devOffer: true, storage: scratch });
-        const d = await ctl.evaluate();
-        const decision = { offer: d.offer, candidate: d.candidate || null, reason: d.reason, ms: d.ms || null };
-        if (action === 'voice-decide' || d.offer !== true) return { decision, skipped: action === 'voice-cycle' ? 'the decision for this device is not an offer, so nothing was downloaded' : undefined };
-        const engine = await make(d.candidate), before = await est(); let rtf = null, first = null, installMs = null;
-        try {
-          const t0 = performance.now(); await engine.install(); installMs = Math.round(performance.now() - t0);
-          const r = await engine.speak('The capital of France is Paris. This is a short test of on device speech.', { onChunk() {} });
-          rtf = r.realTimeFactor; first = r.firstAudioMs;
-        } finally { await engine.remove(); }
-        return { decision, installMs, realTimeFactor: rtf, firstAudioMs: first, storageBefore: before, storageAfter: await est(), after: await engine.status() };
+        const est = async () => { try { const e = await navigator.storage.estimate(); return { usageMB: +(e.usage / 1e6).toFixed(1), quotaMB: Math.round(e.quota / 1e6) }; } catch { return null; } };
+        const ctl = await window.plcApp.loadVoice();
+        if (!ctl) return { error: 'the voice controller did not load' };
+        if (action === 'voice-state') return { snapshot: ctl.snapshot(), storage: await est(), record: localStorage.getItem('plc.voice.v2') };
+        const advice = await ctl.advise();
+        if (action === 'voice-decide') return { advice };
+        const id = advice?.recommended || 'kitten', before = await est(), t0 = performance.now();
+        const r = await ctl.select(id, { confirmed: true });
+        const m = ctl.snapshot().voices.find(v => v.id === id)?.metrics || null;
+        const result = { id, ok: r.ok, reason: r.reason || null, ms: Math.round(performance.now() - t0), realTimeFactor: m?.realTimeFactor ?? null, firstAudioMs: m?.firstAudioMs ?? null, storageBefore: before };
+        await ctl.remove(id);
+        return { ...result, storageAfter: await est(), snapshot: ctl.snapshot() };
       };
       window.__plcDebugControl = async (action, args = {}) => {
         if (action === 'state') return {storage:await navigator.storage?.estimate?.().then(e=>({usage:e.usage,quota:e.quota}),()=>null),conversation:window.__plcDebugCurrentConversation(),model:window.localModels?.state,downloadRecovery:window.localModels?.downloadRecovery,status:document.getElementById('generationStatus').textContent};
@@ -4260,10 +4252,10 @@
       let speechMod = null, voiceMod = null;
       const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/speech.mjs'));
       const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice.mjs'));
-      // Optional downloaded read-aloud voice (chat/voice-upgrade.mjs). Development builds also honour a test hook (see the markers below).
-      let voiceUpPromise = null;
-      const loadVoiceUpgrade = () => (voiceUpPromise ||= (async () => {
-        const mod = await import(moduleBase() + 'chat/voice-upgrade.mjs');
+      // The voice choice (chat/voice-choice.mjs): the system voice or a downloaded one, picked from the voice pill. Development builds also honour a test hook (see the markers below).
+      let voiceChoicePromise = null, voiceCtl = null;
+      const loadVoiceChoice = () => (voiceChoicePromise ||= (async () => {
+        const mod = await import(moduleBase() + 'chat/voice-choice.mjs');
         let hook = null;
         /* DEV_DIAGNOSTICS_START */
         // with localStorage plc.test.voice=1 a test page may define window.__plcVoiceEngineFactory(engineId) -> engine (and .inputs = controller options)
@@ -4280,26 +4272,27 @@
           const [eng, man] = await Promise.all([import(moduleBase() + 'chat/voice-engine.mjs'), import(moduleBase() + (kokoro ? 'chat/voice-manifest-kokoro.mjs' : 'chat/voice-manifest.mjs'))]);
           return eng.createVoiceEngine({ engine: id, baseUrl: kokoro ? man.KOKORO_Q8_BASE_URL : man.KITTEN_NANO_BASE_URL, workerUrl: moduleBase() + (kokoro ? 'chat/vendor/voice/worker-kokoro.js' : 'chat/vendor/voice/worker.js') });
         });
-        const ctl = mod.createVoiceController({ factory, env, ...(hook?.inputs || {}) });
+        const ctl = mod.createVoiceChoice({ factory, env, ...(hook?.inputs || {}) });
         await ctl.init();
+        voiceCtl = ctl;
         return ctl;
       })().catch(() => null));
+      // Engine options for anything that speaks (read aloud, voice calls, Roberta): the chosen voice, or nothing for the system voice. A single sentence has no lead-in.
+      const voiceOpts = () => { const r = voiceCtl?.route(); return r ? { engine: r.engine, ...r.options, startDelayMs: 0 } : {}; };
       let callSoundsMod = null;
       const loadCallSounds = async () => (callSoundsMod ||= await import(moduleBase() + 'chat/call-sounds.mjs'));
       let speaking = null;
       const setListenButton = (btn, on) => { btn.setAttribute('aria-pressed', String(on)); M.icons.setIconLabel(btn, on ? '⏹ Stop' : '🔊 Listen'); };
       function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => setListenButton(b, false)); } }
-      async function speakText(text, onDone, offerAnchor = null) {
+      async function speakText(text, onDone) {
         const sp = await loadSpeech();
         stopSpeaking();
         const { stripMarkdown } = (await loadDocModules()).exports;
-        const vu = await loadVoiceUpgrade(), route = vu?.route();
+        await loadVoiceChoice();
+        const route = voiceCtl?.route();
         const handle = sp.speak(stripMarkdown(text), { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1, ...(route ? { engine: route.engine, ...route.options } : {}) });
         speaking = { handle };
-        let ok = false;
-        try { await handle.done; ok = speaking?.handle === handle; } catch (err) { showToast(err.message, 8000, speechHelpAction); } finally { if (speaking?.handle === handle) speaking = null; onDone?.(); }
-        // after a first read-aloud that worked with the system voice, one quiet offer if this device can run a better voice
-        if (ok && vu && !route && offerAnchor && await vu.afterSystemSpeak()) (await import(moduleBase() + 'chat/voice-offer.mjs')).showVoiceOffer(vu, offerAnchor);
+        try { await handle.done; } catch (err) { showToast(err.message, 8000, speechHelpAction); } finally { if (speaking?.handle === handle) speaking = null; onDone?.(); }
       }
       if (speechAvailable.synth) {
         messageDecorators.push((thread, msg, index, ctx, actions) => {
@@ -4316,7 +4309,7 @@
         messageActionHandlers['speak'] = async (thread, msg, btn) => {
           if (btn.getAttribute('aria-pressed') === 'true') { stopSpeaking(); return; }
           stopSpeaking(); setListenButton(btn, true);
-          await speakText(msg.content, () => { if (btn.isConnected) setListenButton(btn, false); }, btn.closest('.message-actions') || btn);
+          await speakText(msg.content, () => { if (btn.isConnected) setListenButton(btn, false); });
         };
         threadSelectedHooks.push(() => stopSpeaking());
       }
@@ -4530,7 +4523,7 @@
         voiceUi ||= buildVoiceUi();
         voiceSession = voiceMod.createVoiceSession({
           listen: handlers => speechMod.startDictation(handlers),
-          speakOne: text => speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1, interrupt: false }),
+          speakOne: text => speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1, interrupt: false, ...voiceOpts() }),
           send: async text => {
             replyBegan = false;
             messageInput.value = text; growComposer();
@@ -4595,7 +4588,7 @@
           text: plain, from: ROBOT_NAME, id: msg.id, transcript: body, rate: prefs.noteRate || 1,
           onRate: r => { prefs.noteRate = r; savePrefs(); },
           onPlay: () => stopSpeaking(),
-          speakOne: (t, r) => speechMod.speak(t, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, r * (prefs.speechRate || 1)) })
+          speakOne: (t, r) => speechMod.speak(t, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, r * (prefs.speechRate || 1)), ...voiceOpts() })
         });
       }
       // the other audio features stop a playing note
@@ -4710,7 +4703,7 @@
           mode: window.localModels?.mode, model: robertaModelFacts(), speechInput: speechInputOk, speechOutput: speechAvailable.synth,
           hasChats: threads.some(t => !t.temporary && t.messages.some(m => m.role === 'user'))
         }),
-        speak: (text, rate = 1) => (speechMod && speechAvailable.synth ? speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, rate * (prefs.speechRate || 1)) }) : { done: Promise.resolve(), stop() {} }),
+        speak: (text, rate = 1) => (speechMod && speechAvailable.synth ? speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, rate * (prefs.speechRate || 1)), ...voiceOpts() }) : { done: Promise.resolve(), stop() {} }),
         canSpeak: () => speechAvailable.synth,
         getRouter: () => loadRouter(),
         warmUp: () => { loadRouter(); },
@@ -5836,7 +5829,7 @@
         openSidebar: () => openSidebar(), closeSidebar: () => closeSidebar({ restoreFocus: true }),
         moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
         setThreadView: view => { threadView = view; renderThreadList(); },
-        callOpen: () => Boolean(robertaApi?.callOpen), loadVoice: () => loadVoiceUpgrade(), showVoiceOffer: async (anchor) => { const ctl = await loadVoiceUpgrade(); return ctl ? (await import(moduleBase() + 'chat/voice-offer.mjs')).showVoiceOffer(ctl, anchor) : null; },
+        callOpen: () => Boolean(robertaApi?.callOpen), loadVoice: () => loadVoiceChoice(),
         async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
       };
       window.plcApp = plcApp;

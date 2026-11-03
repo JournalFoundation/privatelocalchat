@@ -6,6 +6,8 @@ export function createGaplessPlayer({ createContext = () => new (globalThis.Audi
   let held = hold; const queue = [];
   let ctx = null, next = 0, pending = 0, ended = false, stopped = false, waiter = null;
   const sources = new Set();
+  let closed = false;
+  const closeContext = () => { if (closed || !ctx) return; closed = true; try { Promise.resolve(ctx.close?.()).catch(() => {}); } catch { /* already closed */ } };
   const settle = () => { if (waiter && ended && pending === 0) { const w = waiter; waiter = null; w(); } };
   return {
     /** Queue one chunk. */
@@ -30,13 +32,13 @@ export function createGaplessPlayer({ createContext = () => new (globalThis.Audi
     finish() {
       if (held) this.release(); ended = true;
       // the audio context is closed when playback is over, so repeated read-alouds do not pile up open contexts
-      return (pending === 0 ? Promise.resolve() : new Promise((r) => { waiter = r; })).then(() => { try { ctx?.close?.(); } catch { /* closed */ } });
+      return (pending === 0 ? Promise.resolve() : new Promise((r) => { waiter = r; })).then(closeContext);
     },
     stop() {
       stopped = true; ended = true;
       for (const s of sources) { try { s.onended = null; s.stop(); } catch { /* not started */ } }
       sources.clear(); queue.length = 0; pending = 0; settle();
-      try { ctx?.close?.(); } catch { /* closed */ }
+      closeContext();
     },
     get started() { return next > 0; }
   };

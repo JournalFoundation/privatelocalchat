@@ -1,6 +1,6 @@
 # Voice runtime: on-device text-to-speech engine (Kitten TTS nano 0.8 int8)
 
-Status: wired into the app. `chat/voice-upgrade.mjs` (the controller) creates the engine for the optional downloaded read-aloud voice, `chat/speech.mjs` routes speech to it while it is active, and Settings > Voice manages it. The plan is `docs/VOICE-ENGINE-PLAN.md`.
+Status: wired into the app. `chat/voice-choice.mjs` (the controller behind the voice picker) creates the engines, `chat/speech.mjs` routes speech to the selected voice, and the voice pill and Settings > Voice manage them. The plan is `docs/VOICE-ENGINE-PLAN.md`.
 
 ## Parts
 
@@ -82,7 +82,7 @@ esbuild is a dev dependency of `ops/voice` only; the app imports none of the npm
 - **Golden tests.** `tests/fixtures/kokoro-golden.json` (made by `node ops/voice/gen-kokoro-golden.mjs <node_modules> <tokenizer dir>`, which runs the unmodified reference with a recording wrapper around its phonemizer call) holds 25 phoneme strings with their reference token ids (exact equality, including truncation and unknown characters), 32 whole-sentence phonemize results replayed from the recorded phonemizer calls, and 11 reference sentence splits. `tests/fixtures/kokoro-tokenizer.json` is the model's `tokenizer.json`.
 - **Bundles.** Two separate worker bundles keep the Kitten bundle unchanged; `build-worker.mjs` builds both with their own GPL banners and `.LEGAL.txt` files. They share the ONNX Runtime files. Removing an engine drops its own worker from the service worker cache, and the shared runtime files too unless the other engine's directory still exists.
 - **Measured** (`tests/e2e/voice-kokoro.e2e.mjs`, headless Chromium on Centroid, 16 cores, cross-origin isolated, 4 threads, files served locally): install of 96.5 MB verified, load 1.2 s, "The capital of France is Paris. This is a short test of on device speech." is 5.0 s of audio in 1.9 s (real-time factor 2.4 to 2.7), first audio 0.8 to 1.1 s. A recogniser (faster-whisper tiny.en) reads it back word for word (word error rate 0.0). Earlier spike figures through `kokoro-js` and transformers.js were 0.56x to 0.86x (`docs/evidence/voice/kokoro-wasm-spike.json`); this is one machine, not a calibration, and a slower CPU will be slower.
-- **Not done here.** Hosting the files, pinning the commit, offering it in `runtime/voice-pick.mjs` and `chat/voice-upgrade.mjs`, a voice picker in Settings.
+- **Done elsewhere.** Hosting the files, pinning the commit and the voice picker are described in `docs/CDN-POPULATION.md` and `docs/VOICE-ENGINE-PLAN.md`.
 
 ## Licensing note
 
