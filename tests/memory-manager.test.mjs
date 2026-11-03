@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { createMemoryManager, MEMORY_KEY } from "../runtime/memory-manager.mjs";
 
 const mem = () => { const m = {}; return { getItem: (k) => m[k] ?? null, setItem: (k, v) => { m[k] = v; }, m }; };
-function model(id, { state = "unloaded", busy = false, light = false, failUnload = false } = {}) {
-  const r = { id, kind: id, label: id + " label", light, st: state, busy, calls: [], state: () => r.st, isBusy: () => r.busy,
+function model(id, { state = "unloaded", busy = false, failUnload = false } = {}) {
+  const r = { id, kind: id, label: id + " label", st: state, busy, calls: [], state: () => r.st, isBusy: () => r.busy,
     async unload() { r.calls.push("unload"); if (!failUnload) r.st = "unloaded"; } };
   return r;
 }
@@ -28,21 +28,20 @@ test("under keep nothing is unloaded: the app tries what was asked", async () =>
 
 test("under one-at-a-time every other model in memory is unloaded first, files are not the manager's business", async () => {
   const m = createMemoryManager({ storage: mem(), ...fast }); m.setPolicy("one-at-a-time");
-  const llm = model("llm", { state: "loaded" }), tts = model("tts"), emb = model("emb", { state: "loaded", light: true });
+  const llm = model("llm", { state: "loaded" }), tts = model("tts"), emb = model("emb", { state: "loaded" });
   [llm, tts, emb].forEach((r) => m.register(r));
   const lease = await m.acquire("tts");
   assert.deepEqual(llm.calls, ["unload"]); assert.deepEqual(emb.calls, ["unload"]);
   lease.release();
 });
 
-test("a model that is already alone in memory is not touched, and a light model never evicts a heavy one", async () => {
+test("a model that is already alone in memory is not touched, and a small model gets no exception", async () => {
   const m = createMemoryManager({ storage: mem(), ...fast }); m.setPolicy("one-at-a-time");
-  const llm = model("llm", { state: "loaded" }), emb = model("emb", { light: true });
-  m.register(llm); m.register(emb);
-  (await m.acquire("emb")).release();
-  assert.deepEqual(llm.calls, [], "the matching model does not push the chat model out");
+  const llm = model("llm", { state: "loaded" }), emb = model("emb"); m.register(llm); m.register(emb);
   (await m.acquire("llm")).release();
-  assert.deepEqual(llm.calls, []);
+  assert.deepEqual(llm.calls, [], "alone in memory: nothing to unload");
+  (await m.acquire("emb")).release();
+  assert.deepEqual(llm.calls, ["unload"], "even the small embedding model makes the chat model unload");
 });
 
 test("a busy model is waited for, never unloaded under its feet, and the person is told", async () => {

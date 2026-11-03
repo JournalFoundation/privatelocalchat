@@ -8,8 +8,8 @@
 //
 // The manager never loads anything. Each model kind keeps its own loading, progress and error handling and registers a "resident":
 //   { id, kind, label (string | () => string), state() -> "unloaded"|"loading"|"loaded"|"busy"|"unloading"|"faulted",
-//     unload() -> Promise, isBusy() -> boolean, estimateBytes?() -> number|null, light?: boolean }
-// A `light` resident (the small matching model) is unloaded for a heavy one but never makes the others unload for it.
+//     unload() -> Promise, isBusy() -> boolean, estimateBytes?() -> number|null}
+// There are no exceptions: whichever model is about to be used makes every other model unload, however small it is.
 // A model asks for the device with `acquire(id)`, holds the lease while it works and calls `lease.release()` when done.
 
 export const MEMORY_KEY = "plc.memory.v1";
@@ -53,7 +53,7 @@ export function createMemoryManager({ storage = globalThis.localStorage, wait = 
     snapshot() {
       return {
         policy: record.policy, offerDeclined: record.offerDeclined, activity,
-        residents: [...residents.values()].map((r) => ({ id: r.id, kind: r.kind || r.id, label: labelOf(r), state: stateOf(r), busy: busyOf(r), light: Boolean(r.light), estimateBytes: r.estimateBytes?.() ?? null })),
+        residents: [...residents.values()].map((r) => ({ id: r.id, kind: r.kind || r.id, label: labelOf(r), state: stateOf(r), busy: busyOf(r), estimateBytes: r.estimateBytes?.() ?? null })),
       };
     },
     subscribe(f) { listeners.add(f); return () => listeners.delete(f); },
@@ -65,7 +65,7 @@ export function createMemoryManager({ storage = globalThis.localStorage, wait = 
     acquire(id, { reason = "", signal } = {}) {
       const me = residents.get(id);
       const take = () => { leases.set(id, (leases.get(id) || 0) + 1); let done = false; emit(); return { release() { if (done) return; done = true; leases.set(id, Math.max(0, (leases.get(id) || 1) - 1)); emit(); } }; };
-      if (record.policy !== "one-at-a-time" || !me || me.light) return Promise.resolve(take());
+      if (record.policy !== "one-at-a-time" || !me) return Promise.resolve(take());
       const run = queue.then(async () => {
         const tried = new Set();           // a model that stays loaded after its unload is not asked again: the app goes on and tries
         for (;;) {

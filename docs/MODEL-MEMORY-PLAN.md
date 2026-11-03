@@ -10,8 +10,8 @@ Status: BUILT 2026-11-02 (decisions below were accepted by the owner). Written a
 - The 60 s idle unload of a voice (built earlier the same day) stays: it is a plain timeout, like the matching model's 120 s one, not a guess.
   Unloading the voice because the chat model started loading was removed; that is now only what the switch does.
 - The search overlay and Roberta share one matching-model instance.
-- The small matching model is a **light** resident: it is unloaded for a heavy model, but never makes a heavy one unload for it (otherwise every spoken
-  sentence in a call would reload the chat model).
+- No exceptions: the small embedding model (Roberta and search; about 24 MB to download, memory not measured) is a resident like any other. Using it
+  unloads the others, and using another model unloads it. (An earlier version had a "light" exception; the owner rejected it.)
 
 ## What was built
 
@@ -36,7 +36,7 @@ Status: BUILT 2026-11-02 (decisions below were accepted by the owner). Written a
 
 ## Adding a model kind
 
-Register a resident with `memoryManager().register({ id, kind, label, state(), isBusy(), unload(), estimateBytes?(), light? })` and call
+Register a resident with `memoryManager().register({ id, kind, label, state(), isBusy(), unload(), estimateBytes?() })` and call
 `acquire(id)` before the model works, `lease.release()` after. Keep your own loading, progress and error handling; the manager never loads anything.
 
 ---

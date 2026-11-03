@@ -46,6 +46,12 @@ try{
  assert(await page.evaluate(()=>window.__seen.some(t=>/Unloading the image model to make room for the Kitten voice/.test(t))),'and the swap was explained: '+await page.evaluate(()=>window.__seen.join('|')));
  ok('switch on: the other model is unloaded and the swap is explained');
 
+ // the embedding model (Roberta, search) gets no exception: using it unloads the others, and it is unloaded for them
+ await page.evaluate(()=>{window.__other.st='loaded';});
+ await page.evaluate(async()=>{const e=await window.plcApp.getEmbedder();await e.ready().catch(()=>{});});
+ assert(await page.evaluate(()=>window.__other.st==='unloaded'),'using the embedding model unloaded the other model');
+ ok('the embedding model is not an exception');
+
  // the offer after a failure: once per kind, Not now closes, Turn on switches it on, Don't ask again is remembered
  await page.evaluate(()=>window.plcMemoryReady().then(m=>m.setPolicy('keep')));
  await page.evaluate(()=>window.plcMemoryReady().then(m=>m.offerFailure('voice','the Kitten voice')));

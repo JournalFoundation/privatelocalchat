@@ -4290,11 +4290,16 @@
         return m;
       }));
       window.plcMemoryReady = memoryManager;
-      // One matching/embedding model for the page (Roberta and the search overlay used to start one each); it is a light resident of the memory manager.
+      // One matching/embedding model for the page (Roberta and the search overlay used to start one each); it is a resident of the memory manager like any other model.
       const sharedEmbedder = () => (sharedEmbedderPromise ||= import(moduleBase() + 'chat/embedder.mjs').then(async mod => {
         const e = mod.createEmbedder({}), m = await memoryManager();
-        m.register({ id: 'matching', kind: 'embedding', light: true, label: 'the matching model', state: () => ({ loading: 'loading', ready: 'loaded' }[e.state] || 'unloaded'), isBusy: () => e.state === 'loading', estimateBytes: () => 24e6, unload: async () => e.terminate() });
+        m.register({ id: 'matching', kind: 'embedding', label: 'the embedding model', state: () => ({ loading: 'loading', ready: 'loaded' }[e.state] || 'unloaded'), isBusy: () => e.state === 'loading', estimateBytes: () => null, unload: async () => e.terminate() });
         e.onState(() => m.notify());
+        // using the embedding model asks the memory manager for the device like any other model (with "One model at a time" on, the others unload first)
+        for (const name of ['ready', 'embedQuery', 'embedDocuments']) {
+          const inner = e[name].bind(e);
+          e[name] = async (...args) => { const lease = await m.acquire('matching'); try { return await inner(...args); } finally { lease.release(); } };
+        }
         return e;
       }));
       let voiceChoicePromise = null, voiceCtl = null;
