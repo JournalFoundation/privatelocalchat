@@ -23,7 +23,7 @@ Nothing here touches a device unless you point it at one yourself (a CDP port or
 
 | File | What it is | Needs |
 |---|---|---|
-| `voice-lane.js` | The in-page function body. Step 1: the controller's decision (offer or not, candidate, reason, stage, download bytes). Step 2 (skipped by `--decision-only`): install, speak, real-time factor, first-audio time, verdict of `voiceIsFastEnough`, unload, remove, storage before/installed/after. Never run by hand: a driver evaluates it. | a driver below |
+| `voice-lane.js` | The in-page function body. Step 1: the controller's device advice (recommended voice, which voices may be slow, the probe result). Step 2 (skipped by `--decision-only`): install, speak, real-time factor, first-audio time, verdict of `voiceIsFastEnough`, unload, remove, storage before/installed/after. Never run by hand: a driver evaluates it. | a driver below |
 | `lane-pw.mjs` | Playwright driver. Launches chromium, webkit or firefox, or attaches to a Chromium that already listens for CDP (`--cdp-port`). | `playwright` (npm), `ORIGIN` |
 | `lane-wd.mjs` | W3C WebDriver driver, for browsers Playwright cannot drive (stock Firefox through geckodriver, Safari through safaridriver). | a WebDriver server you start, `ORIGIN` |
 | `cdp-eval.mjs` | Evaluates one script in one already open page, matched by URL prefix, over raw CDP. Used for phones (Chrome over `adb forward`) and for browsers behind an SSH tunnel. | a CDP port (local, `adb forward`, or an SSH `-L` tunnel), the `ws` package |
@@ -74,7 +74,7 @@ Lane 5 (local dev build, dev command channel):
 
 ## Reading a result
 
-`decision.offer` / `decision.candidate` / `decision.reason` are what the shipped controller would do. `speak.realTimeFactor` is audio seconds per
+`decision.recommended` / `decision.notes` / `decision.probeMs` are the advice the picker shows (it never blocks a choice). `speak.realTimeFactor` is audio seconds per
 synthesis second (above 1 keeps up with playback). `verdict.fastEnough` and `verdict.startDelayMs` apply the shipped limits. The storage figures
 are `navigator.storage.estimate()`, which includes the app shell cache and is not exact on every browser (see the gap analysis, row 48), so
 compare them with the private-storage byte count of `tests/e2e/voice-engine.e2e.mjs`, not as a pass/fail on their own.
