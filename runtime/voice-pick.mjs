@@ -9,15 +9,20 @@ export const VOICE_CONFIG = Object.freeze({
   minCores: 4,               // placeholder
   minFreeStorageMB: 600,     // placeholder (the 27.6 MB download needs far less; this keeps a phone from being filled): free space that must remain after the download
   storageHeadroomFactor: 3,  // free space must be at least this many times the download
-  // stage 2 gate (compute probe, milliseconds for the reference loop in chat/voice-probe; lower is faster)
-  probeMaxMs: 800,           // calibrated: chat/voice-probe.mjs read 137 to 216 ms on machines that ran the voice at 3.3 to 5.5x, and 4000 ms (its cap) on the Galaxy S8+ at 0.26x
+  // stage 2 advice threshold (compute probe, milliseconds for the reference loop in chat/voice-probe, the MEDIAN of 3 runs; lower is faster)
+  // The fits below are in docs/VOICE-CALIBRATION.md and docs/evidence/voice/calibration-throttling.json (CPU contention sweep, 7 slowdowns x 5 probes).
+  probeMaxMs: 500,           // advice threshold ("may be slow here" above it). Measured: Kitten real-time factor x probe ms is about 640 (sweep, 4 threads) and 711 to 752
+                             // on the real desktops (probe 137 to 216 ms, 3.3x to 5.5x); the 20 s start delay stays under maxStartDelayMs up to a probe of about 820 ms (4 threads) or 670 ms
+                             // (1 thread). 500 keeps a factor of 1.35 to 1.64 for device differences the sweep cannot show. The Galaxy S8+ (1,997 to 4,000 ms, 0.26x) is 4x above it.
   // stage 3 (after install). Real time is NICE, NOT REQUIRED (owner decision, 2026-11-02): a voice slower than playback is kept as long as playback can
-  // start soon (it buffers ahead so it does not stutter) and it is not hopelessly slow. Measured: Kitten ran at 0.26x on a Galaxy S8+, 1.5x on an N100.
-  minRealTimeFactor: 0.5,    // placeholder: audio seconds produced per second of compute; below this the system voice takes over again
-  maxFirstAudioMs: 4000,     // placeholder: time from the request to the first audible sound
-  maxStartDelayMs: 10000,    // placeholder: longest wait before gapless playback of a typical reply may begin (see startDelayMs)
+  // start soon (it buffers ahead so it does not stutter) and it is not hopelessly slow. Measured: Kitten ran at 0.26x on a Galaxy S8+, 3.3x on the N100 (Firefox).
+  minRealTimeFactor: 0.7,    // advice threshold, derived: 20 s of speech may wait at most maxStartDelayMs, which implies a factor of about 0.67 (20 / 30); the sweep crosses it at slowdown 4 to 6
+  maxFirstAudioMs: 4000,     // advice threshold: the sweep gives first audio of 2.7 s (Kitten) and 1.9 s (Kokoro) at their probe limits, so 4000 is a factor of 1.5 or more above those
+  maxStartDelayMs: 10000,    // policy value (owner), not a measurement: longest wait before gapless playback of a typical 20 s reply may begin (see startDelayMs)
   qualityMinMemoryGB: 8,     // placeholder: memory (or unknown on desktop) needed for the larger voice
-  qualityProbeMaxMs: 160     // placeholder, unused until an engine for the larger voice exists: the larger voice needs a real GPU adapter OR a desktop-class probe (a 16-core CPU ran Kokoro at 0.56x to 0.86x)
+  qualityProbeMaxMs: 200     // advice threshold for recommending the larger voice (or a real GPU adapter). Measured: Kokoro factor x probe ms is about 235 (sweep, 4 threads) and 300 to 317 on the real desktops
+                             // (Centroid 2.31x at 137 ms, Boiler 2.00x at 150 ms); the start delay stays under maxStartDelayMs up to a probe of about 317 ms (190 ms with 1 thread). 200 keeps a factor of 1.0 to 1.6 and the
+                             // desktops 137 and 150 pass with 1.3x or more. The N100 (probe 216) is above it; its Kokoro run is not usable evidence (its recorded audio length is that of the Kitten text).
 });
 
 /** Candidates. `tier` orders them; sizes are the bytes the person would download (model plus voices). */

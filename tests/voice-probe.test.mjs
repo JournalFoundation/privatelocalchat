@@ -47,7 +47,7 @@ test('a worker that never answers times out with the cap, not a hang', async () 
   let t = 0;
   const w = { terminated: false, terminate() { this.terminated = true; }, postMessage() {} };
   const r = await runComputeProbe({ workerFactory: () => w, timeoutMs: 80, now: () => (t += 40) });
-  assert.deepEqual(r, { ms: 80, backend: 'unknown', timedOut: true });
+  assert.deepEqual(r, { ms: 80, backend: 'unknown', samples: [], timedOut: true });
   assert.ok(w.terminated);
 });
 
@@ -62,4 +62,33 @@ test('worker creation failure, worker error and a bad reply all give the cap and
   const w = errW(); errW.w = w;
   assert.equal((await runComputeProbe({ timeoutMs: 700, workerFactory: () => w })).ms, 700);
   assert.equal((await runComputeProbe({ timeoutMs: 700, workerFactory: kernelWorker(() => ({ ok: false, error: 'x' })) })).ms, 700);
+});
+
+test('one call measures three times and reports the median with the samples', async () => {
+  const seq = [300, 100, 200]; let made = 0;
+  const factory = () => kernelWorker(() => ({ ok: true, ms: seq[made++], backend: 'wasm' }))();
+  const r = await runComputeProbe({ workerFactory: factory });
+  assert.equal(made, 3);
+  assert.deepEqual(r, { ms: 200, backend: 'wasm', samples: [300, 100, 200] });
+});
+
+test('one outlier run does not move the median (the S8+ swung 2x between runs)', async () => {
+  const seq = [140, 4000, 150]; let made = 0;
+  const r = await runComputeProbe({ timeoutMs: 20000, workerFactory: () => kernelWorker(() => ({ ok: true, ms: seq[made++], backend: 'wasm' }))() });
+  assert.equal(r.ms, 150);
+});
+
+test('a slow device stops early so the whole call stays inside the hard timeout', async () => {
+  let made = 0, t = 0;
+  const r = await runComputeProbe({ timeoutMs: 4000, now: () => t, workerFactory: () => kernelWorker(() => { made++; t += 1900; return { ok: true, ms: 1900, backend: 'wasm' }; })() });
+  assert.equal(made, 1, 'a 1,900 ms run leaves no room for a second one');
+  assert.deepEqual(r.samples, [1900]); assert.equal(r.ms, 1900);
+});
+
+test('a run that fails after good runs keeps the good ones; a first-run failure reports the cap', async () => {
+  const replies = [{ ok: true, ms: 120, backend: 'wasm' }, { ok: false, error: 'x' }]; let n = 0;
+  const r = await runComputeProbe({ workerFactory: () => kernelWorker(() => replies[n++])() });
+  assert.deepEqual(r, { ms: 120, backend: 'wasm', samples: [120] });
+  const bad = await runComputeProbe({ timeoutMs: 700, workerFactory: kernelWorker(() => ({ ok: false, error: 'x' })) });
+  assert.equal(bad.ms, 700); assert.equal(bad.error, 'x'); assert.deepEqual(bad.samples, []);
 });

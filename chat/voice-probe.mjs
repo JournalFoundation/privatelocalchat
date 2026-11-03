@@ -80,14 +80,8 @@ export function blobWorkerFactory() {
   return w;
 }
 
-/**
- * @param {object} [o]
- * @param {() => object} [o.workerFactory]  returns a Worker-like {postMessage, terminate, onmessage, onerror}
- * @param {() => number} [o.now]            clock used for the timeout (default performance.now)
- * @param {number} [o.timeoutMs]
- * @returns {Promise<{ms:number, backend:string, timedOut?:boolean, error?:string}>} never rejects; a failed or too-slow probe reports timeoutMs
- */
-export async function runComputeProbe({ workerFactory = blobWorkerFactory, now = () => performance.now(), timeoutMs = PROBE_TIMEOUT_MS } = {}) {
+/** One measurement in a fresh worker. Never rejects; a failed or too-slow run reports timeoutMs. */
+async function measureOnce({ workerFactory, now, timeoutMs }) {
   let worker;
   try { worker = workerFactory(); } catch (e) { return { ms: timeoutMs, backend: 'none', error: String(e?.message || e) }; }
   const started = now();
@@ -107,4 +101,39 @@ export async function runComputeProbe({ workerFactory = blobWorkerFactory, now =
     try { if (typeof WebAssembly !== 'undefined') wasm = buildDotModule(); } catch {}
     try { worker.postMessage({ wasm, n: PROBE_N, reps: PROBE_REPS, chunks: PROBE_CHUNKS }); } catch (e) { finish({ ms: timeoutMs, backend: 'unknown', error: String(e?.message || e) }); }
   });
+}
+
+export const PROBE_RUNS = 3; // one call measures this many times and reports the median: one run swung 2x on the Galaxy S8+ (1,997 and 4,000 ms)
+
+/**
+ * The median of PROBE_RUNS measurements, each in its own worker, run one after the other. The hard timeout bounds the WHOLE call: once a run
+ * times out, fails, or leaves too little of the budget for another one, the call stops and reports what it has.
+ * @param {object} [o]
+ * @param {() => object} [o.workerFactory]  returns a Worker-like {postMessage, terminate, onmessage, onerror}
+ * @param {() => number} [o.now]            clock used for the timeout (default performance.now)
+ * @param {number} [o.timeoutMs]
+ * @param {number} [o.runs]
+ * @returns {Promise<{ms:number, backend:string, samples:number[], timedOut?:boolean, error?:string}>} never rejects; a failed or too-slow probe reports timeoutMs
+ */
+export async function runComputeProbe({ workerFactory = blobWorkerFactory, now = () => performance.now(), timeoutMs = PROBE_TIMEOUT_MS, runs = PROBE_RUNS } = {}) {
+  const started = now();
+  const samples = [];
+  let backend = 'unknown';
+  for (let i = 0; i < runs; i++) {
+    const left = i === 0 ? timeoutMs : timeoutMs - (now() - started);
+    if (left <= 0) break;
+    const r = await measureOnce({ workerFactory, now, timeoutMs: left });
+    if (r.timedOut || r.error) {
+      if (samples.length) break; // earlier good runs still count
+      return { ms: timeoutMs, backend: r.backend, samples: [], ...(r.timedOut ? { timedOut: true } : {}), ...(r.error ? { error: r.error } : {}) };
+    }
+    backend = r.backend;
+    samples.push(r.ms);
+    if (now() - started + r.ms * 1.5 > timeoutMs) break; // not enough budget left for another run of this size
+  }
+  if (!samples.length) return { ms: timeoutMs, backend, samples, timedOut: true };
+  const sorted = [...samples].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  const ms = sorted.length % 2 ? sorted[mid] : Math.round(((sorted[mid - 1] + sorted[mid]) / 2) * 10) / 10;
+  return { ms: Math.min(ms, timeoutMs), backend, samples };
 }
