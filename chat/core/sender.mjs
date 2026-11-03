@@ -9,7 +9,7 @@ export function createSender(host) {
   const { saveThreads, updateChatAvailability, updateSendButtonDisabled, getThread, STATUS, messagesView, providerName, renderMessages, events,
     schedulePaint, modelLabel, provider, updateAuthGuidance, isAuthError, buildAuthErrorMessage, renderThreadList, CONTINUE_PROMPT, getChatState,
     triggerEndpointGuidance, messageInput, docsUi, currentThread, threadTitleInput, growComposer, persistDraftNow, authTokenFor,
-    deriveChatCompletionsUrl, showToast, el, copyText, downloadText, messageActionHandlers } = host;
+    deriveChatCompletionsUrl, showToast, el, copyText, downloadText, messageActionHandlers, offline } = host;
   const g = host.g;
   let saveTimer = null;
   const scheduleSave = () => { if (saveTimer) return; saveTimer = window.setTimeout(() => { saveTimer = null; saveThreads(); }, 800); };
@@ -95,6 +95,7 @@ export function createSender(host) {
       generationStatus.textContent = msg.status === S.LENGTH ? 'The response reached the context limit.' : 'Response complete.';
       msg.model = modelLabel();
       provider.authErrors = 0;
+      if (window.localModels?.mode === 'api') offline?.noteRequest(true);
       updateAuthGuidance();
     } catch (err) {
       if (err?.name !== 'AbortError' && err?.code !== 'cancelled') console.error(err);
@@ -107,8 +108,14 @@ export function createSender(host) {
         msg.status = S.FAILED;
         if (window.localModels?.mode === 'local' && ['out-of-memory', 'load-failed'].includes(err?.class)) window.plcMemoryReady?.().then(m => m.offerFailure?.('chat', 'the chat model')).catch(() => {});
         const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
-        msg.error = isAuthError(err) ? buildAuthErrorMessage(errorText) : errorText;
-        generationStatus.textContent = 'The response was interrupted. ' + errorText;
+        // A request that never got an answer is the connection, not the provider: say so in words, and tell the connection layer. Only when the
+        // connection layer agrees that the app is offline is it called "offline"; a stream that dropped on a working connection is "could not reach".
+        const networkFailure = window.localModels?.mode === 'api' && offline?.isNetworkError(err);
+        if (networkFailure) offline.noteRequest(false, err);
+        const isOffline = networkFailure && offline.connection.state === 'offline';
+        msg.error = isOffline ? offline.reason('provider') : networkFailure ? offline.reason('unreachable') : isAuthError(err) ? buildAuthErrorMessage(errorText) : errorText;
+        if (isOffline) msg.errorKind = 'offline'; else delete msg.errorKind;
+        generationStatus.textContent = 'The response was interrupted. ' + (networkFailure ? msg.error : errorText);
         provider.authErrors = isAuthError(err) ? Math.min(provider.authErrors + 1, 3) : 0;
       }
       updateAuthGuidance();

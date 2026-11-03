@@ -25,7 +25,24 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
   for(const name of previous.slice(0,-1))await caches.delete(name);
   await self.clients.claim();
 })()));
-self.addEventListener('message',event=>{if(event.data?.type==='offline-status')event.ports[0]?.postMessage({cache:CACHE});if(event.data?.type==='activate-update')self.skipWaiting();});
+// What the page asks for: whether this is the current saved copy and how many of the large model runtime files are saved (they are saved best-effort,
+// so "the app is saved" and "the runtime is saved" are different facts), and a request to save the missing ones now.
+async function runtimeStatus(){
+  const cache=await caches.open(CACHE);
+  const saved=new Set((await cache.keys()).map(request=>new URL(request.url).pathname));
+  const bulk=SHELL.filter(isBulk);
+  return {cache:CACHE,bulkExpected:bulk.length,bulkSaved:bulk.filter(file=>saved.has(file)).length,missing:bulk.filter(file=>!saved.has(file))};
+}
+self.addEventListener('message',event=>{
+  const port=event.ports[0];
+  if(event.data?.type==='offline-status')event.waitUntil(runtimeStatus().then(({missing,...status})=>port?.postMessage(status),()=>port?.postMessage({cache:CACHE})));
+  if(event.data?.type==='save-runtime')event.waitUntil((async()=>{
+    const {missing}=await runtimeStatus();
+    await cacheAll(await caches.open(CACHE),missing,{strict:false,workers:2});
+    const {missing:_,...status}=await runtimeStatus();port?.postMessage(status);
+  })().catch(()=>port?.postMessage({cache:CACHE,error:true})));
+  if(event.data?.type==='activate-update')self.skipWaiting();
+});
 self.addEventListener('fetch',event=>{
  const url=new URL(event.request.url);
  /* DEV_DIAGNOSTICS_START */

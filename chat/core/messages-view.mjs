@@ -36,6 +36,7 @@ export function createMessagesView(host) {
     if (msg.status === S.STOPPED) return ['Response stopped. The partial response has been kept.', false];
     if (msg.status === S.LENGTH) return ['This response reached the model’s context limit. Continue it, or review a summary of the earlier conversation.', false];
     if (msg.status === S.INTERRUPTED) return ['The previous response was interrupted. What was written is kept; retry or continue when you are ready.', false];
+    if (msg.status === S.FAILED && msg.errorKind === 'offline') return ['You are offline. ' + (msg.error || '') + (msg.content ? ' What was written is kept.' : ' Your question is still here. Retry when you are back online.'), true];
     if (msg.status === S.FAILED) return ['The response was interrupted. ' + (msg.error || '') + (msg.content ? ' What was written is kept.' : ' Your question is still in this conversation. Retry when you are ready.'), true];
     return null;
   };

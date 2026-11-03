@@ -68,3 +68,10 @@ test('threadToMarkdown: title, system prompt and numbered messages', async () =>
   const md = threadToMarkdown({ title: 'Hi', systemPrompt: ' be brief ', messages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: '  ' }, { role: '', content: { x: 1 } }] });
   assert.match(md, /^# Hi\n\n## System Prompt\n\nbe brief\n\n## Messages\n\n### 1\. User\n\na\n\n### 2\. Assistant\n\n_No content_\n\n### 3\. Message\n\n\{\n  "x": 1\n\}\n$/);
 });
+
+test('a failure that was the connection keeps its kind through save and load, and a retry clears it',async()=>{
+  const mod=await import('../chat/threads.mjs');
+  const n=mod.normalizeThread?.({id:'t',title:'x',messages:[{role:'assistant',content:'',status:'failed',error:'This provider needs a connection.',errorKind:'offline'},{role:'assistant',content:'',status:'failed',error:'x',errorKind:'weird'}]});
+  assert.ok(n,'normalizeThread exists');
+  assert.equal(n.messages[0].errorKind,'offline');assert.equal(n.messages[1].errorKind,undefined);
+});

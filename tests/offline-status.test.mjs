@@ -21,3 +21,10 @@ test('only the newest probe can update status, including when the worker is unch
  assert.deepEqual(results,[true]);
  probe();channels[2].port1.onmessage({data:{unrelated:true}});assert.deepEqual(results,[true]);
 });
+
+test('the worker\'s extra details reach the result',()=>{
+  const channels=[],results=[];let worker={postMessage(){}};
+  const probe=createOfflineStatusProbe({getController:()=>worker,expectedCache:'new',onResult:(r,d)=>results.push([r,d]),makeChannel:()=>{const c={port1:{close(){}},port2:{}};channels.push(c);return c;}});
+  probe();channels[0].port1.onmessage({data:{cache:'new',bulkSaved:3,bulkExpected:8}});
+  assert.deepEqual(results,[[true,{cache:'new',bulkSaved:3,bulkExpected:8}]]);
+});

@@ -73,6 +73,7 @@ const REASONS = {
   update: 'Checking for a new version needs a connection.',
   matching: 'The matching model is downloaded once and needs a connection the first time.',
   link: 'Opening this link needs a connection.',
+  unreachable: 'Could not reach the provider. Check its address and your connection, then retry.',
 };
 export function offlineReason(kind) { return REASONS[kind] || 'This needs a connection.'; }
 export const OFFLINE_REASON_KINDS = Object.keys(REASONS);

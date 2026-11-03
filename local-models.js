@@ -23,6 +23,9 @@ let initDone;const initFinished=new Promise(resolve=>{initDone=resolve;});
 let resetPromptAfterAbort=false;
 const modeKey = 'plc.inferenceMode.v1';
 let updatePending = false, quality = null, qualityAvailable = true, offlineAppReady = false, autoLoadTried = false, userFreed = false;
+// What the service worker last reported about the saved copy of the app (the offline checklist reads it through window.localModels.offlineApp).
+let checkOffline = null; // set when the service worker is available
+let offlineApp = { checked: false, supported: 'serviceWorker' in navigator, controlled: false, current: false, bulkSaved: 0, bulkExpected: 0 };
 let existingApi = false;
 try {existingApi = Boolean(JSON.parse(sessionStorage.getItem('chatConfig') || '{}').endpoint);} catch {}
 let mode = existingApi ? 'api' : 'local';
@@ -153,6 +156,10 @@ window.localModels={
   get installed(){return state?.tiers[state.selection.tier].install.ok===true;},
   get state(){return state;},
   get offlineReady(){return offlineAppReady;},
+  /** What the service worker reported about the saved app and the model runtime files (see runtime/offline-readiness.mjs). Fires 'offline-status' on the window when it changes. */
+  get offlineApp(){return {...offlineApp};},
+  /** Ask the service worker to save the model runtime files that are still missing; resolves with what is saved afterwards. */
+  saveRuntime(){return new Promise(resolve=>{const worker=navigator.serviceWorker?.controller;if(!worker){resolve(null);return;}const channel=new MessageChannel();const timer=setTimeout(()=>resolve(null),600000);channel.port1.onmessage=event=>{clearTimeout(timer);channel.port1.close();checkOffline?.();resolve(event.data);};worker.postMessage({type:'save-runtime'},[channel.port2]);});},
   get supported(){return state?isSupported(state):undefined;},
   /** Where on-device chat runs: 'gpu' (graphics card) or 'cpu' (processor, slower). */
   get backend(){return state&&isWllama(state.selection.tier)&&onCpu(state)?'cpu':'gpu';},
@@ -207,10 +214,11 @@ try {const draft=sessionStorage.getItem('plc.draft');if(draft){document.querySel
 $('releaseInfo').textContent=`${window.APP_BUILD?.environment || 'local'} · ${window.APP_BUILD?.version || 'development'} · ${window.APP_BUILD?.commit?.slice(0,12) || 'unbuilt'}`;
 applyMode();
 if('serviceWorker' in navigator) {
-  const checkOffline=createOfflineStatusProbe({
+  checkOffline=createOfflineStatusProbe({
     getController:()=>navigator.serviceWorker.controller,
     expectedCache:'plc-shell-'+window.APP_BUILD.commit,
-    onResult:current=>{
+    onResult:(current,details)=>{
+      offlineApp={checked:true,supported:true,controlled:Boolean(navigator.serviceWorker.controller),current:Boolean(current),bulkSaved:details?.bulkSaved||0,bulkExpected:details?.bulkExpected||0};window.dispatchEvent(new Event('offline-status'));
       offlineAppReady=Boolean(current);if(state)renderReadiness(state,isSupported(state),state.load.state==='ready');
       $('offlineStatus').textContent=current?'Offline app ready. Downloaded models can be loaded without a connection.':'An updated app is ready. Reload while online before the offline test.';
       updatePending=!current;$('reloadApp').hidden=!updatePending;

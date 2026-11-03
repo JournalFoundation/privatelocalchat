@@ -1,9 +1,10 @@
 // Settings > Models: every model the app can use, on one page, in one order, with one kind of row:
-//   Language model (where replies run, the on-device chat models) · Connected provider · Voice · Other models · Memory and storage.
+//   Language model (where replies run, the on-device chat models) · Ready for offline use · Connected provider · Voice · Other models · Memory and storage.
 // The rows come from chat/models/models-view.mjs (the same words the composer pickers use). Actions go through app.models (the chat model controller), the voice picker
 // controller and the memory manager; nothing here reads or writes the legacy model form, which stays in the page, hidden, only because local-models.js still renders into it.
 
 import { rowParts, renderRowText } from "./model-row.mjs";
+import { buildOfflineSection } from "./offline-section.mjs";
 import { languageRows, voiceRows, otherRows, stateLine, toggleAction, ACTION_LABEL, sizeText } from "../models/models-view.mjs";
 
 export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHint }) {
@@ -162,7 +163,8 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
   }
   async function startMemory() { mm = await app.loadMemory?.(); if (!mm) return; const off = mm.subscribe((s) => { if (!memCard.isConnected && !w.isConnected) return; paintMemory(s); paintOther(s); }); void off; paintMemory(mm.snapshot()); paintOther(mm.snapshot()); }
 
-  w.append(langSection, providerSection, voiceSection, otherSection, memSection);
+  const offlineSection = buildOfflineSection({ app, h }).section;
+  w.append(langSection, offlineSection, providerSection, voiceSection, otherSection, memSection);
   paintLanguage(); paintProvider(); startVoice(); startMemory();
   w.addEventListener("shell-refresh", () => { paintLanguage(); paintProvider(); if (vctl) { paintVoice(vctl.snapshot()); vctl.advise(); } if (mm) { paintMemory(mm.snapshot()); paintOther(mm.snapshot()); } });
   return w;

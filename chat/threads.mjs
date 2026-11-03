@@ -26,6 +26,7 @@ export function normalizeMessage(raw, at = Date.now()) {
     if (status === STATUS.STREAMING || status === STATUS.PREPARING) status = STATUS.INTERRUPTED; // the page went away mid-answer: keep what was written
     if (status && status !== STATUS.COMPLETE && Object.values(STATUS).includes(status)) m.status = status;
     if (typeof raw.error === "string" && raw.error) m.error = raw.error.slice(0, 2000);
+    if (raw.errorKind === "offline") m.errorKind = "offline"; // the failure was the connection, not the provider
     if (Array.isArray(raw.versions) && raw.versions.length > 1) {
       m.versions = raw.versions.map((v) => ({ content: str(v?.content), ...(v?.status && Object.values(STATUS).includes(v.status) && v.status !== STATUS.COMPLETE ? { status: v.status === STATUS.STREAMING || v.status === STATUS.PREPARING ? STATUS.INTERRUPTED : v.status } : {}), at: num(v?.at, m.at) }));
       m.versionIndex = Math.min(Math.max(0, num(raw.versionIndex, m.versions.length - 1) | 0), m.versions.length - 1);
@@ -97,7 +98,7 @@ export function beginNewVersion(msg) {
   if (!msg.versions) msg.versions = [{ content: msg.content, ...(msg.status ? { status: msg.status } : {}), at: msg.at }];
   msg.versions.push({ content: "", at: Date.now() });
   msg.versionIndex = msg.versions.length - 1;
-  msg.content = ""; delete msg.error; msg.status = STATUS.STREAMING; msg.at = Date.now();
+  msg.content = ""; delete msg.error; delete msg.errorKind; msg.status = STATUS.STREAMING; msg.at = Date.now();
   return msg;
 }
 
@@ -113,7 +114,7 @@ export function selectVersion(msg, index) {
   if (!msg.versions || index < 0 || index >= msg.versions.length) return false;
   syncActiveVersion(msg);
   msg.versionIndex = index; const v = msg.versions[index];
-  msg.content = v.content; if (v.status) msg.status = v.status; else delete msg.status; delete msg.error;
+  msg.content = v.content; if (v.status) msg.status = v.status; else delete msg.status; delete msg.error; delete msg.errorKind;
   return true;
 }
 

@@ -5,6 +5,7 @@
 import { iconNode } from "../icons.mjs";
 import { createRegistry } from "./registry.mjs";
 import { buildModelsPage } from "./models-page.mjs";
+import { mountConnectionPill } from "./connection-pill.mjs";
 import { rowParts, renderRowText } from "./model-row.mjs";
 import { languageRows as langVMs, voiceRows as voiceVMs, stateLine as vmLine } from "../models/models-view.mjs";
 import { hybridSearch, passagesFor, defaultFilters } from "./hybrid-search.mjs";
@@ -40,6 +41,7 @@ export function popover(anchor, rows, { align = "start", above = false, cls = ""
     if (r.heading) { pop.append(h("div", { class: "shell-pop-heading", text: r.heading })); continue; }
     if (r.note) { pop.append(h("div", { class: "shell-pop-note " + (r.kind || ""), role: "status", text: r.note })); continue; }
     const b = h("button", { type: "button", class: "shell-pop-row" + (r.danger ? " danger" : ""), role: r.checked != null ? "menuitemradio" : "menuitem", "aria-checked": r.checked != null ? String(Boolean(r.checked)) : null, disabled: r.disabled });
+    if (r.dot) b.append(h("span", { class: "shell-pop-dot", "data-state": r.dot, "aria-hidden": "true" }));
     if (r.icon) b.append(h("span", { class: "shell-pop-ico" }, icon(r.icon)));
     let text;
     if (r.parts) { // a model row: drawn by the same code as the Settings row (chat/shell/model-row.mjs)
@@ -238,6 +240,8 @@ export function createShell(app) {
   const voicePill = h("button", { type: "button", class: "shell-model shell-voicepick", id: "voicePill", "aria-haspopup": "menu", "aria-label": "Choose voice", title: "Choose voice", hidden: true },
     h("span", { class: "shell-model-dot", "aria-hidden": "true" }), icon("volume"), h("span", { class: "shell-model-name", text: "System" }));
   bar.insertBefore(voicePill, tools);
+  // ---- connection pill: only there when offline (or for a moment after coming back) ----
+  if (app.offline) mountConnectionPill({ h, icon, bar, before: tools, offline: app.offline, popover, closePopover, openSettings: () => shell.openSettings("models") });
   let voiceCtl = null;
   function syncVoice(snap) {
     const busy = voiceBusy(snap), sel = snap.voices.find((v) => v.selected);

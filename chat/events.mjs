@@ -10,11 +10,12 @@
 //   reply:start       emit            (thread, message)     a reply began
 //   reply:text        emit            (thread, fullText)    the reply so far (the voice call speaks it while it is written)
 //   reply:end         emit            (thread, message)     the reply finished, stopped or failed
+//   connection:changed emit           (info)                the app went offline, came back, or is online again: { state: online|offline|back, previous, reason, since }
 //
 // emit: runs every listener in order and never lets one listener's error stop the others (it is logged). emitAwait / collect / intercept wait for each listener in turn
 // and let errors through, because the caller depends on their answers.
 
-export const EVENT_NAMES = Object.freeze(["thread:selected", "send:before", "send:intercept", "prompt:ready", "context:collect", "reply:start", "reply:text", "reply:end"]);
+export const EVENT_NAMES = Object.freeze(["thread:selected", "send:before", "send:intercept", "prompt:ready", "context:collect", "reply:start", "reply:text", "reply:end", "connection:changed"]);
 
 export function createEvents(names = EVENT_NAMES) {
   const listeners = new Map(names.map((n) => [n, []]));

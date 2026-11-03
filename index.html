@@ -408,9 +408,11 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createProviderSettings }, { createTransferGlue }, { createPageChrome }, { createMessagesView }, { createSender }, { createThreadState }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/provider-settings.mjs'), import(modulesAt + 'chat/transfer/transfer-glue.mjs'), import(modulesAt + 'chat/core/page-chrome.mjs'), import(modulesAt + 'chat/core/messages-view.mjs'), import(modulesAt + 'chat/core/sender.mjs'), import(modulesAt + 'chat/core/thread-state.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createProviderSettings }, { createTransferGlue }, { createPageChrome }, { createMessagesView }, { createSender }, { createThreadState }, { createConnectionGlue }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/provider-settings.mjs'), import(modulesAt + 'chat/transfer/transfer-glue.mjs'), import(modulesAt + 'chat/core/page-chrome.mjs'), import(modulesAt + 'chat/core/messages-view.mjs'), import(modulesAt + 'chat/core/sender.mjs'), import(modulesAt + 'chat/core/thread-state.mjs'), import(modulesAt + 'chat/connection/connection-glue.mjs')]);
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
+      // whether the app is online, the offline checklist and its fixes (chat/connection/); the shell and Settings read it as plcApp.offline
+      const offline = createConnectionGlue({ events, models: () => window.localModels, voice: () => loadVoiceChoice().then(ctl => ctl?.snapshot?.() || null), toast: text => showToast(text) });
       // DOM element references
       const endpointSelect = document.getElementById('endpointSelect');
       const endpointInput = document.getElementById('endpointInput');
@@ -906,7 +908,7 @@
       sender = createSender({
         g: gstate, M: () => M, moduleBase, currentThreadId: () => currentThreadId, saveThreads, updateChatAvailability, updateSendButtonDisabled, getThread, STATUS, messagesView, providerName,
         events, modelLabel, provider, updateAuthGuidance, isAuthError, buildAuthErrorMessage, renderThreadList: () => renderThreadList(), CONTINUE_PROMPT, getChatState, triggerEndpointGuidance,
-        messageInput, docsUi, currentThread, threadTitleInput, growComposer, persistDraftNow, authTokenFor, deriveChatCompletionsUrl, showToast, el, copyText, downloadText, messageActionHandlers
+        messageInput, docsUi, currentThread, threadTitleInput, growComposer, persistDraftNow, authTokenFor, deriveChatCompletionsUrl, showToast, el, copyText, downloadText, messageActionHandlers, offline
       });
 
       // ---- search ----------------------------------------------------------------------------------------------------
@@ -1143,6 +1145,7 @@
       };
       const plcApp = {
         parts: shellParts, get models() { return window.localModels; }, dialogs: window.plcDialogs, build: window.APP_BUILD,
+        offline,
         lock: { reminderOn: () => lock.reminderOn(), setReminder: on => lock.setReminder(on) },
         threads: () => threads, folders: () => convoList.folders(), currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
         newThread: opts => newThread(opts || {}), toggleThreadMenu: (id, anchor) => toggleThreadMenu(id, anchor), moduleBase, loadRoberta,
