@@ -1503,7 +1503,7 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createEndpointTokens }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/endpoint-tokens.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createEndpointTokens }, endpointUrls] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/endpoint-tokens.mjs'), import(modulesAt + 'chat/provider/endpoint-urls.mjs')]);
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // DOM element references
@@ -3609,71 +3609,8 @@
        * replace the trailing path with 'models'.
        * @param {string} endpoint base endpoint
        */
-      function deriveModelsUrl(endpoint) {
-        let url;
-        try {
-          url = new URL(endpoint);
-        } catch (err) {
-          url = new URL(endpoint, window.location.href);
-        }
-        const segments = url.pathname.split('/').filter(Boolean);
-        if (segments[segments.length - 1] === 'models') {
-          url.search = '';
-          url.hash = '';
-          return url.toString();
-        }
-
-        let versionIndex = -1;
-        for (let i = segments.length - 1; i >= 0; i--) {
-          if (/^v\d+$/i.test(segments[i])) {
-            versionIndex = i;
-            break;
-          }
-        }
-        const baseSegments = versionIndex !== -1 ? segments.slice(0, versionIndex + 1) : segments;
-        url.pathname = '/' + [...baseSegments, 'models'].join('/');
-        url.search = '';
-        url.hash = '';
-        return url.toString();
-      }
-
-      /**
-       * Given a base endpoint derive the chat completions URL. This appends a
-       * single `/chat/completions` segment to the path while preserving other
-       * segments and stripping query/hash components.
-       * @param {string} endpoint base endpoint
-       */
-      function deriveChatCompletionsUrl(endpoint) {
-        let url;
-        try {
-          url = new URL(endpoint);
-        } catch (err) {
-          url = new URL(endpoint, window.location.href);
-        }
-        const segments = url.pathname.split('/').filter(Boolean);
-        const alreadySuffixed =
-          segments.length >= 2 &&
-          segments[segments.length - 2] === 'chat' &&
-          segments[segments.length - 1] === 'completions';
-        if (alreadySuffixed) {
-          url.search = '';
-          url.hash = '';
-          return url.toString();
-        }
-        const cleanedSegments = [];
-        for (let i = 0; i < segments.length; i += 1) {
-          if (segments[i] === 'chat' && segments[i + 1] === 'completions') {
-            i += 1;
-            continue;
-          }
-          cleanedSegments.push(segments[i]);
-        }
-        cleanedSegments.push('chat', 'completions');
-        url.pathname = '/' + cleanedSegments.join('/');
-        url.search = '';
-        url.hash = '';
-        return url.toString();
-      }
+      const deriveModelsUrl = endpoint => endpointUrls.deriveModelsUrl(endpoint, window.location.href);
+      const deriveChatCompletionsUrl = endpoint => endpointUrls.deriveChatCompletionsUrl(endpoint, window.location.href);
 
       /**
        * Fetch the list of available models for the current endpoint and token.
@@ -3732,19 +3669,7 @@
             throw error;
           }
           const data = await response.json();
-          const rawList = Array.isArray(data?.data)
-            ? data.data
-            : Array.isArray(data?.models)
-              ? data.models
-              : [];
-          const ids = rawList
-            .map(item => {
-              if (typeof item === 'string') return item.trim();
-              if (item && typeof item.id === 'string') return item.id.trim();
-              if (item && typeof item.name === 'string') return item.name.trim();
-              return '';
-            })
-            .filter(id => id.length > 0);
+          const ids = endpointUrls.parseModelIds(data);
           if (!ids.length) {
             throw new Error('No models returned.');
           }
