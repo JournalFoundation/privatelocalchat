@@ -1,6 +1,6 @@
 # Better voices than the system voice: integrated plan
 
-Status: **planned, not built** (written 2026-11-02). Nothing in this document ships yet. Every number marked *unverified* comes from third-party write-ups and has not been measured by this project.
+Status: **shipped and verified** (2026-11-02, production commit `ca2d90d`). This document is the plan and the record of how it was carried out; the final lane results and decisions are in *Rollout status: complete* near the end. Sections written before the work (the candidate table, the stages, the lanes) keep their original wording, and numbers marked *unverified* there were third-party figures at the time; they have since been replaced by this project's own measurements, listed in *Progress and findings* and in `docs/evidence/voice/`.
 
 ## Goal
 
@@ -39,7 +39,7 @@ Then keep watching: the app already detects a stalled read-aloud (`watchSpeech`)
 
 **Judging the system voice.** The browser gives no quality measure, only `getVoices()` metadata (name, language, local or network, default). Names such as "Enhanced", "Premium", "Siri" (Apple) or "Natural" (Microsoft) are hints. They may only decide whether it is worth showing the suggestion. They never block or force anything. The real judge is the person: a "Hear a sample" button beside a one-time "keep the system voice / try the better voice" choice.
 
-**Thresholds** (memory, cores, probe score, real-time factor) live in one config file marked *uncalibrated*. Any figure used before calibration, such as 4 GB, 2 cores or 2x real time, is a placeholder.
+**Thresholds** (memory, cores, probe score, real-time factor) live in one config object, `VOICE_CONFIG` in `runtime/voice-pick.mjs`. The probe limit (800 ms) and the speed limits were calibrated on real devices on 2026-11-02; the figures first used here (4 GB, 2 cores, 2x real time) were placeholders and have been replaced. The storage margin and the larger-voice probe limit remain conservative values and are marked as such in the file.
 
 ## Offer and settings (no friction)
 
@@ -95,7 +95,7 @@ Facts below were read from the devices on 2026-11-02. Anything not listed is not
 ## Implementation plan (workstreams)
 
 1. **Voice probe and harness** (dev-only). Inside the `DEV_DIAGNOSTICS` markers: a compute probe, a synthesis real-time-factor and time-to-first-audio harness, and logging through the existing receiver. Output a JSON report per device to `docs/evidence/`. Production builds contain none of it.
-2. **Selection function** `pickVoiceEngine` next to `pickTier`, with the three stages and the config of thresholds (marked uncalibrated). Pure and unit-tested.
+2. **Selection function** `pickVoiceEngine` next to `pickTier`, with the three stages and one config of thresholds (calibrated on real devices, see Rollout status). Pure and unit-tested.
 3. **Publisher and hosting.** Generalise the publisher, host Kitten nano and Kokoro q8 with licences and hashes, list them in `models/catalog.json`, record the recipe in `docs/CDN-POPULATION.md`.
 4. **Engine runtime.** A worker that runs the engine, a pinned runtime recorded in `docs/RUNTIMES.md`, hashes verified on every file, resumable download using the existing installer, and espeak-ng with its notices.
 5. **Speech integration.** `chat/speech.mjs` routes `speak()` to the system voice or the engine. Stall watchdog applies to both. Automatic fallback is stateful per device and never loops.
@@ -135,7 +135,7 @@ Each lane has an exit criterion. A later lane does not start until the earlier o
 
 **Lane 6: production checks.** After merge, the same lanes against `privatelocal.chat`, plus `scripts/verify-release.mjs`, and confirmation that production contains no probe or diagnostics code.
 
-**Calibration.** The probe score and real-time factor are logged on every device above. Thresholds are set from those results with a safety margin, and the numbers and the devices behind them go into `docs/evidence/`. Until then, the config stays marked uncalibrated and the offer is off by default behind a dev flag.
+**Calibration.** The probe score and real-time factor are logged on every device above. Thresholds are set from those results with a safety margin, and the numbers and the devices behind them go into `docs/evidence/`. The offer was kept hidden behind a dev flag until that calibration was done; it is now on.
 
 **Exploration, not shipping.** The iPhone 15 Pro has WebGPU and plenty of storage. A dev-only spike can measure whether a tiny engine could ever run beside the chat model there. The result is evidence for a future decision. The shipping rule (all iOS keeps the system voice) does not change because of it.
 
