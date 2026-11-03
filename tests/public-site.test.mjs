@@ -253,6 +253,24 @@ test('the build emits the documents, sitemap, robots.txt and feed at their root 
  assert.ok(headers.includes('/sitemap.xml')&&headers.includes('/updates/rss.xml'));
 });
 
+test('the licence documents are published, linked from every page and kept out of the precache',async()=>{
+ assert.equal(await read(built,'LICENSE'),await readFile('LICENSE','utf8'));
+ assert.equal(await read(built,'THIRD-PARTY-NOTICES.md'),await readFile('THIRD-PARTY-NOTICES.md','utf8'));
+ const headers=await read(built,'_headers');
+ assert.match(headers,/\/LICENSE\n  Content-Type: text\/plain; charset=utf-8/);
+ assert.match(headers,/\/THIRD-PARTY-NOTICES\.md\n  Content-Type: text\/markdown; charset=utf-8/);
+ assert.ok(headers.startsWith('/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp'),'COOP and COEP still apply to every path');
+ const worker=await read(built,'sw.js');
+ assert.ok(!worker.includes('"/LICENSE"')&&!worker.includes('"/THIRD-PARTY-NOTICES.md"'));
+ for(const page of PAGES){
+  const html=await read(built,page.name+'/index.html');
+  assert.ok(html.includes('(GNU General Public License, version 3) &middot; <a href="/LICENSE">Licence</a> &middot; <a href="/THIRD-PARTY-NOTICES.md">Notices</a>'),page.name+' footer');
+ }
+ const about=strip(await read(built,'about/index.html'));
+ assert.match(about,/Licence and source Private Local Chat is released under the GNU General Public License, version 3/);
+ assert.ok(about.includes('JournalFoundation/privatelocalchat')&&about.includes('ops/voice')&&about.includes('docs/VOICE-RUNTIME.md')&&about.includes('https://github.com/espeak-ng/espeak-ng'));
+});
+
 test('every internal link and fragment in the built pages resolves',async()=>{
  const pages={};
  for(const page of PAGES)pages[page.path]=await read(built,page.name+'/index.html');

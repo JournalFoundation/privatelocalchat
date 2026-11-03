@@ -16,7 +16,7 @@ createServer(async(req,res)=>{
   p=path.join(p,'index.html');
  }
  const bytes=await readFile(p);
- const type=p===path.join(root,'updates','rss.xml')?'application/rss+xml':mime[path.extname(p)]||'application/octet-stream';
+ const type=p===path.join(root,'updates','rss.xml')?'application/rss+xml':path.basename(p)==='LICENSE'?'text/plain; charset=utf-8':path.extname(p)==='.md'?'text/markdown; charset=utf-8':mime[path.extname(p)]||'application/octet-stream';
  res.writeHead(200,{'Content-Type':type,'Cross-Origin-Opener-Policy':'same-origin','Cross-Origin-Embedder-Policy':'require-corp'});res.end(bytes);
  }catch{res.writeHead(404);res.end('Not found');}
 }).listen(Number(process.env.PORT||18171),'127.0.0.1',()=>console.log('Serving http://127.0.0.1:'+(process.env.PORT||18171)));

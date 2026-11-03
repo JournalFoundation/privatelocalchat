@@ -23,6 +23,8 @@ Shared pieces: `chat/public-pages.css` (brand tokens from `/brand/design-tokens.
 5. Injects `<script>window.SITE_CONFIG={supportEmail,supportOwner,discussionsUrl};</script>` after the `window.APP_BUILD` script in `index.html`.
 6. The service-worker shell list is made from `dist/`, so the pages, their CSS and the feed are in the required offline set. An offline navigation to `/help`, `/help/`, `/about/`, `/privacy/` or `/updates/` opens that page's cached `index.html`; any other path still falls back to the app.
 
+7. Publishes the licence documents: `scripts/build.mjs` copies `LICENSE` and `THIRD-PARTY-NOTICES.md` to the root of `dist/` (so `/LICENSE` and `/THIRD-PARTY-NOTICES.md` return 200) and `_headers` serves them as `text/plain` and `text/markdown`, both `charset=utf-8`. They are not in the service-worker precache. The page footers (`footer-source` region) link them as "Licence" and "Notices", and the About page has a "Licence and source" section (`licence-source` region); both are rendered by `scripts/public-site.mjs`.
+
 `BUILD_OUT_DIR` redirects the output (tests use it so they do not touch `dist/`). `scripts/serve.mjs` resolves directory requests (and redirects `/help` to `/help/` like Pages) and serves `.xml` and `.txt`.
 
 The committed pages hold the unconfigured rendering of their regions, so they read as complete documents. After changing `updates/entries.json` or a renderer run `node scripts/public-site.mjs sync`; `tests/public-site.test.mjs` fails when they drift.
