@@ -65,6 +65,23 @@ try{
  assert(/Not in memory/.test(await page.locator('#voicePill').getAttribute('title')),'the pill now says it is not in memory');
  ok('the memory cue follows loaded and unloaded');
 
+ // a click on a voice is a toggle on whether it is loaded; the menu stays open so the change is visible
+ await open();
+ await vrow('Kitten').click();
+ await page.waitForFunction(()=>document.querySelector('#voicePill').dataset.memory==='loaded',null,{timeout:5000});
+ assert(await page.locator('.shell-pop').count()===1,'the menu stays open after a click');
+ assert(/In memory, ready/.test(await rowText('Kitten')),'a click on an unloaded voice loads it');
+ await vrow('Kitten').click();
+ await page.waitForFunction(()=>document.querySelector('#voicePill').dataset.memory==='unloaded',null,{timeout:5000});
+ assert(await page.locator('.shell-pop-row[aria-checked="true"]',{hasText:'Kitten'}).count()===1,'a click on a loaded voice unloads it and it stays the chosen voice');
+ assert(await page.evaluate(()=>window.__fake.files.kitten===true),'the files stay');
+ await vrow('System voice').click();await vrow('System voice').click();
+ assert(await page.locator('.shell-pop-row[aria-checked="true"]',{hasText:'System voice'}).count()===1,'the system voice is a plain selection, not a toggle');
+ assert(!/free|instant/i.test(await rowText('System voice')),'and it is not described as free or instant: '+await rowText('System voice'));
+ await vrow('Kitten').click();   // back to Kitten for the rest
+ await page.waitForFunction(()=>document.querySelector('#voicePill').textContent.trim().startsWith('Kitten'));
+ ok('a click toggles whether a voice is loaded');
+
  // a failing download is explained, the previous voice stays, and the next try asks once then goes ahead
  await page.evaluate(()=>{window.__fake.failInstall=true;});
  await open();await vrow('Kokoro').click();

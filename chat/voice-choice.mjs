@@ -22,7 +22,7 @@ const TYPICAL_REPLY_SECONDS = 20;
 
 /** The list the picker shows. "os" is the system voice; the others are downloadable engines. */
 export const VOICES = Object.freeze([
-  Object.freeze({ id: "os", label: "System voice", note: "Built into your device. Free and instant.", bytes: 0, license: "" }),
+  Object.freeze({ id: "os", label: "System voice", note: "Built into your device.", bytes: 0, license: "" }),
   Object.freeze({ id: "kitten", label: "Kitten", note: "A natural English voice. Small download.", bytes: VOICE_ENGINES.kitten.downloadBytes, license: "Apache-2.0" }),
   Object.freeze({ id: "kokoro", label: "Kokoro", note: "The most natural English voice. Larger download.", bytes: VOICE_ENGINES.kokoro.downloadBytes, license: "Apache-2.0" }),
 ]);
@@ -90,6 +90,10 @@ export function createVoiceChoice({
   try { globalThis.addEventListener?.("pagehide", () => { if (record.pending || record.speaking) { record.pending = null; record.speaking = null; save(); } }); } catch { /* no window */ }
   const markSpeaking = (id, on) => { record.speaking = on ? { id, at: now() } : null; save(); };
 
+  // At most one voice is in memory: bringing one in sends any other out (its files stay).
+  async function unloadOthers(id) {
+    for (const other of ENGINE_IDS) if (other !== id && mem[other] !== "unloaded" && !(speakingNow.get(other) > 0)) { setMem(other, "unloading"); try { await engines.get(other)?.unload?.(); } catch { /* stopped anyway */ } setMem(other, "unloaded"); }
+  }
   // After a read: idle in memory, unless the chat model asked for the memory while it was reading.
   function afterSpeak(id) {
     const n = (speakingNow.get(id) || 1) - 1; speakingNow.set(id, n);
@@ -181,6 +185,42 @@ export function createVoiceChoice({
       const id = ENGINE_IDS.find((e) => mem[e] !== "unloaded") || (record.selected !== "os" ? record.selected : ENGINE_IDS[0]);
       const state = mem[id] === "speaking" ? "loaded" : mem[id] === "unloading" ? "unloading" : mem[id] || "unloaded";
       return { id, state, label: "the " + voiceOf(id).label + " voice", busy: (speakingNow.get(id) || 0) > 0 || mem[id] === "loading", estimateBytes: MEMORY_ESTIMATE[id] ?? null };
+    },
+
+    /**
+     * The picker's click: a toggle on whether the voice is loaded. Not downloaded or failed -> the download path (with its confirmation rule); downloading -> cancel;
+     * downloaded and not in memory -> load it and use it; in memory -> unload it (it stays the chosen voice and loads again when it next reads).
+     * The system voice is not a model: choosing it is a plain selection.
+     */
+    async toggle(id, { confirmed = false } = {}) {
+      if (id === "os" || !status[id]) return ctl.select("os");
+      const s = status[id];
+      if (s.state === "installing" || s.state === "testing") { ctl.cancel(id); return { ok: true, cancelled: true }; }
+      if (s.state === "ready") {
+        if (mem[id] === "loaded" || mem[id] === "speaking" || mem[id] === "loading") { await ctl.release("person"); return { ok: true, unloaded: true }; }
+        return ctl.load(id);
+      }
+      return ctl.select(id, { confirmed });
+    },
+
+    /** Load a downloaded voice into memory now and make it the one in use. At most one voice is in memory: any other is unloaded first. */
+    async load(id) {
+      if (id === "os" || status[id]?.state !== "ready") return { ok: false, reason: "not downloaded" };
+      notice = null; record.selected = id; sessionFallback = false; save();
+      await unloadOthers(id);
+      if (mem[id] === "loaded" || mem[id] === "speaking") { emit(); return { ok: true }; }
+      setMem(id, "loading"); let lease = { release() {} };
+      try {
+        lease = await acquireMemory();
+        const engine = await engineFor(id); await engine.load?.();
+        setMem(id, "loaded"); armIdle();
+        return { ok: true };
+      } catch (err) {
+        setMem(id, "unloaded"); const reason = String(err?.message || err);
+        noteFailure(id, "while loading: " + reason);
+        say("error", voiceOf(id).label + " could not be loaded: " + reason + ". The system voice reads until it works.", { memory: true });
+        return { ok: false, reason };
+      } finally { lease.release(); }
     },
 
     /** Stop a download that is running. Nothing is kept and it is not counted as a failure. */
@@ -317,6 +357,7 @@ export function createVoiceChoice({
       ]).finally(() => clearTimeout(timer));
       let bytes = 0; try { bytes = (await engine.status()).bytes || 0; } catch { /* unknown */ }
       status[id] = { state: "ready", progress: null, bytes, error: null, metrics }; setMem(id, "loaded"); armIdle(); // the self-test left it in memory
+      await unloadOthers(id);
       notice = null; delete record.failures[id]; record.selected = id; record.pending = null; sessionFallback = false; failStreak = 0; slowStreak = 0; save(); emit();
       // the person hears the voice at once, and is told if it is slow here (information only: the voice stays)
       const p = (player = createGaplessPlayer({ createContext })); for (const [s, r] of chunks) p.push(s, r); p.finish().catch(() => {});

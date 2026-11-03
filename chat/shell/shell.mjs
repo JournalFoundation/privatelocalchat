@@ -43,15 +43,19 @@ export function popover(anchor, rows, { align = "start", above = false, cls = ""
   } };
   fill(rows);
   // a menu that shows live state (a download running) is redrawn in place, keeping what had focus
-  pop.update = (list) => { const keep = pop.querySelector(":focus")?.textContent; pop.textContent = ""; fill(list); const again = keep && [...pop.querySelectorAll("button")].find((b) => b.textContent === keep); again?.focus({ preventScroll: true }); };
+  pop.update = (list) => { const keep = pop.querySelector(":focus")?.textContent; pop.textContent = ""; fill(list); const again = keep && [...pop.querySelectorAll("button")].find((b) => b.textContent === keep); again?.focus({ preventScroll: true }); place(); };
   document.body.append(pop);
-  const rect = anchor.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-  let left = align === "end" ? rect.right - pw : rect.left;
-  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
-  let top = above ? rect.top - ph - 8 : rect.bottom + 8;
-  if (top + ph > window.innerHeight - 8) top = Math.max(8, rect.top - ph - 8);
-  if (top < 8) top = 8;
-  pop.style.left = left + "px"; pop.style.top = top + "px";
+  // placed from the anchor every time the content changes, so a menu that grows while it is open never slides over the control that opened it
+  function place() {
+    const rect = anchor.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+    let left = align === "end" ? rect.right - pw : rect.left;
+    left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+    let top = above ? rect.top - ph - 8 : rect.bottom + 8;
+    if (top + ph > window.innerHeight - 8) top = Math.max(8, rect.top - ph - 8);
+    if (top < 8) top = 8;
+    pop.style.left = left + "px"; pop.style.top = top + "px";
+  }
+  place();
   const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
   const key = (e) => { if (e.key === "Escape") { closePopover(); anchor.focus?.(); } };
   setTimeout(() => { document.addEventListener("mousedown", outside, true); document.addEventListener("keydown", key, true); }, 0);
@@ -80,12 +84,12 @@ function voiceDescription(v) {
   return line;
 }
 /** Choose a voice from the picker or from Settings: downloads it when it is not on the device; after a failure asks once, then goes ahead. */
-async function chooseVoice(ctl, id, toast) {
-  let r = await ctl.select(id);
+async function chooseVoice(ctl, id, toast, { toggle = false } = {}) {
+  let r = await (toggle ? ctl.toggle(id) : ctl.select(id));
   if (r.needsConfirm) {
     const v = ctl.voices.find((x) => x.id === id);
     if (!confirm(v.label + " already failed on this device:\n\n" + r.reason + "\n\nTry again?")) return r;
-    r = await ctl.select(id, { confirmed: true });
+    r = await (toggle ? ctl.toggle(id, { confirmed: true }) : ctl.select(id, { confirmed: true }));
   }
   if (r.busy) toast?.("A voice is being downloaded already. You can cancel it from the voice menu.");
   return r;
@@ -225,12 +229,12 @@ export function createShell(app) {
     if (busy) { const pct = busy.progress?.total && busy.state === "installing" ? Math.round((busy.progress.done / busy.progress.total) * 100) + "%" : busy.state === "testing" ? "testing" : "connecting"; name.textContent = busy.label + " " + pct; voicePill.dataset.status = "busy"; voicePill.title = busy.label + " — " + voiceDescription(busy); }
     else { name.textContent = sel.id === "os" ? "System" : sel.label + (sel.memory === "loading" ? " loading…" : ""); voicePill.dataset.status = snap.notice?.kind === "error" ? "error" : sel.id === "os" ? "none" : "ready"; voicePill.dataset.memory = sel.id === "os" ? "" : sel.memory || ""; voicePill.title = "Voice: " + sel.label + (MEMORY_TEXT[sel.memory] ? " — " + MEMORY_TEXT[sel.memory] : "") + (snap.notice ? " — " + snap.notice.text : ""); }
   }
-  const pickVoice = (id) => chooseVoice(voiceCtl, id, app.toast);
+  const pickVoice = (id) => chooseVoice(voiceCtl, id, app.toast, { toggle: true });
   function voiceRows(snap) {
     const rows = [];
     if (snap.notice) rows.push({ note: snap.notice.text, kind: snap.notice.kind });
     rows.push({ heading: "Voice for reading aloud" });
-    for (const v of snap.voices) rows.push({ label: v.label, desc: voiceDescription(v), icon: "volume", checked: v.selected, onClick: () => pickVoice(v.id) });
+    for (const v of snap.voices) rows.push({ label: v.label, desc: voiceDescription(v), icon: "volume", checked: v.selected, keepOpen: true, onClick: () => pickVoice(v.id) });
     rows.push({ divider: true });
     const total = snap.totalBytes;
     rows.push({ heading: "Voices on this device: " + (total ? voiceSize(total) : "none downloaded") });
@@ -294,13 +298,13 @@ export function createShell(app) {
   window.addEventListener("local-model-state", syncModel);
   new MutationObserver(syncModel).observe($("modelStatus"), { childList: true, characterData: true, subtree: true });
   setInterval(syncModel, 1500); syncModel();
-  modelPill.addEventListener("click", () => {
+  function modelRows() {
     const lm = window.localModels, rows = [{ heading: "On this device" }];
     const sel = $("localModelSelect");
     for (const o of sel ? [...sel.options] : []) {
       const [name, note] = o.text.split(" — ");
       const current = lm?.mode === "local" && sel.value === o.value;
-      rows.push({ label: name, desc: (note || "") + (current ? " · " + modelName().detail : ""), icon: "device", checked: current, onClick: () => chooseLocal(o.value) });
+      rows.push({ label: name, desc: (note || "") + (current ? " · " + modelName().detail : ""), icon: "device", checked: current, keepOpen: true, onClick: () => toggleLocal(o.value) });
     }
     const api = $("modelSelect");
     if (api && [...api.options].some((o) => o.value)) {
@@ -308,8 +312,25 @@ export function createShell(app) {
       for (const o of [...api.options].filter((x) => x.value).slice(0, 12)) rows.push({ label: o.text, icon: "cloud", checked: lm?.mode === "api" && api.value === o.value, onClick: () => chooseProvider(o.value) });
     }
     rows.push({ divider: true }, { label: "Manage models…", icon: "sliders", onClick: () => shell.openSettings("models") }, { label: "Add a provider…", icon: "cloud", onClick: () => shell.openSettings("models", $("endpointSelect") || $("inferenceMode"), true) });
-    popover(modelPill, rows, { align: "end", above: true, cls: "wide" });
+    return rows;
+  }
+  modelPill.addEventListener("click", () => {
+    const pop = popover(modelPill, modelRows(), { align: "end", above: true, cls: "wide" });
+    const redraw = () => { if (pop.isConnected) pop.update(modelRows()); else window.removeEventListener("local-model-state", redraw); };
+    window.addEventListener("local-model-state", redraw);
   });
+  // A click on a chat model is a toggle on whether it is loaded: not downloaded -> download and load; downloading -> cancel; downloaded -> load; loaded -> unload
+  // (it stays the chosen model and loads again when the next message is sent). Another model is chosen and loaded. A provider's model is a plain selection.
+  async function toggleLocal(value) {
+    const lm = window.localModels, sel = $("localModelSelect");
+    if (lm && lm.mode === "local" && sel.value === value) {
+      const s = lm.state;
+      if (lm.ready) { try { await lm.freeMemory(); } catch (e) { app.toast?.(e.message); } return; }
+      if (s?.busy && s.transfer) { lm.cancelDownload(); return; }
+      if (s?.busy) { app.toast?.("The chat model is loading. It can be unloaded when it has finished."); return; }
+    }
+    return chooseLocal(value);
+  }
   async function chooseLocal(value) {
     const mode = $("inferenceMode"), sel = $("localModelSelect");
     if (mode.value !== "local") { mode.value = "local"; mode.dispatchEvent(new Event("change")); }

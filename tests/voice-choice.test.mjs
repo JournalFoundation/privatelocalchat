@@ -406,3 +406,37 @@ test("on iPhone the sample comes with a hint about the silent switch; where the 
   const c = make(); await c.ctl.init(); await c.ctl.select("kitten");
   assert.equal(c.ctl.snapshot().notice, null, "no hint on a desktop");
 });
+
+test("the picker's click is a toggle: not downloaded downloads, downloading cancels, downloaded loads and uses it, loaded unloads and stays chosen, the system voice just selects", async () => {
+  const { ctl, engines } = make(); await ctl.init();
+  const k = () => voice(ctl.snapshot(), "kitten");
+  await ctl.toggle("kitten");                                   // not downloaded -> download, test, use
+  assert.equal(k().state, "ready"); assert.equal(k().memory, "loaded"); assert.equal(ctl.snapshot().selected, "kitten");
+  const r = await ctl.toggle("kitten");                         // loaded -> unload
+  assert.equal(r.unloaded, true); assert.equal(k().memory, "unloaded"); assert.equal(ctl.snapshot().selected, "kitten", "still the chosen voice");
+  assert.ok(engines.kitten.calls.includes("unload"));
+  await ctl.toggle("kitten");                                   // downloaded, not in memory -> load
+  assert.equal(k().memory, "loaded"); assert.ok(engines.kitten.calls.filter((c) => c === "load").length >= 1);
+  await ctl.toggle("os");                                       // the system voice is not a model: a plain selection, repeatable
+  assert.equal(ctl.snapshot().selected, "os"); await ctl.toggle("os"); assert.equal(ctl.snapshot().selected, "os");
+});
+
+test("loading one voice unloads the other, so at most one voice is in memory", async () => {
+  const { ctl } = make(); await ctl.init();
+  await ctl.toggle("kitten"); await ctl.toggle("kokoro");
+  const s = ctl.snapshot();
+  assert.equal(voice(s, "kokoro").memory, "loaded"); assert.equal(voice(s, "kitten").memory, "unloaded"); assert.equal(s.selected, "kokoro");
+});
+
+test("a download in progress is cancelled by clicking its row again", async () => {
+  const { ctl } = make({ fake: { kitten: { installDelayMs: 0 } } }); await ctl.init();
+  let release; const gate = new Promise((r) => { release = r; });
+  const { ctl: c2, engines } = make({ engines: { kitten: Object.assign(createFakeVoiceEngine({}), { install: async (cb, { signal } = {}) => { cb({ overallLoaded: 1, overallTotal: 10 }); await new Promise((_, rej) => signal?.addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" })))); } }) } });
+  await c2.init();
+  const first = c2.toggle("kitten");
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(voice(c2.snapshot(), "kitten").state, "installing");
+  const r = await c2.toggle("kitten"); assert.equal(r.cancelled, true);
+  await first; assert.equal(voice(c2.snapshot(), "kitten").state, "none"); assert.equal(c2.snapshot().notice, null, "a cancel is not a failure");
+  release();
+});
