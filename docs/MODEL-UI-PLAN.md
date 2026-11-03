@@ -1,11 +1,13 @@
 # Model UI: one integrated plan
 
-Status (2026-11-03): decisions in section 9 were all taken as recommended by the owner. BUILT: the wording fix; the picker toggle for chat models and voices
-(`toggleLocal` and `ctl.toggle` in `chat/shell/shell.mjs`, `chat/voice-choice.mjs`); `chat/models-view.mjs` (one vocabulary, tested); `window.localModels` actions and `view`
-(`local-models.js`); the rebuilt Settings > Models page (`chat/shell/models-page.mjs`: Language model, Connected provider, Voice, Other models, Memory and storage) with
-the Voice nav item removed (`openSettings("voice")` opens Models at the Voice section); the legacy panel hidden underneath (`#legacyModelForm`), nothing in the new UI
-reads or writes it. NOT BUILT: the composer pickers still build their own menu rows (they share the toggle and the words, not the row component); the Storage screen's
-model list; the provider form restyled as rows; deleting the hidden legacy DOM (needs `local-models.js` to stop rendering into it); a real-device pass of the new page.
+Status (2026-11-03): ALL BUILT (decisions in section 9 were taken as recommended by the owner). The wording fix; the picker toggle for chat models and voices
+(`toggleLocal`, `ctl.toggle`); `chat/models-view.mjs` (one vocabulary, `TIER_NOTES`, tested); `window.localModels` actions and `view` (`local-models.js` keeps what
+the UI shows in a view object, not in page elements); the rebuilt Settings > Models page (`chat/shell/models-page.mjs`: Language model, Connected provider, Voice,
+Other models, Memory and storage; the Voice nav item is gone and `openSettings("voice")` opens Models at the Voice section); both composer pickers and the voice
+description built from the same view-models and words; the Storage screen lists chat models and voices in the same words; the legacy model panel (the old model
+dropdown, readiness card, Download/Load/Free buttons, advanced controls, `#inferenceMode`) is DELETED from `index.html`, and the provider form sits in a card in its own
+section. Help pages and Roberta's content were updated for the new names (Unload, Details and repair). Remaining, honestly: the two composer menus are popover menus
+that share the view-model and the words but not the Settings row component; the voice rows in Settings and the menu still build their own buttons from the same VMs.
 Written after a survey of every place a model is chosen, loaded, downloaded, removed or explained.
 Scope: all model picking and model management UI (chat models, connected providers, voices, the embedding model, memory). Companion to
 `docs/MODEL-MEMORY-PLAN.md` (the memory manager, already built) and `docs/VOICE-ENGINE-PLAN.md`.

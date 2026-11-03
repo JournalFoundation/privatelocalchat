@@ -185,7 +185,7 @@ export const NODES = Object.freeze(Object.fromEntries([
     keywords: ["microphone", "mic", "permission", "blocked", "allow", "pick", "picked", "greyed", "disabled", "denied", "deny", "disappeared", "missing", "hear"],
     examples: ["my microphone isn't working", "the mic is blocked", "it won't hear me", "microphone permission denied", "dictation doesn't work", "the voice button is missing", "speech recognition is not available", "it says microphone access was blocked", "why can't it hear me", "my voice isn't getting through", "the microphone button is disabled", "I clicked deny on the microphone prompt", "the mic icon has disappeared"] }),
   n({ id: "help.storage", label: () => "storage and removing files",
-    say: () => ["Free memory unloads the model but keeps its files. Remove download deletes the saved model files, and you can download them again later.", "Back up important conversations before clearing all site data."],
+    say: () => ["Unload frees the model from memory but keeps its files. Remove download deletes the saved model files, and you can download them again later.", "Back up important conversations before clearing all site data."],
     keywords: ["storage", "remove", "delete", "space", "free", "clear", "hogging", "full", "room", "wipe", "uninstall"],
     examples: ["how do I free up space", "how do I delete the model", "remove the downloaded files", "my phone is out of storage", "free memory", "uninstall the model", "how do I clear everything", "delete my chats and files", "the model takes too much space", "my device is full, what can go", "the model is hogging my storage", "I'm short on room", "get rid of the model files", "wipe everything the app has stored", "free up some space on my phone"] }),
 

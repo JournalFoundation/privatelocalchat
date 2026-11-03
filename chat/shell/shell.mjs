@@ -5,6 +5,7 @@
 import { iconNode } from "../icons.mjs";
 import { createRegistry } from "./registry.mjs";
 import { buildModelsPage } from "./models-page.mjs";
+import { languageRows as langVMs, voiceRows as voiceVMs, stateLine as vmLine } from "../models-view.mjs";
 import { hybridSearch, passagesFor, defaultFilters } from "./hybrid-search.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -73,13 +74,14 @@ const progressText = (p) => !p ? "Starting…" : p.phase === "connecting" ? "Con
 // Where a downloaded voice is right now: on the device only, or also in memory. The dot on the voice pill follows the same words.
 const MEMORY_TEXT = { unloaded: "Not in memory (loads when it reads)", loading: "Loading into memory…", loaded: "In memory, ready", speaking: "Reading now", unloading: "Unloading…" };
 function voiceDescription(v) {
+  // the state words come from chat/models-view.mjs, the same ones Settings and the storage screen use
+  const vm = voiceVMs({ voices: [v] })[0];
   let line;
   if (v.id === "os") line = v.note;
   else if (v.state === "installing") line = "Downloading the " + v.label + " voice: " + progressText(v.progress).replace(/^Downloading\s*/, "");
-  else if (v.state === "testing") line = "Testing on this device…";
-  else if (v.state === "ready") line = "Downloaded (" + voiceSize(v.bytesOnDevice || v.size) + ") · " + v.license + (MEMORY_TEXT[v.memory] ? " · " + MEMORY_TEXT[v.memory] : "");
-  else if (v.state === "failed") line = "Failed: " + String(v.error || "unknown problem").replace(/[.\s]*$/, "") + ". Tap to try again.";
-  else line = "Not downloaded (" + voiceSize(v.size) + ") · " + v.license + (v.failures ? " · failed before: " + v.failures.reason : "");
+  else if (v.state === "ready") line = vmLine(vm) + " · " + v.license + (v.memory === "unloaded" ? " (loads when it reads)" : "");
+  else if (v.state === "failed" || v.state === "testing") line = vmLine(vm);
+  else line = vmLine(vm) + " · " + v.license + (v.failures ? " · failed before: " + v.failures.reason : "");
   if (v.recommended) line += " · Recommended for this device";
   else if (v.advice) line += " · " + v.advice;
   return line;
@@ -280,9 +282,9 @@ export function createShell(app) {
 
   // ---- model picker ----
   const modelName = () => {
-    const lm = window.localModels, sel = $("localModelSelect");
+    const lm = window.localModels;
     if (lm?.mode === "api") { const v = $("modelSelect"); return { name: v?.value || "Connected model", status: "provider", detail: "Connected provider" }; }
-    const label = sel?.selectedOptions?.[0]?.text?.split(" — ")[0] || "On-device model";
+    const label = lm?.state?.tiers?.[lm.state.selection.tier]?.info?.label || "On-device model";
     const s = lm?.state, t = s?.transfer;
     if (lm?.ready) return { name: label, status: "ready", detail: "Ready on this device" };
     if (s?.busy && t) return { name: label, status: "busy", detail: "Downloading " + Math.round(((t.bytesDone || 0) / Math.max(1, t.bytesTotal || 1)) * 100) + "%" };
@@ -297,22 +299,19 @@ export function createShell(app) {
     const where = $("modeBadge"); if (where) where.dataset.status = m.status;
   }
   window.addEventListener("local-model-state", syncModel);
-  new MutationObserver(syncModel).observe($("modelStatus"), { childList: true, characterData: true, subtree: true });
   setInterval(syncModel, 1500); syncModel();
   function modelRows() {
     const lm = window.localModels, rows = [{ heading: "On this device" }];
-    const sel = $("localModelSelect");
-    for (const o of sel ? [...sel.options] : []) {
-      const [name, note] = o.text.split(" — ");
-      const current = lm?.mode === "local" && sel.value === o.value;
-      rows.push({ label: name, desc: (note || "") + (current ? " · " + modelName().detail : ""), icon: "device", checked: current, keepOpen: true, onClick: () => toggleLocal(o.value) });
+    // the same rows as Settings > Models, built from the same view-model (chat/models-view.mjs)
+    for (const vm of lm?.state ? langVMs(lm.state, { mode: lm.mode, hide: lm.qualityAvailable === false ? ["default"] : [] }) : []) {
+      rows.push({ label: vm.label, desc: [vmLine(vm), vm.note].filter(Boolean).join(" · "), icon: "device", checked: vm.inUse, keepOpen: true, onClick: () => toggleLocal(vm.id) });
     }
     const api = $("modelSelect");
     if (api && [...api.options].some((o) => o.value)) {
       rows.push({ heading: "Connected provider" });
       for (const o of [...api.options].filter((x) => x.value).slice(0, 12)) rows.push({ label: o.text, icon: "cloud", checked: lm?.mode === "api" && api.value === o.value, onClick: () => chooseProvider(o.value) });
     }
-    rows.push({ divider: true }, { label: "Manage models…", icon: "sliders", onClick: () => shell.openSettings("models") }, { label: "Add a provider…", icon: "cloud", onClick: () => shell.openSettings("models", $("endpointSelect") || $("inferenceMode"), true) });
+    rows.push({ divider: true }, { label: "Manage models…", icon: "sliders", onClick: () => shell.openSettings("models") }, { label: "Add a provider…", icon: "cloud", onClick: () => shell.openSettings("models", $("endpointSelect") || $("replyModeSeg"), true) });
     return rows;
   }
   modelPill.addEventListener("click", () => {
@@ -323,8 +322,8 @@ export function createShell(app) {
   // A click on a chat model is a toggle on whether it is loaded: not downloaded -> download and load; downloading -> cancel; downloaded -> load; loaded -> unload
   // (it stays the chosen model and loads again when the next message is sent). Another model is chosen and loaded. A provider's model is a plain selection.
   async function toggleLocal(value) {
-    const lm = window.localModels, sel = $("localModelSelect");
-    if (lm && lm.mode === "local" && sel.value === value) {
+    const lm = window.localModels;
+    if (lm && lm.mode === "local" && lm.selectedTier === value) {
       const s = lm.state;
       if (lm.ready) { try { await lm.freeMemory(); } catch (e) { app.toast?.(e.message); } return; }
       if (s?.busy && s.transfer) { lm.cancelDownload(); return; }
@@ -333,14 +332,14 @@ export function createShell(app) {
     return chooseLocal(value);
   }
   async function chooseLocal(value) {
-    const mode = $("inferenceMode"), sel = $("localModelSelect");
-    if (mode.value !== "local") { mode.value = "local"; mode.dispatchEvent(new Event("change")); }
-    if (sel.value !== value) { sel.value = value; sel.dispatchEvent(new Event("change")); }
-    setTimeout(() => { const lm = window.localModels; if (lm && !lm.ready) lm.ensureReady().catch(() => {}); }, 150);
+    const lm = window.localModels; if (!lm) return;
+    lm.setMode("local");
+    if (lm.selectedTier !== value) await lm.selectTier(value);
+    if (!lm.ready) lm.ensureReady().catch(() => {});
   }
   function chooseProvider(value) {
-    const mode = $("inferenceMode"), sel = $("modelSelect");
-    if (mode.value !== "api") { mode.value = "api"; mode.dispatchEvent(new Event("change")); }
+    const sel = $("modelSelect");
+    window.localModels?.setMode("api");
     sel.value = value; sel.dispatchEvent(new Event("change"));
   }
 
@@ -469,7 +468,7 @@ function buildSettings({ app, shell, registry, moved }) {
     open(id = "general", focusEl = null, fromPicker = false) {
       if (id === "voice") { id = "models"; focusEl = focusEl || (() => { const s = document.getElementById("voiceSection"); return s; })(); } // voices are a section of the Models page
       closePopover(); lastFocus = document.activeElement; page.hidden = false; document.body.classList.add("settings-open"); show(id);
-      if (fromPicker) { const mode = $("inferenceMode"); if (mode && mode.value !== "api") { mode.value = "api"; mode.dispatchEvent(new Event("change")); } }
+      if (fromPicker) window.localModels?.setMode("api");
       if (focusEl) setTimeout(() => { try { focusEl.scrollIntoView({ block: "center", behavior: "smooth" }); focusEl.focus({ preventScroll: true }); } catch { /* not focusable */ } }, 60);
       else content.focus({ preventScroll: true });
       if (!desktopQ.matches) app.closeSidebar();

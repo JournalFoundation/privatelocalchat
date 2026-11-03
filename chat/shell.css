@@ -311,3 +311,7 @@ body.shell .composer-bar .shell-voicepick { margin-left: 0 !important; }
 .set-models .set-btn.danger { color: var(--plc-danger, #b42318); }
 .set-models #advancedModels pre { max-height: 14rem; overflow: auto; font-size: .75rem; }
 .set-models .set-note[data-error="true"] { color: var(--plc-danger, #b42318); }
+/* the provider form sits in a card like every other group on the page */
+.set-models #apiSettings:not([hidden]) { border: 1px solid var(--color-border, #d4dbe5); border-radius: 12px; padding: 12px 16px; margin-top: 8px; }
+.set-models #apiSettings .form-group { margin: 10px 0; }
+.set-models #apiSettings label { font-weight: 600; font-size: .9rem; }

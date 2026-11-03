@@ -29,72 +29,65 @@ let mode = existingApi ? 'api' : 'local';
 try {mode=localStorage.getItem(modeKey)||mode;} catch(e) {console.warn('Mode storage unavailable:',e.name);}
 if (!['local','api'].includes(mode)) mode = 'local';
 const gb = n => (n/1e9).toFixed(2)+' GB';
-// A control that cannot be used right now is not shown at all.
-const show = (id,on) => {$(id).hidden=!on;};
+// What the page's own UI (Settings > Models, the pickers) shows is kept here, not in page elements: window.localModels.view.
+const V={status:'',statusError:false,details:'',progress:null,gpuHelp:null,readiness:{downloaded:false,loaded:false,offline:false},setupStep:'',setupHint:'',diagnostics:'',
+  can:{download:false,load:false,cancel:false,free:false,repair:false,restart:false,remove:false,reload:false}};
+// A control that cannot be used right now is not offered.
+const CAN={downloadModel:'download',loadModel:'load',repairModel:'repair',restartModel:'restart',removeModel:'remove',freeMemory:'free'};
+const show = (id,on) => {V.can[CAN[id]]=Boolean(on);};
 const notify = () => window.dispatchEvent(new Event('local-model-state'));
 function showError(error) {
-  $('modelStatus').textContent = (error?.message || String(error)) + (error?.advice ? ' '+error.advice : ' Try Verify / repair or reload the model.');
-  $('modelStatus').dataset.error = 'true';
+  V.status = (error?.message || String(error)) + (error?.advice ? ' '+error.advice : ' Try Verify / repair or reload the model.');
+  V.statusError = true;
+  notify();
 }
 function render(s) {
   state = s;
   if(s.device) env=s.device;
   const tier=s.selection.tier, item=s.tiers[tier], t=s.transfer;
-  $('localModelSelect').value=tier;
-  $('modelDetails').textContent=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':onCpu(s)?'Smaller model. No usable graphics card was found, so it runs on your processor: it works, but replies are slower.':(tier==='light'?'Smaller model; lower memory use.':item.info.strengths));
-  $('modelStatus').dataset.error='false';
+  V.details=gb(item.info.downloadBytes)+' download · '+gb(item.info.memory.steadyBytes)+' estimated working memory. '+(tier==='default'?'Requires a capable GPU; larger memory use.':onCpu(s)?'Smaller model. No usable graphics card was found, so it runs on your processor: it works, but replies are slower.':(tier==='light'?'Smaller model; lower memory use.':item.info.strengths));
+  V.statusError=false;
   const modelName='the chat model '+(item.info.modelId||'');
-  if(s.busy) $('modelStatus').textContent=t ? `Downloading ${modelName}: ${gb(t.bytesDone || 0)} of ${gb(t.bytesTotal || item.info.downloadBytes)} downloaded${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy==='load'?`Loading ${modelName} into memory…`:s.busy==='install'?`Downloading ${modelName}…`:s.busy==='repair'?'Repairing the model download…':s.busy==='remove'?'Removing model files…':s.busy+'…';
+  if(s.busy) V.status=t ? `Downloading ${modelName}: ${gb(t.bytesDone || 0)} of ${gb(t.bytesTotal || item.info.downloadBytes)} downloaded${t.bytesKept ? ' · '+gb(t.bytesKept)+' already saved' : ''}` : s.busy==='load'?`Loading ${modelName} into memory…`:s.busy==='install'?`Downloading ${modelName}…`:s.busy==='repair'?'Repairing the model download…':s.busy==='remove'?'Removing model files…':s.busy+'…';
   else if(s.lastError) showError(s.lastError);
-  else if(s.load.state==='ready') $('modelStatus').textContent='Loaded \u00B7 ready on this device';
-  else $('modelStatus').textContent=item.install.ok?'Downloaded \u00B7 not loaded':'Download a model to use on-device chat.';
-  if(s.busy&&t?.phase==='retry-wait') $('modelStatus').textContent+=` · Retrying download ${t.retryAttempt}/${t.retryLimit} in ${t.retryDelayMs/1000}s. Saved files are kept.`;
+  else if(s.load.state==='ready') V.status='Loaded \u00B7 ready on this device';
+  else V.status=item.install.ok?'Downloaded \u00B7 not loaded':'Download a model to use on-device chat.';
+  if(s.busy&&t?.phase==='retry-wait') V.status+=` · Retrying download ${t.retryAttempt}/${t.retryLimit} in ${t.retryDelayMs/1000}s. Saved files are kept.`;
   const ready=s.load.state==='ready';
   const supported=isSupported(s);
   renderGpuHelp(s,supported);
-  $('modelProgress').hidden=!t;
-  if(t) $('modelProgress').value=(t.bytesDone || 0)/Math.max(1,t.bytesTotal || 1);
+  V.progress=t?(t.bytesDone || 0)/Math.max(1,t.bytesTotal || 1):null;
   const recovery=downloadRecovery?.state, idle=!s.busy&&!activeGeneration&&!recovery?.pending;
   show('downloadModel',supported&&idle&&item.install.ok!==true);
   show('loadModel',supported&&idle&&item.install.ok===true&&!ready);
   show('repairModel',idle);
   show('restartModel',idle);
   show('removeModel',idle&&(item.install.ok===true||(item.install.bytesPresent||0)>0));
-  $('reloadApp').hidden=!(updatePending&&idle);
-  $('cancelModel').hidden=!['install','repair'].includes(s.busy)&&!recovery?.pending;
-  if(recovery?.pending&&!s.busy)$('modelStatus').textContent+=(recovery.phase==='offline'?' · Download will continue when connected.':' · Download will continue automatically; completed files are kept.');
-  if(recovery?.pending&&!recovery.remembered)$('modelStatus').textContent+=' Keep this page open: the browser could not save the download request yet.';
-  quality=quality||$('localModelSelect').querySelector('[value="default"]');
+  $('reloadApp').hidden=!(updatePending&&idle);V.can.reload=updatePending&&idle;
+  V.can.cancel=['install','repair'].includes(s.busy)||Boolean(recovery?.pending);
+  if(recovery?.pending&&!s.busy)V.status+=(recovery.phase==='offline'?' · Download will continue when connected.':' · Download will continue automatically; completed files are kept.');
+  if(recovery?.pending&&!recovery.remembered)V.status+=' Keep this page open: the browser could not save the download request yet.';
   qualityAvailable=!(!env?.webgpu.available || (env.deviceMemoryGB !== null && env.deviceMemoryGB < 8) || /iPhone|iPad|iPod|Android/.test(navigator.userAgent));
-  if(qualityAvailable&&!quality.isConnected)$('localModelSelect').appendChild(quality);else if(!qualityAvailable&&quality.isConnected&&tier!=='default')quality.remove();
-  $('modelDiagnostics').textContent=JSON.stringify({device:env,selection:s.selection,variant:s.variant,storage:s.storage,host:s.host,load:s.load,lastError:s.lastError},null,2);
+  V.diagnostics=JSON.stringify({device:env,selection:s.selection,variant:s.variant,storage:s.storage,host:s.host,load:s.load,lastError:s.lastError},null,2);
   renderReadiness(s,supported,ready);
   notify();
 }
 // Say what is actually wrong with the graphics support, and what to try, instead of one blanket message.
 function renderGpuHelp(s,supported) {
-  const box=$('gpuHelp'), g=env?explainGpu(env,{tier:s.selection.tier}):null;
+  const g=env?explainGpu(env,{tier:s.selection.tier}):null;
   const blocked=Boolean(env&&!supported&&!s.busy&&g&&g.kind!=='ok');
   // with no usable card the model still runs, on the processor: the same help is offered as a way to make it faster
   const slower=Boolean(env&&supported&&onCpu(s)&&!s.busy&&g&&g.kind!=='ok');
-  box.hidden=!(blocked||slower);
-  if(!blocked&&!slower)return;
-  box.querySelector('.gpu-help-lead').textContent=(slower?'Chat runs on your processor, which is slower. A graphics card would make replies much faster. ':'')+g.headline+(g.detail?' '+g.detail:'');
-  const list=box.querySelector('ol');list.textContent='';
-  g.steps.forEach(step=>{const li=document.createElement('li');li.textContent=step;list.appendChild(li);});
-  if(blocked){$('modelStatus').textContent=g.headline;$('modelStatus').dataset.error='true';}
+  V.gpuHelp=(blocked||slower)?{lead:(slower?'Chat runs on your processor, which is slower. A graphics card would make replies much faster. ':'')+g.headline+(g.detail?' '+g.detail:''),steps:[...g.steps]}:null;
+  if(blocked){V.status=g.headline;V.statusError=true;}
 }
-function setRow(id,yes) {const row=$(id);row.classList.toggle('yes',yes);row.classList.toggle('no',!yes);row.setAttribute('aria-label',row.textContent+': '+(yes?'yes':'not yet'));}
 // Downloaded, loaded and ready-for-offline are different facts; one button always does the next useful step.
 function renderReadiness(s,supported,ready) {
   const tier=s.selection.tier, item=s.tiers[tier], downloaded=item.install.ok===true;
-  setRow('readyDownloaded',downloaded);setRow('readyLoaded',ready);setRow('readyOffline',downloaded&&offlineAppReady);
+  V.readiness={downloaded,loaded:ready,offline:downloaded&&offlineAppReady};
   const step=!downloaded?'download':!ready?'load':'ready', recovery=downloadRecovery?.state;
-  const button=$('setupPrivateChat'), hint=$('setupHint');
-  button.dataset.step=step;
-  button.textContent=step==='download'?'Set up on-device chat':step==='load'?'Load model':'Loaded \u00B7 ready on this device';
-  button.hidden=step==='ready'||!supported||Boolean(s.busy)||activeGeneration||Boolean(recovery?.pending);
-  hint.textContent=step==='download'?'Downloads '+gb(item.info.downloadBytes)+' once. After that, chatting needs no connection.'
+  V.setupStep=step;
+  V.setupHint=step==='download'?'Downloads '+gb(item.info.downloadBytes)+' once. After that, chatting needs no connection.'
     :step==='load'?'Loads the downloaded model into memory (about '+gb(item.info.memory.steadyBytes)+') so it can answer.'
     :downloaded&&offlineAppReady?'Everything needed is saved on this device. You can use it without a connection.':'The model is saved. Reload the app once while online so the app itself is saved for offline use too.';
   show('freeMemory',ready&&!s.busy&&!activeGeneration);
@@ -115,8 +108,6 @@ function maybeAutoLoad() {
   action(()=>host.load());
 }
 function applyMode() {
-  $('inferenceMode').value=mode;
-  $('localModelPanel').hidden=mode!=='local';
   $('apiSettings').hidden=mode!=='api';
   try {localStorage.setItem(modeKey,mode);} catch(e) {showError(new Error('The browser cannot save settings: '+e.name));}
   if(mode==='local')autoLoadTried=false;
@@ -174,12 +165,10 @@ window.localModels={
   get busy(){return activeGeneration||Boolean(state?.busy);},
   async unloadForMemory(){if(activeGeneration)throw new Error('The chat model is writing a reply.');await host.unload();await host.inspect();},
   // ---- the model actions the page's own UI uses (Settings > Models); the legacy buttons call the same functions ----
-  get view(){return {status:$('modelStatus').textContent,statusError:$('modelStatus').dataset.error==='true',details:$('modelDetails').textContent,progress:$('modelProgress').hidden?null:Number($('modelProgress').value),
-    gpuHelp:$('gpuHelp').hidden?null:{lead:$('gpuHelp').querySelector('.gpu-help-lead').textContent,steps:[...$('gpuHelp').querySelectorAll('li')].map(li=>li.textContent)},
-    readiness:{downloaded:$('readyDownloaded').classList.contains('yes'),loaded:$('readyLoaded').classList.contains('yes'),offline:$('readyOffline').classList.contains('yes')},
-    setupStep:$('setupPrivateChat').dataset.step||'',setupHint:$('setupHint').textContent,diagnostics:$('modelDiagnostics').textContent,
-    can:{download:!$('downloadModel').hidden,load:!$('loadModel').hidden,cancel:!$('cancelModel').hidden,free:!$('freeMemory').hidden,repair:!$('repairModel').hidden,restart:!$('restartModel').hidden,remove:!$('removeModel').hidden,reload:!$('reloadApp').hidden}};},
-  setMode(m){$('inferenceMode').value=m;mode=m;applyMode();},
+  get view(){return {...V,readiness:{...V.readiness},can:{...V.can},gpuHelp:V.gpuHelp?{...V.gpuHelp,steps:[...V.gpuHelp.steps]}:null};},
+  get selectedTier(){return state?.selection.tier;},
+  get qualityAvailable(){return qualityAvailable;},
+  setMode(m){if(!['local','api'].includes(m)||m===mode)return;mode=m;applyMode();},
   selectTier(tier){return action(()=>host.selectTier(tier,{confirmed:true}));},
   download(){return action(()=>downloadRecovery.start(host.getState().selection.tier));},
   load(){return action(async()=>{const lease=await memoryLease();try{return await host.load();}finally{lease.release();}});},
@@ -187,7 +176,7 @@ window.localModels={
   repair(){downloadRecovery.cancel();return action(()=>host.repair());},
   removeSelected(){downloadRecovery.cancel();return action(()=>host.remove(undefined,{confirmed:true}));},
   persist(){return action(()=>host.requestPersist());},
-  async copyDetails(){const text=$('modelDiagnostics').textContent;try{await navigator.clipboard.writeText(text);return true;}catch{window.prompt('Copy these device details:',text);return false;}},
+  async copyDetails(){const text=V.diagnostics;try{await navigator.clipboard.writeText(text);return true;}catch{window.prompt('Copy these device details:',text);return false;}},
   reloadApp(){$('reloadApp').click();},
   async freeMemory(){if(activeGeneration)throw new Error('Wait for the reply to finish, or press Stop.');userFreed=true;await host.unload();await host.inspect();},
   /** Check the downloaded files of every model (storage screen, so each can be removed). Tiers are checked one after another. */
@@ -213,18 +202,6 @@ window.localModels={
 };
 $('reloadApp').addEventListener('click',()=>{try {sessionStorage.setItem('plc.draft',document.querySelector('#messageInput').value);location.reload();}catch(e){showError(new Error('Copy your message draft before reloading; browser storage is unavailable.'));}});
 try {const draft=sessionStorage.getItem('plc.draft');if(draft){document.querySelector('#messageInput').value=draft;sessionStorage.removeItem('plc.draft');}} catch {}
-$('inferenceMode').addEventListener('change',()=>{mode=$('inferenceMode').value;applyMode();});
-$('localModelSelect').addEventListener('change',()=>action(()=>host.selectTier($('localModelSelect').value,{confirmed:true})));
-$('downloadModel').addEventListener('click',()=>action(()=>downloadRecovery.start(host.getState().selection.tier)));
-$('loadModel').addEventListener('click',()=>action(async()=>{const lease=await memoryLease();try{return await host.load();}finally{lease.release();}}));
-$('copyDiagnostics').addEventListener('click',async()=>{const text=$('modelDiagnostics').textContent;try{await navigator.clipboard.writeText(text);$('copyDiagnostics').textContent='Copied';}catch{window.prompt('Copy these device details:',text);}setTimeout(()=>{$('copyDiagnostics').textContent='Copy device details';},2000);});
-$('setupPrivateChat').addEventListener('click',()=>action(()=>window.localModels.ensureReady()));
-$('freeMemory').addEventListener('click',()=>action(()=>window.localModels.freeMemory()));
-$('cancelModel').addEventListener('click',()=>downloadRecovery.cancel());
-$('restartModel').addEventListener('click',()=>action(async()=>{await host.restartHost();await host.inspect();}));
-$('repairModel').addEventListener('click',()=>{downloadRecovery.cancel();action(()=>host.repair());});
-$('removeModel').addEventListener('click',()=>{if(confirm('Remove this downloaded model? Your conversations will be kept.')){downloadRecovery.cancel();action(()=>host.remove(undefined,{confirmed:true}));}});
-$('persistModels').addEventListener('click',()=>action(()=>host.requestPersist()));
 $('releaseInfo').textContent=`${window.APP_BUILD?.environment || 'local'} · ${window.APP_BUILD?.version || 'development'} · ${window.APP_BUILD?.commit?.slice(0,12) || 'unbuilt'}`;
 applyMode();
 if('serviceWorker' in navigator) {

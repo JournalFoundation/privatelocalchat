@@ -147,8 +147,11 @@ try{
  await page.click('#lockNowBtn');
  await page.click('#lockScreen button:has-text("Forgot")');
  await page.click('.app-dialog button:has-text("Erase everything")');
+ // erasing reloads the page: wait for that to finish (the old page can still answer for a moment) instead of racing it
+ await page.waitForFunction(()=>!localStorage.getItem('plc.lock.v1'),null,{timeout:15000}).catch(()=>{});
+ await page.waitForSelector('#lockScreen',{state:'hidden',timeout:15000}).catch(()=>{}); // the old page answers until the reload lands
  await page.waitForSelector('#messageInput');await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
- assert(await page.locator('#lockScreen').isHidden()&&!(await page.evaluate(()=>localStorage.getItem('plc.lock.v1'))),'lock removed by erasing');
+ {const st={hidden:await page.locator('#lockScreen').isHidden(),key:await page.evaluate(()=>localStorage.getItem('plc.lock.v1'))};assert(st.hidden&&!st.key,'lock removed by erasing: '+JSON.stringify(st).slice(0,200));}
  assert((await names()).every(n=>/New chat|^$/i.test(n)),'chats erased: '+JSON.stringify(await names()));
  ok('app lock');
 

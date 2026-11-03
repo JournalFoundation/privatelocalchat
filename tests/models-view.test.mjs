@@ -20,7 +20,7 @@ test("the same words for the same state, with no cost words", () => {
   assert.equal(stateLine({ state: "downloading", progress: 0.42 }), "Downloading 42%");
   assert.equal(stateLine({ state: "downloaded", bytesOnDevice: 28e6 }), "Downloaded (28 MB) · not in memory");
   assert.equal(stateLine({ state: "loaded" }), "In memory, ready");
-  assert.match(stateLine({ state: "failed", error: "boom." }), /^Failed: boom\. Click to try again\.$/);
+  assert.match(stateLine({ state: "failed", error: "boom." }), /^Failed: boom\. Tap to try again\.$/);
   for (const st of ["none", "downloading", "testing", "downloaded", "loading", "loaded", "busy", "failed"]) assert.doesNotMatch(stateLine({ state: st, sizeBytes: 1e6 }), /free|instant|light|fast/i);
   assert.equal(sizeText(2.1e9), "2.10 GB");
 });

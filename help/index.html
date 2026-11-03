@@ -159,7 +159,7 @@
     <details class="faq-item" id="storage" open>
       <summary>How do I free memory or remove model files?</summary>
       <div class="faq-body">
-        <p class="faq-answer">Free memory unloads the model from working memory and keeps its downloaded files. Remove download deletes the saved model files, which can be downloaded again later. Back up important conversations before clearing all site data.</p>
+        <p class="faq-answer">Unload (or clicking the loaded model in the model menu) unloads the model from working memory and keeps its downloaded files. Remove download deletes the saved model files, which can be downloaded again later. Back up important conversations before clearing all site data.</p>
         <p class="faq-more">Steps: <a href="#model-storage">model storage</a>.</p>
       </div>
     </details>
@@ -227,7 +227,7 @@
         <li>Keep the page open and the device awake, and check your connection. The model files come from assets.privatelocal.chat, so a firewall, VPN or content blocker that blocks that address stops the download.</li>
         <li>Check free space on the device. The smaller model is about 1.20 GB and the larger one about 5.06 GB. When storage is full, saving files fails again and again.</li>
         <li>Choose the smaller model: use &ldquo;Use the smaller model instead&rdquo; on the progress card where it is offered, or pick Qwen3.5-2B in the model settings.</li>
-        <li>Open <em>Advanced model controls</em> in the model settings and choose <em>Verify / repair</em>. It removes only damaged files and downloads them again.</li>
+        <li>Open <em>Details and repair</em> under <em>Language model</em> in Settings &gt; Models and choose <em>Verify / repair</em>. It removes only damaged files and downloads them again.</li>
         <li>Still stuck? Choose <em>Cancel download</em>, reload the page and start again; files that are already complete are kept. Then report it with your device, browser and model (see <a href="#contact">contact</a>).</li>
       </ol>
     </section>
@@ -236,7 +236,7 @@
       <h3 id="load-failure-title">A model will not load</h3>
       <p>Loading puts the downloaded model into memory. Common causes and what to do:</p>
       <ul>
-        <li><strong>Not enough memory.</strong> The larger model needs about 6 GB and up to about 9 GB at its peak. Close other tabs and heavy apps, use <em>Free memory</em> if another model is loaded, or choose the smaller Qwen3.5-2B model.</li>
+        <li><strong>Not enough memory.</strong> The larger model needs about 6 GB and up to about 9 GB at its peak. Close other tabs and heavy apps, use <em>Unload</em> if another model is loaded, or choose the smaller Qwen3.5-2B model.</li>
         <li><strong>No usable graphics card (WebGPU).</strong> The model settings say what the browser reported and what to try, such as updating the browser (Safari 26 or newer, or a current Chrome) or the graphics driver. When no GPU is usable, the smaller model can run on the processor, which is slower. That is not offered on iPhone or iPad, and the larger model needs a GPU.</li>
         <li><strong>Damaged or incomplete files.</strong> Open <em>Advanced model controls</em> and choose <em>Verify / repair</em>.</li>
         <li><strong>The model engine stopped.</strong> In <em>Advanced model controls</em> choose <em>Restart model engine</em>, then <em>Load model</em>.</li>
@@ -268,7 +268,7 @@
     <section id="model-storage" class="card" aria-labelledby="model-storage-title">
       <h3 id="model-storage-title">Freeing memory or removing a model</h3>
       <ul>
-        <li><strong>Free memory</strong> unloads the model from working memory and keeps the downloaded files and your chats. Use it when the device is short of memory. The model loads again from the saved files.</li>
+        <li><strong>Unload</strong> frees the model from working memory and keeps the downloaded files and your chats. Use it when the device is short of memory. The model loads again from the saved files.</li>
         <li><strong>Remove download</strong> deletes the saved model files (in <em>Advanced model controls</em>, or <em>Remove files</em> in <em>Storage &amp; backups</em>). The app asks first and says your conversations will be kept. The model can be downloaded again later, and on-device chat is unavailable until it is.</li>
         <li><strong>Clearing all site data</strong> in the browser removes conversations, settings and attached documents as well as models. Back up first (see <a href="#backup-restoration">restoring a backup</a>).</li>
       </ul>

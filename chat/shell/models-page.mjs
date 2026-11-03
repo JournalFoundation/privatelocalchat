@@ -10,11 +10,10 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
   const lm = () => window.localModels;
   const w = h("div", { class: "set-models" }, h("h2", { text: "Models" }));
 
-  // The legacy form keeps working underneath: local-models.js writes its state into those elements. It is hidden, and the provider form is lifted out of it.
+  // The provider form (its element ids are used by the page's API code) moves into its own section below.
   const apiSettings = moved.providerSettings.querySelector("#apiSettings");
   if (apiSettings) apiSettings.remove();
-  const legacy = h("div", { id: "legacyModelForm", hidden: true, "aria-hidden": "true" }, moved.providerSettings);
-  document.body.append(legacy);
+  moved.providerSettings.remove();
 
   const rowEl = (vm, { controls = [], extraDesc = [] } = {}) => {
     const desc = [stateLine(vm), vm.note, vm.license, ...extraDesc].filter(Boolean).join(" · ");
@@ -53,7 +52,6 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
     h("p", { class: "hint-text" }, "Trouble? ", h("a", { href: "/help/#stalled-download", target: "_blank", rel: "noopener", text: "Download stuck" }), " · ", h("a", { href: "/help/#load-failure", target: "_blank", rel: "noopener", text: "Load failure" })));
   langSection.append(row("Where replies run", "On this device, or an outside provider you choose.", seg), installed, langDetails, langStatus, langProgress, readiness, gpuBox, hint, reloadRow, details);
 
-  const optionNotes = () => { const out = {}; for (const o of $("localModelSelect")?.options || []) { const [, note] = o.text.split(" — "); out[o.value] = note || ""; } return out; };
   async function useAndLoad(vm) { const L = lm(); L.setMode("local"); await L.selectTier(vm.id); await L.ensureReady().catch(() => {}); }
   function languageActions(vm, L) {
     const controls = [];
@@ -71,7 +69,7 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
     segLocal.setAttribute("aria-pressed", String(L?.mode === "local")); segApi.setAttribute("aria-pressed", String(L?.mode === "api"));
     installed.textContent = "";
     if (!L || !L.state) { installed.append(h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-desc", text: "Checking this device…" })))); return; }
-    const rows = languageRows(L.state, { mode: L.mode, notes: optionNotes() });
+    const rows = languageRows(L.state, { mode: L.mode, hide: L.qualityAvailable === false ? ["default"] : [] });
     for (const vm of rows) installed.append(rowEl(vm, { controls: languageActions(vm, L) }));
     const total = rows.reduce((n, r) => n + (r.bytesOnDevice || 0), 0);
     installed.append(h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-label", text: "Total on this device" }), h("div", { class: "set-desc", text: total < 1e5 ? "Nothing downloaded" : sizeText(total) })), h("div", { class: "set-control" })));
@@ -86,7 +84,7 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
     details.hidden = L.mode !== "local";
     hint.textContent = L.mode === "local" ? v.setupHint : ""; reloadRow.hidden = !v.can.reload; diag.textContent = v.diagnostics;
   }
-  window.addEventListener("local-model-state", () => { if (w.isConnected || document.body.classList.contains("settings-open")) paintLanguage(); });
+  window.addEventListener("local-model-state", () => { if (w.isConnected || document.body.classList.contains("settings-open")) { paintLanguage(); paintProvider(); } });
 
   // ---------------------------------------------------------------- 2. Connected provider
   const providerSection = h("section", { id: "providerSection", "aria-labelledby": "provHead" }, h("h3", { class: "set-sub", id: "provHead", text: "Connected provider" }));

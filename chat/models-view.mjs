@@ -17,7 +17,7 @@ export function stateLine(vm) {
     case "loading": return "Loading into memory…";
     case "loaded": return "In memory, ready";
     case "busy": return "Working now";
-    case "failed": return "Failed" + (vm.error ? ": " + String(vm.error).replace(/[.\s]*$/, "") : "") + ". Click to try again.";
+    case "failed": return "Failed" + (vm.error ? ": " + String(vm.error).replace(/[.\s]*$/, "") : "") + ". Tap to try again.";
     default: return "";
   }
 }
@@ -37,11 +37,14 @@ export function toggleAction(vm) {
 }
 export const ACTION_LABEL = { download: "Download", cancel: "Cancel", load: "Load", unload: "Unload", retry: "Try again", use: "Use", wait: "", "in-use": "In use" };
 
+// short descriptions of the on-device chat models (what the old model dropdown said after the dash)
+export const TIER_NOTES = Object.freeze({ default: "", light: "smaller download", lfm: "Liquid, strong writing", granite: "IBM, smallest download" });
+
 /** Chat-model rows from the model host's state (window.localModels.state). `notes`: tier -> short description. */
-export function languageRows(lmState, { mode = "local", notes = {} } = {}) {
+export function languageRows(lmState, { mode = "local", notes = TIER_NOTES, hide = [] } = {}) {
   if (!lmState) return [];
   const sel = lmState.selection?.tier;
-  return Object.entries(lmState.tiers || {}).map(([tier, item]) => {
+  return Object.entries(lmState.tiers || {}).filter(([tier]) => !hide.includes(tier) || tier === sel).map(([tier, item]) => {
     const isSel = tier === sel, installed = item.install?.ok === true, present = item.install?.bytesPresent || 0;
     const loadedHere = lmState.load?.state === "ready" && lmState.load?.tier === tier;
     let state = installed ? "downloaded" : "none", progress = null;
