@@ -5432,11 +5432,24 @@
         });
       });
       // ---- app shell (chat/shell/): rail, settings page, search, composer menus. It rearranges the controls above; see chat/shell/shell.mjs
+      // what the shell may move or watch, by name (chat/shell/shell.mjs asks for these and nothing else); the ones that appear later are looked up when asked
+      const shellParts = {
+        app: document.getElementById('app'), sidebar: document.querySelector('aside.sidebar'), chatArea: document.querySelector('main.chat-area'),
+        closeSidebarBtn: document.getElementById('closeSidebarBtn'), newChatBtn: document.getElementById('newChatBtn'),
+        providerSettings: document.getElementById('providerSettings'), backupFiles: document.getElementById('backupFiles'),
+        chatHeader: document.getElementById('chatHeader'), modeBadge: document.getElementById('modeBadge'), threadList, messages: document.getElementById('messages'),
+        messageForm, messageInput, composerTools: composerToolsEl, generationStatus: document.getElementById('generationStatus'), modelSelect,
+        endpointSelect, themeToggleBtn: document.getElementById('themeToggleBtn'), systemPromptInput: document.getElementById('systemPromptInput'),
+        systemPromptContainer: document.getElementById('systemPromptContainer'),
+        get emptyState() { return document.getElementById('emptyState'); }, get voiceModeBtn() { return document.getElementById('voiceModeBtn'); }, get micBtn() { return document.getElementById('micBtn'); }
+      };
       const plcApp = {
+        parts: shellParts, get models() { return window.localModels; }, dialogs: window.plcDialogs, build: window.APP_BUILD,
+        lock: { reminderOn: () => lock.reminderOn(), setReminder: on => lock.setReminder(on) },
         threads: () => threads, folders: () => folders, currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
         newThread: opts => newThread(opts || {}), toggleThreadMenu: (id, anchor) => toggleThreadMenu(id, anchor), moduleBase, loadRoberta,
         createProject: () => createFolder(),
-        openLibrary: () => openLibrary(), openPreferences: () => openPreferences(), openStorage: () => openStorage(), openLockSettings: () => lock.openLockSettings(), lock: { reminderOn: () => lock.reminderOn(), setReminder: on => lock.setReminder(on) },
+        openLibrary: () => openLibrary(), openPreferences: () => openPreferences(), openStorage: () => openStorage(), openLockSettings: () => lock.openLockSettings(),
         openHelp: async () => (await loadTransferUi()).openHelp(), openShare: async () => (await loadTransferUi()).openShare(),
         attachFiles: () => attachInput.click(), canRecordNote: () => recordAvailable, toggleVoiceNote: () => toggleVoiceNote(),
         openSidebar: () => openSidebar(), closeSidebar: () => closeSidebar({ restoreFocus: true }),

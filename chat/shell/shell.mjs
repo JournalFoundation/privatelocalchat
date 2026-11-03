@@ -9,7 +9,12 @@ import { rowParts, renderRowText } from "./model-row.mjs";
 import { languageRows as langVMs, voiceRows as voiceVMs, stateLine as vmLine } from "../models/models-view.mjs";
 import { hybridSearch, passagesFor, defaultFilters } from "./hybrid-search.mjs";
 
-const $ = (id) => document.getElementById(id);
+// What the page hands the shell (createShell(app)): `app.parts` are the page controls the shell is documented to move or watch, `app.models` the chat model
+// controller, `app.dialogs` the page's dialogs, `app.build` the build info, `app.lock` the lock reminder setting. The shell asks for a part by name; a name the
+// page did not provide is an error. `own(id)` finds only things the shell built itself.
+let host = null;
+const $ = (id) => { if (!host.parts || !(id in host.parts)) throw new Error('the page did not give the shell "' + id + '"'); return host.parts[id]; };
+const own = (id) => document.getElementById(id);
 
 function h(tag, attrs = {}, ...kids) {
   const n = document.createElement(tag);
@@ -98,7 +103,7 @@ async function chooseVoice(ctl, id, toast, { toggle = false } = {}) {
   let r = await (toggle ? ctl.toggle(id) : ctl.select(id));
   if (r.needsConfirm) {
     const v = ctl.voices.find((x) => x.id === id);
-    if (!(await window.plcDialogs?.confirm(v.label + " failed before", "It already failed on this device:\n\n" + r.reason + "\n\nTry again?", "Try again"))) return r;
+    if (!(await host.dialogs?.confirm(v.label + " failed before", "It already failed on this device:\n\n" + r.reason + "\n\nTry again?", "Try again"))) return r;
     r = await (toggle ? ctl.toggle(id, { confirmed: true }) : ctl.select(id, { confirmed: true }));
   }
   if (r.busy) toast?.("A voice is being downloaded already. You can cancel it from the voice menu.");
@@ -108,9 +113,10 @@ const voiceBusy = (snap) => snap.voices.find((v) => v.state === "installing" || 
 
 // ---- the shell ---------------------------------------------------------------------------------------------------------
 export function createShell(app) {
+  host = app;
   const registry = createRegistry();
   const shell = { registry, openSettings: () => {}, openSearch: () => {}, openRoberta: () => {}, closeRoberta: () => {}, ownsFocusTarget: () => false };
-  const root = $("app"), panel = document.querySelector("aside.sidebar"), main = document.querySelector("main.chat-area");
+  const root = $("app"), panel = $("sidebar"), main = $("chatArea");
   if (!root || !panel || !main) return shell;
   document.body.classList.add("shell");
 
@@ -253,7 +259,7 @@ export function createShell(app) {
     rows.push({ heading: "Voices on this device: " + (total ? voiceSize(total) : "none downloaded") });
     for (const v of snap.voices) {
       if (v.state === "installing" || v.state === "testing") rows.push({ label: "Cancel " + v.label + " download", icon: "close", onClick: () => voiceCtl.cancel(v.id) });
-      else if (v.id !== "os" && v.state === "ready") rows.push({ label: "Remove " + v.label + " (" + voiceSize(v.bytesOnDevice || v.size) + ")", icon: "trash", danger: true, onClick: async () => { if (await window.plcDialogs?.confirm("Remove " + v.label + "?", "It is deleted from this device. Reading aloud goes back to the system voice if it was selected. You can download it again any time.", "Remove", { danger: true })) voiceCtl.remove(v.id); } });
+      else if (v.id !== "os" && v.state === "ready") rows.push({ label: "Remove " + v.label + " (" + voiceSize(v.bytesOnDevice || v.size) + ")", icon: "trash", danger: true, onClick: async () => { if (await host.dialogs?.confirm("Remove " + v.label + "?", "It is deleted from this device. Reading aloud goes back to the system voice if it was selected. You can download it again any time.", "Remove", { danger: true })) voiceCtl.remove(v.id); } });
     }
     const sel = snap.voices.find((v) => v.selected);
     const inMemory = snap.voices.filter((v) => v.memory === "loaded" || v.memory === "speaking" || v.memory === "loading");
@@ -292,7 +298,7 @@ export function createShell(app) {
 
   // ---- model picker ----
   const modelName = () => {
-    const lm = window.localModels;
+    const lm = host.models;
     if (lm?.mode === "api") { const v = $("modelSelect"); return { name: v?.value || "Connected model", status: "provider", detail: "Connected provider" }; }
     const label = lm?.state?.tiers?.[lm.state.selection.tier]?.info?.label || "On-device model";
     const s = lm?.state, t = s?.transfer;
@@ -312,7 +318,7 @@ export function createShell(app) {
   window.addEventListener("local-model-state", syncModel);
   setInterval(syncModel, 1500); syncModel();
   function modelRows() {
-    const lm = window.localModels, rows = [{ heading: "On this device" }];
+    const lm = host.models, rows = [{ heading: "On this device" }];
     // the same rows as Settings > Models, built from the same view-model (chat/models/models-view.mjs)
     for (const vm of lm?.state ? langVMs(lm.state, { mode: lm.mode, hide: lm.qualityAvailable === false ? ["default"] : [] }) : []) {
       rows.push({ label: vm.label, parts: rowParts(vm), checked: vm.inUse, keepOpen: true, onClick: () => toggleLocal(vm.id) });
@@ -322,7 +328,7 @@ export function createShell(app) {
       rows.push({ heading: "Connected provider" });
       for (const o of [...api.options].filter((x) => x.value).slice(0, 12)) rows.push({ label: o.text, icon: "cloud", checked: lm?.mode === "api" && api.value === o.value, onClick: () => chooseProvider(o.value) });
     }
-    rows.push({ divider: true }, { label: "Manage models…", icon: "sliders", onClick: () => shell.openSettings("models") }, { label: "Add a provider…", icon: "cloud", onClick: () => shell.openSettings("models", $("endpointSelect") || $("replyModeSeg"), true) });
+    rows.push({ divider: true }, { label: "Manage models…", icon: "sliders", onClick: () => shell.openSettings("models") }, { label: "Add a provider…", icon: "cloud", onClick: () => shell.openSettings("models", $("endpointSelect") || own("replyModeSeg"), true) });
     return rows;
   }
   modelPill.addEventListener("click", () => {
@@ -333,7 +339,7 @@ export function createShell(app) {
   // A click on a chat model is a toggle on whether it is loaded: not downloaded -> download and load; downloading -> cancel; downloaded -> load; loaded -> unload
   // (it stays the chosen model and loads again when the next message is sent). Another model is chosen and loaded. A provider's model is a plain selection.
   async function toggleLocal(value) {
-    const lm = window.localModels;
+    const lm = host.models;
     if (lm && lm.mode === "local" && lm.selectedTier === value) {
       const s = lm.state;
       if (lm.ready) { try { await lm.freeMemory(); } catch (e) { app.toast?.(e.message); } return; }
@@ -343,21 +349,21 @@ export function createShell(app) {
     return chooseLocal(value);
   }
   async function chooseLocal(value) {
-    const lm = window.localModels; if (!lm) return;
+    const lm = host.models; if (!lm) return;
     lm.setMode("local");
     if (lm.selectedTier !== value) await lm.selectTier(value);
     if (!lm.ready) lm.ensureReady().catch(() => {});
   }
   function chooseProvider(value) {
     const sel = $("modelSelect");
-    window.localModels?.setMode("api");
+    host.models?.setMode("api");
     sel.value = value; sel.dispatchEvent(new Event("change"));
   }
 
   // ---- settings page ----
   const settings = buildSettings({ app, shell, registry, moved: { providerSettings, backupFiles, footer } });
   shell.openSettings = settings.open; shell.ownsFocusTarget = (el) => settings.contains(el);
-  badge.addEventListener("click", (e) => { e.stopImmediatePropagation(); settings.open("models", $("replyModeSeg")); }, true);
+  badge.addEventListener("click", (e) => { e.stopImmediatePropagation(); settings.open("models", own("replyModeSeg")); }, true);
 
   // ---- search overlay ----
   const search = buildSearch({ app, registry });
@@ -411,7 +417,7 @@ function buildSettings({ app, shell, registry, moved }) {
       row("Theme", "Light or dark. Saved on this device.", $("themeToggleBtn")),
       row("Where replies run", "On this device, or an outside provider you choose.", btn("Models and connection", () => settings.open("models")))));
     // The build this page is running, so a stale copy is easy to spot: compare it with the one at /version.json.
-    const b = window.APP_BUILD || {};
+    const b = host.build || {};
     const builtAt = b.builtAt ? new Date(b.builtAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
     wrap.append(h("p", { class: "set-about", id: "settingsBuild", text: "Private Local Chat " + (b.version ? b.version + " · " : "") + "build " + (b.commit ? String(b.commit).slice(0, 7) : "unknown") + (b.environment && b.environment !== "production" ? " (" + b.environment + ")" : "") + (builtAt ? " · built " + builtAt : "") }));
     return wrap;
@@ -486,9 +492,9 @@ function buildSettings({ app, shell, registry, moved }) {
   const settings = {
     contains: (el) => Boolean(el && (page.contains(el) || stash.contains(el))),
     open(id = "general", focusEl = null, fromPicker = false) {
-      if (id === "voice") { id = "models"; focusEl = focusEl || (() => { const s = document.getElementById("voiceSection"); return s; })(); } // voices are a section of the Models page
+      if (id === "voice") { id = "models"; focusEl = focusEl || (() => { const s = own("voiceSection"); return s; })(); } // voices are a section of the Models page
       closePopover(); lastFocus = document.activeElement; page.hidden = false; document.body.classList.add("settings-open"); show(id);
-      if (fromPicker) window.localModels?.setMode("api");
+      if (fromPicker) host.models?.setMode("api");
       if (focusEl) setTimeout(() => { try { focusEl.scrollIntoView({ block: "center", behavior: "smooth" }); focusEl.focus({ preventScroll: true }); } catch { /* not focusable */ } }, 60);
       else content.focus({ preventScroll: true });
       if (!desktopQ.matches) app.closeSidebar();

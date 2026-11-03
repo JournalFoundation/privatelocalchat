@@ -1,16 +1,15 @@
 // Settings > Models: every model the app can use, on one page, in one order, with one kind of row:
 //   Language model (where replies run, the on-device chat models) · Connected provider · Voice · Other models · Memory and storage.
-// The rows come from chat/models/models-view.mjs (the same words the composer pickers use). Actions go through window.localModels (chat models), the voice picker
+// The rows come from chat/models/models-view.mjs (the same words the composer pickers use). Actions go through app.models (the chat model controller), the voice picker
 // controller and the memory manager; nothing here reads or writes the legacy model form, which stays in the page, hidden, only because local-models.js still renders into it.
 
 import { rowParts, renderRowText } from "./model-row.mjs";
 import { languageRows, voiceRows, otherRows, stateLine, toggleAction, ACTION_LABEL, sizeText } from "../models/models-view.mjs";
 
 export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHint }) {
-  const $ = (id) => document.getElementById(id);
-  const lm = () => window.localModels;
+  const lm = () => app.models;
   // the page's own confirmation dialog (index.html), never the browser's
-  const ask = (title, message, label) => (window.plcDialogs ? window.plcDialogs.confirm(title, message, label, { danger: true }) : Promise.resolve(false));
+  const ask = (title, message, label) => (app.dialogs ? app.dialogs.confirm(title, message, label, { danger: true }) : Promise.resolve(false));
   const w = h("div", { class: "set-models" }, h("h2", { text: "Models" }));
 
   // The provider form (its element ids are used by the page's API code) moves into its own section below.
