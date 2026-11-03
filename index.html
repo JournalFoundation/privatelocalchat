@@ -1503,7 +1503,7 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs')]);
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // DOM element references
@@ -3844,136 +3844,14 @@
        * Export chat history to a JSON file. The user can download their
        * threads array as a structured JSON document.
        */
-      function exportHistory() {
-        prefs.lastExportAt = Date.now(); savePrefs();
-        const dataStr = JSON.stringify(threads.filter(t => !t.temporary), null, 2);
-        const blob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'chat-history.json';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-
-      async function readImportFile(file) {
-        if (/\.zip$/i.test(file.name) || file.type === 'application/zip') {
-          const zip = await import(moduleBase() + 'chat/transfer/zip.mjs');
-          return zip.readConversationsJson(new Uint8Array(await file.arrayBuffer()));
-        }
-        return file.text();
-      }
-
-      /**
-       * Import chat history. The file is read and checked first, nothing changes until the person confirms a preview.
-       * Accepts this app's exports, and ChatGPT or Claude data exports (the .zip or its conversations.json).
-       */
-      async function importHistory(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        try {
-          const text = await readImportFile(file);
-          let data;
-          try { data = JSON.parse(text); } catch { throw new Error('The file is not valid JSON.'); }
-          let extras = null;
-          if ((await loadCrypto()).isEncryptedBackup(data)) { data = await askPassphrase(data); if (!data) return; }
-          if (data && data.format === 'plc-backup/1') extras = data;
-          const foreignModule = await import(moduleBase() + 'chat/transfer/foreign-import.mjs');
-          const foreign = foreignModule.convertForeign(data);
-          let incoming, note = '';
-          if (foreign) { incoming = foreign.threads; note = foreignModule.describeForeign(foreign); }
-          else {
-            const checked = M.model.validateHistory(data);
-            if (!checked.ok) throw new Error(checked.error);
-            incoming = checked.threads;
-            if (checked.skipped) note = checked.skipped + ' unusable entr' + (checked.skipped === 1 ? 'y was' : 'ies were') + ' left out.';
-          }
-          showImportPreview(incoming, note, extras);
-        } catch (err) {
-          openAppDialog({ title: 'Import failed', content: el('p', null, err.message + ' Nothing was changed.'), actions: [{ label: 'OK', primary: true }] });
-        } finally {
-          importInput.value = '';
-        }
-      }
-
-      function showImportPreview(incoming, note, extras = null) {
-        const wrap = el('div');
-        const extrasRow = el('label', 'list-row'); const extrasBox = el('input'); extrasBox.type = 'checkbox'; extrasBox.checked = true; extrasBox.id = 'importExtras';
-        const hasExtras = Boolean(extras && (extras.memory?.items?.length || extras.presets?.length || extras.folders?.length || extras.docs?.length || extras.prefs?.instructions));
-        if (note) wrap.appendChild(el('p', null, note));
-        const mk = (id, text, checked) => {
-          const row = el('label', 'list-row'); const r = el('input'); r.type = 'radio'; r.name = 'importMode'; r.id = id; r.checked = checked;
-          row.append(r, el('span', null, text)); return [row, r];
-        };
-        const [mergeRow, mergeRadio] = mk('importMerge', 'Add to my current chats (recommended). Nothing already here is changed.', true);
-        const [replaceRow, replaceRadio] = mk('importReplace', 'Replace all my current chats with the imported ones.', false);
-        const backupRow = el('label', 'list-row'); const backup = el('input'); backup.type = 'checkbox'; backup.checked = true; backup.id = 'importBackup';
-        backupRow.append(backup, el('span', null, 'Download a backup of my current chats first'));
-        const summary = el('p', null); summary.id = 'importSummary'; summary.setAttribute('role', 'status');
-        const update = () => {
-          const preview = M.model.mergeThreads(threads.filter(t => !t.temporary), incoming, { replace: replaceRadio.checked });
-          summary.textContent = M.model.describeImport(preview);
-          backupRow.hidden = !replaceRadio.checked;
-          summary.classList.toggle('danger', replaceRadio.checked);
-        };
-        mergeRadio.addEventListener('change', update); replaceRadio.addEventListener('change', update);
-        extrasRow.append(extrasBox, el('span', null, 'Also restore memory, presets, projects, preferences' + (extras?.docs?.length ? ' and documents' : '') + ' from this backup'));
-        wrap.append(mergeRow, replaceRow, backupRow, ...(hasExtras ? [extrasRow] : []), summary); update();
-        openAppDialog({ title: 'Import ' + incoming.length + ' conversation' + (incoming.length === 1 ? '' : 's'), content: wrap, actions: [
-          { label: 'Cancel' },
-          { label: 'Import', primary: true, run: () => {
-            const replace = replaceRadio.checked;
-            if (replace && backup.checked) exportHistory();
-            const result = M.model.mergeThreads(threads.filter(t => !t.temporary), incoming, { replace });
-            threads = result.threads;
-            saveThreads();
-            if (hasExtras && extrasBox.checked) restoreExtras(extras).then(n => { if (n) showToast('Restored ' + n + ' more item' + (n === 1 ? '' : 's') + ' from the backup.'); });
-            const ensuredId = ensureThreadExists();
-            const target = (replace ? M.model.listThreads(threads)[0] : getThread(currentThreadId)) || M.model.listThreads(threads)[0];
-            renderThreadList();
-            if (target) selectThread(target.id); else if (ensuredId) selectThread(ensuredId);
-            const said = [];
-            if (result.added) said.push('imported ' + result.added + ' conversation' + (result.added === 1 ? '' : 's') + (result.copies ? ' (' + result.copies + ' as copies)' : ''));
-            if (result.duplicates) said.push(result.duplicates + ' already here and skipped');
-            if (result.removed) said.push(result.removed + ' replaced');
-            showToast(said.length ? said.join(', ').replace(/^./, c => c.toUpperCase()) + '.' : 'Nothing new to import.', 6000);
-          } }
-        ] });
-      }
-
-      async function clearChatHistory() {
-        if (!Array.isArray(threads) || threads.length === 0) {
-          showToast('No chat history to clear.');
-          return;
-        }
-        const confirmed = await confirmDialog('Delete all chat history?', 'This action cannot be undone.', 'Delete everything', { danger: true });
-        if (!confirmed) {
-          return;
-        }
-        threads = [];
-        currentThreadId = null;
-        try {
-          localStorage.removeItem(THREAD_KEY);
-          localStorage.removeItem(ACTIVE_THREAD_KEY);
-        } catch (err) {
-          console.warn('Unable to remove chat history from storage:', err);
-          saveThreads();
-        }
-        threadTitleInput.value = '';
-        systemPromptInput.value = '';
-        if (messageInput) {
-          messageInput.value = '';
-        }
-        if (messagesEl) {
-          messagesEl.innerHTML = '';
-        }
-        renderThreadList();
-        updateChatAvailability();
-        showToast('Chat history cleared.');
-      }
-
+      // ---- chat history in and out (chat/history/history-io.mjs) ----
+      const historyIo = createHistoryIo({
+        el, M: () => M, moduleBase, threads: () => threads, setThreads: list => { threads = list; }, currentThreadId: () => currentThreadId, clearCurrentThread: () => { currentThreadId = null; },
+        prefs, savePrefs, saveThreads, getThread, ensureThreadExists, selectThread, renderThreadList: () => renderThreadList(), updateChatAvailability, loadCrypto: () => loadCrypto(),
+        askPassphrase: (...a) => askPassphrase(...a), restoreExtras: (...a) => restoreExtras(...a), openAppDialog, confirmDialog, showToast, THREAD_KEY, ACTIVE_THREAD_KEY, importInput,
+        threadTitleInput, systemPromptInput, messageInput, messagesEl
+      });
+      const { exportHistory, importHistory, clearChatHistory } = historyIo;
 
       async function clearAllSettings() {
         const hasConfigData =
