@@ -98,6 +98,7 @@ try{
  await page.locator('#voiceCard .set-btn',{hasText:'Use'}).first().click();
  ok('Settings > Voice');
  // on a phone the composer must not overflow, and the voice pill must sit beside the model pill without covering anything
+ await page.evaluate(()=>{document.querySelector('#modelPill .shell-model-name').textContent='Qwen3.5-2B (light)';}); // a realistic, long model name
  await page.setViewportSize({width:390,height:800});await page.waitForTimeout(400);
  const geo=await page.evaluate(()=>{const bar=document.querySelector('.composer-bar'),b=bar.getBoundingClientRect();
   const boxes=['#shellPlus','#modelPill','#voicePill','#micBtn','#voiceModeBtn','#sendBtn'].map(id=>{const e=document.querySelector(id);if(!e)return null;const r=e.getBoundingClientRect();return {id,l:Math.round(r.left),r:Math.round(r.right),w:Math.round(r.width),h:Math.round(r.height),shown:r.width>0&&getComputedStyle(e).display!=='none'};}).filter(x=>x&&x.shown);

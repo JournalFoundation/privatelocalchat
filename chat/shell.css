@@ -271,3 +271,10 @@ body.shell .composer-bar .shell-voicepick { margin-left: 0 !important; }
 .shell-pop-note { margin: 6px 8px; padding: 8px 10px; border-radius: 10px; font-size: 0.82rem; line-height: 1.35; background: var(--plc-warning-tint); color: var(--plc-warning); max-width: 24em; }
 .shell-pop-note.error { background: var(--plc-danger-tint); color: var(--plc-danger); }
 .set-note.error { color: var(--plc-danger); } .set-note.slow { color: var(--plc-warning); }
+
+/* a phone has room for the model name only if it may shrink (with an ellipsis) beside the voice pill, the mic and the call button */
+@media (max-width: 520px) {
+  body.shell .composer-bar .shell-model:not(.shell-voicepick) { min-width: 0; flex: 0 1 auto; }
+  body.shell .composer-bar .shell-model:not(.shell-voicepick) .shell-model-name { min-width: 0; }
+  body.shell .composer-bar .shell-voicepick { flex: none; }
+}
