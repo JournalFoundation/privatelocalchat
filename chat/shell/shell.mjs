@@ -4,6 +4,7 @@
 
 import { iconNode } from "../icons.mjs";
 import { createRegistry } from "./registry.mjs";
+import { buildModelsPage } from "./models-page.mjs";
 import { hybridSearch, passagesFor, defaultFilters } from "./hybrid-search.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -346,7 +347,7 @@ export function createShell(app) {
   // ---- settings page ----
   const settings = buildSettings({ app, shell, registry, moved: { providerSettings, backupFiles, footer } });
   shell.openSettings = settings.open; shell.ownsFocusTarget = (el) => settings.contains(el);
-  badge.addEventListener("click", (e) => { e.stopImmediatePropagation(); settings.open("models", $("inferenceMode")); }, true);
+  badge.addEventListener("click", (e) => { e.stopImmediatePropagation(); settings.open("models", $("replyModeSeg")); }, true);
 
   // ---- search overlay ----
   const search = buildSearch({ app, registry });
@@ -408,81 +409,7 @@ function buildSettings({ app, shell, registry, moved }) {
   add("personalization", "Personalization", "user", "memory preferences instructions voice speed call sounds", () => h("div", {}, h("h2", { text: "Personalization" }), card(
     row("Memory & preferences", "What it remembers, voice, reply speed and call sounds. Never used in temporary chats.", btn("Manage", () => app.openPreferences())),
     row("Instructions for a chat", "Set these from the + menu in any chat.", null))));
-  add("models", "Models", "sliders", "model download remove delete storage provider api endpoint token device gpu", () => {
-    const w = h("div", { class: "set-moved" }, h("h2", { text: "Models and connection" }));
-    const installed = h("div", { class: "set-card", id: "installedModels" });
-    w.append(h("h3", { class: "set-sub", text: "On this device" }), installed);
-    const size = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : Math.round(n / 1e6) + " MB");
-    async function paint(inspect = true) {
-      const lm = window.localModels; if (!lm) return;
-      if (inspect) { try { await lm.inspectAll(); } catch { /* shown below as unknown */ } }
-      installed.textContent = "";
-      const st = lm.state; if (!st) return;
-      let total = 0;
-      for (const [tier, item] of Object.entries(st.tiers)) {
-        const present = item.install.bytesPresent || 0; total += present;
-        const loaded = st.load.state === "ready" && st.load.tier === tier;
-        const status = item.install.ok ? size(present) + " downloaded" : present ? size(present) + " partly downloaded" : "Not downloaded (" + size(item.info.downloadBytes) + ")";
-        const controls = h("div", { class: "set-control" });
-        if (loaded) controls.append(btn("Unload", async () => { try { await lm.freeMemory(); } catch (e) { app.toast?.(e.message); } paint(false); }));
-        if (present > 0) controls.append(btn("Remove", async () => { if (!confirm("Remove " + item.info.label + " from this device? Your chats are kept. You can download it again later.")) return; try { await lm.removeTier(tier); } catch (e) { alert(e.message); } paint(); }, "danger"));
-        installed.append(h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-label", text: item.info.label || item.info.modelId }), h("div", { class: "set-desc", text: status + (loaded ? " · loaded in memory" : "") + " · " + item.info.license })), controls));
-      }
-      installed.append(h("div", { class: "set-row" }, h("div", { class: "set-text" }, h("div", { class: "set-label", text: "Total on this device" }), h("div", { class: "set-desc", text: size(total) })), h("div", { class: "set-control" })));
-    }
-    w.paint = paint; w.addEventListener("shell-refresh", () => paint());
-    window.addEventListener("local-model-state", () => { if (!page.hidden && page.dataset.section === "models") paint(false); });
-    // Memory: one switch, and what is in memory right now (the model memory manager lists every kind of model the same way)
-    const memCard = h("div", { class: "set-card", id: "memoryCard" });
-    w.append(h("h3", { class: "set-sub", text: "Memory" }), memCard);
-    const MEM_WORDS = { unloaded: "Not in memory", loading: "Loading…", loaded: "In memory", unloading: "Unloading…", faulted: "Needs attention" };
-    let mm = null;
-    function paintMemory(snap) {
-      memCard.textContent = "";
-      const box = h("input", { type: "checkbox", id: "oneAtATime", "aria-label": "One model at a time" });
-      box.checked = snap.policy === "one-at-a-time";
-      box.addEventListener("change", () => mm.setPolicy(box.checked ? "one-at-a-time" : "keep"));
-      memCard.append(row("One model at a time", "Free the other models from memory whenever one is in use, so it gets the whole device. Replies and reading start a little later because models load again when they are needed. Off: the app tries whatever you ask, even if the device runs short, and tells you what is happening.", box));
-      if (snap.activity) memCard.append(h("div", { class: "set-note", role: "status", text: snap.activity.text }));
-      for (const r of snap.residents) {
-        const controls = h("div", { class: "set-control" });
-        if ((r.state === "loaded" || r.state === "faulted") && !r.busy) controls.append(btn("Unload", () => mm.unload(r.id)));
-        const size = r.estimateBytes ? " · about " + (r.estimateBytes >= 1e9 ? (r.estimateBytes / 1e9).toFixed(1) + " GB" : Math.round(r.estimateBytes / 1e6) + " MB") : "";
-        memCard.append(row(r.label.charAt(0).toUpperCase() + r.label.slice(1), (r.busy && r.state === "loaded" ? "Working now" : MEM_WORDS[r.state] || r.state) + size, controls));
-      }
-      if (snap.residents.some((r) => (r.state === "loaded" || r.state === "faulted") && !r.busy)) memCard.append(row("Free all memory", "Unload every model that is not working right now. Downloads are kept.", btn("Unload all", () => mm.unloadAll())));
-    }
-    (async () => { mm = await app.loadMemory?.(); if (!mm) return; const off = mm.subscribe((s) => { if (memCard.isConnected) paintMemory(s); else off(); }); paintMemory(mm.snapshot()); })();
-    w.append(h("h3", { class: "set-sub", text: "Choose and download" }), moved.providerSettings); return w;
-  });
-  add("voice", "Voice", "phone", "voice read aloud listen speak natural download sample system tts kokoro kitten", () => {
-    const w = h("div", { class: "set-moved" }, h("h2", { text: "Voice for reading aloud" }));
-    const box = h("div", { class: "set-card", id: "voiceCard" });
-    w.append(box);
-    let ctl = null, off = null;
-    function paint(snap) {
-      box.textContent = "";
-      if (!snap) { box.append(row("Voice", "System voice (the one your device provides).", null)); return; }
-      if (snap.notice) box.append(h("div", { class: "set-note " + snap.notice.kind, role: "status", text: snap.notice.text }));
-      for (const v of snap.voices) {
-        const controls = h("div", { class: "set-control" });
-        if (v.state === "installing" || v.state === "testing") controls.append(btn("Cancel", () => ctl.cancel(v.id)));
-        else if (v.selected) controls.append(h("span", { class: "set-desc", text: "In use" }));
-        else controls.append(btn(v.id === "os" || v.state === "ready" ? "Use" : v.state === "failed" ? "Try again" : "Download", () => chooseVoice(ctl, v.id, app.toast)));
-        if (v.id !== "os" && v.state === "ready") {
-          if (v.memory === "loaded") controls.append(btn("Unload from memory", () => ctl.release("person")));
-          controls.append(btn("Hear a sample", () => ctl.hearSample(v.id).catch((e) => app.toast?.(e.message))));
-          controls.append(btn("Remove", () => { if (confirm("Remove " + v.label + " from this device? Reading aloud goes back to the system voice if it was in use. You can download it again any time.")) ctl.remove(v.id); }, "danger"));
-        }
-        box.append(row(v.label, voiceDescription(v), controls));
-      }
-      box.append(row("Total on this device", snap.totalBytes ? voiceSize(snap.totalBytes) : "No voices downloaded", null));
-    }
-    async function start() { ctl = await app.loadVoice?.(); if (!ctl) { paint(null); return; } off?.(); off = ctl.subscribe(paint); paint(ctl.snapshot()); ctl.advise(); }
-    w.addEventListener("shell-refresh", () => { if (ctl) { paint(ctl.snapshot()); ctl.advise(); } });
-    start();
-    return w;
-  });
+  add("models", "Models", "sliders", "model models download remove delete storage provider api endpoint token device gpu voice read aloud listen speak sample system tts kokoro kitten memory unload language chat embedding", () => buildModelsPage({ app, h, row, btn, moved, chooseVoice }));
   add("data", "Data controls", "shield", "export import backup transfer delete archive trash storage", () => {
     const w = h("div", {}, h("h2", { text: "Data controls" }));
     w.append(card(
@@ -540,6 +467,7 @@ function buildSettings({ app, shell, registry, moved }) {
   const settings = {
     contains: (el) => Boolean(el && (page.contains(el) || stash.contains(el))),
     open(id = "general", focusEl = null, fromPicker = false) {
+      if (id === "voice") { id = "models"; focusEl = focusEl || (() => { const s = document.getElementById("voiceSection"); return s; })(); } // voices are a section of the Models page
       closePopover(); lastFocus = document.activeElement; page.hidden = false; document.body.classList.add("settings-open"); show(id);
       if (fromPicker) { const mode = $("inferenceMode"); if (mode && mode.value !== "api") { mode.value = "api"; mode.dispatchEvent(new Event("change")); } }
       if (focusEl) setTimeout(() => { try { focusEl.scrollIntoView({ block: "center", behavior: "smooth" }); focusEl.focus({ preventScroll: true }); } catch { /* not focusable */ } }, 60);

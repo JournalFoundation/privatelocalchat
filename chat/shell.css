@@ -296,3 +296,18 @@ body.shell .composer-bar .shell-voicepick { margin-left: 0 !important; }
 /* the chat model pill uses the same dot words as the voice pill: hollow = on the device, not in memory; pulsing amber = downloading or loading; solid = in memory */
 #modelPill[data-status="idle"] .shell-model-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--plc-success); }
 #modelPill[data-status="busy"] .shell-model-dot { animation: plc-voice-pulse 1s ease-in-out infinite; }
+
+/* Settings > Models: one page, one kind of row (chat/shell/models-page.mjs) */
+.set-models section { margin-bottom: 1.4rem; }
+.set-models .set-sub { margin: 1.2rem 0 .4rem; }
+.set-seg { display: inline-flex; gap: 0; border: 1px solid var(--color-border, #c9d2de); border-radius: 10px; overflow: hidden; }
+.set-seg .set-btn { border: 0; border-radius: 0; min-height: 40px; }
+.set-seg .set-btn[aria-pressed="true"] { background: var(--plc-accent, #2563eb); color: #fff; }
+.set-inuse { margin-left: .5rem; padding: 1px 8px; border-radius: 999px; font-size: .75rem; background: var(--plc-success-tint, rgba(34,160,90,.15)); color: var(--plc-success, #1a7f45); vertical-align: middle; }
+.model-row progress { display: block; width: 100%; margin-top: 6px; }
+.model-row .set-control { flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.set-models .set-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: .5rem 0; }
+.set-models .set-btn.primary { background: var(--plc-accent, #2563eb); color: #fff; border-color: transparent; }
+.set-models .set-btn.danger { color: var(--plc-danger, #b42318); }
+.set-models #advancedModels pre { max-height: 14rem; overflow: auto; font-size: .75rem; }
+.set-models .set-note[data-error="true"] { color: var(--plc-danger, #b42318); }

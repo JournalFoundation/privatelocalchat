@@ -1,6 +1,12 @@
 # Model UI: one integrated plan
 
-Status: PLAN ONLY, nothing below is built. Written 2026-11-03 after a survey of every place a model is chosen, loaded, downloaded, removed or explained.
+Status (2026-11-03): decisions in section 9 were all taken as recommended by the owner. BUILT: the wording fix; the picker toggle for chat models and voices
+(`toggleLocal` and `ctl.toggle` in `chat/shell/shell.mjs`, `chat/voice-choice.mjs`); `chat/models-view.mjs` (one vocabulary, tested); `window.localModels` actions and `view`
+(`local-models.js`); the rebuilt Settings > Models page (`chat/shell/models-page.mjs`: Language model, Connected provider, Voice, Other models, Memory and storage) with
+the Voice nav item removed (`openSettings("voice")` opens Models at the Voice section); the legacy panel hidden underneath (`#legacyModelForm`), nothing in the new UI
+reads or writes it. NOT BUILT: the composer pickers still build their own menu rows (they share the toggle and the words, not the row component); the Storage screen's
+model list; the provider form restyled as rows; deleting the hidden legacy DOM (needs `local-models.js` to stop rendering into it); a real-device pass of the new page.
+Written after a survey of every place a model is chosen, loaded, downloaded, removed or explained.
 Scope: all model picking and model management UI (chat models, connected providers, voices, the embedding model, memory). Companion to
 `docs/MODEL-MEMORY-PLAN.md` (the memory manager, already built) and `docs/VOICE-ENGINE-PLAN.md`.
 

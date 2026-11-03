@@ -53,27 +53,27 @@ try{
 
  // ---- local-mode readiness (Settings > Models, where the connection form lives)
  await openSettings('models');
- await page.selectOption('#inferenceMode','local');
- await page.waitForSelector('#readiness li.no');
- assert(await page.locator('#readiness li').count()===3&&await page.locator('#readiness li.yes').count()===0,'three states, none reached');
- assert(await page.locator('#advancedModel').evaluate(d=>!d.open),'advanced controls collapsed');
- assert(await page.locator('#freeMemory').isHidden(),'nothing to free yet, so no Free memory button');
+ await page.click('#replyModeSeg button:has-text("On this device")');
+ await page.waitForSelector('#modelReadiness li.no');
+ assert(await page.locator('#modelReadiness li').count()===3&&await page.locator('#modelReadiness li.yes').count()===0,'three states, none reached');
+ assert(await page.locator('#advancedModels').evaluate(d=>!d.open),'advanced controls collapsed');
+ assert(await page.locator('#installedModels button:has-text("Unload")').count()===0,'nothing to free yet, so no Unload button');
  // this browser has no usable graphics card, so the small model is offered on the processor (slower), with the way to make it faster
- assert(await page.locator('#setupPrivateChat').isVisible(),'setup is offered: the processor can run the small model');
- assert(/processor/.test(await page.locator('#modelDetails').innerText())&&await page.locator('#gpuHelp').isVisible(),'the slower processor path is explained, with what to try for speed');
+ assert(await page.locator('#installedModels .model-row[data-state="none"] button:has-text("Download")').first().isVisible(),'download is offered: the processor can run the small model');
+ assert(/processor/.test(await page.locator('#languageDetails').innerText())&&await page.locator('#languageDeviceHelp').isVisible(),'the slower processor path is explained, with what to try for speed');
  // a browser that can run neither (no WebAssembly SIMD) is told so instead of being offered a setup that cannot work
- await page.selectOption('#inferenceMode','api');
+ await page.click('#replyModeSeg button:has-text("Connected provider")');
  await page.addInitScript(()=>{const v=WebAssembly.validate.bind(WebAssembly);WebAssembly.validate=()=>false;});
  await page.reload();await page.waitForSelector('#shellRail');
  await openSettings('models');
- await page.selectOption('#inferenceMode','local');
+ await page.click('#replyModeSeg button:has-text("On this device")');
  await page.waitForFunction(()=>window.localModels?.supported===false);
- assert(await page.locator('#setupPrivateChat').isHidden()&&await page.locator('#downloadModel').isHidden(),'controls that cannot work here are not shown');
+ assert(await page.locator('#installedModels button.primary').count()===0,'controls that cannot work here are not shown');
  await closeSettings();
  await page.click('#newChatBtn');
  await page.waitForSelector('#emptyState #emptyProvider',{timeout:5000});
  assert(/cannot run|WebAssembly|graphics/i.test(await page.locator('#emptyState').innerText())&&await page.locator('#emptyProvider').isVisible(),'the empty chat explains that this browser cannot run an on-device model and offers a provider');
- await page.selectOption('#inferenceMode','api').catch(()=>{});
+ await page.click('#replyModeSeg button:has-text("Connected provider")').catch(()=>{});
  ok('readiness states');
 
  // ---- storage and backups
