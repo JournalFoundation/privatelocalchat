@@ -272,3 +272,21 @@ test("a stale error message is cleared by the next choice and by a successful do
   assert.equal(ctl.snapshot().notice, null, "the working voice shows no old failure");
   assert.equal(ctl.snapshot().selected, "kitten");
 });
+
+test("a failed download on a page that is out of date says so and asks the page to check for the update", async () => {
+  let asked = 0;
+  const { ctl } = make({ engines: { kitten: createFakeVoiceEngine({ failInstall: true }) }, ctl: { outdated: async () => true, onOutdated: () => { asked++; } } });
+  await ctl.init();
+  const r = await ctl.select("kitten");
+  assert.equal(r.ok, false); assert.equal(r.outdated, true); assert.equal(asked, 1);
+  assert.match(ctl.snapshot().notice.text, /updated while this page was open: reload the page/);
+});
+
+test("a failed download on a current page keeps the plain message and does not ask for an update", async () => {
+  let asked = 0;
+  const { ctl } = make({ engines: { kitten: createFakeVoiceEngine({ failInstall: true }) }, ctl: { outdated: async () => false, onOutdated: () => { asked++; } } });
+  await ctl.init();
+  const r = await ctl.select("kitten");
+  assert.equal(r.outdated, false); assert.equal(asked, 0);
+  assert.doesNotMatch(ctl.snapshot().notice.text, /updated while/);
+});

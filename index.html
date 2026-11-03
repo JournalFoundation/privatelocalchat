@@ -1170,6 +1170,7 @@
         var once = false; try { once = sessionStorage.getItem(tried) === build.commit; sessionStorage.setItem(tried, build.commit); } catch (e) { /* private mode */ }
         if (once) show('A newer version of PrivateLocal.Chat is available.', 'Update now', updateNow); else updateNow();
       });
+      window.addEventListener('plc-check-update', function () { newerBuild(function () { show('A newer version of PrivateLocal.Chat is available.', 'Update now', updateNow); }); });
       document.addEventListener('visibilitychange', function () {
         if (document.hidden || Date.now() - lastCheck < 300000) return;
         lastCheck = Date.now();

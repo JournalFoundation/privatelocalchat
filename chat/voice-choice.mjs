@@ -37,6 +37,13 @@ export function createVoiceChoice({
   config = VOICE_CONFIG,
   selfTestTimeoutMs = 90000,
   createContext,
+  // Is a newer build published than this page? A deploy replaces the old release folder, so a page left open can no longer fetch its voice files.
+  outdated = async () => {
+    const commit = globalThis.APP_BUILD?.commit;
+    if (!commit || typeof fetch !== "function") return false;
+    try { const r = await fetch("/version.json", { cache: "no-store" }); const v = r.ok ? await r.json() : null; return Boolean(v?.commit && v.commit !== commit); } catch { return false; }
+  },
+  onOutdated = () => { try { globalThis.dispatchEvent?.(new Event("plc-check-update")); } catch { /* no window */ } },
 } = {}) {
   const ios = isIOSDevice(userAgent, maxTouchPoints);
   let record = read();
@@ -250,8 +257,10 @@ export function createVoiceChoice({
       if (err?.name === "AbortError") { status[id] = { state: "none", progress: null, bytes: 0, error: null, metrics: null }; save(); emit(); return { ok: false, cancelled: true }; }
       noteFailure(id, plain(err));
       status[id] = { state: "failed", progress: null, bytes: 0, error: plain(err), metrics: null };
-      say("error", voiceOf(id).label + " could not be set up: " + plain(err) + ". Nothing was kept. You can try again.");
-      return { ok: false, reason: plain(err) };
+      let stale = false; try { stale = await outdated(); } catch { /* ignore */ }
+      if (stale) onOutdated();
+      say("error", voiceOf(id).label + " could not be set up: " + plain(err) + ". Nothing was kept. " + (stale ? "The app was updated while this page was open: reload the page, then try again." : "You can try again."));
+      return { ok: false, reason: plain(err), outdated: stale };
     } finally { aborts.delete(id); }
   }
 
