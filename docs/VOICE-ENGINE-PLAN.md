@@ -283,8 +283,9 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 - Git identity: the five commits under the placeholder name "Your Name" (3 and 4 November 2025) sit on the same days as 66 commits by the owner's two identities, in a repository that also has many Codex-created branches. They look like automated work done on the owner's behalf, not outside contributions. No other human author appears (`git shortlog`: John Benac, johnbenac, Claude, a release bot and the placeholder).
 - Licence field: `package.json` says `GPL-3.0-only`, the conservative reading of "GPL" (it does not hand future licence versions to anyone). It is compatible with every bundled component. Changing it to "or later" is a one-line edit in `package.json` and the notices if the owner prefers.
 
-**One check that needs the owner's phone**
-- Galaxy S8+: about 100 MB less free space than before the tests (Chrome's cache of the test files and the dev site's runtime cache). Chrome > Settings > Site settings > All sites > `dev.privatelocal.chat` > Clear & reset returns it. Clearing site data from a script was blocked, so this is left to the owner.
+**Closed: Galaxy S8+ storage.** With the owner's approval the `dev.privatelocal.chat` origin was cleared on the phone (service worker, private files, two databases, caches); that origin held 3.9 MB and the free space went from 288 MB to 290 MB, so the earlier drop (about 430 MB while charging at 8%) was not caused by the test files, which were removed each time. Nothing more is needed from the owner.
+
+**Closed: owner decisions**
 
 **A decision, not a task**
 - Kokoro as a second tier for GPU desktops (326 MB). Measured and viable (`docs/evidence/voice/kokoro-webgpu-spike.json`); it is held until the owner decides that the storage cost is acceptable.
