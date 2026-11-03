@@ -1503,7 +1503,7 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createEndpointTokens }, endpointUrls, { endpointOptions, escapeHtml, getEndpointOptionById, findEndpointOptionForValue }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/endpoint-tokens.mjs'), import(modulesAt + 'chat/provider/endpoint-urls.mjs'), import(modulesAt + 'chat/provider/endpoint-options.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createProviderSettings }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/provider-settings.mjs')]);
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // DOM element references
@@ -1562,16 +1562,8 @@
         });
       }
 
-      // Application state
-      let config = {
-        endpoint: '',
-        token: '',
-        model: '',
-        theme: ''
-      };
       let threads = [];
       let currentThreadId = null;
-      let models = [];
       let openThreadMenu = null;
       function placeMenu(menu, anchor) {
         document.body.appendChild(menu);
@@ -1588,68 +1580,10 @@
         menu.querySelector('button')?.focus();
       }
       let toastHideTimer = null;
-      let consecutiveAuthErrors = 0;
       const desktopMediaQuery = window.matchMedia('(min-width: 900px)');
 
       let activeModal = null;
       let activeModalTrigger = null;
-
-      const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-
-      const resolveTheme = preference =>
-        preference === 'light' || preference === 'dark'
-          ? preference
-          : prefersDarkScheme && prefersDarkScheme.matches
-            ? 'dark'
-            : 'light';
-
-      function updateThemeToggle(resolvedTheme, preference) {
-        if (!themeToggleBtn) return;
-        const themeIcon = themeToggleBtn.querySelector('.emoji-icon');
-        if (themeIcon) {
-          const glyph = resolvedTheme === 'dark' ? '🌙' : '☀️';
-          if (typeof M !== 'undefined' && M) themeIcon.replaceChildren(M.icons.iconNode(M.icons.EMOJI_ICON[glyph])); else themeIcon.textContent = glyph;
-        }
-        const followingSystem = preference !== 'light' && preference !== 'dark';
-        const labelAction = resolvedTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
-        const systemHint = 'Shift+click to follow system theme.';
-        const ariaLabel = followingSystem
-          ? `${labelAction}. Following system preference. ${systemHint}`
-          : `${labelAction}. ${systemHint}`;
-        themeToggleBtn.setAttribute('aria-label', ariaLabel);
-        themeToggleBtn.setAttribute('title', `${labelAction} · ${systemHint}`);
-        themeToggleBtn.setAttribute('aria-pressed', resolvedTheme === 'dark' ? 'true' : 'false');
-        const srLabel = themeToggleBtn.querySelector('.sr-only');
-        if (srLabel) {
-          const status = followingSystem
-            ? `Following system preference (currently ${resolvedTheme}).`
-            : `Preference set to ${resolvedTheme} mode.`;
-          srLabel.textContent = `${status} ${labelAction}. ${systemHint}`;
-        }
-      }
-
-      function applyTheme(preference) {
-        const resolved = resolveTheme(preference);
-        if (resolved === 'dark') {
-          document.documentElement.setAttribute('data-theme', 'dark');
-        } else {
-          document.documentElement.setAttribute('data-theme', 'light');
-        }
-        updateThemeToggle(resolved, preference);
-      }
-
-      if (prefersDarkScheme) {
-        const handleSchemeChange = () => {
-          if (config.theme !== 'light' && config.theme !== 'dark') {
-            applyTheme('');
-          }
-        };
-        if (typeof prefersDarkScheme.addEventListener === 'function') {
-          prefersDarkScheme.addEventListener('change', handleSchemeChange);
-        } else if (typeof prefersDarkScheme.addListener === 'function') {
-          prefersDarkScheme.addListener(handleSchemeChange);
-        }
-      }
 
       const promptUnavailableNoticeMessage = "You can't start chatting until you set an LLM API endpoint.";
 
@@ -1676,218 +1610,23 @@
         });
       }
 
-      const defaults = { endpoint: '', token: '', model: '', theme: '' };
       const CONFIG_KEY = 'chatConfig';
       const THREAD_KEY = 'chatThreads';
       const ACTIVE_THREAD_KEY = 'plc.activeThread.v1';
       const MODELS_KEY = 'chatModels';
       const ENDPOINT_TOKENS_KEY = 'chatEndpointTokens';
 
-      const promptedCopyFor = new Set();
-
-      // the token saved for each endpoint (chat/provider/endpoint-tokens.mjs)
-      const endpointTokens = createEndpointTokens({
-        storage: sessionStorage, key: ENDPOINT_TOKENS_KEY, base: window.location.href,
-        onSet: endpoint => { if (sessionStorage.getItem('plc.pendingToken.v1')) loadTransferUi().then(ui => ui.tokenSetFor(endpoint)).catch(() => {}); }
+      // ---- provider settings (chat/provider/provider-settings.mjs): endpoint, tokens, models, theme ----
+      const provider = createProviderSettings({
+        endpointSelect, endpointInput, endpointHint, tokenInput, peekTokenBtn, copyTokenBtn, modelSelect, refreshModelsBtn, themeToggleBtn, authGuidance, authHintText, clearSettingsBtn,
+        M: () => M, readJson: (...a) => readJson(...a), writeJson: (...a) => writeJson(...a), keys: { CONFIG_KEY, MODELS_KEY, ENDPOINT_TOKENS_KEY },
+        showToast, confirmDialog: (...a) => confirmDialog(...a), alertDialog: (...a) => alertDialog(...a), copyTextDialog: (...a) => copyTextDialog(...a),
+        updateChatAvailability, loadTransferUi, transferUiDiscardPending, openProviderSettings
       });
-      const canonicalizeEndpoint = value => endpointTokens.canonicalize(value);
-      const getTokenForEndpoint = endpoint => endpointTokens.get(endpoint);
-      /** The token for a request: the one saved for this exact destination, never one saved for another. */
-      const authTokenFor = endpoint => endpointTokens.get(endpoint);
-      const setTokenForEndpoint = (endpoint, token) => endpointTokens.set(endpoint, token);
-      const clearTokenForEndpoint = endpoint => endpointTokens.clear(endpoint);
-      const loadEndpointTokens = () => endpointTokens.load();
-
-      if (tokenInput) {
-        const setTokenMasked = masked => {
-          tokenInput.classList.toggle('masked', masked);
-          if (peekTokenBtn) {
-            const label = masked ? 'Show token' : 'Hide token';
-            peekTokenBtn.setAttribute('aria-pressed', String(!masked));
-            peekTokenBtn.setAttribute('aria-label', label);
-            peekTokenBtn.setAttribute('title', label);
-            const iconUse = peekTokenBtn.querySelector('use');
-            if (iconUse) {
-              iconUse.setAttribute('href', masked ? '#icon-eye' : '#icon-eye-off');
-            }
-          }
-        };
-
-        setTokenMasked(true);
-
-        if (peekTokenBtn) {
-          peekTokenBtn.addEventListener('click', () => {
-            setTokenMasked(!tokenInput.classList.contains('masked'));
-          });
-        }
-
-        if (copyTokenBtn) {
-          copyTokenBtn.addEventListener('click', async () => {
-            const value = tokenInput.value || '';
-            if (!value) {
-              showToast('Token field is empty');
-              return;
-            }
-
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              try {
-                await navigator.clipboard.writeText(value);
-                showToast('Token copied to clipboard');
-                return;
-              } catch (error) {
-                console.warn('Clipboard write failed', error);
-              }
-            }
-
-            copyTextDialog('Copy your API token', value);
-          });
-        }
-      }
-
-      function updateEndpointHint(option, currentValue) {
-        if (!endpointHint) return;
-        const target = option || getEndpointOptionById('choose');
-        let html = target.hint || '';
-        if (target.id === 'custom' && currentValue) {
-          html += `<br /><strong>Using:</strong> <code>${escapeHtml(currentValue)}</code>`;
-        } else if (target.baseUrl) {
-          html += `<br /><strong>Endpoint URL:</strong> <code>${escapeHtml(target.baseUrl)}</code>`;
-        }
-        if (!html) {
-          endpointHint.textContent = '';
-          endpointHint.hidden = true;
-        } else {
-          endpointHint.innerHTML = html;
-          endpointHint.hidden = false;
-        }
-      }
-
-      function syncEndpointControls(value) {
-        const option = findEndpointOptionForValue(value);
-        if (endpointSelect) {
-          endpointSelect.value = option.id;
-        }
-        updateEndpointHint(option, value);
-      }
-
-      function persistEndpointValue(value, { refresh = false, promptCopy = true } = {}) {
-        const normalized = (value || '').trim();
-        const previousEndpoint = config.endpoint;
-        if (config.endpoint !== normalized) {
-          config.endpoint = normalized;
-          persistConfig();
-          handleEndpointSwitch(previousEndpoint, normalized, { promptCopy });
-        }
-        syncEndpointControls(normalized);
-        updateChatAvailability();
-        consecutiveAuthErrors = 0;
-        updateAuthGuidance();
-        if (refresh) {
-          refreshModels({ silent: true });
-        }
-      }
-
-      function persistTokenValue(value, { refresh = false, remember = false, endpointForToken } = {}) {
-        const normalized = (value || '').trim();
-        if (config.token !== normalized) {
-          config.token = normalized;
-          persistConfig();
-        }
-        if (remember) {
-          const targetEndpoint =
-            typeof endpointForToken === 'string' && endpointForToken
-              ? endpointForToken
-              : endpointInput
-                ? endpointInput.value
-                : config.endpoint;
-          setTokenForEndpoint(targetEndpoint, normalized);
-        }
-        consecutiveAuthErrors = 0;
-        updateAuthGuidance();
-        if (refresh) {
-          refreshModels({ silent: true });
-        }
-      }
-
-      function handleEndpointSwitch(prevEndpoint, nextEndpoint, { promptCopy = true, refresh = false } = {}) {
-        if (!tokenInput) return;
-        const prevCanon = canonicalizeEndpoint(prevEndpoint);
-        const nextCanon = canonicalizeEndpoint(nextEndpoint);
-
-        let prevToken = '';
-        const hasPrevTokenStored = endpointTokens.has(prevEndpoint);
-        const trimmedConfigToken = (config.token || '').trim();
-        if (hasPrevTokenStored) {
-          prevToken = endpointTokens.get(prevEndpoint);
-        } else if (prevCanon && trimmedConfigToken) {
-          prevToken = trimmedConfigToken;
-          setTokenForEndpoint(prevEndpoint, prevToken);
-        } else {
-          prevToken = trimmedConfigToken;
-        }
-
-        let deferRefresh = false;
-        const hasSavedNextToken = endpointTokens.has(nextEndpoint);
-        const savedNextToken = endpointTokens.get(nextEndpoint);
-
-        if (hasSavedNextToken) {
-          if (tokenInput.value !== savedNextToken) {
-            tokenInput.value = savedNextToken;
-          }
-          persistTokenValue(savedNextToken, { refresh: false });
-        } else {
-          if (tokenInput.value) {
-            tokenInput.value = '';
-          }
-          persistTokenValue('', { refresh: false });
-
-          if (promptCopy && prevToken && nextCanon && !promptedCopyFor.has(nextCanon)) {
-            promptedCopyFor.add(nextCanon);
-            deferRefresh = refresh; // the model list is fetched after the answer, with the key if it was copied
-            confirmDialog('Copy your API key?', `No API key is saved for this endpoint.\n\nWould you like to copy your current key to:\n${nextCanon}\n\nNote: API keys are generally specific to the provider/endpoint.`, 'Copy key').then(confirmed => {
-              if (confirmed) {
-                tokenInput.value = prevToken;
-                persistTokenValue(prevToken, {
-                  refresh: false,
-                  remember: true,
-                  endpointForToken: nextEndpoint
-                });
-              }
-              if (refresh) refreshModels({ silent: true });
-            });
-          } else if (promptCopy && nextCanon && !promptedCopyFor.has(nextCanon)) {
-            promptedCopyFor.add(nextCanon);
-          }
-        }
-
-        if (refresh && !deferRefresh) {
-          refreshModels({ silent: true });
-        }
-      }
-
-      function applyEndpointOption(optionId) {
-        const option = getEndpointOptionById(optionId);
-        if (!option) return;
-        if (option.id === 'choose') {
-          endpointInput.value = '';
-        } else if (option.baseUrl) {
-          endpointInput.value = option.baseUrl;
-        }
-        persistEndpointValue(endpointInput.value, { refresh: true });
-      }
-
-      function populateEndpointSelect() {
-        if (!endpointSelect) return;
-        endpointSelect.innerHTML = '';
-        endpointOptions.forEach(option => {
-          const opt = document.createElement('option');
-          opt.value = option.id;
-          opt.textContent = option.label;
-          endpointSelect.appendChild(opt);
-        });
-        const currentValue = endpointInput ? endpointInput.value.trim() : '';
-        syncEndpointControls(currentValue);
-      }
+      const { applyTheme, resolveTheme, syncEndpointControls, persistEndpointValue, persistTokenValue, persistConfig, applyEndpointOption, populateEndpointSelect, loadModels,
+        storeModels, renderModelOptions, loadConfig, updateAuthGuidance, buildAuthErrorMessage, isAuthError, refreshModels, deriveChatCompletionsUrl, clearAllSettings,
+        applyImportedSettings, canonicalizeEndpoint, getTokenForEndpoint, authTokenFor, setTokenForEndpoint, clearTokenForEndpoint, loadEndpointTokens,
+        findEndpointOptionForValue } = provider;
 
       const readJson = (store, key, fallback) => {
         try {
@@ -1914,8 +1653,6 @@
           return false;
         }
       };
-
-      const persistConfig = () => writeJson(sessionStorage, CONFIG_KEY, config);
 
       function openModal(modalEl, { focusEl, triggerEl } = {}) {
         if (!modalEl || !modalBackdrop) {
@@ -1984,63 +1721,6 @@
         if (qs.get('about') === '1') {
           openAbout();
         }
-      }
-
-      function loadModels() {
-        models = readJson(sessionStorage, MODELS_KEY, []);
-      }
-
-      function storeModels(list) {
-        models = [...new Set(list.filter(Boolean))];
-        writeJson(sessionStorage, MODELS_KEY, models);
-      }
-
-      /**
-       * Render the model dropdown. If no models are loaded the select is disabled.
-       * @param {string[]} list list of model ids
-       * @param {string} desiredModel previously selected model
-       */
-      function renderModelOptions(list, desiredModel) {
-        const ids = [...new Set(list.filter(Boolean))];
-        modelSelect.innerHTML = '';
-        if (!ids.length) {
-          modelSelect.disabled = true;
-          const option = document.createElement('option');
-          option.value = '';
-          option.textContent = 'No models loaded';
-          modelSelect.appendChild(option);
-          if (config.model) {
-            config.model = '';
-            persistConfig();
-          }
-          updateChatAvailability();
-          return;
-        }
-
-        ids.forEach(id => {
-          const option = document.createElement('option');
-          option.value = id;
-          option.textContent = id;
-          modelSelect.appendChild(option);
-        });
-
-        modelSelect.disabled = false;
-        const selection = ids.includes(desiredModel) ? desiredModel : ids[0];
-        modelSelect.value = selection;
-        if (config.model !== selection) {
-          config.model = selection;
-          persistConfig();
-        }
-        updateChatAvailability();
-      }
-
-      function loadConfig() {
-        config = { ...defaults, ...readJson(sessionStorage, CONFIG_KEY, {}) };
-        endpointInput.value = config.endpoint;
-        tokenInput.value = config.token;
-        syncEndpointControls(config.endpoint);
-        applyTheme(config.theme);
-        renderModelOptions(models, config.model);
       }
 
       function loadThreads() {
@@ -2114,8 +1794,8 @@
         }
         const thread = currentThread();
         const hasThread = Boolean(thread);
-        const hasEndpoint = Boolean((config.endpoint || '').trim());
-        const hasModel = Boolean((config.model || '').trim());
+        const hasEndpoint = Boolean((provider.config.endpoint || '').trim());
+        const hasModel = Boolean((provider.config.model || '').trim());
         return {
           hasThread,
           hasEndpoint,
@@ -2427,16 +2107,16 @@
       }
       const STATUS = () => M.model.STATUS;
       function providerName() {
-        const option = findEndpointOptionForValue(config.endpoint);
+        const option = findEndpointOptionForValue(provider.config.endpoint);
         if (option && option.id !== 'choose' && option.id !== 'custom' && option.baseUrl && option.label) return option.label.split(' \u2014 ')[0].split(' (')[0];
-        try { return new URL(config.endpoint, location.href).hostname.replace(/^api\./, '') || 'your provider'; } catch { return 'your provider'; }
+        try { return new URL(provider.config.endpoint, location.href).hostname.replace(/^api\./, '') || 'your provider'; } catch { return 'your provider'; }
       }
       function modelLabel() {
         if (window.localModels?.mode === 'local') {
           const st = window.localModels.state, name = st?.tiers?.[st.selection.tier]?.info?.modelId;
           return (name || 'On-device model') + ' \u00B7 on this device';
         }
-        return (config.model || 'Provider model') + ' \u00B7 ' + providerName();
+        return (provider.config.model || 'Provider model') + ' \u00B7 ' + providerName();
       }
       const modeBadge = document.getElementById('modeBadge');
       function updateModeBadge() {
@@ -2864,7 +2544,7 @@
           if (result.finishReason === 'length') msg.status = S.LENGTH; else delete msg.status;
           generationStatus.textContent = msg.status === S.LENGTH ? 'The response reached the context limit.' : 'Response complete.';
           msg.model = modelLabel();
-          consecutiveAuthErrors = 0;
+          provider.authErrors = 0;
           updateAuthGuidance();
         } catch (err) {
           if (err?.name !== 'AbortError' && err?.code !== 'cancelled') console.error(err);
@@ -2879,7 +2559,7 @@
             const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
             msg.error = isAuthError(err) ? buildAuthErrorMessage(errorText) : errorText;
             generationStatus.textContent = 'The response was interrupted. ' + errorText;
-            consecutiveAuthErrors = isAuthError(err) ? Math.min(consecutiveAuthErrors + 1, 3) : 0;
+            provider.authErrors = isAuthError(err) ? Math.min(provider.authErrors + 1, 3) : 0;
           }
           updateAuthGuidance();
           // A stop that produced nothing leaves nothing behind.
@@ -2969,15 +2649,15 @@
           const text = await window.localModels.generate(messages, { signal, onToken: onText, onFinish: info => { finishReason = info?.finishReason || 'stop'; } });
           return { text, finishReason };
         }
-        if (!config.endpoint) throw new Error('Endpoint is not configured.');
-        if (!config.model) throw new Error('Model is not selected.');
+        if (!provider.config.endpoint) throw new Error('Endpoint is not configured.');
+        if (!provider.config.model) throw new Error('Model is not selected.');
         const headers = { 'Content-Type': 'application/json' };
-        const requestToken = authTokenFor(config.endpoint);
+        const requestToken = authTokenFor(provider.config.endpoint);
         if (requestToken) headers['Authorization'] = `Bearer ${requestToken}`;
         let chatEndpoint;
-        try { chatEndpoint = deriveChatCompletionsUrl(config.endpoint); } catch (err) { throw new Error('Invalid endpoint: ' + err.message); }
+        try { chatEndpoint = deriveChatCompletionsUrl(provider.config.endpoint); } catch (err) { throw new Error('Invalid endpoint: ' + err.message); }
         const payloadMessages = await docsUi.apiMessages(messages);
-        const post = stream => fetch(chatEndpoint, { method: 'POST', headers, body: JSON.stringify({ model: config.model, messages: payloadMessages, ...(stream ? { stream: true } : {}) }), signal });
+        const post = stream => fetch(chatEndpoint, { method: 'POST', headers, body: JSON.stringify({ model: provider.config.model, messages: payloadMessages, ...(stream ? { stream: true } : {}) }), signal });
         let response = await post(true);
         if (!response.ok && (response.status === 400 || response.status === 422)) response = await post(false); // a provider that rejects streaming
         if (!response.ok) {
@@ -3175,48 +2855,6 @@
         });
       }
 
-      function updateAuthGuidance() {
-        if (!authGuidance) {
-          return;
-        }
-        if (authHintText) {
-          authHintText.textContent = buildAuthHintMessage();
-        }
-        if (consecutiveAuthErrors >= 2) {
-          authGuidance.classList.add('active');
-          authGuidance.hidden = false;
-          authGuidance.setAttribute('aria-hidden', 'false');
-        } else {
-          authGuidance.classList.remove('active');
-          authGuidance.hidden = true;
-          authGuidance.setAttribute('aria-hidden', 'true');
-        }
-      }
-
-      function getActiveTokenValue() {
-        const inputValue = tokenInput && typeof tokenInput.value === 'string' ? tokenInput.value.trim() : '';
-        const storedValue = typeof config.token === 'string' ? config.token.trim() : '';
-        return inputValue || storedValue;
-      }
-
-      function buildAuthHintMessage() {
-        const token = getActiveTokenValue();
-        if (token) {
-          return 'Check that your saved API key is correct, has access to this provider, or consider regenerating it if it recently changed.';
-        }
-        return 'No API key is currently saved. Add one under Settings → API key if your provider requires it. Local endpoints and public routes such as OpenRouter’s model list may work without a key.';
-      }
-
-      function buildAuthErrorMessage(baseMessage) {
-        const message = typeof baseMessage === 'string' && baseMessage.trim() ? baseMessage.trim() : 'Error';
-        const hint = buildAuthHintMessage();
-        return hint ? `${message}\n\n${hint}` : message;
-      }
-
-      function isAuthError(err) {
-        return Boolean(err && (err.isAuthError || err.status === 401 || err.status === 403));
-      }
-
       /**
        * Close the thread action menu if open.
        */
@@ -3378,104 +3016,6 @@
       document.querySelectorAll('.thread-filter button').forEach(b => b.addEventListener('click', () => { convoList.setView(b.dataset.view); renderThreadList(); }));
 
       /**
-       * Given an endpoint (possibly relative) derive the URL for the models
-       * endpoint. This attempts to find the nearest version segment and
-       * replace the trailing path with 'models'.
-       * @param {string} endpoint base endpoint
-       */
-      const deriveModelsUrl = endpoint => endpointUrls.deriveModelsUrl(endpoint, window.location.href);
-      const deriveChatCompletionsUrl = endpoint => endpointUrls.deriveChatCompletionsUrl(endpoint, window.location.href);
-
-      /**
-       * Fetch the list of available models for the current endpoint and token.
-       * Updates the dropdown with the returned ids. Silent mode suppresses
-       * alerts for invalid endpoints or no models returned.
-       * @param {object} opts silent: when true suppresses alert messages
-       */
-      async function refreshModels({ silent } = {}) {
-        if (window.localModels?.mode !== "api") return;
-        const endpoint = endpointInput.value.trim() || config.endpoint;
-        if (!endpoint) {
-          if (!silent) {
-            alertDialog('Set an endpoint', 'Set an endpoint before refreshing models.');
-          }
-          updateChatAvailability();
-          return;
-        }
-        let modelsEndpoint;
-        try {
-          modelsEndpoint = deriveModelsUrl(endpoint);
-        } catch (err) {
-          console.error('Invalid endpoint:', err);
-          if (!silent) {
-            alertDialog('Invalid endpoint', err.message);
-          }
-          updateChatAvailability();
-          return;
-        }
-
-        if (config.endpoint !== endpoint) {
-          config.endpoint = endpoint;
-          persistConfig();
-        }
-
-        refreshModelsBtn.setAttribute('aria-busy', 'true');
-        const refreshLabelTarget = refreshModelsBtn.querySelector('.btn-label');
-        const originalLabel = refreshLabelTarget ? refreshLabelTarget.textContent : refreshModelsBtn.textContent;
-        if (refreshLabelTarget) {
-          refreshLabelTarget.textContent = 'Loading...';
-        } else {
-          refreshModelsBtn.textContent = 'Loading...';
-        }
-        try {
-          const headers = { Accept: 'application/json' };
-          const token = authTokenFor(endpoint) || tokenInput.value.trim();
-          if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-          }
-          const response = await fetch(modelsEndpoint, { method: 'GET', headers });
-          if (!response.ok) {
-            const error = new Error('Status ' + response.status);
-            error.status = response.status;
-            if (response.status === 401 || response.status === 403) {
-              error.isAuthError = true;
-            }
-            throw error;
-          }
-          const data = await response.json();
-          const ids = endpointUrls.parseModelIds(data);
-          if (!ids.length) {
-            throw new Error('No models returned.');
-          }
-          storeModels(ids);
-          renderModelOptions(models, config.model);
-          consecutiveAuthErrors = 0;
-          updateAuthGuidance();
-          if (!silent) {
-            showToast('Models updated.');
-          }
-        } catch (err) {
-          console.error('Failed to refresh models:', err);
-          if (!silent) {
-            const errorText = err && typeof err.message === 'string' && err.message ? err.message : 'Unknown error';
-            alertDialog('Could not load the models', buildAuthErrorMessage('Failed to load models: ' + errorText));
-          }
-          if (isAuthError(err)) {
-            consecutiveAuthErrors = Math.min(consecutiveAuthErrors + 1, 3);
-          }
-          updateAuthGuidance();
-        } finally {
-          refreshModelsBtn.removeAttribute('aria-busy');
-          if (refreshLabelTarget) {
-            refreshLabelTarget.textContent = originalLabel;
-          } else {
-            refreshModelsBtn.textContent = originalLabel;
-          }
-          updateChatAvailability();
-        }
-      }
-
-      /**
        * Export chat history to a JSON file. The user can download their
        * threads array as a structured JSON document.
        */
@@ -3487,45 +3027,6 @@
         threadTitleInput, systemPromptInput, messageInput, messagesEl
       });
       const { exportHistory, importHistory, clearChatHistory } = historyIo;
-
-      async function clearAllSettings() {
-        const hasConfigData =
-          Boolean((config.endpoint || '').trim()) ||
-          Boolean((config.token || '').trim()) ||
-          Boolean((config.model || '').trim()) ||
-          Boolean((config.theme || '').trim()) ||
-          models.length > 0;
-        if (!hasConfigData) {
-          showToast('No settings to clear.');
-          return;
-        }
-        const confirmed = await confirmDialog('Reset all settings?', 'This removes your endpoint, token, model selection, cached models, and theme preference.', 'Reset settings', { danger: true });
-        if (!confirmed) {
-          return;
-        }
-        try {
-          sessionStorage.removeItem(CONFIG_KEY);
-          sessionStorage.removeItem(MODELS_KEY);
-          sessionStorage.removeItem(ENDPOINT_TOKENS_KEY);
-        } catch (err) {
-          console.warn('Unable to clear settings from storage:', err);
-        }
-        config = { ...defaults };
-        models = [];
-        transferUiDiscardPending();
-        consecutiveAuthErrors = 0;
-        endpointTokens.reset();
-        promptedCopyFor.clear();
-        endpointInput.value = '';
-        tokenInput.value = '';
-        syncEndpointControls('');
-        applyTheme(config.theme);
-        renderModelOptions(models, config.model);
-        persistConfig();
-        updateAuthGuidance();
-        updateChatAvailability();
-        showToast('Settings cleared.');
-      }
 
       // ---- sharing and transfer flows (dialogs live in chat/transfer/transfer-ui.mjs) -------------------------------------------------
       let transferUi = null, transferUiLoading = null;
@@ -3545,51 +3046,27 @@
         try { sessionStorage.removeItem('plc.pendingToken.v1'); } catch (err) { /* nothing stored */ }
         transferUi?.renderPending();
       }
-      const stringifyTheme = value => (value === 'light' || value === 'dark' ? value : '');
-      /** Applies reviewed settings. A blank incoming field leaves what is already set; tokens stay with the destination they were saved for. */
-      function applyImportedSettings(next, { token = null, clearToken = false, models: fileModels = null } = {}) {
-        const previous = { ...config };
-        const endpointChanged = (next.endpoint || '') !== (previous.endpoint || '');
-        config = { ...defaults, ...config, endpoint: next.endpoint || '', model: next.model || '', theme: stringifyTheme(next.theme) };
-        if (clearToken && next.endpoint) clearTokenForEndpoint(next.endpoint);
-        if (typeof token === 'string' && token.trim() && next.endpoint) setTokenForEndpoint(next.endpoint, token);
-        const effective = next.endpoint ? getTokenForEndpoint(next.endpoint) : '';
-        config.token = effective;
-        persistConfig();
-        endpointInput.value = config.endpoint;
-        tokenInput.value = effective;
-        syncEndpointControls(config.endpoint);
-        applyTheme(config.theme);
-        if (Array.isArray(fileModels) && fileModels.length) storeModels([...fileModels, ...models]);
-        // the imported model stays selected even before the list can be refreshed (for example while a token is still locked)
-        if (config.model && !models.includes(config.model)) storeModels([...models, config.model]);
-        renderModelOptions(models, config.model);
-        consecutiveAuthErrors = 0;
-        updateAuthGuidance();
-        updateChatAvailability();
-        return { endpointChanged };
-      }
       const transferApp = {
         siteConfig: window.SITE_CONFIG || {},
         callRoberta: () => loadRoberta().then(r => r.openCall()),
-        getConfig: () => ({ ...config }),
+        getConfig: () => ({ ...provider.config }),
         tokens: {
           get: endpoint => getTokenForEndpoint(endpoint),
           set: (endpoint, token) => {
             setTokenForEndpoint(endpoint, token);
-            if (canonicalizeEndpoint(endpoint) === canonicalizeEndpoint(config.endpoint)) { persistTokenValue(token, { refresh: false }); tokenInput.value = (token || '').trim(); }
+            if (canonicalizeEndpoint(endpoint) === canonicalizeEndpoint(provider.config.endpoint)) { persistTokenValue(token, { refresh: false }); tokenInput.value = (token || '').trim(); }
           }
         },
         applySettings: applyImportedSettings,
         // provider requests start only after the destination was reviewed and the token question is settled
         async credentialsResolved({ endpoint, changed = true, unlocked = false } = {}) {
           const ST = await settingsTransferModule();
-          if (!config.endpoint || (endpoint && !ST.sameDestination(endpoint, config.endpoint))) return;
-          const wanted = config.model;
-          if (changed || unlocked || (config.model && !models.includes(config.model))) await refreshModels({ silent: true });
+          if (!provider.config.endpoint || (endpoint && !ST.sameDestination(endpoint, provider.config.endpoint))) return;
+          const wanted = provider.config.model;
+          if (changed || unlocked || (provider.config.model && !provider.models.includes(provider.config.model))) await refreshModels({ silent: true });
           // the model that came with the settings stays selected even if this provider's list does not show it (some providers accept more than they list)
-          if (wanted && config.model !== wanted) {
-            storeModels([...models, wanted]); config.model = wanted; persistConfig(); renderModelOptions(models, wanted);
+          if (wanted && provider.config.model !== wanted) {
+            storeModels([...provider.models, wanted]); provider.config.model = wanted; persistConfig(); renderModelOptions(provider.models, wanted);
             showToast('The model \u201C' + wanted + '\u201D is not in this provider\u2019s list. It was kept; choose another if requests fail.', 6000);
           }
           updateAuthGuidance();
@@ -3614,7 +3091,7 @@
           downloadText('private-local-chat-' + new Date().toISOString().slice(0, 10) + '.encrypted.json', JSON.stringify(envelope), 'application/json');
           prefs.lastExportAt = Date.now(); savePrefs(); updateBackupNudge();
         },
-        qrColors: () => (resolveTheme(config.theme) === 'dark' ? { dark: '#f8fafc', light: '#111827' } : { dark: '#000000', light: '#ffffff' }),
+        qrColors: () => (resolveTheme(provider.config.theme) === 'dark' ? { dark: '#f8fafc', light: '#111827' } : { dark: '#000000', light: '#ffffff' }),
         openAboutModal: () => openAbout()
       };
       /** Take what this page's address carried out of the address bar once it has been read and kept. */
@@ -3705,23 +3182,7 @@
         updateComposerHint();
         if (sessionStorage.getItem('plc.pendingToken.v1')) loadTransferUi();
         document.getElementById('newChatBtn').addEventListener('click', () => newThread());
-        populateEndpointSelect();
-        loadModels();
-        loadConfig();
-        loadEndpointTokens();
-        const initialEndpoint = (config.endpoint || '').trim();
-        if (initialEndpoint) {
-          const initialCanon = canonicalizeEndpoint(initialEndpoint);
-          if (initialCanon && endpointTokens.has(initialEndpoint)) {
-            const storedToken = endpointTokens.get(initialEndpoint);
-            if (tokenInput && tokenInput.value !== storedToken) {
-              tokenInput.value = storedToken;
-            }
-            persistTokenValue(storedToken, { refresh: false });
-          } else if ((config.token || '').trim()) {
-            setTokenForEndpoint(initialEndpoint, config.token);
-          }
-        }
+        provider.restore();
         await applyConfigFromUrl();
         loadThreads();
         // Check if URL contains chat data and create a thread accordingly
@@ -3738,7 +3199,7 @@
         } else {
           updateChatAvailability();
         }
-        if (!models.length && config.endpoint) {
+        if (!provider.models.length && provider.config.endpoint) {
           refreshModels({ silent: true });
         }
         pruneOrphanDocs();
@@ -3750,64 +3211,7 @@
       });
       updateAuthGuidance();
 
-      // Attach event listeners
-      let endpointDebounceTimer = null;
-
-      if (endpointSelect) {
-        endpointSelect.addEventListener('change', () => {
-          applyEndpointOption(endpointSelect.value);
-        });
-      }
-      if (endpointInput) {
-        endpointInput.addEventListener('input', () => {
-          syncEndpointControls(endpointInput.value.trim());
-          if (endpointDebounceTimer) {
-            clearTimeout(endpointDebounceTimer);
-          }
-          endpointDebounceTimer = window.setTimeout(() => {
-            endpointDebounceTimer = null;
-            persistEndpointValue(endpointInput.value, { refresh: true });
-          }, 1600);
-        });
-        endpointInput.addEventListener('change', () => {
-          if (endpointDebounceTimer) {
-            clearTimeout(endpointDebounceTimer);
-            endpointDebounceTimer = null;
-          }
-          persistEndpointValue(endpointInput.value, { refresh: true });
-        });
-      }
-      if (tokenInput) {
-        tokenInput.addEventListener('input', () => {
-          updateAuthGuidance();
-        });
-        tokenInput.addEventListener('change', () => {
-          persistTokenValue(tokenInput.value, { refresh: true, remember: true });
-        });
-        tokenInput.addEventListener('blur', () => {
-          const trimmed = (tokenInput.value || '').trim();
-          const normalizedConfigToken = (config.token || '').trim();
-          if (trimmed !== normalizedConfigToken) {
-            persistTokenValue(tokenInput.value, { refresh: false, remember: true });
-          } else {
-            const activeEndpointValue = endpointInput ? endpointInput.value : config.endpoint;
-            if ((activeEndpointValue || '').trim()) {
-              setTokenForEndpoint(activeEndpointValue, trimmed);
-            }
-          }
-        });
-        tokenInput.addEventListener('paste', () => {
-          window.setTimeout(() => {
-            persistTokenValue(tokenInput.value, { refresh: false, remember: true });
-          }, 0);
-        });
-      }
-      refreshModelsBtn.addEventListener('click', () => refreshModels());
-      modelSelect.addEventListener('change', () => {
-        config.model = modelSelect.value;
-        persistConfig();
-        updateChatAvailability();
-      });
+      provider.bind();
       messageForm.addEventListener('submit', handleSendMessage);
       messageInput.addEventListener('input', () => {
         updateSendButtonDisabled(getChatState().ready);
@@ -3846,26 +3250,6 @@
       importConfigInput.addEventListener('change', importConfig);
       if (clearSettingsBtn) {
         clearSettingsBtn.addEventListener('click', clearAllSettings);
-      }
-      if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', event => {
-          if (event.shiftKey) {
-            if (config.theme === 'light' || config.theme === 'dark') {
-              config.theme = '';
-              persistConfig();
-              applyTheme('');
-              showToast('Theme now follows your system setting.');
-            } else {
-              showToast('Theme already follows your system setting.');
-            }
-            return;
-          }
-          const nextTheme = resolveTheme(config.theme) === 'dark' ? 'light' : 'dark';
-          config.theme = nextTheme;
-          persistConfig();
-          applyTheme(nextTheme);
-          showToast(`Switched to ${nextTheme} theme.`);
-        });
       }
       if (importSettingsShortcut) {
         importSettingsShortcut.addEventListener('click', event => {
