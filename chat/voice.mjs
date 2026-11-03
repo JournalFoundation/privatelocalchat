@@ -71,7 +71,7 @@ export function createSentenceStream({ onSentence, clean = (s) => s, minChars = 
 }
 
 /** Speaks queued sentences one after another. speakOne(text) -> { done: Promise, stop() }. */
-export function createSpeaker(speakOne, { onError } = {}) {
+export function createSpeaker(speakOne, { onError, onBegin } = {}) {
   const queue = []; let current = null, running = false, waiters = [], generation = 0;
   const settle = () => { if (!running && !queue.length) { const w = waiters; waiters = []; w.forEach((f) => f()); } };
   async function run() {
@@ -79,6 +79,7 @@ export function createSpeaker(speakOne, { onError } = {}) {
     const mine = generation;
     while (queue.length && mine === generation) {
       const text = queue.shift();
+      onBegin?.(text);
       current = speakOne(text);
       try { await current.done; } catch (e) { if (mine === generation) { queue.length = 0; onError?.(e); } }
       current = null;
@@ -96,10 +97,15 @@ export function createSpeaker(speakOne, { onError } = {}) {
 
 export function createVoiceSession({ listen, speakOne, send, abortReply, onState = () => {}, clean = (s) => s, unlockAudio = () => {}, keepAwake = () => {}, setTimer = setTimeout, clearTimer = clearTimeout, silenceMs = 1400, restartMs = 250, minChars = 2, connectMs = 0 }) {
   let connectTimer = null, recDead = false;
+  let sentence = "", userText = "", writing = false;
   let active = false, confirmed = false, state = "idle", heard = "", rec = null, silence = null, restart = null, replyDone = true, muted = false, turn = 0, spokeAny = false;
   const set = (next, info = {}) => { state = next; onState(next, { heard, muted, ...info }); };
-  const speaker = createSpeaker(speakOne, { onError: (e) => { fail(e.message || "This browser could not speak the reply."); } });
-  const stream = createSentenceStream({ clean, onSentence: (text) => { spokeAny = true; speaker.enqueue(text); if (state !== "speaking") set("speaking", { caption: text }); } });
+  const speaker = createSpeaker(speakOne, {
+    onError: (e) => { fail(e.message || "This browser could not speak the reply."); },
+    // a sentence is being turned into sound (it may take a while): said as such until the sound really starts
+    onBegin: (text) => { sentence = text; if (state === "speaking") set("speaking", { caption: text, phase: "preparing" }); }
+  });
+  const stream = createSentenceStream({ clean, onSentence: (text) => { spokeAny = true; speaker.enqueue(text); if (state !== "speaking") set("speaking", { caption: text, phase: "preparing" }); } });
   const stopListening = () => { clearTimer(silence); clearTimer(restart); silence = restart = null; recDead = false; try { rec?.abort(); } catch { /* not running */ } rec = null; };
   function fail(message, code) { stopListening(); speaker.clear(); active = false; keepAwake(false); set("error", { message, code }); }
 
@@ -148,8 +154,8 @@ export function createVoiceSession({ listen, speakOne, send, abortReply, onState
     const text = heard.trim();
     if (text.length < minChars) return;
     stopListening();
-    turn++; replyDone = false; spokeAny = false; stream.reset();
-    set("thinking", { caption: text });
+    turn++; replyDone = false; spokeAny = false; writing = false; userText = text; stream.reset();
+    set("thinking", { caption: text, phase: "thinking" });
     Promise.resolve().then(() => send(text)).catch((e) => fail(e?.message || "The message could not be sent."));
   }
 
@@ -178,8 +184,15 @@ export function createVoiceSession({ listen, speakOne, send, abortReply, onState
     pause(reason = "background") { if (!active) return; if (state === "listening") { stopListening(); set("paused", { reason }); } },
     resume() { if (active && state === "paused" && !muted) startListening(); },
     // the app reports the reply as it is written
-    replyStarted() { if (!active) return; replyDone = false; spokeAny = false; stream.reset(); if (state !== "thinking") set("thinking"); },
-    replyText(full) { if (active && !replyDone) stream.update(full); },
+    replyStarted() { if (!active) return; replyDone = false; spokeAny = false; writing = false; stream.reset(); if (state !== "thinking") set("thinking", { phase: "thinking" }); },
+    replyText(full) {
+      if (!active || replyDone) return;
+      // the first words of the reply have arrived: the model is writing now (was: loading or waiting)
+      if (!writing && state === "thinking" && String(full).trim()) { writing = true; set("thinking", { caption: userText, phase: "writing" }); }
+      stream.update(full);
+    },
+    /** The sound of the current sentence has really started (it was only being made until now). */
+    audioStarted() { if (active && state === "speaking") set("speaking", { caption: sentence, phase: "playing" }); },
     replyEnded({ text = "", ok = true, stopped = false } = {}) {
       if (!active) return;
       if (stopped) { // the reply was cut short (interrupted, or never began): nothing more to say, so listen again

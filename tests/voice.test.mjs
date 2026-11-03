@@ -30,16 +30,16 @@ test('the speaker plays in order, can be cleared, and reports idle',async()=>{
 });
 // ---- the session, with a hand-driven clock and fake microphone/voice
 function rig(opts={}){
- let now=0,timers=[],id=0;const log=[],states=[],spoken=[],sent=[];let rec=null,aborts=0,listens=0,speakDelay=1;
+ let now=0,timers=[],id=0;const log=[],states=[],phases=[],spoken=[],sent=[];let rec=null,aborts=0,listens=0,speakDelay=1;
  const setTimer=(fn,ms)=>{const t={id:++id,at:now+ms,fn};timers.push(t);return t.id;};
  const clearTimer=i=>{timers=timers.filter(t=>t.id!==i);};
  const advance=async ms=>{const end=now+ms;for(;;){const next=timers.filter(t=>t.at<=end).sort((a,b)=>a.at-b.at)[0];if(!next)break;now=next.at;timers=timers.filter(t=>t!==next);next.fn();await Promise.resolve();await Promise.resolve();}now=end;await Promise.resolve();};
  const session=createVoiceSession({
   listen:h=>{listens++;rec={...h,aborted:false,abort(){this.aborted=true;aborts++;}};return rec;},
   speakOne:text=>{spoken.push(text);let stop;const done=new Promise(r=>{stop=r;setTimer(r,speakDelay);});return {done,stop:()=>stop()};},
-  send:async t=>{sent.push(t);},abortReply:()=>log.push('abort-reply'),onState:(s,i)=>states.push(s),
+  send:async t=>{sent.push(t);},abortReply:()=>log.push('abort-reply'),onState:(s,i)=>{states.push(s);phases.push(s+':'+(i.phase||''));},
   unlockAudio:()=>log.push('unlock'),keepAwake:v=>log.push('awake:'+v),setTimer,clearTimer,silenceMs:1000,restartMs:200,...opts});
- return {session,advance,log,states,spoken,sent,get rec(){return rec;},get listens(){return listens;},get aborts(){return aborts;},setSpeakDelay:v=>{speakDelay=v;}};
+ return {session,advance,log,states,phases,spoken,sent,get rec(){return rec;},get listens(){return listens;},get aborts(){return aborts;},setSpeakDelay:v=>{speakDelay=v;}};
 }
 test('start unlocks audio, keeps the screen on and listens; a pause after speaking sends what was said',async()=>{
  const r=rig();r.session.start();
@@ -119,4 +119,25 @@ test('while connecting: a refused microphone fails the call at once, a recognise
  r=rig({connectMs:1500});r.session.start();r.session.setMuted(true);assert.equal(r.session.state,'connecting');await r.advance(1600);
  assert.equal(r.session.state,'paused','connected, but muted');assert.equal(r.listens,1);
  r=rig({connectMs:1500});r.session.start();r.session.stop();await r.advance(2000);assert.equal(r.session.state,'idle','hanging up while it rings');
+});
+
+test('a call says what it is doing: thinking, writing the reply, making the sound, and only then speaking',async()=>{
+ const r=rig();r.session.start();r.rec.onText({final:'hello there',interim:''});await r.advance(1100);
+ assert.ok(r.phases.includes('thinking:thinking'),'waiting for the model');
+ r.session.replyStarted();
+ r.session.replyText('Cats');
+ assert.ok(r.phases.includes('thinking:writing'),'the first words arrived: the model is writing');
+ assert.equal(r.phases.filter(p=>p==='thinking:writing').length,1,'announced once per reply');
+ r.session.replyText('Cats are small mammals. They sleep a lot, ');
+ await r.advance(5);
+ assert.equal(r.phases.at(-1),'speaking:preparing','a sentence is being turned into sound, not yet spoken');
+ r.session.audioStarted();
+ assert.equal(r.phases.at(-1),'speaking:playing','the sound really started');
+ r.session.replyText('Cats are small mammals. They sleep a lot, mostly during the day. Dogs differ.');
+ r.session.replyEnded({text:'Cats are small mammals. They sleep a lot, mostly during the day. Dogs differ.'});
+ await r.advance(5);
+ assert.ok(r.phases.filter(p=>p==='speaking:preparing').length>=2,'each later sentence is made before it is heard');
+});
+test('audioStarted outside speaking does nothing',async()=>{
+ const r=rig();r.session.start();const n=r.phases.length;r.session.audioStarted();assert.equal(r.phases.length,n);
 });

@@ -4390,7 +4390,7 @@
       // Underneath: listen -> send -> speak the reply while it is written -> listen again (chat/voice.mjs).
       let voiceSession = null, voiceUi = null, wakeLock = null, callSounds = null;
       const CALL_RING_MS = 1600;
-      const call = { startedAt: null, ticker: null, endedTimer: null, prev: 'idle', failed: false };
+      const call = { startedAt: null, ticker: null, endedTimer: null, prev: 'idle', failed: false, log: [], noticeTimer: null, lastVoiceNotice: 0 };
       const callSoundsOn = () => prefs.callSounds !== false;
       const buzz = ms => { try { if (callSoundsOn()) navigator.vibrate?.(ms); } catch { /* not supported */ } };
       const callIcon = (name, fallback) => { const n = M && M.icons ? M.icons.iconNode(name) : null; if (n) return n; const f = el('span', null, fallback); f.setAttribute('aria-hidden', 'true'); return f; };
@@ -4401,6 +4401,10 @@
         const status = el('p', 'call-status'); status.id = 'callStatus'; status.setAttribute('role', 'status');
         const timer = el('p', 'call-timer', '0:00'); timer.id = 'callTimer'; timer.setAttribute('role', 'timer'); timer.setAttribute('aria-live', 'off');
         top.append(name, status, timer);
+        // which models are in memory right now: the chat model and the voice (chips follow the same states as the pickers)
+        const models = el('div', 'call-models'); models.setAttribute('role', 'group'); models.setAttribute('aria-label', 'Models in use');
+        const chip = id => { const c = el('span', 'call-chip'); c.id = id; c.dataset.state = 'none'; c.append(el('span', 'call-chip-dot'), el('span', 'call-chip-text')); models.appendChild(c); return c; };
+        const chipChat = chip('callChipChat'), chipVoice = chip('callChipVoice');
         const avatar = el('div', 'call-avatar'); avatar.setAttribute('aria-hidden', 'true');
         for (let i = 1; i <= 3; i++) avatar.appendChild(el('span', 'call-ring r' + i));
         const face = el('span', 'call-face'); const mark = el('img'); mark.src = '/brand/mark-dark.svg'; mark.alt = ''; mark.width = 64; mark.height = 64; face.appendChild(mark); avatar.appendChild(face);
@@ -4408,6 +4412,8 @@
         const who = el('p', 'call-who'); who.setAttribute('aria-hidden', 'true');
         const caption = el('p', 'call-caption'); caption.id = 'voiceCaption'; caption.setAttribute('aria-live', 'off');
         captionBox.append(who, caption);
+        const log = el('ol', 'call-log'); log.setAttribute('aria-label', 'This call'); log.setAttribute('aria-live', 'off');
+        const notice = el('p', 'call-notice'); notice.setAttribute('role', 'status'); notice.hidden = true;
         const hint = el('p', 'call-hint voice-hint');
         const sendNow = el('button', 'call-link', 'Send now'); sendNow.type = 'button'; sendNow.id = 'callSendNow'; sendNow.hidden = true;
         const resume = el('button', 'call-pill', 'Tap to talk'); resume.type = 'button'; resume.id = 'callResume'; resume.hidden = true;
@@ -4419,7 +4425,7 @@
         const skip = control('voiceInterrupt', 'skip', '⏭', 'Skip'); skip.b.setAttribute('aria-label', 'Skip what is being said');
         const end = control('voiceEnd', 'hangup', '✕', 'End call', 'call-end'); end.b.setAttribute('aria-label', 'End call');
         const row = el('div', 'call-controls'); row.append(mute.wrap, skip.wrap, end.wrap);
-        root.append(top, avatar, captionBox, hint, sendNow, resume, row);
+        root.append(top, models, avatar, log, captionBox, notice, hint, sendNow, resume, row);
         messageForm.parentNode.insertBefore(root, messageForm);
         sendNow.addEventListener('click', () => voiceSession?.tap());
         resume.addEventListener('click', () => voiceSession?.tap());
@@ -4427,7 +4433,7 @@
         skip.b.addEventListener('click', () => voiceSession?.interrupt());
         end.b.addEventListener('click', () => endVoice());
         root.addEventListener('keydown', e => { if (e.key === 'Escape') endVoice(); });
-        return { root, status, timer, who, caption, hint, sendNow, resume, mute, skip, end };
+        return { root, status, timer, who, caption, hint, sendNow, resume, mute, skip, end, models, chipChat, chipVoice, log, notice };
       }
       const callElapsed = () => (call.startedAt === null ? 0 : (Date.now() - call.startedAt) / 1000);
       function startTimer() {
@@ -4436,7 +4442,8 @@
       }
       function hideCall() {
         clearInterval(call.ticker); clearTimeout(call.endedTimer); clearTimeout(call.stallTimer); clearInterval(call.waitTicker); call.ticker = call.endedTimer = call.stallTimer = call.waitTicker = null; call.startedAt = null;
-        if (voiceUi) voiceUi.root.hidden = true;
+        clearTimeout(call.noticeTimer); call.noticeTimer = null; call.log = [];
+        if (voiceUi) { voiceUi.root.hidden = true; voiceUi.notice.hidden = true; voiceUi.notice.textContent = ''; voiceUi.log.textContent = ''; }
         document.body.classList.remove('voice-on');
       }
       const callWords = {
@@ -4445,6 +4452,8 @@
         thinking: ['Thinking…', ''],
         speaking: ['Speaking', '']
       };
+      // finer than the state: what the app is really doing right now (thinking, writing the text, making the sound, playing it)
+      const callPhaseWords = { 'thinking:thinking': 'Thinking…', 'thinking:writing': 'Writing the reply…', 'speaking:preparing': 'Preparing the voice…', 'speaking:playing': 'Speaking' };
       // what the call is waiting on, said out loud on screen instead of a silent pause
       function callWaitNote() {
         const lm = window.localModels;
@@ -4455,25 +4464,82 @@
         if (st?.busy || lm.installed) return 'Loading ' + cm + ' into memory. The call continues when it is ready.';
         return 'The on-device model is not downloaded yet. Pick it in the model menu to download it, then call again.';
       }
-      // a spoken reply that never finishes (some phones stall the voice engine) is cut off, and the text stays on screen
-      function watchSpeech(state, caption) {
+      // A notice on the call screen that stays a while (a spoken reply that could not be made, a voice that fell back to the system voice).
+      function showCallNotice(text, ms = 14000) {
+        if (!voiceUi) return;
+        clearTimeout(call.noticeTimer);
+        voiceUi.notice.textContent = text; voiceUi.notice.hidden = !text;
+        if (text) call.noticeTimer = setTimeout(() => { if (voiceUi) { voiceUi.notice.hidden = true; voiceUi.notice.textContent = ''; } }, ms);
+      }
+      // A spoken reply whose sound never starts is given up on, and the reply stays on screen as text. This is the "making the sound" phase only: once sound is playing it is fine.
+      function watchSpeech(state, info) {
         clearTimeout(call.stallTimer); call.stallTimer = null;
-        if (state !== 'speaking') return;
-        const ms = 20000 + String(caption || '').length * 90;
+        if (state !== 'speaking' || info.phase !== 'preparing') return;
+        let base = 35000; // longer than the voice engine's own limit, which falls back to the system voice first
+        /* DEV_DIAGNOSTICS_START */
+        if (window.__plcCallStallMs) base = window.__plcCallStallMs; // test hook: stripped from production builds
+        /* DEV_DIAGNOSTICS_END */
+        const ms = base + String(info.caption || '').length * 150;
         call.stallTimer = setTimeout(() => {
           if (call.prev !== 'speaking') return;
           try { voiceSession?.interrupt(); } catch { /* the call may already have ended */ }
-          if (voiceUi) voiceUi.hint.textContent = 'The voice stopped responding, so the reply is shown as text. You can keep talking.';
-          showToast('Spoken reply stalled; showing it as text instead.');
+          showCallNotice('The spoken reply stalled: the voice made no sound in time. The reply is shown as text instead. You can keep talking.', 20000);
         }, ms);
+      }
+      // ---- the models in memory (chips) ----
+      let modelsViewMod = null;
+      const chipWord = vm => ({ loaded: 'loaded', busy: 'working', loading: 'loading…', downloaded: 'unloaded', none: 'not downloaded', testing: 'testing…', failed: 'failed' }[vm.state] || (vm.state === 'downloading' ? 'downloading' + (vm.progress != null ? ' ' + Math.round(vm.progress * 100) + '%' : '') : ''));
+      async function refreshCallChips() {
+        if (!voiceUi || voiceUi.root.hidden) return;
+        modelsViewMod ||= await import(moduleBase() + 'chat/models-view.mjs');
+        const lm = window.localModels, ui = voiceUi;
+        if (lm?.mode === 'api') { ui.chipChat.dataset.state = 'provider'; ui.chipChat.querySelector('.call-chip-text').textContent = 'Replies: ' + providerName(); }
+        else if (lm?.state) {
+          const vm = modelsViewMod.languageRows(lm.state, { mode: 'local' }).find(r => r.inUse) || modelsViewMod.languageRows(lm.state, { mode: 'local' })[0];
+          ui.chipChat.dataset.state = vm ? vm.state : 'none'; ui.chipChat.querySelector('.call-chip-text').textContent = 'Chat model ' + (vm ? (vm.modelId || vm.label) + ': ' + chipWord(vm) : '');
+        }
+        const vctl = await loadVoiceChoice().catch(() => null);
+        if (vctl) {
+          const sel = modelsViewMod.voiceRows(vctl.snapshot()).find(r => r.inUse);
+          if (!sel || sel.kind === 'system') { ui.chipVoice.dataset.state = 'system'; ui.chipVoice.querySelector('.call-chip-text').textContent = 'Voice: system voice'; }
+          else { ui.chipVoice.dataset.state = sel.state; ui.chipVoice.querySelector('.call-chip-text').textContent = 'Voice ' + sel.label + ': ' + chipWord(sel); }
+        }
+      }
+      window.addEventListener('local-model-state', () => { refreshCallChips().catch(() => {}); });
+      loadVoiceChoice().then(c => { c?.subscribe(snap => {
+        refreshCallChips().catch(() => {});
+        const n = snap.notice; if (voiceSession?.active && n && n.kind === 'error' && n.at !== call.lastVoiceNotice) { call.lastVoiceNotice = n.at; showCallNotice(n.text); }
+      }); }).catch(() => {});
+      // ---- the call's messages, fading as the list grows ----
+      const CALL_LOG_MAX = 6;
+      function callLogAdd(who, text) { call.log.push({ who, text }); if (call.log.length > 40) call.log.shift(); renderCallLog(); }
+      function callLogLive(text) { // the reply being written: one entry that grows
+        const last = call.log[call.log.length - 1];
+        if (last && last.live) last.text = text; else call.log.push({ who: 'Private Local Chat', text, live: true });
+        renderCallLog();
+      }
+      function callLogEnd(text) { const last = call.log[call.log.length - 1]; if (last && last.live) { if (text) last.text = text; delete last.live; } renderCallLog(); }
+      function renderCallLog() {
+        if (!voiceUi) return;
+        const items = call.log.slice(-CALL_LOG_MAX), box = voiceUi.log; box.textContent = '';
+        items.forEach((m, i) => {
+          const age = items.length - 1 - i; // 0 = newest
+          const li = el('li', 'call-log-item ' + (m.who === 'You' ? 'you' : 'them') + (m.live ? ' live' : ''));
+          li.style.opacity = String(Math.max(0.16, 1 - age * 0.2));
+          li.append(el('span', 'call-log-who', m.who), el('span', 'call-log-text', m.text));
+          box.appendChild(li);
+        });
+        box.scrollTop = box.scrollHeight;
       }
       function renderVoice(state, info = {}) {
         renderVoiceInner(state, info);
         if (!voiceUi) return;
-        watchSpeech(state, info.caption);
+        watchSpeech(state, info);
+        if (state === 'thinking' && info.phase === 'thinking') showCallNotice('');
         clearInterval(call.waitTicker); call.waitTicker = null;
+        refreshCallChips().catch(() => {});
         if (state === 'connecting' || state === 'thinking') {
-          const put = () => { if (voiceUi && !voiceUi.hint.textContent.startsWith('The voice stopped')) voiceUi.hint.textContent = callWaitNote(); };
+          const put = () => { if (voiceUi) voiceUi.hint.textContent = callWaitNote(); };
           put(); call.waitTicker = setInterval(() => { if (call.prev === 'connecting' || call.prev === 'thinking') put(); else { clearInterval(call.waitTicker); call.waitTicker = null; } }, 1000);
         } else if (state === 'listening' && !info.caption) voiceUi.hint.textContent = callWaitNote();
       }
@@ -4493,7 +4559,7 @@
           return;
         }
         clearTimeout(call.endedTimer); call.endedTimer = null;
-        ui.root.hidden = false; ui.root.dataset.state = state; document.body.classList.add('voice-on');
+        ui.root.hidden = false; ui.root.dataset.state = state; ui.root.dataset.phase = info.phase || ''; document.body.classList.add('voice-on');
         if (state === 'connecting') {
           call.startedAt = null; call.failed = false; ui.timer.textContent = '0:00';
           ui.status.textContent = callWords.connecting[0]; ui.who.textContent = ''; ui.caption.textContent = ''; ui.hint.textContent = '';
@@ -4510,10 +4576,11 @@
         }
         if (call.startedAt === null) { startTimer(); if (before === 'connecting') { callSounds?.connected(); buzz(25); } }
         const muted = state === 'paused' && info.reason === 'muted', hold = state === 'paused' && info.reason === 'background';
-        ui.status.textContent = muted ? 'Muted' : hold ? 'On hold' : state === 'paused' ? 'Tap to talk' : (callWords[state] || ['', ''])[0];
+        ui.status.textContent = muted ? 'Muted' : hold ? 'On hold' : state === 'paused' ? 'Tap to talk' : callPhaseWords[state + ':' + (info.phase || '')] || (callWords[state] || ['', ''])[0];
         ui.hint.textContent = muted ? 'Your microphone is off. Unmute to talk.' : hold ? 'The call was put on hold while the app was in the background.' : '';
         const speaking = state === 'speaking', yours = state === 'listening' || state === 'thinking';
         ui.who.textContent = info.caption ? (speaking ? 'Private Local Chat' : yours ? 'You' : '') : '';
+        ui.root.classList.toggle('call-has-log', call.log.length > 0);
         ui.caption.textContent = info.caption || '';
         ui.sendNow.hidden = !(state === 'listening' && info.caption);
         ui.resume.hidden = !(state === 'paused' && !muted);
@@ -4538,9 +4605,9 @@
         voiceUi ||= buildVoiceUi();
         voiceSession = voiceMod.createVoiceSession({
           listen: handlers => speechMod.startDictation(handlers),
-          speakOne: text => speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1, interrupt: false, ...voiceOpts() }),
+          speakOne: text => speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1, interrupt: false, onAudio: () => voiceSession?.audioStarted(), ...voiceOpts() }),
           send: async text => {
-            replyBegan = false;
+            replyBegan = false; callLogAdd('You', text);
             messageInput.value = text; growComposer();
             await handleSendMessage({ preventDefault() {} });
             if (!replyBegan) voiceSession.replyEnded({ stopped: true }); // answered without the model, or not sent
@@ -4561,6 +4628,7 @@
         if (callSoundsMod && !callSounds) callSounds = callSoundsMod.createCallSounds({ enabled: callSoundsOn });
         const session = ensureVoiceSession(); if (!session) return;
         setPressed(voiceBtn, true);
+        call.log = []; renderCallLog();
         session.start();
         voiceUi.mute.b.focus({ preventScroll: true });
       }
@@ -4574,9 +4642,10 @@
       // the reply, as it is written, goes to the voice
       replyListeners.push({
         start: thread => { replyBegan = true; if (voiceSession?.active && thread.id === currentThreadId) voiceSession.replyStarted(); },
-        text: (thread, full) => { if (voiceSession?.active && thread.id === currentThreadId) voiceSession.replyText(full); },
+        text: (thread, full) => { if (voiceSession?.active && thread.id === currentThreadId) { voiceSession.replyText(full); callLogLive(full); } },
         end: (thread, msg) => {
           if (!voiceSession?.active) return;
+          callLogEnd(msg.content || '');
           if (msg.status === 'stopped' || msg.status === 'cancelled') voiceSession.replyEnded({ stopped: true });
           else voiceSession.replyEnded({ text: msg.content || '', ok: msg.status !== 'failed' });
         }
