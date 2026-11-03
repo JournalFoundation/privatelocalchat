@@ -147,3 +147,27 @@ html.locked .lock-screen { display: flex; }
 .model-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .sidebar > * { flex-shrink: 0; }
 .chats-section .thread-list { max-height: min(45vh, 28rem); overflow-y: auto; min-height: 0 !important; }
+
+/* ---- the lock: a closed padlock when locked; a short reminder with a countdown ring when the app has no passcode ----------------------------------------- */
+.lock-icon { display: flex; justify-content: center; margin-bottom: 0.25rem; }
+.lock-icon .padlock { width: 4.5rem; height: 4.5rem; color: var(--color-muted-text); }
+.lock-screen h2 { text-align: center; }
+.lock-note { text-align: center; margin: 0 0 0.25rem; }
+html.splashing #app { visibility: hidden; animation: lock-reveal 0s 8s forwards; } /* never stays hidden if the script fails */
+@keyframes lock-reveal { to { visibility: visible; } }
+.lock-splash { position: fixed; inset: 0; z-index: 3200; display: flex; align-items: center; justify-content: center; background: var(--color-bg); padding: 1.25rem; overflow-y: auto; }
+.lock-splash-card { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; width: min(26rem, 100%); text-align: center; }
+.lock-splash h2 { margin: 0; font-size: 1.5rem; }
+.lock-splash-lead { margin: 0; font-size: 1.05rem; line-height: 1.4; }
+.lock-add { position: relative; display: grid; place-items: center; gap: 0.2rem; width: 12.5rem; height: 12.5rem; margin: 0.5rem 0; padding: 1.5rem 1.6rem 1.1rem; border: 0; border-radius: 50%; background: var(--color-surface, rgba(127, 127, 127, 0.1)); color: var(--color-text); cursor: pointer; font: inherit; }
+.lock-add:hover { background: var(--color-thread-hover, rgba(127, 127, 127, 0.18)); }
+.lock-add:focus-visible { outline: 3px solid var(--plc-focus, #2563eb); outline-offset: 5px; }
+.lock-add-icon { width: 4.4rem; height: 4.4rem; color: var(--plc-warning, #c77d00); }
+.lock-add-label { font-weight: 650; font-size: 0.95rem; line-height: 1.2; max-width: 7.5rem; }
+.lock-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
+.lock-ring-track { stroke: rgba(127, 127, 127, 0.25); }
+.lock-ring-arc { stroke: var(--plc-warning, #c77d00); stroke-linecap: round; stroke-dasharray: 289; stroke-dashoffset: 0; animation: lock-unfill linear forwards; }
+@keyframes lock-unfill { to { stroke-dashoffset: 289; } } /* the arc gives itself back, end first, counterclockwise */
+.lock-skip, .lock-never { min-height: var(--plc-control-min, 44px); }
+.lock-never { font-size: 0.85rem; opacity: 0.8; }
+.lock-disclaimer { margin: 0.5rem 0 0; font-size: 0.78rem; line-height: 1.4; color: var(--color-muted-text); }

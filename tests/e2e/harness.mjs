@@ -19,6 +19,7 @@ export async function launch({build=true,port:basePort=18271,viewport={width:128
   if(!sessionStorage.getItem('chatConfig'))sessionStorage.setItem('chatConfig',JSON.stringify({endpoint,token:'',model:'fake-model',theme:'light'}));
   if(!sessionStorage.getItem('chatModels'))sessionStorage.setItem('chatModels',JSON.stringify(['fake-model']));
   if(!localStorage.getItem('plc.inferenceMode.v1'))localStorage.setItem('plc.inferenceMode.v1','api');
+  if(!('plc.lockSplash.v1' in storage)&&!localStorage.getItem('plc.lockSplash.v1'))localStorage.setItem('plc.lockSplash.v1','off'); // the not-locked reminder is tested on its own
   for(const [k,v] of Object.entries(storage))if(!localStorage.getItem(k))localStorage.setItem(k,v);
  },{endpoint:`http://127.0.0.1:${api.port}/v1`,storage});
  if(init)await page.addInitScript(init);

@@ -429,7 +429,16 @@ function buildSettings({ app, shell, registry, moved }) {
     w.append(h("p", { class: "set-note", text: "Nothing is sent anywhere to train on. There is no account." }));
     return w;
   });
-  add("security", "Security", "lock", "lock passcode app lock", () => h("div", {}, h("h2", { text: "Security" }), card(row("App lock", "Ask for a passcode before the app opens on this device.", btn("Set up", () => app.openLockSettings())))));
+  add("security", "Security", "lock", "lock passcode app lock reminder splash not locked", () => {
+    const box = h("input", { type: "checkbox", id: "lockReminder", "aria-label": "Remind me when the app is not locked" });
+    const sync = () => { box.checked = window.plcLock ? window.plcLock.reminderOn() : true; };
+    box.addEventListener("change", () => window.plcLock?.setReminder(box.checked));
+    const w = h("div", {}, h("h2", { text: "Security" }), card(
+      row("App lock", "Ask for a passcode before the app opens on this device. Any passphrase will do, even one character.", btn("Set up", () => app.openLockSettings())),
+      row("Not-locked reminder", "When the app has no passcode, show a short reminder as it opens, with a button to add one.", box)));
+    w.addEventListener("shell-refresh", sync); sync();
+    return w;
+  });
   add("roberta", "Roberta & voice", "phone", "roberta call dictation voice", () => h("div", {}, h("h2", { text: "Roberta & voice" }), card(
     row("Call Roberta", "A scripted guide to the app. She is not an AI model.", btn("Open Roberta", () => { settings.close(); shell.openRoberta(); })),
     row("Voice, speed and call sounds", "Choose the voice used to read answers aloud.", btn("Open", () => app.openPreferences())))));
