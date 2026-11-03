@@ -42,7 +42,7 @@ Step 3 depends on step 4 (the transfer glue is mostly the provider settings), so
 - [ ] **5. Conversation list and search results** (about 180 + the search part of the 380).
 - [x] **6. Preferences, presets, memory, exact tools** (2026-11-03): `chat/assistant/assistant.mjs`. `index.html` 5,025 -> 4,864 lines.
 - [x] **7. Speech, dictation and voice notes** (2026-11-03): `chat/voice/voice-ui.mjs` holds the speech services, Listen, dictation, the Dictate and Voice call buttons and voice notes with the recorder. `index.html` 5,214 -> 5,025 lines.
-- [ ] **8. Roberta glue, context meter, storage and backups** (about 260): each into its own folder.
+- [x] **8. Roberta glue, context meter, storage and backups** (2026-11-03): `chat/roberta/roberta-glue.mjs`, `chat/context/context-ui.mjs`, `chat/storage/storage-ui.mjs`, `chat/transfer/backups.mjs`. `index.html` 4,864 -> 4,632 lines.
 - [ ] **9. The chat core and the config, token and thread state around it** (about 820, plus the state): `chat/core/`. Last, and in slices (state first, with tests), because everything depends on it.
 
 ## Not part of this plan
