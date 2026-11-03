@@ -18,11 +18,16 @@ try {
   const probes = await page.evaluate(async (url) => {
     const { runComputeProbe } = await import(URL.createObjectURL(new Blob([url.code], { type: 'text/javascript' })));
     const out = [];
-    for (let i = 0; i < 3; i++) out.push(await runComputeProbe());
+    for (let i = 0; i < 3; i++) { const t = performance.now(); const r = await runComputeProbe(); out.push({ ...r, wallMs: Math.round(performance.now() - t) }); }
     return out;
   }, vp);
   console.log('probe results', JSON.stringify(probes));
-  for (const p of probes) { assert(Number.isFinite(p.ms) && p.ms > 0, 'probe ms finite'); assert(!p.timedOut && !p.error, 'probe did not time out'); }
+  for (const p of probes) {
+    assert(Number.isFinite(p.ms) && p.ms > 0, 'probe ms finite'); assert(!p.timedOut && !p.error, 'probe did not time out');
+    assert(Array.isArray(p.samples) && p.samples.length === 3, 'one call took three samples');
+    assert([...p.samples].sort((a, b) => a - b)[1] === p.ms, 'the result is the median of the samples');
+    assert(p.wallMs < 4000, 'the three samples fit well inside the hard timeout: ' + p.wallMs + ' ms');
+  }
 
   const noWasm = await page.evaluate(async (url) => {
     const { runComputeProbe, measureKernel } = await import(URL.createObjectURL(new Blob([url.code], { type: 'text/javascript' })));

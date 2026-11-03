@@ -121,3 +121,28 @@ test("calibrated probe limit: the machines that ran the voice well pass, the Gal
   for (const ms of [measured.centroid, measured.boiler, measured.n100]) assert.equal(pick({ probe: { ms }, config: VOICE_CONFIG }).offer, true, `probe ${ms} ms`);
   assert.equal(pick({ probe: { ms: measured.s8plus }, config: VOICE_CONFIG }).reason, "probe-too-slow");
 });
+
+// The simulated-slower-CPU sweep (docs/evidence/voice/calibration-throttling.json, docs/VOICE-CALIBRATION.md): probe median and the warm run of each engine.
+import { readFileSync } from "node:fs";
+const sweep = JSON.parse(readFileSync(new URL("../docs/evidence/voice/calibration-throttling.json", import.meta.url), "utf8")).sweepDefaultThreads.rates;
+const at = (rate, engine) => { const r = sweep[rate], w = r.engines[engine].warmRun; return { probe: { ms: r.probeMedianMs }, realTimeFactor: w.realTimeFactor, firstAudioMs: w.firstAudioMs }; };
+
+test("throttled sweep: the probe advice limit sits below where Kitten stops starting a 20 s reply in time, with a margin", () => {
+  for (const rate of [1, 2, 4]) assert.equal(voiceIsFastEnough(at(rate, "kitten")), true, `kitten at slowdown ${rate}`);
+  for (const rate of [6, 8, 12, 20]) assert.equal(voiceIsFastEnough(at(rate, "kitten")), false, `kitten at slowdown ${rate}`);
+  assert.ok(sweep[6].probeMedianMs / VOICE_CONFIG.probeMaxMs >= 1.5, "margin of at least 1.5 to the first failing slowdown (probe 859 ms)");
+  assert.ok(VOICE_CONFIG.probeMaxMs >= measured.n100, "the slowest desktop that ran the voice well stays inside");
+  assert.equal(pick({ probe: at(2, "kitten").probe, config: VOICE_CONFIG }).offer, true);
+  assert.equal(pick({ probe: at(6, "kitten").probe, config: VOICE_CONFIG }).reason, "probe-too-slow");
+});
+
+test("throttled sweep: Kokoro is recommended only while its 20 s start delay is bearable, with a margin", () => {
+  assert.equal(voiceIsFastEnough(at(1, "kokoro")), true);
+  assert.equal(voiceIsFastEnough(at(2, "kokoro")), true);
+  for (const rate of [4, 6, 8, 12, 20]) assert.equal(voiceIsFastEnough(at(rate, "kokoro")), false, `kokoro at slowdown ${rate}`);
+  const cpu = (ms) => pick({ env: { cores: 8, deviceMemoryGB: 32, webgpu: { available: false } }, probe: { ms }, config: VOICE_CONFIG }).candidate;
+  assert.equal(cpu(sweep[1].probeMedianMs), "kokoro");
+  assert.equal(cpu(measured.boiler), "kokoro");
+  assert.equal(cpu(sweep[2].probeMedianMs), "kitten");
+  assert.ok(VOICE_CONFIG.qualityProbeMaxMs >= measured.boiler * 1.25, "the measured 150 ms desktop keeps at least 25 percent margin");
+});
