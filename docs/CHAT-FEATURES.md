@@ -4,7 +4,7 @@ What the chat experience does beyond running a model, where each part lives, wha
 
 ## Better read-aloud voice (optional)
 
-Read-aloud uses the system voice by default. On a device that can run it, after a first successful read-aloud the app offers one quiet suggestion: a more natural voice, **Kitten TTS nano** (27.6 MB, English, works offline, Apache-2.0 model; the program that runs it contains eSpeak NG, GPL-3.0, see `THIRD-PARTY-NOTICES.md`). Nothing downloads without a tap.
+Read-aloud uses the system voice by default. On a device that can run it, after a first successful read-aloud the app offers one quiet suggestion: a more natural voice: **Kokoro** (96.5 MB) on a desktop-class machine or one with a real graphics card, otherwise **Kitten TTS nano** (27.6 MB). Both are English, work offline and have Apache-2.0 models; the program that runs it contains eSpeak NG, GPL-3.0, see `THIRD-PARTY-NOTICES.md`). Nothing downloads without a tap.
 
 * **Who is offered it.** iPhone and iPad never are: they always use the system voice and never load a second model beside the chat model. Everywhere else the app measures the device (`chat/voice-probe.mjs`, a short WebAssembly benchmark in a worker; `chat/storage-check.mjs`, a real write test because phone browsers overstate free space) and `runtime/voice-pick.mjs` decides. On the test machines the probe read 137 to 216 ms where the voice ran at 3.3 to 5.5 times real time, and the Galaxy S8+ hit the 4,000 ms cap and ran at 0.26 times, so it is not offered.
 * **Real time is not required.** A voice slower than playback is kept if sound starts soon and playback can begin without stutter after a bearable wait. A hopelessly slow or failing voice is removed automatically and the system voice takes over again.

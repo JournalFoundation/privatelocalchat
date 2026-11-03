@@ -6,7 +6,7 @@ Private Local Chat is released under the **GNU General Public License, version 3
 
 | Component | Used for | Licence | Source |
 |---|---|---|---|
-| **eSpeak NG** (embedded in the npm package `phonemizer` 1.2.1, file `chat/vendor/voice/worker.js`) | Turning text into phonemes for the optional downloaded read-aloud voice | **GPL-3.0-or-later** | https://github.com/espeak-ng/espeak-ng |
+| **eSpeak NG** (embedded in the npm package `phonemizer` 1.2.1, file `chat/vendor/voice/worker.js`) | Turning text into phonemes for the optional downloaded read-aloud voices (Kitten and Kokoro) | **GPL-3.0-or-later** | https://github.com/espeak-ng/espeak-ng |
 | `phonemizer` 1.2.1 (JavaScript wrapper, by Xenova) | Loads the eSpeak NG build above | Apache-2.0 | https://github.com/xenova/phonemizer.js |
 | ONNX Runtime Web 1.31.1 | Runs the voice model in the browser (`chat/vendor/voice/`) | MIT | https://github.com/microsoft/onnxruntime |
 | fflate 0.8.3 | Reads the voice file archive | MIT | https://github.com/101arrowz/fflate |
@@ -23,6 +23,7 @@ The complete corresponding source of every GPL-covered part is this repository, 
 | Model | Used for | Licence | Hosted at |
 |---|---|---|---|
 | Kitten TTS nano 0.8 (int8), KittenML | Optional natural read-aloud voice | Apache-2.0 (model card) | `models/Kitten-TTS-Nano-0.8-int8/` on the project asset host, with its licence text beside the files |
+| Kokoro-82M v1.0 (q8 ONNX), hexgrad / onnx-community | Optional, more natural read-aloud voice on devices that can run it | Apache-2.0 (model card). The model card names training audio under CC BY 3.0 (Koniwa) and CC BY 4.0 (SIWIS), plus synthetic audio; the data notice is stored with the licence text | `models/Kokoro-82M-v1.0-ONNX-q8/` on the project asset host, with its licence text beside the files |
 | Qwen3.5, LFM2.5, Granite 4.0 | On-device chat | Apache-2.0, LFM Open License v1.0 | see `docs/RUNTIMES.md` and the licence text stored beside each model |
 
 Model files are separate works. Their licences, not the GPL, apply to them.

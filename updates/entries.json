@@ -7,7 +7,7 @@
       "title": "An optional, more natural read-aloud voice",
       "summary": "After you listen to an answer with the system voice, the app can offer a more natural voice that works offline. It only appears on devices that can run it, and nothing downloads until you tap.",
       "points": [
-        "The voice (Kitten TTS nano, 27.6 MB, English) is checked file by file against pinned hashes. Settings > Voice shows its size and has Sample, Unload and Remove buttons; Remove deletes everything it stored.",
+        "Two voices are available: Kokoro (96.5 MB) on machines with a graphics card or a fast processor, and Kitten TTS nano (27.6 MB) on other capable devices. Both are English and checked file by file against pinned hashes. Only one is kept; Settings > Voice shows its size and has Sample, Unload and Remove buttons, and Remove deletes everything it stored.",
         "The app measures your device first, including a real storage test, and removes the voice again if it turns out to be too slow. iPhone and iPad always keep their system voice.",
         "The program that runs the voice contains eSpeak NG, so Private Local Chat is now released under the GNU General Public License, version 3. The notices list every component and its source."
       ],

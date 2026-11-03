@@ -21,8 +21,8 @@ export const DECLINE_MS = 30 * 864e5;
 export const GATE_COOLDOWN_MS = 14 * 864e5;
 export const SAMPLE_TEXT = "This is how I will read your answers aloud. If you like it, keep this voice.";
 const TYPICAL_REPLY_SECONDS = 20;
-/** Engines that exist in this build. The larger voice is in the selection rule but has no engine yet, so it is never offered. */
-export const IMPLEMENTED = Object.freeze(["kitten"]);
+/** Engines that exist in this build. */
+export const IMPLEMENTED = Object.freeze(["kitten", "kokoro"]);
 
 const blank = () => ({ v: 1, engine: null, chosen: null, declinedAt: null, fallback: null });
 
@@ -192,7 +192,7 @@ export function createVoiceController({
     if (record.declinedAt && now() - record.declinedAt < DECLINE_MS) return { offer: false, reason: "declined-recently" };
     if (record.gate && now() - record.gate.at < GATE_COOLDOWN_MS) return { offer: false, reason: "gate-remembered:" + record.gate.reason };
     // files left by an install or test the page never finished (closed or crashed) are removed before anything new is measured
-    if (!record.engine) { try { const e = await engineFor(IMPLEMENTED[0]), st = await e.status(); if (st.installed || st.bytes > 0) await e.remove(); } catch { /* nothing to clean */ } }
+    if (!record.engine) { for (const id of IMPLEMENTED) { try { const e = await engineFor(id), st = await e.status(); if (st.installed || st.bytes > 0) await e.remove(); } catch { /* nothing to clean */ } } }
     const base = { env: await env(), userAgent, maxTouchPoints, language, config, devOffer, installed: {}, chosen: null };
     let est = null; try { est = await estimate(); } catch { /* unknown */ }
     const storageNow = est && Number.isFinite(est.quota) ? { usage: est.usage || 0, quota: est.quota } : null;
