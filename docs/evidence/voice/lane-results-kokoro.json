@@ -152,6 +152,49 @@
    "voiceRequests": [
     "chat/voice-upgrade.mjs (loaded by the test script itself)"
    ]
+  },
+  "mac-safari": {
+   "build": "b7c3fc0",
+   "engineUsed": "kokoro",
+   "decision": {
+    "offer": true,
+    "candidate": "kokoro",
+    "reason": "offer",
+    "stage": 2,
+    "ms": null,
+    "downloadBytes": 96542690
+   },
+   "installMs": 251026,
+   "speak": {
+    "audioSeconds": 5.025,
+    "synthSeconds": 2.1804800000000033,
+    "realTimeFactor": 2.304538450249483,
+    "firstAudioMs": 1026,
+    "chunks": 2,
+    "samples": null
+   },
+   "verdict": {
+    "fastEnough": true,
+    "startDelayMs": 1026
+   },
+   "storageBefore": {
+    "usageMB": 4102.5,
+    "quotaMB": 82463
+   },
+   "storageAfter": {
+    "usageMB": 74366.8,
+    "quotaMB": 164927
+   },
+   "afterRemove": {
+    "id": "kokoro-82m-v1.0-q8",
+    "installed": false,
+    "bytes": 0,
+    "totalBytes": 96542690,
+    "loaded": false,
+    "loading": false,
+    "installing": false
+   },
+   "note": "install took 251 s because of this Mac's slow network path to the asset host; the other machines installed the same 96.5 MB in 12 to 20 s"
   }
  }
 }
