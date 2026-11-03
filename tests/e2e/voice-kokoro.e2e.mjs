@@ -1,17 +1,18 @@
 // The Kokoro-82M q8 voice engine in a real browser: the REAL worker (ONNX Runtime Web WASM + espeak-ng phonemizer) and the REAL model files.
-// The CDN URL is answered by request interception from VOICE_KOKORO_DIR (default /tmp/kokoro-files, the layout of the hosted set), so no network
-// is needed. Installs, speaks a short text, checks the audio, removes, and checks private storage is back to its baseline.
+// The CDN URL is answered from VOICE_KOKORO_DIR (the layout of the hosted set); when that is unset the pinned files are fetched from the hosted
+// CDN into a temp directory and verified against the manifest (tests/e2e/voice-files.mjs). Installs, speaks a short text, checks the audio, removes, and checks private storage is back to its baseline.
 //
 //   node tests/e2e/voice-kokoro.e2e.mjs        (VOICE_WAV_OUT=/path.wav keeps the audio)
-import {existsSync,readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import {launch,assert} from './harness.mjs';
 import {KOKORO_Q8_MANIFEST} from '../../chat/voice-manifest-kokoro.mjs';
+import {voiceFilesDir} from './voice-files.mjs';
 
-const FILES_DIR=process.env.VOICE_KOKORO_DIR||'/tmp/kokoro-files';
+const FILES_DIR=await voiceFilesDir('kokoro');
 const PATHS=KOKORO_Q8_MANIFEST.files.map(f=>f.path);
-if(PATHS.some(n=>!existsSync(path.join(FILES_DIR,n)))){console.log('SKIPPED: the Kokoro files are not in '+FILES_DIR+' (set VOICE_KOKORO_DIR)');process.exit(0);}
+if(!FILES_DIR){console.log('SKIPPED: the Kokoro files could not be fetched and VOICE_E2E_ALLOW_SKIP=1');process.exit(0);}
 const TOTAL=KOKORO_Q8_MANIFEST.files.reduce((n,f)=>n+f.bytes,0);
 const wavOut=process.env.VOICE_WAV_OUT||'';
 const TEXT='The capital of France is Paris. This is a short test of on device speech.';
