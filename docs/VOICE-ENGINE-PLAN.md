@@ -255,49 +255,39 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 - Separate licences of the voices, tokenizer and config files, and Kitten's training-data licences.
 - Whether espeak-ng's data files carry licences other than GPL-3.0.
 
-## Rollout status (2026-11-02)
+## Rollout status: complete (2026-11-02)
 
-**Shipped.** The optional Kitten voice, the selection rule, the measurement modules, the Settings card and the GPL-3.0 relicence are live on `dev` and `production` (commit `1f84d8c`).
+**State: shipped and verified.** Both voice tiers, the selection rule, the measurement modules, the Settings card, the dev command channel actions and the GPL-3.0 relicence are live on `dev` and on production (`privatelocal.chat`, commit `ca2d90d`). Nothing from this plan is outstanding.
 
-| Lane | Result |
+| Lane | Final result |
 |---|---|
-| 0 Inventory | Done: six browsers on five devices (`docs/evidence/lane0/inventory.json`). |
-| 1 Unit tests | 358 pass, including the device matrix, the real S8+ numbers and the reference token ids. |
-| 2 Automated end to end | Engine install, speak, remove and storage return (`tests/e2e/voice-engine.e2e.mjs`), measurement modules, offer flow with a fake engine. A stalled worker is terminated and the system voice takes over. |
-| 3 Real desktop browsers | Boiler Chromium, Brutus Firefox on an N100, Mac Safari, Centroid Chromium/WebKit: the hosted voice installs, speaks (3.3 to 7.9 times real time), and removes. |
-| 4 Real phones | iPhone 11 Pro on dev and production: `ios-system-voice-only`, no offer, no voice file requested. Galaxy S8+: probe at its 4000 ms cap, voice at 0.26 times, not offered. **iPhone 15 Pro: not re-run on the final build** (same code path as the 11 Pro; the user had the phone). |
-| 5 Dev command channel | Not extended with voice actions; not needed (everything above was driven directly). |
-| 6 Production | `verify-release` passes; the live page contains no test hook or debug code; the debug receiver route does not exist (404); the real engine works against the live site. |
+| 0 Inventory | Done: seven browser runs across five devices (`docs/evidence/lane0/inventory.json`). |
+| 1 Unit tests | 895 pass, including the device matrix, the real Galaxy S8+ numbers, the reference token ids for both voices and the 517-case text pre-processor corpus. |
+| 2 Automated end to end | Both engines install from the intercepted CDN files, speak, read back correctly through an independent recogniser (Kitten word error rate 0.10, Kokoro 0.0), and remove with storage back to baseline; the offer flow, a stalled worker and a failing voice are covered. |
+| 3 Real desktop browsers | Centroid and Boiler Chromium and the Mac's Safari are offered Kokoro (2.0 to 2.3 times real time, first sound 1.0 to 1.3 s); the weak N100 desktop's Firefox is offered Kitten (3.2 times). All install from the CDN and remove cleanly (`docs/evidence/voice/lane-results.json`, `lane-results-kokoro.json`). |
+| 4 Real phones | iPhone 11 Pro and iPhone 15 Pro, on dev and on production: `ios-system-voice-only`, no offer, no voice engine, probe, storage check, worker or runtime file requested (the 15 Pro has WebGPU and a 41 GB quota). Galaxy S8+: declined by the probe (about 2,000 to 4,000 ms against the 800 ms limit; Kitten ran at 0.26 times there). |
+| 5 Dev command channel | `voice-state`, `voice-decide` and `voice-cycle` work through the real command path for both voices; the cycle only runs when the device's own decision is an offer. |
+| 6 Production | `verify-release` passes; the live page contains no test hook or debug code; the debug receiver route does not exist (404); the real Kokoro voice installs from the CDN and speaks on the live site. |
 
-**Independent review.** A fresh reviewer read the whole diff. Two blockers (a stall watchdog too short for slow voices, and a hung worker that never recovered) and the main should-fix items were fixed before the release; the rest are debt items 47 to 52.
+**Independent review.** A fresh reviewer read the whole diff. Both blockers (a stall watchdog too short for slow voices, and a worker that never recovered) and the main should-fix items were fixed before release; the remainder are technical debt items 47 to 52.
 
-**Second voice tier built and verified (Kokoro q8).** Following the plan's candidate table, Kokoro-82M q8 (96.5 MB: the 92 MB model plus eight voices) is hosted on the CDN with its licence and data notice, has its own engine and worker (`chat/voice-kokoro.mjs`, `chat/vendor/voice/worker-kokoro.js`), and is offered by `runtime/voice-pick.mjs` on a real GPU adapter or a desktop-class probe (at most 160 ms); every other capable device gets the Kitten voice. Verified on the deployed dev build (`docs/evidence/voice/lane-results-kokoro.json`): Centroid, Boiler and the Mac's Safari are offered Kokoro (2.3, 2.0 and 2.3 times real time, first sound 1.1, 1.3 and 1.0 s), the N100 desktop gets Kitten (3.2 times), the Galaxy S8+ is declined (probe far above the limit) and the iPhone 11 Pro stays on the system voice with no voice files requested. The token ids match the reference tokenizer on 25 of 25 phoneme strings and the spoken test sentence reads back with a word error rate of 0.0. The GPU-only fp32 variant (326 MB, 6.7 times real time) stays unbuilt: q8 on WASM meets the plan's goal with a fraction of the download.
-
-**Closed since the first release**
-- Lane 5: the dev command channel has `voice-state`, `voice-decide` and `voice-cycle` (the cycle only runs when that device's own decision is an offer; verified through the real command path).
-- `qrcode.js` licence: the vendored file is byte-identical to upstream's MIT-licensed `qrcode.min.js`; the licence text is stored beside it.
-- Number and abbreviation expansion: ported from Kitten's reference pre-processor and checked against it on a golden corpus (see the commit that adds `chat/voice-text.mjs`).
-- Kokoro: built as the plan's second tier (q8, WASM); the larger fp32 GPU variant was measured (`docs/evidence/voice/kokoro-webgpu-spike.json`) and deliberately not built.
-
-**Closed: iPhone 15 Pro.** Run on the final build (`2d4fe43`) on both dev and production: decision `ios-system-voice-only`, no offer, no voice engine, probe, storage check, worker or runtime file requested, although this phone has WebGPU and a 41 GB quota. Its automation sessions closed cleanly.
-
-**Resolved by evidence or by a recorded default**
-- Git identity: the five commits under the placeholder name "Your Name" (3 and 4 November 2025) sit on the same days as 66 commits by the owner's two identities, in a repository that also has many Codex-created branches. They look like automated work done on the owner's behalf, not outside contributions. No other human author appears (`git shortlog`: John Benac, johnbenac, Claude, a release bot and the placeholder).
-- Licence field: `package.json` says `GPL-3.0-only`, the conservative reading of "GPL" (it does not hand future licence versions to anyone). It is compatible with every bundled component. Changing it to "or later" is a one-line edit in `package.json` and the notices if the owner prefers.
-
-**Closed: Galaxy S8+ storage.** With the owner's approval the `dev.privatelocal.chat` origin was cleared on the phone (service worker, private files, two databases, caches); that origin held 3.9 MB and the free space went from 288 MB to 290 MB, so the earlier drop (about 430 MB while charging at 8%) was not caused by the test files, which were removed each time. Nothing more is needed from the owner.
-
-**Closed: owner decisions**
+**Decisions made**
+- Real-time speech is nice, not required (owner). Slower voices are kept when sound starts soon and the wait is bearable.
+- Licence: GPL-3.0-only for the combined app because of eSpeak NG (owner). The bundles carry their own GPL notice, `THIRD-PARTY-NOTICES.md` lists every component, and the Kokoro model card's training-data attribution is stored with its licence text.
+- Kokoro is built as the plan's second tier (q8 on WebAssembly, 96.5 MB). The larger fp32 GPU variant (326 MB, 6.7 times real time on an RTX 3060, word error rate 0.0; `docs/evidence/voice/kokoro-webgpu-spike.json`) was measured and deliberately not built.
+- The five commits under the placeholder identity "Your Name" look like automated work on the owner's behalf (same days as 66 owner commits, repository full of Codex branches); no outside author appears in the history.
+- `qrcode.js` is byte-identical to upstream's MIT-licensed file; its licence text sits beside it.
+- Galaxy S8+ storage: with the owner's approval the `dev.privatelocal.chat` origin was cleared on the phone; it held 3.9 MB and free space moved 288 to 290 MB, so the earlier drop was not caused by the test files (each run removed what it installed).
 
 ## Open items
 
-Resolved during the work: the real-device thresholds (calibrated on six devices, see `docs/evidence/voice/lane-results.json`), what the npm `phonemizer` package bundles (a full eSpeak NG build, GPL-3.0; covered by the relicence and the notices), the Kitten and Kokoro runtime questions (both measured).
+None for this plan.
 
-Future, not part of this release:
-- Kokoro as a second tier for GPU desktops (326 MB, needs the owner's go-ahead; see debt item 41).
-- Languages beyond English (Kokoro covers several; the small engines are English only).
-- Whether a tiny engine could ever fit on iPhone beside the chat model: a separate decision after a real-phone spike on the iPhone 15 Pro (dev only; the shipping rule for iOS does not change).
-- Soprano and Pocket-class models: later, not now (Pocket TTS is excluded while its download is gated).
+Possible future work, outside it (see the technical debt list, items 41 to 52, for detail):
+- The fp32 GPU variant of Kokoro, if a 326 MB opt-in download is ever wanted.
+- Languages beyond English (Kokoro covers several; the small engine is English only).
+- Whether a tiny engine could ever fit on iPhone beside the chat model (a dev-only spike on the iPhone 15 Pro first; the shipping rule for iOS stays as it is until then).
+- Soprano-class models, and Pocket TTS while its download remains gated.
 
 ## Sources (from the earlier research; check again when hosting)
 
