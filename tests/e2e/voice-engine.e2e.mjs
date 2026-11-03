@@ -3,13 +3,14 @@
 // needed. Installs, speaks a short sentence, checks the audio, removes, and checks private storage is back to its baseline.
 //
 //   node tests/e2e/voice-engine.e2e.mjs
-import {existsSync,readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {launch,assert} from './harness.mjs';
+import {voiceFilesDir} from './voice-files.mjs';
 
-const FILES_DIR=process.env.VOICE_FILES_DIR||'/tmp/tts-spike/site/kitten';
+const FILES_DIR=await voiceFilesDir('kitten');
 const NAMES=['kitten_tts_nano_v0_8.onnx','voices.npz','config.json'];
-if(NAMES.some(n=>!existsSync(path.join(FILES_DIR,n)))){console.log('SKIPPED: the model files are not in '+FILES_DIR+' (set VOICE_FILES_DIR)');process.exit(0);}
+if(!FILES_DIR){console.log('SKIPPED: the model files could not be fetched and VOICE_E2E_ALLOW_SKIP=1');process.exit(0);}
 const wavOut=process.env.VOICE_WAV_OUT||'';
 const numWavOut=process.env.VOICE_NUMBERS_WAV_OUT||'';
 const CDN='https://voice-cdn.example.test/kitten/';
