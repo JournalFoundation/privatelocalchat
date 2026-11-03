@@ -61,8 +61,7 @@ An Android phone with Chrome (USB debugging on, a tab already open on the origin
 
 iPhone or iPad (Safari): there is no Playwright or CDP path to a phone. Open the page in Safari, paste the body of `lane0-collect.js` or
 `voice-lane.js` (after setting `window.__voiceDecisionOnly = true` for decision only) into the Web Inspector console of a Mac that has the
-device attached, and save the returned object. The committed negative test for iOS is `tests/e2e/voice-ios.e2e.mjs`, which uses WebKit with the
-iPhone profile and a network log.
+device attached, and save the returned object.
 
 Lane 0 inventory (read only), including a GPU-flags run:
 
