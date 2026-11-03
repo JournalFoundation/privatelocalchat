@@ -9,6 +9,7 @@
     "e2e": "node scripts/e2e.mjs"
   },
   "devDependencies": {
+    "acorn": "^8.19.0",
     "playwright": "^1.59.1",
     "wrangler": "4.129.0"
   },
