@@ -57,6 +57,8 @@ try{
  await page.evaluate(()=>window.plcMemoryReady().then(m=>m.offerFailure('voice','the Kitten voice')));
  await page.waitForSelector('#memoryOffer');
  assert(/Kitten voice did not work/.test(await page.textContent('#memoryOffer')),'the offer names what failed');
+ const col=await page.evaluate(()=>{const o=document.getElementById('memoryOffer'),b=o.querySelector('button.primary')||o.querySelector('button');return {card:getComputedStyle(o).backgroundColor+'|'+getComputedStyle(o).color,btn:getComputedStyle(o.querySelectorAll('button')[1]).color+'|'+getComputedStyle(o).backgroundColor};});
+ assert(col.card.split('|')[0]!==col.card.split('|')[1]&&col.btn.split('|')[0]!==col.btn.split('|')[1],'the offer is readable (text differs from its background): '+JSON.stringify(col));
  await page.getByRole('button',{name:'Not now'}).click();
  assert(await page.locator('#memoryOffer').count()===0,'Not now closes it');
  await page.evaluate(()=>window.plcMemoryReady().then(m=>m.offerFailure('voice','the Kitten voice')));

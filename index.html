@@ -4245,7 +4245,8 @@
         await import(moduleBase() + 'chat/memory-offer.mjs').then(om => {
           const o = om.createMemoryOffer({ memory: m }); m.offerFailure = (kind, what) => o.offer(kind, what);
           let lastErr = null;
-          window.addEventListener('local-model-state', () => { const e = window.localModels?.state?.lastError; if (e && e !== lastErr && ['out-of-memory', 'load-failed'].includes(e.class)) { lastErr = e; o.offer('chat', 'the chat model'); } });
+          // only a failure of the model itself (loading it, or writing a reply) counts: a storage check that failed at start-up is not the chat model failing
+          window.addEventListener('local-model-state', () => { const e = window.localModels?.state?.load?.lastError; if (e && e !== lastErr && ['out-of-memory', 'load-failed'].includes(e.class)) { lastErr = e; o.offer('chat', 'the chat model'); } });
         }).catch(() => {});
         return m;
       }));
