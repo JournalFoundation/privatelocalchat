@@ -1,6 +1,6 @@
 # Better voices than the system voice: integrated plan
 
-Status: **shipped and verified** (2026-11-02, production commit `ca2d90d`). This document is the plan and the record of how it was carried out; the final lane results and decisions are in *Rollout status: complete* near the end. Sections written before the work (the candidate table, the stages, the lanes) keep their original wording, and numbers marked *unverified* there were third-party figures at the time; they have since been replaced by this project's own measurements, listed in *Progress and findings* and in `docs/evidence/voice/`.
+Status: **shipped (gated flow with fixes) on production; the redesigned voice picker is built and verified on `dev`** (2026-11-02). This document is the plan and the record of how it was carried out; the current state, the review findings and what was done about them are in *Rollout status* near the end. Sections written before the work (the candidate table, the stages, the lanes) keep their original wording, and numbers marked *unverified* there were third-party figures at the time; they have since been replaced by this project's own measurements, listed in *Progress and findings* and in `docs/evidence/voice/`.
 
 ## Goal
 
@@ -267,39 +267,40 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 - Separate licences of the voices, tokenizer and config files, and Kitten's training-data licences.
 - Whether espeak-ng's data files carry licences other than GPL-3.0.
 
-## Rollout status: complete (2026-11-02)
+## Rollout status (updated 2026-11-02, after the independent gap analysis and the owner's redesign)
 
-**State: shipped and verified.** Both voice tiers, the selection rule, the measurement modules, the Settings card, the dev command channel actions and the GPL-3.0 relicence are live on `dev` and on production (`privatelocal.chat`, commit `ca2d90d`). Nothing from this plan is outstanding.
+**Where things are.**
+- **Production (`main`, commit `1c26374`)** has the earlier gated offer flow (Settings > Voice "Try a more natural voice", a quiet offer after the first read-aloud, an opt-in on iPhone and iPad) **plus the bug fixes found on real devices**: the voice installer now uses the shared model writer with connect and stall timeouts (it used `createWritable`, missing in Safari 18, and had no timeout), the Safari stream-iteration polyfill (without it the phonemizer hung silently on every iPhone), real download progress, a self-test that cannot hang, and the lockout fixes.
+- **`dev` (the voice picker, see "Redesign after the owner's direction")** replaces the gated flow with a voice picker of its own, automatic download, no gating and no lockouts. It is built, tested (unit, end-to-end, and on a real iPhone 15 Pro through the real interface) and deployed to the dev site only. **It has not been promoted to `main`; that is the owner's decision.**
 
-| Lane | Final result |
+**What the independent gap analysis found** (`docs/evidence/voice/gap-analysis-2026-11-02.md`; 65 requirements: 21 met, 32 partly met, 8 not met, 4 deviated) **and what was done about it:**
+
+| Gap (rank in the review) | Status |
 |---|---|
-| 0 Inventory | Done: seven browser runs across five devices (`docs/evidence/lane0/inventory.json`). |
-| 1 Unit tests | 895 pass, including the device matrix, the real Galaxy S8+ numbers, the reference token ids for both voices and the 517-case text pre-processor corpus. |
-| 2 Automated end to end | Both engines install from the intercepted CDN files, speak, read back correctly through an independent recogniser (Kitten word error rate 0.10, Kokoro 0.0), and remove with storage back to baseline; the offer flow, a stalled worker and a failing voice are covered. |
-| 3 Real desktop browsers | Centroid and Boiler Chromium and the Mac's Safari are offered Kokoro (2.0 to 2.3 times real time, first sound 1.0 to 1.3 s); the weak N100 desktop's Firefox is offered Kitten (3.2 times). All install from the CDN and remove cleanly (`docs/evidence/voice/lane-results.json`, `lane-results-kokoro.json`). |
-| 4 Real phones | iPhone 11 Pro and iPhone 15 Pro, on dev and on production: `ios-system-voice-only`, no offer, no voice engine, probe, storage check, worker or runtime file requested (the 15 Pro has WebGPU and a 41 GB quota). Galaxy S8+: declined by the probe (about 2,000 to 4,000 ms against the 800 ms limit; Kitten ran at 0.26 times there). |
-| 5 Dev command channel | `voice-state`, `voice-decide` and `voice-cycle` work through the real command path for both voices; the cycle only runs when the device's own decision is an offer. |
-| 6 Production | `verify-release` passes; the live page contains no test hook or debug code; the debug receiver route does not exist (404); the real Kokoro voice installs from the CDN and speaks on the live site. |
+| 1 Permanent lockout after a failed or declined install; no opt-in | **Fixed.** Remembered refusals are gone with the gating design; a failed download is never remembered as a verdict; trying again asks once and is unlimited. |
+| 2 "Storage after Remove equals before" contradicted by device data | **Explained, criterion reworded.** The voice's own files and cached runtime are removed (tested, and checked on devices: the engine reports 0 bytes). The origin's total includes the app's own service-worker cache (about 42 MB, which grows by itself on the first visit even with no voice use, measured). The criterion now means the voice's files and cache entries, not the whole origin. |
+| 3 Memory next to the chat model never built | **Measured, not managed.** `docs/VOICE-MEMORY.md`: Kitten about +250 MB and Kokoro about +420 MB at peak on a desktop. Nothing yet unloads the voice when the chat model needs memory (debt item 48); a page killed for memory is now detected at the next start and reported. |
+| 4 Evidence missing; harness was scratch | **Fixed.** The harness is committed (`ops/voice/lane/`); iPhone 15 Pro, iPhone 11 Pro, Galaxy S8+ and the picker flow results are recorded in `docs/evidence/voice/`. |
+| 5 GPL text and notices not served | **Fixed.** `/LICENSE` and `/THIRD-PARTY-NOTICES.md` are served and linked from About, Help, Privacy and Updates; each worker's `.LEGAL.txt` is complete. Two licence questions are recorded as unverified rather than guessed (eSpeak NG's data-file coverage; the training-data terms of Kitten and Kokoro, whose card names synthetic audio from unnamed providers). |
+| 6 Thresholds | **Re-calibrated, now advice only** (`docs/VOICE-CALIBRATION.md`): slow-CPU sweep, median-of-3 probe, and the Kokoro speed discrepancy explained (the early spike used an older ONNX Runtime). They only label "recommended" and "may be slow"; they block nothing. |
+| 7 iOS rule | **Removed.** Every device can choose any voice. The iPhone 15 Pro was tested for real (the voice installs, speaks at about 4 times real time and removes cleanly once the Safari stream bug was fixed). |
+| 8 No underrun detection, long stall timers | **Fixed.** Stall timers are sized from the measured speed, the speed is re-checked on every reply, and slow replies are reported to the person. |
+| 9 Test gaps | **Mostly fixed.** Publisher refuse-to-replace, offline use after install, engine switching and quota errors are tested; the voice end-to-end tests fetch the pinned files from the CDN instead of skipping and run in CI (`.github/workflows/voice-e2e.yml`, not yet run on GitHub). The WebKit iPhone-profile network-log test was dropped with the iOS block. |
+| 10 Stale and contradictory docs | **Fixed in this pass** (plan, debt list, chat features, runtime notes, privacy page, notices). |
 
-**Independent review.** A fresh reviewer read the whole diff. Both blockers (a stall watchdog too short for slow voices, and a worker that never recovered) and the main should-fix items were fixed before release; the remainder are technical debt items 47 to 52.
+**Corrections to claims made earlier in this document.** "895 tests pass" was 893 plus 3 skipped at that commit; "storage back to baseline" and "speed limits calibrated" were overstated as the review said; "nothing outstanding" was wrong. Test counts now vary with each change; the current suite is green.
 
-**Decisions made**
-- Real-time speech is nice, not required (owner). Slower voices are kept when sound starts soon and the wait is bearable.
-- Licence: GPL-3.0-only for the combined app because of eSpeak NG (owner). The bundles carry their own GPL notice, `THIRD-PARTY-NOTICES.md` lists every component, and the Kokoro model card's training-data attribution is stored with its licence text.
-- Kokoro is built as the plan's second tier (q8 on WebAssembly, 96.5 MB). The larger fp32 GPU variant (326 MB, 6.7 times real time on an RTX 3060, word error rate 0.0; `docs/evidence/voice/kokoro-webgpu-spike.json`) was measured and deliberately not built.
-- The five commits under the placeholder identity "Your Name" look like automated work on the owner's behalf (same days as 66 owner commits, repository full of Codex branches); no outside author appears in the history.
-- `qrcode.js` is byte-identical to upstream's MIT-licensed file; its licence text sits beside it.
-- Galaxy S8+ storage: with the owner's approval the `dev.privatelocal.chat` origin was cleared on the phone; it held 3.9 MB and free space moved 288 to 290 MB, so the earlier drop was not caused by the test files (each run removed what it installed).
+**Found only on real devices, not by any automated test:** (1) Safari has no async iteration on streams, so the phonemizer hung silently on iPhones; (2) Safari 18 lacks `createWritable`; (3) the progress display read the engine's progress object as two numbers, so it sat at 0% while the download proceeded; (4) the composer overflowed on a real phone with the real model name. Each now has a regression test.
 
 ## Open items
 
-None for this plan.
+- **Promote the voice picker from `dev` to `main`.** The owner's call. Until then production runs the gated flow with the bug fixes above.
+- **Unload the voice when the chat model needs the memory** (debt item 48). Measured (`docs/VOICE-MEMORY.md`), not managed.
+- **A mid-range phone and a low-end laptop** have never been measured for real; the advice thresholds come from five real devices and a simulated sweep (debt item 42).
+- **The two unverified licence questions** (eSpeak NG data-file coverage; the training-data terms of Kitten and Kokoro) are written up in `THIRD-PARTY-NOTICES.md` as unverified.
+- **`GPL-3.0-only`** (package licence field) is a default the owner can change to "or later".
 
-Possible future work, outside it (see the technical debt list, items 41 to 52, for detail):
-- The fp32 GPU variant of Kokoro, if a 326 MB opt-in download is ever wanted.
-- Languages beyond English (Kokoro covers several; the small engine is English only).
-- Whether a tiny engine could ever fit on iPhone beside the chat model (a dev-only spike on the iPhone 15 Pro first; the shipping rule for iOS stays as it is until then).
-- Soprano-class models, and Pocket TTS while its download remains gated.
+Possible future work, outside the plan: the 326 MB GPU-only Kokoro variant; languages beyond English; Soprano-class models, and Pocket TTS while its download stays gated.
 
 ## Sources (from the earlier research; check again when hosting)
 
