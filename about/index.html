@@ -73,6 +73,13 @@
     <p class="prose">With on-device chat, the model processes your conversation on your device, and it never falls back to an outside provider by itself. If you choose a connected provider, the messages and context in each request go to that provider and its practices apply. Saved conversations stay in your browser's storage. The <a href="/privacy/">Privacy page</a> explains each case in detail.</p>
   </section>
 
+  <!--plc:licence-source-->
+<section id="licence" aria-labelledby="licence-title">
+  <h2 id="licence-title">Licence and source</h2>
+  <p class="prose">Private Local Chat is released under the <a href="/LICENSE">GNU General Public License, version 3</a> (GPL-3.0). The complete corresponding source is the GitHub repository <a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">JournalFoundation/privatelocalchat</a>. The optional voice program is bundled from open-source packages and can be rebuilt from the scripts in <code>ops/voice</code> in that repository, as described in <code>docs/VOICE-RUNTIME.md</code>. It contains eSpeak NG, whose source is at <a href="https://github.com/espeak-ng/espeak-ng" target="_blank" rel="noopener">https://github.com/espeak-ng/espeak-ng</a>. The <a href="/THIRD-PARTY-NOTICES.md">third-party notices</a> list every bundled component, its licence and its source.</p>
+</section>
+<!--/plc:licence-source-->
+
   <section id="project" aria-labelledby="project-title">
     <h2 id="project-title">Who maintains it, and why</h2>
     <p class="prose">Private Local Chat is an open-source project of <a href="https://JournalFoundation.org" target="_blank" rel="noopener">JournalFoundation</a>. Its source is published in the <a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">JournalFoundation/privatelocalchat</a> repository on GitHub under the GNU General Public License, version 3. The aim is a free, plain place to use AI in a browser, where a supported model can run on your own device and an outside provider is something you choose, not a default.</p>
@@ -159,7 +166,9 @@
   <li><a href="/updates/">Updates</a></li>
 </ul>
 <!--/plc:footer-nav--></nav>
-    <p><a href="/">Open Private Local Chat</a> &middot; <a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">Source on GitHub</a> (GNU General Public License, version 3)</p>
+    <!--plc:footer-source-->
+<p><a href="/">Open Private Local Chat</a> &middot; <a href="https://github.com/JournalFoundation/privatelocalchat" target="_blank" rel="noopener">Source on GitHub</a> (GNU General Public License, version 3) &middot; <a href="/LICENSE">Licence</a> &middot; <a href="/THIRD-PARTY-NOTICES.md">Notices</a></p>
+<!--/plc:footer-source-->
   </div>
 </footer>
 <script type="module" src="/chat/public-pages.mjs"></script>

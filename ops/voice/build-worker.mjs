@@ -57,6 +57,42 @@ fs.writeFileSync(path.join(out, "VERSIONS-kokoro.json"), JSON.stringify({
   model: "onnx-community/Kokoro-82M-v1.0-ONNX (model_quantized.onnx)", modelLicense: "Apache-2.0",
 }, null, 2) + "\n");
 
+// The .LEGAL.txt next to each worker: esbuild's linked comments, then the full notices of every package bundled into that worker.
+// Licence texts are read from the npm packages (phonemizer, fflate); onnxruntime-web ships none, so its MIT text is the committed copy
+// of microsoft/onnxruntime at the tag of the pinned version (ops/voice/licenses/).
+const text = (p) => fs.readFileSync(p, "utf8").replace(/\s+$/, "") + "\n";
+const rule = (title) => `\n\n${"=".repeat(78)}\n${title}\n${"=".repeat(78)}\n\n`;
+const espeakNotice = (worker) => `${worker} contains eSpeak NG (https://github.com/espeak-ng/espeak-ng), compiled to JavaScript/WebAssembly and
+distributed inside the npm package phonemizer ${phonemizer.version}. eSpeak NG is licensed under the GNU General Public License,
+version 3 or later (the project README: "eSpeak NG Text-to-Speech is released under the GPL version 3 or later license.").
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published
+by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+The full licence text is served with this app at /LICENSE (the file LICENSE of the repository). Private Local Chat as a whole is
+released under GPL-3.0.
+
+Corresponding source:
+  - eSpeak NG:        https://github.com/espeak-ng/espeak-ng
+  - this program, including the script that rebuilds ${worker}:
+                      https://github.com/JournalFoundation/privatelocalchat (ops/voice, docs/VOICE-RUNTIME.md)
+Other notices and the data licences: /THIRD-PARTY-NOTICES.md
+`;
+function writeLegal(worker, packages) {
+  const parts = [text(path.join(out, worker + ".LEGAL.txt"))];
+  parts.push(rule("eSpeak NG (GPL-3.0-or-later)") + espeakNotice(worker));
+  for (const [title, file] of packages) parts.push(rule(title) + text(file));
+  fs.writeFileSync(path.join(out, worker + ".LEGAL.txt"), parts.join(""));
+}
+const ortEntry = [`ONNX Runtime Web ${ort.version} (${ort.license}), LICENSE of https://github.com/microsoft/onnxruntime at tag v${ort.version}`, path.join(here, "licenses", `onnxruntime-${ort.version}-LICENSE.txt`)];
+const phonemizerEntry = [`phonemizer ${phonemizer.version} (${phonemizer.license}), npm package file LICENSE`, path.join(nm, "phonemizer/LICENSE")];
+const fflateEntry = [`fflate ${fflate.version} (${fflate.license}), npm package file LICENSE`, path.join(nm, "fflate/LICENSE")];
+writeLegal("worker.js", [ortEntry, fflateEntry, phonemizerEntry]);
+writeLegal("worker-kokoro.js", [ortEntry, phonemizerEntry]);
+
 for (const f of fs.readdirSync(out).sort()) {
   const bytes = fs.readFileSync(path.join(out, f));
   console.log(`${crypto.createHash("sha256").update(bytes).digest("hex")}  ${bytes.length}  ${f}`);

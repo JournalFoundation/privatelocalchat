@@ -26,14 +26,14 @@ test('production artefact contains no diagnostic UI, modules, receiver or disk j
  assert.ok(!adapter.includes('plcDeviceError'));const client=await readFile('dist/releases/'+build.commit+'/runtime/providers/client.mjs','utf8');assert.ok(!client.includes('native-device-error'));
  assert.ok(!adapter.includes('debugCapture'));const core=await readFile('dist/releases/'+build.commit+'/runtime/providers/host-core.mjs','utf8');assert.ok(!core.includes('debug-object'));execFileSync('node',['--check','dist/releases/'+build.commit+'/runtime/providers/host-core.mjs']);
  const wasm=await readFile('dist/releases/'+build.commit+'/runtime/providers/vendor/wllama/v1q/compat.wasm');const production=JSON.parse(await readFile('ops/native/production-runtime.json','utf8'));assert.equal(createHash('sha256').update(wasm).digest('hex'),production.files['compat.wasm'].sha256);assert.ok(!wasm.includes(Buffer.from('webGpuQueue')));assert.match(await readFile('dist/releases/'+build.commit+'/runtime/providers/catalog.mjs','utf8'),new RegExp(production.buildId));assert.match(await readFile('dist/sw.js','utf8'),/const DEVELOPMENT_NATIVE=false/);
- const files=await readdir('dist');assert.ok(!files.includes('_worker.js'));assert.ok(!files.includes('_routes.json'));assert.ok(!(await readdir('dist/releases/'+build.commit)).includes('dev-tools'));
+ for(const f of ['LICENSE','THIRD-PARTY-NOTICES.md'])assert.equal(await readFile('dist/'+f,'utf8'),await readFile(f,'utf8'));const files=await readdir('dist');assert.ok(!files.includes('_worker.js'));assert.ok(!files.includes('_routes.json'));assert.ok(!(await readdir('dist/releases/'+build.commit)).includes('dev-tools'));
 });
 test('development artefact includes isolated diagnostics and exact-host activation',async()=>{
  execFileSync('node',['scripts/build.mjs'],{env:{...process.env,DEPLOY_BRANCH:'dev'},stdio:'pipe'});
  const build=JSON.parse(await readFile('dist/version.json','utf8'));const start=await readFile('dist/releases/'+build.commit+'/dev-tools/start.js','utf8');
  const native=JSON.parse(await readFile('dev-tools/native-runtime/manifest.json','utf8'));const wasm=await readFile('dist/releases/'+build.commit+'/runtime/providers/vendor/wllama/v1q/compat.wasm');assert.equal(createHash('sha256').update(wasm).digest('hex'),native.files['compat.wasm'].sha256);assert.match(await readFile('dist/releases/'+build.commit+'/runtime/providers/catalog.mjs','utf8'),new RegExp(native.buildId));
  assert.deepEqual(build.developmentRuntime,{nativeBuildId:native.buildId,variant:native.compilerControl.id,wasmSha256:native.files['compat.wasm'].sha256});
- assert.match(start,/location.hostname==='dev.privatelocal.chat'/);assert.match(await readFile('dist/_worker.js','utf8'),/url.hostname!==HOST/);
+ for(const f of ['LICENSE','THIRD-PARTY-NOTICES.md'])assert.equal(await readFile('dist/'+f,'utf8'),await readFile(f,'utf8'));assert.match(start,/location.hostname==='dev.privatelocal.chat'/);assert.match(await readFile('dist/_worker.js','utf8'),/url.hostname!==HOST/);
 });
 
 test('a URL enables eager sending, persists across restart, and clearing it stops recording',async()=>{
