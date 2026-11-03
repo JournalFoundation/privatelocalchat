@@ -39,7 +39,7 @@ Step 3 depends on step 4 (the transfer glue is mostly the provider settings), so
 - [x] **2. Documents** (2026-11-03): attach, read, cite, the library, sources under an answer in `chat/documents/documents-ui.mjs`; save-as-file and the draft editor in `chat/documents/drafts.mjs`. `index.html` 5,456 -> 5,214 lines.
 - [ ] **3. Sharing, transfer glue, URL parameters** (about 420): `applyImportedSettings`, `applyConfigFromUrl`, `parseUrlParams`; `chat/transfer/transfer-ui.mjs` is already out.
 - [ ] **4. Provider endpoint and model refresh, history and settings import/export, clear history and settings** (about 380): a `chat/provider/` and a `chat/history/`, with the endpoint and token logic first (debt item 8: two sources of truth for the token).
-- [ ] **5. Conversation list and search results** (about 180 + the search part of the 380).
+- [x] **5. Conversation list** (2026-11-03): `chat/list/conversation-list.mjs` owns the list, projects (folders), the view filter and a conversation's menu. `index.html` 4,632 -> 4,476 lines. The search results block stays with the page until step 9 (it is chat-core navigation).
 - [x] **6. Preferences, presets, memory, exact tools** (2026-11-03): `chat/assistant/assistant.mjs`. `index.html` 5,025 -> 4,864 lines.
 - [x] **7. Speech, dictation and voice notes** (2026-11-03): `chat/voice/voice-ui.mjs` holds the speech services, Listen, dictation, the Dictate and Voice call buttons and voice notes with the recorder. `index.html` 5,214 -> 5,025 lines.
 - [x] **8. Roberta glue, context meter, storage and backups** (2026-11-03): `chat/roberta/roberta-glue.mjs`, `chat/context/context-ui.mjs`, `chat/storage/storage-ui.mjs`, `chat/transfer/backups.mjs`. `index.html` 4,864 -> 4,632 lines.

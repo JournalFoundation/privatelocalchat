@@ -1503,7 +1503,7 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs')]);
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // DOM element references
@@ -1573,6 +1573,20 @@
       let currentThreadId = null;
       let models = [];
       let openThreadMenu = null;
+      function placeMenu(menu, anchor) {
+        document.body.appendChild(menu);
+        const rect = anchor.getBoundingClientRect();
+        menu.style.top = `${window.scrollY + rect.bottom + 4}px`;
+        menu.style.left = `${window.scrollX + rect.left}px`;
+        const menuRect = menu.getBoundingClientRect(); const viewportWidth = document.documentElement.clientWidth;
+        if (menuRect.right > viewportWidth) menu.style.left = `${window.scrollX + Math.max(8, viewportWidth - menuRect.width - 8)}px`;
+        if (menuRect.bottom > window.innerHeight) menu.style.top = `${window.scrollY + Math.max(8, rect.top - menuRect.height - 4)}px`;
+        const outsideHandler = event => { if (menu.contains(event.target) || anchor.contains(event.target)) return; closeThreadMenu(); };
+        const keyHandler = event => { if (event.key === 'Escape') { closeThreadMenu(); anchor.focus(); } };
+        document.addEventListener('mousedown', outsideHandler); document.addEventListener('keydown', keyHandler);
+        openThreadMenu = { menuEl: menu, anchor, outsideHandler, keyHandler };
+        menu.querySelector('button')?.focus();
+      }
       let toastHideTimer = null;
       let consecutiveAuthErrors = 0;
       const desktopMediaQuery = window.matchMedia('(min-width: 900px)');
@@ -3511,191 +3525,21 @@
       const { openAppDialog, confirmDialog, alertDialog, copyTextDialog, promptDialog } = dialogs;
       window.plcDialogs = { confirm: (...a) => confirmDialog(...a), alert: (...a) => alertDialog(...a), copyText: (...a) => copyTextDialog(...a) };
 
-      // ---- conversation list -----------------------------------------------------------------------------------------
-      const FOLDERS_KEY = 'plc.folders.v1';
-      let folders = readJson(localStorage, FOLDERS_KEY, []);
-      if (!Array.isArray(folders)) folders = [];
-      folders = folders.filter(f => f && typeof f.id === 'string' && typeof f.name === 'string');
-      const saveFolders = () => writeJson(localStorage, FOLDERS_KEY, folders);
-      let threadView = 'active'; // active | archived | trash
-
-      function threadTitle(thread) { return thread.title && thread.title.trim() ? thread.title.trim() : 'Untitled'; }
-
-      function renderThreadList() {
-        closeThreadMenu();
-        threadList.textContent = '';
-        document.querySelectorAll('.thread-filter button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === threadView)));
-        const visible = M.model.listThreads(threads, { archived: threadView === 'archived', trashed: threadView === 'trash' });
-        if (threadView === 'active') {
-          const inProject = t => t.folderId && folders.some(f => f.id === t.folderId);
-          const projectsHead = el('li', 'list-heading heading-with-action'); projectsHead.setAttribute('role', 'presentation');
-          projectsHead.appendChild(el('span', null, 'Projects'));
-          const addProject = el('button', 'list-add'); addProject.type = 'button'; addProject.title = 'New project'; addProject.setAttribute('aria-label', 'New project');
-          addProject.appendChild(createEmoji('➕')); addProject.addEventListener('click', event => { event.stopPropagation(); createFolder(); });
-          projectsHead.appendChild(addProject); threadList.appendChild(projectsHead);
-          folders.forEach(f => {
-            const h = el('li', 'folder-heading'); h.setAttribute('role', 'presentation');
-            h.appendChild(el('span', 'thread-name', f.name));
-            const mb = el('button', 'thread-menu-btn'); mb.type = 'button'; mb.setAttribute('aria-label', 'Options for project ' + f.name); mb.appendChild(createEmoji('⋮'));
-            mb.addEventListener('click', event => { event.stopPropagation(); toggleFolderMenu(f.id, mb); });
-            h.appendChild(mb); threadList.appendChild(h);
-            visible.filter(t => t.folderId === f.id).forEach(t => { const li = threadItem(t); li.classList.add('in-project'); threadList.appendChild(li); });
-          });
-          const loose = visible.filter(t => !inProject(t));
-          M.shellRegistry.groupThreadsByDate(loose).forEach(group => {
-            const head = el('li', 'list-heading', group.label); head.setAttribute('role', 'presentation'); threadList.appendChild(head);
-            group.items.forEach(t => threadList.appendChild(threadItem(t)));
-          });
-        } else {
-          if (!visible.length) threadList.appendChild(el('li', 'folder-heading', threadView === 'trash' ? 'Trash is empty. Deleted chats stay here for ' + M.model.TRASH_DAYS + ' days.' : 'Nothing archived.'));
-          visible.forEach(t => threadList.appendChild(threadItem(t)));
-        }
-        updateThreadListMinHeight();
-      }
-
-      function threadItem(thread) {
-        const name = threadTitle(thread);
-        const li = el('li'); li.dataset.id = thread.id;
-        if (thread.id === currentThreadId) li.classList.add('selected');
-        const pick = el('button', 'thread-name'); pick.type = 'button';
-        if (thread.pinned) pick.appendChild(el('span', 'pin-mark', '📌'));
-        if (thread.temporary) pick.appendChild(el('span', 'pin-mark', '🕶️'));
-        pick.append(name);
-        pick.title = name;
-        if (thread.id === currentThreadId) pick.setAttribute('aria-current', 'true');
-        pick.addEventListener('click', event => { event.stopPropagation(); selectThread(thread.id); });
-        li.appendChild(pick);
-        const menuBtn = el('button', 'thread-menu-btn'); menuBtn.type = 'button';
-        menuBtn.setAttribute('aria-label', 'Options for ' + name); menuBtn.setAttribute('aria-haspopup', 'menu');
-        menuBtn.appendChild(createEmoji('⋮'));
-        menuBtn.addEventListener('click', event => { event.stopPropagation(); toggleThreadMenu(thread.id, menuBtn); });
-        li.appendChild(menuBtn);
-        li.addEventListener('click', () => selectThread(thread.id));
-        return li;
-      }
-
-      function menuItem(menu, emoji, label, run, cls) {
-        const b = el('button'); b.type = 'button'; b.setAttribute('role', 'menuitem');
-        b.appendChild(createEmoji(emoji)); b.appendChild(el('span', 'btn-label', label));
-        if (cls) b.classList.add(cls);
-        b.addEventListener('click', () => { closeThreadMenu(); run(); });
-        menu.appendChild(b); return b;
-      }
-      function placeMenu(menu, anchor) {
-        document.body.appendChild(menu);
-        const rect = anchor.getBoundingClientRect();
-        menu.style.top = `${window.scrollY + rect.bottom + 4}px`;
-        menu.style.left = `${window.scrollX + rect.left}px`;
-        const menuRect = menu.getBoundingClientRect(); const viewportWidth = document.documentElement.clientWidth;
-        if (menuRect.right > viewportWidth) menu.style.left = `${window.scrollX + Math.max(8, viewportWidth - menuRect.width - 8)}px`;
-        if (menuRect.bottom > window.innerHeight) menu.style.top = `${window.scrollY + Math.max(8, rect.top - menuRect.height - 4)}px`;
-        const outsideHandler = event => { if (menu.contains(event.target) || anchor.contains(event.target)) return; closeThreadMenu(); };
-        const keyHandler = event => { if (event.key === 'Escape') { closeThreadMenu(); anchor.focus(); } };
-        document.addEventListener('mousedown', outsideHandler); document.addEventListener('keydown', keyHandler);
-        openThreadMenu = { menuEl: menu, anchor, outsideHandler, keyHandler };
-        menu.querySelector('button')?.focus();
-      }
-      function toggleFolderMenu(folderId, anchor) {
-        if (openThreadMenu && openThreadMenu.anchor === anchor) { closeThreadMenu(); return; }
-        closeThreadMenu();
-        const menu = el('div', 'thread-menu'); menu.setAttribute('role', 'menu');
-        menuItem(menu, '✏️', 'Rename project', async () => { const f = folders.find(x => x.id === folderId); const n = await promptDialog('Rename project', 'Name', f.name); if (n && n.trim()) { f.name = n.trim(); saveFolders(); renderThreadList(); } });
-        menuItem(menu, '📝', 'Project instructions', async () => { const f = folders.find(x => x.id === folderId); const n = await promptDialog('Project instructions', 'Added to the instructions of every chat in this project', f.instructions || '', { multiline: true }); if (n !== null) { f.instructions = n.trim(); saveFolders(); showToast('Project instructions saved'); } });
-        menuItem(menu, '🗑️', 'Delete project (keeps its chats)', async () => {
-          if (!await confirmDialog('Delete project?', 'The chats inside stay in your list; only the grouping and its instructions are removed.', 'Delete project', { danger: true })) return;
-          folders = folders.filter(x => x.id !== folderId); threads.forEach(t => { if (t.folderId === folderId) delete t.folderId; });
-          saveFolders(); saveThreads(); renderThreadList();
-        }, 'delete');
-        placeMenu(menu, anchor);
-      }
-      async function createFolder() {
-        const name = await promptDialog('New project', 'Project name', '', { confirmLabel: 'Create' });
-        if (!name || !name.trim()) return;
-        folders.push({ id: generateThreadId(), name: name.trim(), instructions: '' }); saveFolders(); renderThreadList();
-      }
-      async function moveToFolder(threadId) {
-        const thread = getThread(threadId); if (!thread) return;
-        if (!folders.length) { showToast('Create a project first (New project).'); return; }
-        const sel = el('select'); sel.id = 'folderPick'; sel.appendChild(new Option('No project', ''));
-        folders.forEach(f => sel.appendChild(new Option(f.name, f.id))); sel.value = thread.folderId || '';
-        const label = el('label', null, 'Project'); label.htmlFor = 'folderPick';
-        const wrap = el('div'); wrap.append(label, sel);
-        openAppDialog({ title: 'Move chat to a project', content: wrap, actions: [{ label: 'Cancel' }, { label: 'Move', primary: true, run: () => { if (sel.value) thread.folderId = sel.value; else delete thread.folderId; saveThreads(); renderThreadList(); } }] });
-      }
-
-      events.on('context:collect', async thread => ({ preamble: [selectedFolderInstructions(thread)] }));
-      messageDecorators.push((thread, msg, index, ctx, actions) => {
-        if (!ctx.streaming && index < thread.messages.length) actions.appendChild(actionButton('branch-here', '🌿 Start a branch here', 'Start a branch here'));
+      // ---- conversation list (chat/list/conversation-list.mjs) ----
+      const convoList = createConversationList({
+        el, M: () => M, events, readJson, writeJson, threads: () => threads, currentThreadId: () => currentThreadId, clearCurrentThread: () => { currentThreadId = null; },
+        getThread, createThread, selectThread, renameThread, exportThreadMarkdown, buildPreloadUrl, saveThreads, generateThreadId, generation: () => gen, threadList, messageInput,
+        createEmoji, actionButton, messageDecorators, messageActionHandlers, closeThreadMenu, placeMenu, openThreadMenu: () => openThreadMenu, updateThreadListMinHeight,
+        promptDialog, confirmDialog, copyTextDialog, openAppDialog, showToast
       });
-      messageActionHandlers['branch-here'] = (thread, msg) => duplicateThread(thread.id, thread.messages.indexOf(msg));
-
-      function selectedFolderInstructions(thread) {
-        const f = folders.find(x => x.id === thread.folderId);
-        return f?.instructions?.trim() ? 'Instructions for the "' + f.name + '" project:\n' + f.instructions.trim() : '';
-      }
-
-      function newThread({ temporary = false } = {}) {
-        const id = createThread({ temporary });
-        if (threadView !== 'active') threadView = 'active';
-        renderThreadList();
-        selectThread(id);
-        messageInput.focus();
-      }
-
-      function trashThread(threadId) {
-        const thread = getThread(threadId); if (!thread) return;
-        if (gen && gen.threadId === threadId) gen.controller.abort();
-        if (thread.temporary) { threads.splice(threads.indexOf(thread), 1); }
-        else { thread.deletedAt = Date.now(); delete thread.pinned; }
-        saveThreads();
-        if (threadId === currentThreadId) {
-          const next = M.model.listThreads(threads)[0];
-          currentThreadId = null;
-          if (next) selectThread(next.id); else { const id = createThread(); renderThreadList(); selectThread(id); }
-        } else renderThreadList();
-        renderThreadList();
-        if (!thread.temporary) showToast('Moved to Trash', 8000, { label: 'Undo', run: () => { delete thread.deletedAt; saveThreads(); renderThreadList(); } });
-      }
-      async function deleteForever(threadId) {
-        const thread = getThread(threadId); if (!thread) return;
-        if (!await confirmDialog('Delete permanently?', 'This chat will be erased and cannot be recovered.', 'Delete permanently', { danger: true })) return;
-        threads.splice(threads.indexOf(thread), 1); saveThreads(); renderThreadList();
-      }
-
-      function duplicateThread(threadId, upToIndex) {
-        const thread = getThread(threadId); if (!thread) return;
-        const copy = M.model.branchThread(thread, upToIndex ?? thread.messages.length - 1);
-        threads.push(copy); saveThreads(); renderThreadList(); selectThread(copy.id);
-        showToast(upToIndex == null ? 'Chat duplicated' : 'Branched into a new chat');
-      }
-
-      function toggleThreadMenu(threadId, anchor) {
-        const thread = getThread(threadId); if (!thread) return;
-        if (openThreadMenu && openThreadMenu.anchor === anchor) { closeThreadMenu(); return; }
-        closeThreadMenu();
-        const menu = el('div', 'thread-menu'); menu.setAttribute('role', 'menu');
-        if (thread.deletedAt != null) {
-          menuItem(menu, '♻️', 'Restore', () => { delete thread.deletedAt; saveThreads(); renderThreadList(); });
-          menuItem(menu, '🗑️', 'Delete permanently', () => deleteForever(threadId), 'delete');
-          placeMenu(menu, anchor); return;
-        }
-        menuItem(menu, '✏️', 'Rename', () => renameThread(threadId));
-        menuItem(menu, thread.pinned ? '📍' : '📌', thread.pinned ? 'Unpin' : 'Pin to top', () => { if (thread.pinned) delete thread.pinned; else thread.pinned = true; saveThreads(); renderThreadList(); });
-        menuItem(menu, '🗄️', thread.archived ? 'Unarchive' : 'Archive', () => { if (thread.archived) delete thread.archived; else thread.archived = true; saveThreads(); renderThreadList(); showToast(thread.archived ? 'Archived' : 'Moved back to your chats'); });
-        menuItem(menu, '📁', 'Move to project…', () => moveToFolder(threadId));
-        menuItem(menu, '🧬', 'Duplicate', () => duplicateThread(threadId));
-        menuItem(menu, '📤', 'Export (.md)', () => exportThreadMarkdown(threadId));
-        menuItem(menu, '🔗', 'Copy link with current title/system/prompt', async () => { const url = buildPreloadUrl(); try { await navigator.clipboard.writeText(url); showToast('Link copied to clipboard'); } catch (err) { copyTextDialog('Copy this link', url); } });
-        menuItem(menu, '🗑️', 'Delete', () => trashThread(threadId), 'delete');
-        placeMenu(menu, anchor);
-      }
-
+      const { newThread, createFolder, moveToFolder, toggleThreadMenu, saveFolders, selectedFolderInstructions } = convoList;
+      const renderThreadList = convoList.render;
 
       // ---- documents and drafts (chat/documents/documents-ui.mjs, drafts.mjs) ----
       const composerToolsEl = document.getElementById('composerTools');
       const docsUi = createDocumentsUi({
         el, events, messageActionHandlers, messageForm, messageInput, composerTools: composerToolsEl, chatArea: document.querySelector('.chat-area'), moduleBase,
-        models: () => window.localModels, prefs: () => prefs, currentThread, threads: () => threads, folders: () => folders, generateThreadId,
+        models: () => window.localModels, prefs: () => prefs, currentThread, threads: () => threads, folders: () => convoList.folders(), generateThreadId,
         getChatState, updateSendButtonDisabled, showToast, openAppDialog
       });
       const { loadDocModules, humanSize, contextWindowTokens, renderSources, referencedDocIds, pruneOrphanDocs, openLibrary } = docsUi;
@@ -3781,7 +3625,7 @@
 
       // ---- protected backups (chat/transfer/backups.mjs) ----
       const backups = createBackups({
-        el, moduleBase, threads: () => threads, folders: () => folders, saveFolders, assistant, addMemory, savePresets, prefs, savePrefs, generateThreadId, loadDocModules, promptDialog, showToast
+        el, moduleBase, threads: () => threads, folders: () => convoList.folders(), saveFolders, assistant, addMemory, savePresets, prefs, savePrefs, generateThreadId, loadDocModules, promptDialog, showToast
       });
       const { loadCrypto, passField, buildBackup, askPassphrase, restoreExtras } = backups;
 
@@ -3808,7 +3652,7 @@
       function openSearchResult(result, query) {
         const thread = getThread(result.threadId); if (!thread) return;
         if (thread.deletedAt != null) return;
-        if (thread.archived && threadView !== 'archived') threadView = 'archived'; else if (!thread.archived && threadView !== 'active') threadView = 'active';
+        if (thread.archived && convoList.view() !== 'archived') convoList.setView('archived'); else if (!thread.archived && convoList.view() !== 'active') convoList.setView('active');
         selectThread(thread.id);
         if (result.messageId) {
           const node = nodeFor(result.messageId);
@@ -3821,7 +3665,7 @@
           }
         }
       }
-      document.querySelectorAll('.thread-filter button').forEach(b => b.addEventListener('click', () => { threadView = b.dataset.view; renderThreadList(); }));
+      document.querySelectorAll('.thread-filter button').forEach(b => b.addEventListener('click', () => { convoList.setView(b.dataset.view); renderThreadList(); }));
 
       /**
        * Given an endpoint (possibly relative) derive the URL for the models
@@ -4246,7 +4090,7 @@
         downloadText,
         exportHistory: () => { exportHistory(); updateBackupNudge(); },
         chatCounts: () => ({
-          conversations: threads.filter(t => !t.temporary).length, projects: folders.length, memory: assistant.memory.items.length,
+          conversations: threads.filter(t => !t.temporary).length, projects: convoList.folders().length, memory: assistant.memory.items.length,
           presets: assistant.customPresets.length, hasInstructions: Boolean((prefs.instructions || '').trim())
         }),
         async documentCount() { const { store } = await loadDocModules(); return (await store.all()).filter(d => !d.temporary).length; },
@@ -4609,7 +4453,7 @@
       const plcApp = {
         parts: shellParts, get models() { return window.localModels; }, dialogs: window.plcDialogs, build: window.APP_BUILD,
         lock: { reminderOn: () => lock.reminderOn(), setReminder: on => lock.setReminder(on) },
-        threads: () => threads, folders: () => folders, currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
+        threads: () => threads, folders: () => convoList.folders(), currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
         newThread: opts => newThread(opts || {}), toggleThreadMenu: (id, anchor) => toggleThreadMenu(id, anchor), moduleBase, loadRoberta,
         createProject: () => createFolder(),
         openLibrary: () => openLibrary(), openPreferences: () => openPreferences(), openStorage: () => openStorage(), openLockSettings: () => lock.openLockSettings(),
@@ -4617,7 +4461,7 @@
         attachFiles: () => docsUi.attachFiles(), canRecordNote: () => voiceUi.recordAvailable(), toggleVoiceNote: () => voiceUi.toggleVoiceNote(),
         openSidebar: () => openSidebar(), closeSidebar: () => closeSidebar({ restoreFocus: true }),
         moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
-        setThreadView: view => { threadView = view; renderThreadList(); },
+        setThreadView: view => { convoList.setView(view); renderThreadList(); },
         callOpen: () => Boolean(roberta.api()?.callOpen), loadVoice: () => loadVoiceChoice(), loadMemory: () => memoryManager(), getEmbedder: () => sharedEmbedder(),
         async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
       };
