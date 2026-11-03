@@ -1,14 +1,16 @@
 # How this app is put together
 
-A static, no-framework browser app: one HTML page, ES modules, no build step for the code itself (`scripts/build.mjs` only copies, versions and checksums). This page says where things live and how they talk, so a new feature has an obvious place. Written 2026-11-03 after the first extraction (the lock and the dialogs) out of `index.html`.
+A static, no-framework browser app: one HTML page, ES modules, no build step for the code itself (`scripts/build.mjs` only copies, versions and checksums). This page says where things live and how they talk, so a new feature has an obvious place. Written 2026-11-03 and kept in step with the code: since then the lock, dialogs, voice call and model services have been taken out of `index.html`, the hook arrays became one event list, and `chat/` was grouped into feature folders.
 
 ## Three layers
 
 1. **Pure modules** (no DOM, everything the browser provides is passed in). They read on their own and are unit-tested in plain Node.
    `chat/voice/voice.mjs` (call turn-taking), `chat/voice/voice-choice.mjs` (voice picker), `runtime/memory-manager.mjs`, `chat/models/models-view.mjs`, `runtime/download-recovery.mjs`, `chat/roberta/intent-router.mjs`, `chat/markdown.mjs`, `chat/crypto.mjs`, the provider layer in `runtime/providers/`.
-2. **Feature modules** (own the DOM of one feature). Each is a `createX({...everything it needs...})` function that the page calls once; it returns a small object. They never reach into the page's variables.
-   `chat/lock/lock.mjs` (app lock and the not-locked reminder), `chat/call/call.mjs` (the voice call screen: orb, status, model chips, message list, stall notice), `chat/events.mjs` (the event list), `chat/models/services.mjs` (the memory manager, the shared embedding model and the voice choice, created once), `chat/dialogs.mjs` (modal dialogs), `chat/shell/` (rail, panel, Settings, pickers, search), `chat/transfer/transfer-ui.mjs`, `chat/roberta/roberta-ui.mjs`, `chat/models/memory-offer.mjs`.
+2. **Feature modules** (own the DOM of one feature). Each is a `createX({...everything it needs...})` function that the page calls once; it returns a small object. They receive what they need as arguments instead of reaching into the page's variables. **One exception: `chat/shell/`** rearranges the page's own controls, so it looks elements up by id and reads `window.localModels` and `window.plcDialogs` (about 20 lookups in `shell.mjs`); it is the next one to make honest, after the chat core.
+   `chat/lock/lock.mjs` (app lock and the not-locked reminder), `chat/call/call.mjs` (the voice call screen: orb, status, model chips, message list, stall notice), `chat/models/services.mjs` (the memory manager, the shared embedding model and the voice choice, created once), `chat/dialogs.mjs` (modal dialogs), `chat/shell/` (rail, panel, Settings, pickers, search overlay), `chat/transfer/transfer-ui.mjs`, `chat/roberta/roberta-ui.mjs`, `chat/models/memory-offer.mjs`. `chat/events.mjs` (the event list) is shared plumbing for all of them.
 3. **The host page**, `index.html`: boot, the chat core (threads, sending, streaming, rendering), and the glue that creates the feature modules and hands them what they need. It is still large (about 5,450 lines, most of it one script) and is being shrunk one feature at a time: **move a feature out by turning its block into `createX({...})`, passing in what it used from the page, and replacing outside uses with the returned object.** The lock, the dialogs and the voice call are the worked examples: `createCall(host)` in `chat/call/call.mjs` lists the page's capabilities it needs in its header comment, which is the pattern to copy.
+
+   **Still in the page, by size (2026-11-03, lines of `index.html`):** the chat core with sending, streaming, the readiness card and per-message actions (about 820); sharing and transfer glue, URL parameters and start-up `init` (about 420); search results, the provider endpoint and model refresh, history and settings import/export, clear history and settings (about 380); documents (about 270); the conversation list (about 180); preferences, presets, memory and exact tools (about 170); the speech and dictation setup and voice notes (about 200); Roberta glue, the context meter, storage and backups (about 260). Taking each of these out is the same recipe; the chat core and the config, token and thread state around it go last.
 
 ## How features talk to each other
 
@@ -27,14 +29,16 @@ These are the official connection points; anything else is a bug waiting to happ
 
 `emit` never lets one listener's error stop the others (it is logged); `emitAwait`, `collect` and `intercept` wait for each listener in turn and let errors through. `messageDecorators` and `messageActionHandlers` (extra buttons on a message) are separate, because they shape rendering rather than moments.
 
-**Window globals** (each has one owner; modules outside the page use these instead of importing the page):
+**Window globals** (each has one owner; modules outside the page use these instead of importing the page; the development-only `__plcDebug*` hooks are stripped from production builds):
 
 | Global | Owner | Purpose |
 |---|---|---|
 | `plcApp` | `index.html` | the facade the shell uses: threads, open library/help/share, attach files, `loadVoice()`, `loadMemory()`, `getEmbedder()`, `lock`, `openLockSettings()`... |
 | `plcShell` | `chat/shell` | open Settings or search from outside |
-| `plcDialogs` | `chat/dialogs.mjs` | `confirm`, `alert`, `copyText` for modules that cannot be handed the dialogs |
+| `plcDialogs` | `index.html` (set from `chat/dialogs.mjs`) | `confirm`, `alert`, `copyText` for modules that cannot be handed the dialogs |
 | `localModels` | `local-models.js` | the chat model: state, `view`, actions (`ensureReady`, `freeMemory`, `setMode`...) |
+| `APP_BUILD` | `build-info.js` (written by the build) | the commit, version and environment of this copy of the app; the module location comes from it |
+| `__plcBooted` | `index.html` | set when start-up finished; the head script's failure banner reads it |
 | `plcMemoryReady`, `plcOneAtATime` | `index.html` (published from `chat/models/services.mjs`) | the memory manager promise, and a flag it keeps for `local-models.js` |
 
 ## Models and memory
@@ -46,6 +50,7 @@ Three kinds of model sit in memory: the chat model (`local-models.js` over `runt
 ```
 index.html              host page: boot, chat core, glue
 local-models.js         the chat model controller (window.localModels)
+conversation-messages.mjs  how a thread becomes the messages sent to a model
 runtime/                model hosting, downloads, memory manager, voice advice
 runtime/providers/      the on-device model runtimes (WebLLM, wllama) behind one client
 chat/                   features, one folder each (below); the files left at the top are shared by several:
@@ -61,6 +66,9 @@ chat/lock/              the app lock and the not-locked reminder
 chat/shell/             the app shell: rail, panel, Settings page and pickers
 chat/vendor/            bundled third-party code (voice worker, embedding worker, pdf.js, qr)
 ops/                    publishing and build tooling for models and workers (not shipped)
+scripts/                the build, the local server, release verification, the e2e runner
+help/ privacy/ about/ updates/   the public pages (static, built from site-config.json)
+brand/                  logos and icons
 tests/                  unit tests (fast) and tests/e2e (real browser)
 docs/                   plans, evidence and procedures
 ```
