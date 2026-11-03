@@ -11,6 +11,7 @@
 //   { op: "unload" }                       -> { ok: true }
 // A failure is { ok: false, error: { name, message } }.
 
+import "./stream-polyfill.mjs"; // first: the phonemizer needs async iteration on streams, which Safari lacks
 import * as ort from "onnxruntime-web/wasm";
 import { phonemize } from "phonemizer";
 import { unzipSync } from "fflate";

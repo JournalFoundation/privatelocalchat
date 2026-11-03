@@ -56,8 +56,8 @@ esbuild is a dev dependency of `ops/voice` only; the app imports none of the npm
 
 | File | Bytes | SHA-256 |
 |---|---|---|
-| `chat/vendor/voice/worker.js` | 1397342 | `cf968d2e73d70a95463dfc76701ff5b830d0475382df136ec47b3a1bc7f0b951` |
-| `chat/vendor/voice/worker-kokoro.js` | 1384871 | `b55f48dca6008f88bc1c3e217a6dd12a6068b16437048c2d352b7f077a2aac1a` |
+| `chat/vendor/voice/worker.js` | 1397602 | `3e4eaa8f6d409bf04687108a1e31d4fcaef7f1bc8f1c278bb7008d7c04043bde` |
+| `chat/vendor/voice/worker-kokoro.js` | 1385131 | `422d1f5c3cf0a5f2199178205f8390bae762171eb09a0c6c4f386d7eb249275c` |
 | `chat/vendor/voice/ort-wasm-simd-threaded.mjs` | 24738 | `30ed0b5cd1182ede931fea448afb567d4dc705ec957af09f108a2be5f770dac3` |
 | `chat/vendor/voice/ort-wasm-simd-threaded.wasm` | 14848852 | `4b884c203b0fa48d057be3332c65513ff85aa3c5bddd6946acc0fab7ecda001d` |
 | `chat/vendor/voice/worker.js.LEGAL.txt` | 15878 | `d6998e6d5dba6cf091f83e532b1003314bcd7750cbfe308f81816e6ce7159655` |
