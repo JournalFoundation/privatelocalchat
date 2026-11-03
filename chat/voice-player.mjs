@@ -5,6 +5,11 @@
 // quiet earpiece instead of the speaker. The system voice is not affected, which made downloaded voices look silent unless headphones were plugged in.
 // navigator.audioSession.type = "playback" (Safari 16.4+) says "this is media the person asked to hear": it plays through the speaker, ignoring the ringer switch.
 // It is set while a player is playing and put back afterwards. A count keeps overlapping players from restoring it under each other.
+// A second, independent route for the same promise: on iOS the sound is also sent through an <audio> element (a MediaStream from the page's audio graph). A media
+// element plays as "media", which the ringer switch does not mute, and it works on iOS versions that have no audioSession. Used on iPhone and iPad only: other
+// browsers play straight to the speakers as before.
+import { isIOSDevice } from "../runtime/voice-pick.mjs";
+const onIOS = () => isIOSDevice(globalThis.navigator?.userAgent || "", globalThis.navigator?.maxTouchPoints || 0);
 let sessionUsers = 0, sessionBefore = null;
 function claimSpeaker(session) {
   try {
@@ -15,14 +20,15 @@ function claimSpeaker(session) {
   } catch { sessionUsers = Math.max(0, sessionUsers - 1); return () => {}; }
 }
 
-export function createGaplessPlayer({ createContext = () => new (globalThis.AudioContext || globalThis.webkitAudioContext)(), hold = false, audioSession = globalThis.navigator?.audioSession } = {}) {
+export function createGaplessPlayer({ createContext = () => new (globalThis.AudioContext || globalThis.webkitAudioContext)(), hold = false, audioSession = globalThis.navigator?.audioSession, viaMedia = onIOS(), createAudio = () => new globalThis.Audio() } = {}) {
   let giveBackSpeaker = () => {};
+  let sink = null, el = null, mediaFailed = false;
   // hold: chunks are kept (not played) until release(), so a voice slower than playback can build a lead and then play without stutter
   let held = hold; const queue = [];
   let ctx = null, next = 0, pending = 0, ended = false, stopped = false, waiter = null;
   const sources = new Set();
   let closed = false;
-  const closeContext = () => { if (closed || !ctx) return; closed = true; giveBackSpeaker(); try { Promise.resolve(ctx.close?.()).catch(() => {}); } catch { /* already closed */ } };
+  const closeContext = () => { if (closed || !ctx) return; closed = true; giveBackSpeaker(); try { el?.pause?.(); if (el) el.srcObject = null; } catch { /* gone */ } try { Promise.resolve(ctx.close?.()).catch(() => {}); } catch { /* already closed */ } };
   const settle = () => { if (waiter && ended && pending === 0) { const w = waiter; waiter = null; w(); } };
   return {
     /** Queue one chunk. */
@@ -35,7 +41,13 @@ export function createGaplessPlayer({ createContext = () => new (globalThis.Audi
       const buf = ctx.createBuffer(1, samples.length, sampleRate);
       if (buf.copyToChannel) buf.copyToChannel(samples, 0); else buf.getChannelData(0).set(samples);
       const src = ctx.createBufferSource();
-      src.buffer = buf; src.connect(ctx.destination);
+      if (viaMedia && !sink && !mediaFailed && ctx.createMediaStreamDestination) {
+        try {
+          sink = ctx.createMediaStreamDestination(); el = createAudio(); el.srcObject = sink.stream; el.setAttribute?.("playsinline", "");
+          Promise.resolve(el.play?.()).catch(() => { mediaFailed = true; sink = null; }); // no tap behind it: later chunks go straight to the speakers
+        } catch { sink = null; mediaFailed = true; }
+      }
+      src.buffer = buf; src.connect(sink || ctx.destination);
       const at = Math.max(next, ctx.currentTime + 0.02);
       next = at + buf.duration;
       pending++; sources.add(src);
