@@ -10,7 +10,7 @@
 // Returns { connection, readiness(), subscribe(fn) -> off, fix(action), reason(kind), isNetworkError(err), noteRequest(ok, err) }.
 import { createConnection, offlineReason, providerPlace } from './connection.mjs';
 import { createOfflineFacts } from './offline-facts.mjs';
-import { offlineReadiness } from '../../runtime/offline-readiness.mjs';
+import { offlineReadiness, offlineHint } from '../../runtime/offline-readiness.mjs';
 
 // The words browsers use when a request could not leave the device or got no answer. A server that answered "no" is not one of these.
 const NETWORK_MESSAGE = /failed to fetch|load failed|networkerror|network request failed|network error|internet connection appears to be offline|err_internet_disconnected|err_network/i;
@@ -38,6 +38,24 @@ export function createConnectionGlue(host) {
   function notify() { clearTimeout(timer); timer = setTimeout(async () => { const r = await readiness(); for (const fn of [...listeners]) { try { fn(r, connection); } catch (e) { console.error(e); } } }, 50); }
   async function readiness() { return offlineReadiness(await facts.read()); }
   for (const name of ['offline-status', 'local-model-state']) window.addEventListener(name, notify);
+
+  // The first time a model is ready to answer: one quiet line about offline use (each kind of line is shown once, ever).
+  const HINT_KEY = 'plc.offlineHint.v1';
+  let hintArmed = true;
+  window.addEventListener('local-model-state', () => {
+    const L = host.models?.();
+    if (!hintArmed || !L || L.mode !== 'local' || L.state?.load?.state !== 'ready') return;
+    hintArmed = false;
+    setTimeout(async () => {
+      try {
+        const seen = JSON.parse(localStorage.getItem(HINT_KEY) || '{}');
+        const hint = offlineHint(await readiness());
+        if (!hint || seen[hint.kind]) return;
+        seen[hint.kind] = true; localStorage.setItem(HINT_KEY, JSON.stringify(seen));
+        host.toast?.(hint.text);
+      } catch { /* a hint is never worth an error */ }
+    }, 2500);
+  });
 
   async function fix(action) {
     const L = host.models?.();

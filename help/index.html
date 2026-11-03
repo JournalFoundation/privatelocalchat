@@ -76,7 +76,7 @@
       <li><strong>Open the app.</strong> Go to <a href="/">https://privatelocal.chat/</a> in a current browser. There is nothing to install and no account to create.</li>
       <li><strong>Write a message and send it.</strong> With on-device chat, the first message sets everything up. The app picks a model that suits your device (the smaller Qwen3.5-2B, about 1.20 GB, on phones and tablets and small devices; a capable computer may get the larger Qwen3.5-9B, about 5.06 GB), shows its download size, downloads it, loads it and then answers. Keep the page open while it works. A progress card shows the stage, the size and the time left, and you can cancel.</li>
       <li><strong>Prefer an outside provider?</strong> In the app's model settings, set <em>Where replies run</em> to <em>Connected provider</em>, choose an endpoint and enter the API key from that provider. Messages in that mode go to the provider you chose; see <a href="#messages-and-providers">what happens to my messages</a>.</li>
-      <li><strong>Check readiness.</strong> The model settings show three separate facts: downloaded to this device, loaded in memory, and ready for offline use. See <a href="#offline-readiness">offline readiness</a> before you rely on it without a connection.</li>
+      <li><strong>Check readiness.</strong> The model settings show whether the model is downloaded and loaded, and <em>Ready for offline use</em> lists what else is saved on the device. See <a href="#offline-readiness">offline readiness</a> before you rely on it without a connection.</li>
       <li><strong>Keep your work safe.</strong> Conversations live in this browser only. Use <em>Storage &amp; backups</em> in the app to back up chats, and read <a href="#backup-restoration">restoring a backup</a>.</li>
     </ol>
     <p class="prose">Review what AI writes. See <a href="#checking-answers">how to use AI answers</a>.</p>
@@ -255,14 +255,17 @@
 
     <section id="offline-readiness" class="card" aria-labelledby="offline-readiness-title">
       <h3 id="offline-readiness-title">Checking that it will work offline</h3>
-      <p>The model settings list three separate facts: <em>Downloaded to this device</em>, <em>Loaded in memory, ready to answer</em> and <em>Ready for offline use (app and model saved)</em>. All three matter.</p>
-      <ol>
-        <li>Set up on-device chat while online, so the model is downloaded.</li>
-        <li>Reload the app once while online. The app itself is saved for offline use, and the settings say &ldquo;Reload the app once while online so the app itself is saved for offline use too&rdquo; when that is still needed. After an update they say &ldquo;An updated app is ready. Reload while online before the offline test.&rdquo;</li>
-        <li>When the settings say &ldquo;Everything needed is saved on this device. You can use it without a connection.&rdquo;, turn on airplane mode, reopen the app and send a message. Do this test before you travel.</li>
-        <li>Browsers can clear saved data when the device is low on space. In the app, <em>Keep models on this device</em> (Advanced model controls) and <em>Keep my data</em> (Storage &amp; backups) ask the browser to protect them. The browser may decline.</li>
-      </ol>
-      <p>Connected providers, downloading a model and some voice features need a connection. Once the app is saved, these Help pages open offline too.</p>
+      <p>Open <em>Settings</em>, then <em>Models</em>, then <em>Ready for offline use</em>. One line at the top says whether this device is ready, and a list shows each thing that has to be saved on the device. Every line says <em>Ready</em>, <em>One more step</em>, <em>Not saved yet</em>, <em>Checking&hellip;</em> or <em>Not used</em>, and a button on the line does the next step.</p>
+      <ul>
+        <li><strong>The app.</strong> The page itself, saved by your browser. If a newer version is saved, the line says so: reload once while online to use it.</li>
+        <li><strong>Chat model.</strong> The on-device model you chose, downloaded. With a connected provider this line says <em>Not used</em>: a provider needs a connection, an on-device model does not.</li>
+        <li><strong>What runs the model.</strong> The program files that run the model. They are large and are saved a little after the app, so a slow connection can leave them <em>One more step</em>; <em>Save now</em> finishes it while you are online.</li>
+        <li><strong>Voice.</strong> Your device&rsquo;s own voice works offline. A voice you downloaded works offline once it is saved.</li>
+        <li><strong>Keeping it.</strong> Browsers can delete saved data when the device is low on space. <em>Ask to keep</em> asks the browser to protect it. The browser may decline; Safari does not promise by default.</li>
+      </ul>
+      <p><strong>The Offline pill.</strong> When your device has no connection, a small <em>Offline</em> pill appears beside the model and voice pickers. With an on-device model, or a provider that runs on this device, nothing is wrong and the pill is calm. With a provider on the internet it tells you that the provider needs a connection. When the connection returns, the pill says <em>Back online</em> for a few seconds and goes away. Tap it to see what is ready and what is not.</p>
+      <p><strong>Try it once.</strong> When the line at the top says <em>Ready for offline use</em>, turn on airplane mode, reopen the app and send a message. Do this test before you travel.</p>
+      <p>A download you start while offline waits for a connection and carries on by itself. Connected providers on the internet, downloading a model, the model list refresh and some voice features need a connection. Once the app is saved, these Help pages open offline too.</p>
     </section>
 
     <section id="model-storage" class="card" aria-labelledby="model-storage-title">

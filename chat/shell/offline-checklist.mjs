@@ -1,7 +1,7 @@
 // How the offline checklist (runtime/offline-readiness.mjs) is shown: the same words and dots in the connection pill's menu and in Settings > Models.
 // No state of its own: it is handed the readiness result and draws it.
 
-const STATE_WORDS = { ready: "Ready", partial: "One more step", missing: "Not saved yet", unknown: "Checking…", na: "Not used" };
+export const STATE_WORDS = { ready: "Ready", partial: "One more step", missing: "Not saved yet", unknown: "Checking…", na: "Not used" };
 const DOT = { ready: "loaded", partial: "partial", missing: "none", unknown: "none", na: "none" };
 export const FIX_LABEL = { reload: "Reload", "save-runtime": "Save now", "download-model": "Download", "download-voice": "Choose voice", persist: "Ask to keep", "download-matching": "Download" };
 

@@ -16,52 +16,54 @@
 // make it ready ('reload' | 'save-runtime' | 'download-model' | 'download-voice' | 'download-matching' | 'persist') or null.
 // The summary is 'ready' | 'almost' | 'not-ready' | 'api' and `text` is the one line shown above the list.
 
+/** The names of the lines, one place, so the Help page can be checked against them. */
+export const ITEM_LABELS = Object.freeze({ app: 'The app', model: 'Chat model', runtime: 'What runs the model', voice: 'Voice', matching: 'Matching model', storage: 'Keeping it' });
 const item = (id, label, state, detail, fix = null) => ({ id, label, state, detail, fix });
 
 export function offlineReadiness(f = {}) {
   const items = [];
 
   // The app itself
-  if (f.app === 'unsupported') items.push(item('app', 'The app', 'missing', 'This browser cannot save the app for offline use.'));
-  else if (f.app === 'current') items.push(item('app', 'The app', 'ready', 'Saved on this device.'));
-  else if (f.app === 'stale') items.push(item('app', 'The app', 'partial', 'A newer version is saved. Reload once while online to use it.', 'reload'));
-  else if (f.app === 'none') items.push(item('app', 'The app', 'missing', 'Not saved yet. Keep this page open while online for a moment.', 'reload'));
-  else items.push(item('app', 'The app', 'unknown', 'Checking…'));
+  if (f.app === 'unsupported') items.push(item('app', ITEM_LABELS.app, 'missing', 'This browser cannot save the app for offline use.'));
+  else if (f.app === 'current') items.push(item('app', ITEM_LABELS.app, 'ready', 'Saved on this device.'));
+  else if (f.app === 'stale') items.push(item('app', ITEM_LABELS.app, 'partial', 'A newer version is saved. Reload once while online to use it.', 'reload'));
+  else if (f.app === 'none') items.push(item('app', ITEM_LABELS.app, 'missing', 'Not saved yet. Keep this page open while online for a moment.', 'reload'));
+  else items.push(item('app', ITEM_LABELS.app, 'unknown', 'Checking…'));
 
   // The chat model and what runs it
   if (f.mode === 'api') {
-    items.push(item('model', 'Chat model', 'na', 'You are using a connected provider. It needs a connection; an on-device model does not.'));
+    items.push(item('model', ITEM_LABELS.model, 'na', 'You are using a connected provider. It needs a connection; an on-device model does not.'));
   } else if (!f.model) {
-    items.push(item('model', 'Chat model', 'unknown', 'Checking…'));
+    items.push(item('model', ITEM_LABELS.model, 'unknown', 'Checking…'));
   } else if (!f.model.downloaded) {
-    items.push(item('model', 'Chat model', 'missing', (f.model.name || 'The model') + ' is not downloaded yet.', 'download-model'));
+    items.push(item('model', ITEM_LABELS.model, 'missing', (f.model.name || 'The model') + ' is not downloaded yet.', 'download-model'));
   } else {
-    items.push(item('model', 'Chat model', 'ready', (f.model.name || 'The model') + ' is saved on this device.'));
+    items.push(item('model', ITEM_LABELS.model, 'ready', (f.model.name || 'The model') + ' is saved on this device.'));
     if (f.runtime && f.runtime.expected > 0) {
       const { saved, expected } = f.runtime;
-      if (saved >= expected) items.push(item('runtime', 'What runs the model', 'ready', 'Saved on this device.'));
-      else if (saved > 0) items.push(item('runtime', 'What runs the model', 'partial', 'Some of it is saved (' + saved + ' of ' + expected + ' files).', 'save-runtime'));
-      else items.push(item('runtime', 'What runs the model', 'missing', 'Not saved yet. It is saved the first time the model runs, or now.', 'save-runtime'));
+      if (saved >= expected) items.push(item('runtime', ITEM_LABELS.runtime, 'ready', 'Saved on this device.'));
+      else if (saved > 0) items.push(item('runtime', ITEM_LABELS.runtime, 'partial', 'Some of it is saved (' + saved + ' of ' + expected + ' files).', 'save-runtime'));
+      else items.push(item('runtime', ITEM_LABELS.runtime, 'missing', 'Not saved yet. It is saved the first time the model runs, or now.', 'save-runtime'));
     }
   }
 
   // The voice
   if (f.voice) {
-    if (f.voice.system) items.push(item('voice', 'Voice', 'ready', 'Your device’s own voice works offline.'));
-    else if (f.voice.downloaded) items.push(item('voice', 'Voice', 'ready', (f.voice.name || 'The voice') + ' is saved on this device.'));
-    else items.push(item('voice', 'Voice', 'missing', (f.voice.name || 'The chosen voice') + ' is not downloaded yet.', 'download-voice'));
+    if (f.voice.system) items.push(item('voice', ITEM_LABELS.voice, 'ready', 'Your device’s own voice works offline.'));
+    else if (f.voice.downloaded) items.push(item('voice', ITEM_LABELS.voice, 'ready', (f.voice.name || 'The voice') + ' is saved on this device.'));
+    else items.push(item('voice', ITEM_LABELS.voice, 'missing', (f.voice.name || 'The chosen voice') + ' is not downloaded yet.', 'download-voice'));
   }
 
   // The matching model (search and the phone-menu robot): optional, so it never makes the device "not ready" on its own
   if (f.matching?.needed) {
     items.push(f.matching.downloaded
-      ? item('matching', 'Matching model', 'ready', 'Saved. Search by meaning works offline.')
-      : item('matching', 'Matching model', 'partial', 'Not downloaded. Search still finds exact words offline.', 'download-matching'));
+      ? item('matching', ITEM_LABELS.matching, 'ready', 'Saved. Search by meaning works offline.')
+      : item('matching', ITEM_LABELS.matching, 'partial', 'Not downloaded. Search still finds exact words offline.', 'download-matching'));
   }
 
   // Will the browser keep it
-  if (f.persisted === true) items.push(item('storage', 'Keeping it', 'ready', 'The browser has promised to keep this data.'));
-  else if (f.persisted === false) items.push(item('storage', 'Keeping it', 'partial', 'The browser may delete saved models when it needs space.', 'persist'));
+  if (f.persisted === true) items.push(item('storage', ITEM_LABELS.storage, 'ready', 'The browser has promised to keep this data.'));
+  else if (f.persisted === false) items.push(item('storage', ITEM_LABELS.storage, 'partial', 'The browser may delete saved models when it needs space.', 'persist'));
 
   const needed = items.filter(i => i.id !== 'matching' && i.id !== 'storage');
   const blocking = needed.filter(i => i.state === 'missing');
@@ -73,4 +75,12 @@ export function offlineReadiness(f = {}) {
   else if (partial.length || unknown.length) { summary = 'almost'; text = unknown.length && !partial.length ? 'Checking whether this device is ready for offline use…' : 'Almost ready: ' + partial.map(i => i.label.toLowerCase()).join(' and ') + ' needs one more step.'; }
   else { summary = 'ready'; text = 'Ready for offline use. Chatting with your downloaded model needs no connection.'; }
   return { summary, text, items };
+}
+
+/** The one thing worth saying the first time a model is ready to answer: it works offline, or what is left to do. Null when nothing needs saying. */
+export function offlineHint(result) {
+  if (!result || result.summary === 'api') return null;
+  if (result.summary === 'ready') return { kind: 'ready', text: 'Your model is ready for offline use. You can chat without a connection.' };
+  if (result.summary === 'not-ready' || result.summary === 'almost') return { kind: 'todo', text: 'One more step before this works offline: open Settings, Models, Ready for offline use.' };
+  return null;
 }
