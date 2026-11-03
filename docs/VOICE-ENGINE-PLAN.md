@@ -271,11 +271,13 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 
 **Independent review.** A fresh reviewer read the whole diff. Two blockers (a stall watchdog too short for slow voices, and a hung worker that never recovered) and the main should-fix items were fixed before the release; the rest are debt items 47 to 52.
 
+**Second voice tier built and verified (Kokoro q8).** Following the plan's candidate table, Kokoro-82M q8 (96.5 MB: the 92 MB model plus eight voices) is hosted on the CDN with its licence and data notice, has its own engine and worker (`chat/voice-kokoro.mjs`, `chat/vendor/voice/worker-kokoro.js`), and is offered by `runtime/voice-pick.mjs` on a real GPU adapter or a desktop-class probe (at most 160 ms); every other capable device gets the Kitten voice. Verified on the deployed dev build (`docs/evidence/voice/lane-results-kokoro.json`): Centroid and Boiler are offered Kokoro (2.3 and 2.0 times real time, first sound 1.1 and 1.3 s), the N100 desktop gets Kitten (3.2 times), the Galaxy S8+ is declined (probe far above the limit) and the iPhone 11 Pro stays on the system voice with no voice files requested. The token ids match the reference tokenizer on 25 of 25 phoneme strings and the spoken test sentence reads back with a word error rate of 0.0. The GPU-only fp32 variant (326 MB, 6.7 times real time) stays unbuilt: q8 on WASM meets the plan's goal with a fraction of the download.
+
 **Closed since the first release**
 - Lane 5: the dev command channel has `voice-state`, `voice-decide` and `voice-cycle` (the cycle only runs when that device's own decision is an offer; verified through the real command path).
 - `qrcode.js` licence: the vendored file is byte-identical to upstream's MIT-licensed `qrcode.min.js`; the licence text is stored beside it.
 - Number and abbreviation expansion: ported from Kitten's reference pre-processor and checked against it on a golden corpus (see the commit that adds `chat/voice-text.mjs`).
-- Kokoro: measured instead of guessed. On a real GPU the fp32 model reads back perfectly at 6.7x real time (`docs/evidence/voice/kokoro-webgpu-spike.json`); it is a 326 MB download, so it is held for the owner's decision on that storage cost rather than built.
+- Kokoro: built as the plan's second tier (q8, WASM); the larger fp32 GPU variant was measured (`docs/evidence/voice/kokoro-webgpu-spike.json`) and deliberately not built.
 
 **Closed: iPhone 15 Pro.** Run on the final build (`2d4fe43`) on both dev and production: decision `ios-system-voice-only`, no offer, no voice engine, probe, storage check, worker or runtime file requested, although this phone has WebGPU and a 41 GB quota. Its automation sessions closed cleanly.
 
@@ -286,9 +288,6 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 **Closed: Galaxy S8+ storage.** With the owner's approval the `dev.privatelocal.chat` origin was cleared on the phone (service worker, private files, two databases, caches); that origin held 3.9 MB and the free space went from 288 MB to 290 MB, so the earlier drop (about 430 MB while charging at 8%) was not caused by the test files, which were removed each time. Nothing more is needed from the owner.
 
 **Closed: owner decisions**
-
-**A decision, not a task**
-- Kokoro as a second tier for GPU desktops (326 MB). Measured and viable (`docs/evidence/voice/kokoro-webgpu-spike.json`); it is held until the owner decides that the storage cost is acceptable.
 
 ## Open items
 
