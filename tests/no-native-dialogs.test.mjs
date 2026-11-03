@@ -6,7 +6,7 @@ import path from "node:path";
 // The page asks questions in its own dialogs (window.plcDialogs, index.html), never with the browser's confirm / alert / prompt.
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const files = ["index.html", "local-models.js", "dev-tools/ui.mjs",
-  ...["chat", "chat/shell", "chat/lock", "chat/call", "runtime", "runtime/providers"].flatMap((d) => readdirSync(path.join(root, d)).filter((f) => f.endsWith(".mjs") || f.endsWith(".js")).map((f) => d + "/" + f))];
+  ...["chat", "chat/shell", "chat/lock", "chat/call", "chat/models", "runtime", "runtime/providers"].flatMap((d) => readdirSync(path.join(root, d)).filter((f) => f.endsWith(".mjs") || f.endsWith(".js")).map((f) => d + "/" + f))];
 const NATIVE = /(^|[^\w.$])(window\.)?(confirm|alert|prompt)\s*\(/;
 
 test("no source file uses the browser's confirm, alert or prompt", () => {
