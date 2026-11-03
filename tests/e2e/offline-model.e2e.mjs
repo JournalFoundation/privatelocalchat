@@ -79,7 +79,14 @@ try{
  // the reasons: what the page says about the connection
  const state=await page.evaluate(()=>({status:document.querySelector('#offlineStatus')?.textContent,online:navigator.onLine}));
  check('B: the browser reports offline',state.online===false);
- check('B: the page says it is offline somewhere a person would see it',await page.evaluate(()=>/offline|no connection|not connected/i.test(document.querySelector('header, .shell-header, #modelPill')?.parentElement?.innerText||'')),'(no connection indicator yet; offline plan phase 3)',false);
+ // what the person sees: the pill (calm, on-device chat works) and the checklist (everything ready)
+ check('B: the connection pill says Offline, and that on-device chat still works',await page.waitForSelector('#connectionPill',{state:'visible',timeout:8000}).then(async()=>/Offline/.test(await page.locator('#connectionPill').innerText())&&/On-device chat still works/.test(await page.locator('#connectionPill').getAttribute('title')),()=>false));
+ await page.evaluate(()=>window.plcShell.openSettings('models'));
+ await page.waitForSelector('#offlineSection .off-item[data-id="model"]');
+ await page.waitForFunction(()=>/^Ready for offline use/.test(document.querySelector('#offlineSummary')?.innerText||''),null,{timeout:15000}).catch(()=>{});
+ const states=await page.evaluate(()=>Object.fromEntries([...document.querySelectorAll('#offlineSection .off-item')].map(li=>[li.dataset.id,li.dataset.state])));
+ check('B: Settings says this device is ready for offline use',/^Ready for offline use/.test(await page.locator('#offlineSummary').innerText())&&states.app==='ready'&&states.model==='ready'&&states.runtime==='ready',JSON.stringify(states));
+ await page.keyboard.press('Escape');
  const ownFailures=matrix.requests.failedOffline.filter(r=>!r.startsWith('foreign '));
  check('B: no file of the app itself failed to load',ownFailures.length===0,ownFailures.join(', '));
  // A model that was never downloaded is fetched from the CDN when something asks for it. That is allowed, but it is listed so a

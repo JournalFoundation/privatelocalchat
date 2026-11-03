@@ -70,6 +70,9 @@ function render(s) {
   $('reloadApp').hidden=!(updatePending&&idle);V.can.reload=updatePending&&idle;
   V.can.cancel=['install','repair'].includes(s.busy)||Boolean(recovery?.pending);
   if(recovery?.pending&&!s.busy)V.status+=(recovery.phase==='offline'?' · Download will continue when connected.':' · Download will continue automatically; completed files are kept.');
+  // Lost the connection while a download is wanted: say it is waiting (not "Failed to fetch"), as soon as the app knows (the connection layer, not only the stall timeout).
+  const waitingForConnection=recovery?.pending&&(recovery.phase==='offline'||(['install','repair'].includes(s.busy)&&window.plcApp?.offline?.connection?.state==='offline'));
+  if(waitingForConnection){V.statusError=false;V.status='Waiting for a connection. The download carries on by itself, and what is saved is kept'+(t?.bytesDone?' ('+gb(t.bytesDone)+' of '+gb(t.bytesTotal||item.info.downloadBytes)+' so far)':'')+'.';}
   if(recovery?.pending&&String(recovery.reason||'').startsWith('repeated:'))V.status+=` · The download keeps failing (${recovery.reason.slice(10)}). The browser may have no room left to save files for this site: free some space, close other tabs, or choose a smaller model. Saved files are kept and it keeps trying.`;
   if(recovery?.pending&&!recovery.remembered)V.status+=' Keep this page open: the browser could not save the download request yet.';
   qualityAvailable=!(!env?.webgpu.available || (env.deviceMemoryGB !== null && env.deviceMemoryGB < 8) || /iPhone|iPad|iPod|Android/.test(navigator.userAgent));
@@ -147,6 +150,7 @@ window.__plcDebugDownloadControl = action => {
 // Sending a message is enough: choose a model for this device, download it, load it, then answer (see runtime/prepare.mjs).
 preparer=createPreparer({host,recovery:downloadRecovery,getEnv:()=>env,subscribe:fn=>{window.addEventListener('local-model-state',fn);return()=>window.removeEventListener('local-model-state',fn);},userAgent:()=>navigator.userAgent,maxTouchPoints:()=>navigator.maxTouchPoints||0});
 window.addEventListener('online',()=>downloadRecovery.wake());
+window.addEventListener('connection-changed',()=>{if(state)render(host.getState());}); // the connection layer (chat/connection/) says offline or back
 window.addEventListener('pageshow',()=>downloadRecovery.synchronize());
 window.addEventListener('storage',event=>{if(event.key==='plc.downloadIntent.v1')downloadRecovery.synchronize();});
 window.localModels={

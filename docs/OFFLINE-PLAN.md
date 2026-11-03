@@ -63,6 +63,8 @@ Not shown by this run, still open: how the old build (without the `_` fix) behav
 
 ### Phase 1: make it work (fix what Phase 0 proved)
 
+Done so far (2026-11-03): the `_` files missing from the service worker's list; a provider failure offline now says so in words; a download interrupted by losing the connection now says it is waiting and resumes (measured, fixed, with a release check); a dead connection that the browser calls online is noticed. Still open: the offline-before-any-model variant on the phones, and an update arriving while offline (covered by the checklist's "One more step" line and unit tests only).
+
 Likely, to be confirmed or struck by phase 0: the `_` files (0.1); saving the model runtime files before they are needed, or saying precisely when they are not saved (debt item 16); an interrupted app update while offline; behaviours that fail with a generic error instead of an offline one (provider calls, link opens, document fetches, the embedding model download); anything the iPhone does differently (eviction of cached files, storage persistence). Every fix gets the test from phase 0 that showed it.
 
 ### Phase 2: the connection layer (small, pure, tested)
@@ -108,6 +110,8 @@ Designed with the owner's brief in mind: visual, calm, informative, with the rig
 4. Is a full model download in CI acceptable? [No; keep it a release check.]
 
 ## Log (newest first; add a line with every finding)
+
+- 2026-11-03: mid-download variant (new release check `tests/e2e/offline-download.e2e.mjs`). Measured on the real 2B download: for about 30 seconds after the connection was cut the status still read "Downloading… 0.15 GB" with no movement (the stall timeout), and after that it read "Failed to fetch… press Download again", although the download was queued and resumes by itself. Fixed in `local-models.js`: as soon as the connection layer says offline, or the recovery is waiting, the status reads "Waiting for a connection. The download carries on by itself, and what is saved is kept (X of Y so far)." The release check now cuts the network, expects that wording within 15 seconds, still within 45 seconds more, resumes on return, and removes the partial files.
 
 - 2026-11-03: a dead connection that the browser still calls online (dead Wi-Fi, and also how the phone's development network switch looks) was invisible to the pill. The connection layer now checks the app's own origin directly (`/version.json?probe=…`, no saved copy) when the page comes to the front, when the browser reports a change, every 5 minutes while open and every 15 seconds while offline; a failed check is believed at once. Privacy page updated: it is the same file the app already fetched at start, and it carries nothing about the person.
 

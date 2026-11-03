@@ -27,7 +27,7 @@ export function createConnectionGlue(host) {
     isOnline: () => navigator.onLine !== false,
     listen: (name, fn) => { window.addEventListener(name, fn); return () => window.removeEventListener(name, fn); },
     setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: id => clearTimeout(id),
-    onChange: info => { host.events.emit('connection:changed', info); notify(); },
+    onChange: info => { host.events.emit('connection:changed', info); window.dispatchEvent(new Event('connection-changed')); notify(); },
   });
   const facts = createOfflineFacts({
     models: () => host.models?.(), app: () => host.models?.()?.offlineApp,
