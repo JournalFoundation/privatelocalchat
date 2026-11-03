@@ -65,12 +65,14 @@ export function popover(anchor, rows, { align = "start", above = false, cls = ""
 const voiceSize = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : n >= 1e6 ? (n / 1e6 < 10 ? (n / 1e6).toFixed(1) : Math.round(n / 1e6)) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB");
 const progressText = (p) => !p ? "Starting…" : p.phase === "connecting" ? "Connecting to the download server…" : p.phase === "retry" ? "Connection problem, trying again" + (p.attempt ? " (" + p.attempt + ")" : "") + "…" : p.total ? "Downloading " + Math.round((p.done / p.total) * 100) + "%" : "Downloading…";
 /** One line about a voice, like the language-model list: what it is, whether it is on this device, what to do, and the device advice. */
+// Where a downloaded voice is right now: on the device only, or also in memory. The dot on the voice pill follows the same words.
+const MEMORY_TEXT = { unloaded: "Not in memory (loads when it reads)", loading: "Loading into memory…", loaded: "In memory, ready", speaking: "Reading now", unloading: "Unloading…" };
 function voiceDescription(v) {
   let line;
   if (v.id === "os") line = v.note;
   else if (v.state === "installing") line = "Downloading the " + v.label + " voice: " + progressText(v.progress).replace(/^Downloading\s*/, "");
   else if (v.state === "testing") line = "Testing on this device…";
-  else if (v.state === "ready") line = "Downloaded (" + voiceSize(v.bytesOnDevice || v.size) + ") · " + v.license;
+  else if (v.state === "ready") line = "Downloaded (" + voiceSize(v.bytesOnDevice || v.size) + ") · " + v.license + (MEMORY_TEXT[v.memory] ? " · " + MEMORY_TEXT[v.memory] : "");
   else if (v.state === "failed") line = "Failed: " + String(v.error || "unknown problem").replace(/[.\s]*$/, "") + ". Tap to try again.";
   else line = "Not downloaded (" + voiceSize(v.size) + ") · " + v.license + (v.failures ? " · failed before: " + v.failures.reason : "");
   if (v.recommended) line += " · Recommended for this device";
@@ -221,7 +223,7 @@ export function createShell(app) {
     const busy = voiceBusy(snap), sel = snap.voices.find((v) => v.selected);
     const name = voicePill.querySelector(".shell-model-name");
     if (busy) { const pct = busy.progress?.total && busy.state === "installing" ? Math.round((busy.progress.done / busy.progress.total) * 100) + "%" : busy.state === "testing" ? "testing" : "connecting"; name.textContent = busy.label + " " + pct; voicePill.dataset.status = "busy"; voicePill.title = busy.label + " — " + voiceDescription(busy); }
-    else { name.textContent = sel.id === "os" ? "System" : sel.label; voicePill.dataset.status = snap.notice?.kind === "error" ? "error" : sel.id === "os" ? "none" : "ready"; voicePill.title = "Voice: " + sel.label + (snap.notice ? " — " + snap.notice.text : ""); }
+    else { name.textContent = sel.id === "os" ? "System" : sel.label + (sel.memory === "loading" ? " loading…" : ""); voicePill.dataset.status = snap.notice?.kind === "error" ? "error" : sel.id === "os" ? "none" : "ready"; voicePill.dataset.memory = sel.id === "os" ? "" : sel.memory || ""; voicePill.title = "Voice: " + sel.label + (MEMORY_TEXT[sel.memory] ? " — " + MEMORY_TEXT[sel.memory] : "") + (snap.notice ? " — " + snap.notice.text : ""); }
   }
   const pickVoice = (id) => chooseVoice(voiceCtl, id, app.toast);
   function voiceRows(snap) {
@@ -237,6 +239,8 @@ export function createShell(app) {
       else if (v.id !== "os" && v.state === "ready") rows.push({ label: "Remove " + v.label + " (" + voiceSize(v.bytesOnDevice || v.size) + ")", icon: "trash", danger: true, onClick: () => { if (confirm("Remove " + v.label + " from this device? Reading aloud goes back to the system voice if it was selected. You can download it again any time.")) voiceCtl.remove(v.id); } });
     }
     const sel = snap.voices.find((v) => v.selected);
+    const inMemory = snap.voices.filter((v) => v.memory === "loaded" || v.memory === "speaking" || v.memory === "loading");
+    if (inMemory.length) rows.push({ label: "Free the memory (unload " + inMemory.map((v) => v.label).join(", ") + ")", icon: "close", onClick: () => voiceCtl.release("person") });
     if (sel && sel.id !== "os" && sel.state === "ready") rows.push({ label: "Hear a sample of " + sel.label, icon: "play", onClick: () => voiceCtl.hearSample(sel.id).catch((e) => app.toast?.(e.message)) });
     return rows;
   }
@@ -424,6 +428,7 @@ function buildSettings({ app, shell, registry, moved }) {
         else if (v.selected) controls.append(h("span", { class: "set-desc", text: "In use" }));
         else controls.append(btn(v.id === "os" || v.state === "ready" ? "Use" : v.state === "failed" ? "Try again" : "Download", () => chooseVoice(ctl, v.id, app.toast)));
         if (v.id !== "os" && v.state === "ready") {
+          if (v.memory === "loaded") controls.append(btn("Unload from memory", () => ctl.release("person")));
           controls.append(btn("Hear a sample", () => ctl.hearSample(v.id).catch((e) => app.toast?.(e.message))));
           controls.append(btn("Remove", () => { if (confirm("Remove " + v.label + " from this device? Reading aloud goes back to the system voice if it was in use. You can download it again any time.")) ctl.remove(v.id); }, "danger"));
         }

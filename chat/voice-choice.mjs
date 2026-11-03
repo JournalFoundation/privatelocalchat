@@ -43,12 +43,19 @@ export function createVoiceChoice({
     if (!commit || typeof fetch !== "function") return false;
     try { const r = await fetch("/version.json", { cache: "no-store" }); const v = r.ok ? await r.json() : null; return Boolean(v?.commit && v.commit !== commit); } catch { return false; }
   },
+  idleUnloadMs = 60000,                       // a loaded voice that has not read for this long is unloaded (its files stay on the device)
+  setTimer = (f, ms) => setTimeout(f, ms), clearTimer = (t) => clearTimeout(t),
   onOutdated = () => { try { globalThis.dispatchEvent?.(new Event("plc-check-update")); } catch { /* no window */ } },
 } = {}) {
   const ios = isIOSDevice(userAgent, maxTouchPoints);
   let record = read();
   const engines = new Map();                                  // id -> engine instance
   const status = Object.fromEntries(ENGINE_IDS.map((id) => [id, { state: "none", progress: null, bytes: 0, error: null, metrics: null }]));
+  // Memory state of each voice, so the person can see it: unloaded (files on the device only) | loading | loaded (in memory, idle) | speaking | unloading.
+  const mem = Object.fromEntries(ENGINE_IDS.map((id) => [id, "unloaded"]));
+  const speakingNow = new Map(); let idleTimer = null, releaseWanted = false;
+  const setMem = (id, m) => { if (mem[id] !== m) { mem[id] = m; emit(); } };
+  function armIdle() { if (idleTimer) clearTimer(idleTimer); idleTimer = setTimer(() => { idleTimer = null; ctl.release("idle"); }, idleUnloadMs); }
   const aborts = new Map();                                    // id -> AbortController of a running download
   let notice = null, advice = null, sessionFallback = false, slowStreak = 0, failStreak = 0, player = null, ready = false;
   const listeners = new Set();
@@ -75,6 +82,14 @@ export function createVoiceChoice({
   // at the next start the voice that was in use is the likely cause (usually the browser ran out of memory), and the person is told, not locked out.
   try { globalThis.addEventListener?.("pagehide", () => { if (record.pending || record.speaking) { record.pending = null; record.speaking = null; save(); } }); } catch { /* no window */ }
   const markSpeaking = (id, on) => { record.speaking = on ? { id, at: now() } : null; save(); };
+
+  // After a read: idle in memory, unless the chat model asked for the memory while it was reading.
+  function afterSpeak(id) {
+    const n = (speakingNow.get(id) || 1) - 1; speakingNow.set(id, n);
+    if (n > 0) return;
+    if (mem[id] === "speaking" || mem[id] === "loading") setMem(id, "loaded");
+    if (releaseWanted) { releaseWanted = false; ctl.release("chat model"); } else armIdle();
+  }
 
   const ctl = {
     isIOS: () => ios,
@@ -112,7 +127,7 @@ export function createVoiceChoice({
           const s = status[v.id] || { state: "ready", progress: null, bytes: 0, error: null, metrics: null };
           const f = record.failures[v.id];
           return { id: v.id, label: v.label, note: v.note, license: v.license, size: v.bytes, selected: record.selected === v.id,
-            state: v.id === "os" ? "ready" : s.state, progress: s.progress, bytesOnDevice: s.bytes, error: s.error, metrics: s.metrics,
+            state: v.id === "os" ? "ready" : s.state, memory: v.id === "os" || s.state !== "ready" ? null : mem[v.id], progress: s.progress, bytesOnDevice: s.bytes, error: s.error, metrics: s.metrics,
             failures: f ? { ...f } : null, advice: advice?.notes?.[v.id] || "", recommended: advice?.recommended === v.id };
         }),
         totalBytes: ENGINE_IDS.reduce((n, id) => n + (status[id].state === "ready" ? status[id].bytes : 0), 0),
@@ -137,6 +152,24 @@ export function createVoiceChoice({
       return download(id);
     },
 
+    /**
+     * Give the memory back: unload every voice that is in memory and not reading (the downloaded files stay). Called when the chat model needs the memory,
+     * after the idle time, and by the person ("Unload now"). A voice that is reading is unloaded as soon as it finishes.
+     */
+    async release(reason = "") {
+      if (idleTimer) { clearTimer(idleTimer); idleTimer = null; }
+      const jobs = [];
+      for (const id of ENGINE_IDS) {
+        if (mem[id] === "unloaded" || mem[id] === "unloading") continue;
+        if (speakingNow.get(id) > 0 || mem[id] === "loading") { releaseWanted = true; continue; }
+        setMem(id, "unloading");
+        jobs.push((async () => { try { await engines.get(id)?.unload?.(); } catch { /* the worker is stopped anyway */ } setMem(id, "unloaded"); })());
+      }
+      await Promise.all(jobs);
+      return { released: jobs.length, reason };
+    },
+    unload(id) { return ctl.release("person").then((r) => r); },
+
     /** Stop a download that is running. Nothing is kept and it is not counted as a failure. */
     cancel(id) { aborts.get(id)?.abort(); },
 
@@ -144,7 +177,7 @@ export function createVoiceChoice({
     async remove(id) {
       if (!status[id]) return { ok: true };
       aborts.get(id)?.abort();
-      const removed = await removeFiles(id);
+      const removed = await removeFiles(id); if (removed) mem[id] = "unloaded";
       status[id] = { state: removed ? "none" : status[id].state, progress: null, bytes: removed ? 0 : status[id].bytes, error: removed ? null : "The files could not be deleted; try again.", metrics: null };
       if (record.selected === id) { player?.stop(); player = null; record.selected = "os"; }
       save(); emit();
@@ -156,7 +189,12 @@ export function createVoiceChoice({
       if (id === "os" || status[id]?.state !== "ready") return false;
       const e = await engineFor(id);
       player?.stop(); const p = (player = createGaplessPlayer({ createContext }));
-      await e.speak(SAMPLE_TEXT, { onChunk: (s, r) => p.push(s, r), speed: 1 });
+      if (idleTimer) { clearTimer(idleTimer); idleTimer = null; }
+      speakingNow.set(id, (speakingNow.get(id) || 0) + 1);
+      if (mem[id] === "unloaded") setMem(id, "loading");
+      try { await e.speak(SAMPLE_TEXT, { onChunk: (s, r) => { if (mem[id] !== "speaking") setMem(id, "speaking"); p.push(s, r); }, speed: 1 }); }
+      catch (err) { setMem(id, "unloaded"); throw err; }
+      finally { afterSpeak(id); }
       await p.finish();
       return true;
     },
@@ -195,8 +233,12 @@ export function createVoiceChoice({
       const engine = engines.get(id);
       const speak = async (t, o) => {
         markSpeaking(id, true);
+        if (idleTimer) { clearTimer(idleTimer); idleTimer = null; }
+        speakingNow.set(id, (speakingNow.get(id) || 0) + 1);
+        if (mem[id] !== "loaded" && mem[id] !== "speaking") setMem(id, "loading");
+        const onChunk = o?.onChunk; const opts = onChunk ? { ...o, onChunk: (...a) => { if (mem[id] !== "speaking") setMem(id, "speaking"); return onChunk(...a); } } : o;
         try {
-          const r = await engine.speak(t, o);
+          const r = await engine.speak(t, opts);
           failStreak = 0;
           // the speed is re-measured on every reply: two slow ones in a row are reported, never punished
           if (r && Number.isFinite(r.realTimeFactor)) {
@@ -205,7 +247,8 @@ export function createVoiceChoice({
             if (slowStreak === 2) say("slow", voiceOf(id).label + " is reading slower than speech here (" + r.realTimeFactor.toFixed(1) + "×), so replies pause. You can pick another voice.");
           }
           return r;
-        } finally { markSpeaking(id, false); }
+        } catch (e) { setMem(id, "unloaded"); throw e; }
+        finally { markSpeaking(id, false); afterSpeak(id); }
       };
       return {
         engine: { speak, terminate: () => engine.terminate?.(), fail: (err) => ctl.engineFailed(err) },
@@ -217,11 +260,21 @@ export function createVoiceChoice({
     engineFailed(err) {
       const id = record.selected;
       if (id === "os" || !status[id] || status[id].state !== "ready") return;
-      sessionFallback = true; failStreak++;
+      sessionFallback = true; // this reply is read by the system voice either way
       const reason = err?.message || String(err);
-      noteFailure(id, "while reading: " + reason);
-      if (failStreak >= 2) { record.selected = "os"; save(); say("error", voiceOf(id).label + " failed twice (" + reason + "), so reading went back to the system voice. Choose it again to retry."); }
-      else say("error", voiceOf(id).label + " could not read that (" + reason + "). The system voice read it instead.");
+      // A deploy replaces the old release folder, so a page left open cannot start the voice worker any more. That is the page's problem, not the voice's:
+      // say so, ask for the update, and do not count it against the voice.
+      Promise.resolve().then(outdated).catch(() => false).then((stale) => {
+        if (stale) {
+          sessionFallback = false; onOutdated();
+          say("error", voiceOf(id).label + " could not start because the app was updated while this page was open. Reload the page and it will work; the voice is still downloaded. This reply was read by the system voice.");
+          return;
+        }
+        failStreak++;
+        noteFailure(id, "while reading: " + reason);
+        if (failStreak >= 2) { record.selected = "os"; save(); say("error", voiceOf(id).label + " failed twice (" + reason + "), so reading went back to the system voice. Choose it again to retry."); }
+        else say("error", voiceOf(id).label + " could not read that (" + reason + "). The system voice read it instead.");
+      });
     },
   };
 
@@ -245,7 +298,7 @@ export function createVoiceChoice({
         new Promise((_, reject) => { timer = setTimeout(() => { try { engine.terminate?.(); } catch { /* gone */ } reject(Object.assign(new Error("the voice made no sound within " + Math.round(selfTestTimeoutMs / 1000) + " s"), { name: "TimeoutError" })); }, selfTestTimeoutMs); })
       ]).finally(() => clearTimeout(timer));
       let bytes = 0; try { bytes = (await engine.status()).bytes || 0; } catch { /* unknown */ }
-      status[id] = { state: "ready", progress: null, bytes, error: null, metrics };
+      status[id] = { state: "ready", progress: null, bytes, error: null, metrics }; setMem(id, "loaded"); armIdle(); // the self-test left it in memory
       notice = null; delete record.failures[id]; record.selected = id; record.pending = null; sessionFallback = false; failStreak = 0; slowStreak = 0; save(); emit();
       // the person hears the voice at once, and is told if it is slow here (information only: the voice stays)
       const p = (player = createGaplessPlayer({ createContext })); for (const [s, r] of chunks) p.push(s, r); p.finish().catch(() => {});

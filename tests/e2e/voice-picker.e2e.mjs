@@ -54,6 +54,17 @@ try{
  await page.waitForFunction(()=>window.__fake.speaks.some(s=>s.startsWith('kitten:')),null,{timeout:8000});
  ok('Listen reads in the chosen voice');
 
+ // the memory cue: the dot and the list say whether the voice is in memory, and the person can free it
+ await page.waitForFunction(()=>document.querySelector('#voicePill').dataset.memory==='loaded',null,{timeout:8000});
+ assert(/In memory, ready/.test(await page.locator('#voicePill').getAttribute('title')),'the pill says the voice is in memory');
+ await open();
+ assert(/In memory, ready/.test(await rowText('Kitten')),'the list says Kitten is in memory: '+await rowText('Kitten'));
+ await page.locator('.shell-pop-row',{hasText:'Free the memory'}).click();
+ await page.waitForFunction(()=>document.querySelector('#voicePill').dataset.memory==='unloaded',null,{timeout:5000});
+ assert(await page.evaluate(()=>window.__fake.files.kitten===true),'freeing the memory keeps the downloaded files');
+ assert(/Not in memory/.test(await page.locator('#voicePill').getAttribute('title')),'the pill now says it is not in memory');
+ ok('the memory cue follows loaded and unloaded');
+
  // a failing download is explained, the previous voice stays, and the next try asks once then goes ahead
  await page.evaluate(()=>{window.__fake.failInstall=true;});
  await open();await vrow('Kokoro').click();

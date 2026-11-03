@@ -295,7 +295,7 @@ The probe ordering is consistent with the real results (lower ms, faster voice).
 ## Open items
 
 - **Promote the voice picker from `dev` to `main`.** The owner's call. Until then production runs the gated flow with the bug fixes above.
-- **Unload the voice when the chat model needs the memory** (debt item 48). Measured (`docs/VOICE-MEMORY.md`), not managed.
+- **Unload the voice when the chat model needs the memory** (debt item 48). Built: idle unload (60 s), release when the chat model loads, "Free the memory", and a visible memory state on the voice pill. Still to do: tune the idle time on a phone with a chat model loaded.
 - **A mid-range phone and a low-end laptop** have never been measured for real; the advice thresholds come from five real devices and a simulated sweep (debt item 42).
 - **The two unverified licence questions** (eSpeak NG data-file coverage; the training-data terms of Kitten and Kokoro) are written up in `THIRD-PARTY-NOTICES.md` as unverified.
 - **`GPL-3.0-only`** (package licence field) is a default the owner can change to "or later".

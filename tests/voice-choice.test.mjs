@@ -189,6 +189,7 @@ test("a failure while reading falls back for that reply, keeps the choice, and a
   await ctl.init(); await ctl.select("kitten");
   const route = ctl.route();
   route.engine.fail(new Error("worker stopped"));
+  await new Promise((r) => setTimeout(r, 5));
   let s = ctl.snapshot();
   assert.equal(s.selected, "kitten", "still the chosen voice");
   assert.equal(ctl.route(), null, "this session reads with the system voice after a failure");
@@ -196,6 +197,7 @@ test("a failure while reading falls back for that reply, keeps the choice, and a
   await ctl.select("kitten"); // choosing it again retries
   assert.ok(ctl.route(), "choosing the voice again turns it back on");
   ctl.engineFailed(new Error("again"));
+  await new Promise((r) => setTimeout(r, 5));
   s = ctl.snapshot();
   assert.equal(s.selected, "os"); assert.match(s.notice.text, /failed twice/);
   assert.equal(voice(s, "kitten").state, "ready", "the voice is still downloaded");
@@ -289,4 +291,70 @@ test("a failed download on a current page keeps the plain message and does not a
   const r = await ctl.select("kitten");
   assert.equal(r.outdated, false); assert.equal(asked, 0);
   assert.doesNotMatch(ctl.snapshot().notice.text, /updated while/);
+});
+
+// ---- memory: unloaded / loading / loaded / speaking, idle unload, release for the chat model ----
+const memOf = (ctl, id) => voice(ctl.snapshot(), id).memory;
+function timers() { const q = []; return { setTimer: (f, ms) => { const t = { f, ms }; q.push(t); return t; }, clearTimer: (t) => { const i = q.indexOf(t); if (i >= 0) q.splice(i, 1); }, q, fire: () => { const t = q.shift(); return t?.f(); } }; }
+
+test("a voice is in memory after it is set up, shows unloaded after a release, and loads again when it next reads", async () => {
+  const tm = timers(); const engine = createFakeVoiceEngine();
+  const { ctl } = make({ engines: { kitten: engine }, ctl: { setTimer: tm.setTimer, clearTimer: tm.clearTimer } });
+  await ctl.init();
+  assert.equal(memOf(ctl, "kitten"), null, "not downloaded: no memory state");
+  assert.equal(memOf(ctl, "os"), null);
+  await ctl.select("kitten");
+  assert.equal(memOf(ctl, "kitten"), "loaded", "the self-test left it in memory");
+  await ctl.release("chat model");
+  assert.equal(memOf(ctl, "kitten"), "unloaded"); assert.ok(engine.calls.includes("unload"));
+  assert.equal(voice(ctl.snapshot(), "kitten").state, "ready", "the files stay");
+  const seen = []; ctl.subscribe((s) => seen.push(voice(s, "kitten").memory));
+  await ctl.route().engine.speak("Hello there.", { onChunk() {} });
+  assert.deepEqual([...new Set(seen)], ["loading", "speaking", "loaded"], "loading, then reading, then idle in memory");
+});
+
+test("an idle voice is unloaded after the idle time, and a new read cancels that", async () => {
+  const tm = timers(); const engine = createFakeVoiceEngine();
+  const { ctl } = make({ engines: { kitten: engine }, ctl: { setTimer: tm.setTimer, clearTimer: tm.clearTimer, idleUnloadMs: 60000 } });
+  await ctl.init(); await ctl.select("kitten");
+  assert.equal(tm.q.length, 1); assert.equal(tm.q[0].ms, 60000);
+  await ctl.route().engine.speak("One.", { onChunk() {} });
+  assert.equal(tm.q.length, 1, "only one idle timer is ever pending");
+  await tm.fire();
+  assert.equal(memOf(ctl, "kitten"), "unloaded");
+});
+
+test("a release while a voice is reading waits for the reading to finish, never cutting it off", async () => {
+  let finish; const engine = createFakeVoiceEngine();
+  const speak = engine.speak.bind(engine);
+  const { ctl } = make({ engines: { kitten: engine } });
+  await ctl.init(); await ctl.select("kitten");
+  engine.speak = async (t, o) => { await new Promise((r) => { finish = r; }); return speak(t, o); };
+  const reading = ctl.route().engine.speak("Long reply.", { onChunk() {} });
+  await ctl.release("chat model");
+  assert.ok(!engine.calls.includes("unload"), "not unloaded mid-reading");
+  finish(); await reading; await new Promise((r) => setTimeout(r, 5));
+  assert.ok(engine.calls.includes("unload")); assert.equal(memOf(ctl, "kitten"), "unloaded");
+});
+
+test("a read that fails leaves the voice shown as unloaded, and an unload is not a failure", async () => {
+  const engine = createFakeVoiceEngine();
+  const { ctl } = make({ engines: { kitten: engine } });
+  await ctl.init(); await ctl.select("kitten");
+  await ctl.release("chat model");
+  engine.speak = async () => { throw new Error("synthesis failed"); };
+  await assert.rejects(ctl.route().engine.speak("x", {}));
+  assert.equal(memOf(ctl, "kitten"), "unloaded");
+  assert.equal(voice(ctl.snapshot(), "kitten").failures, null, "releasing the memory records nothing against the voice");
+});
+
+test("a worker that cannot start because the page is out of date asks for a reload and is not counted against the voice", async () => {
+  let asked = 0;
+  const { ctl } = make({ ctl: { outdated: async () => true, onOutdated: () => { asked++; } } });
+  await ctl.init(); await ctl.select("kitten");
+  for (let i = 0; i < 3; i++) { ctl.route().engine.fail(new Error("the voice worker failed")); await new Promise((r) => setTimeout(r, 5)); }
+  const s = ctl.snapshot();
+  assert.equal(s.selected, "kitten", "never dropped to the system voice by an out-of-date page");
+  assert.equal(voice(s, "kitten").failures, null);
+  assert.equal(asked, 3); assert.match(s.notice.text, /updated while this page was open\. Reload the page/);
 });

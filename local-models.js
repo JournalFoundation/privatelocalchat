@@ -36,7 +36,10 @@ function showError(error) {
   $('modelStatus').textContent = (error?.message || String(error)) + (error?.advice ? ' '+error.advice : ' Try Verify / repair or reload the model.');
   $('modelStatus').dataset.error = 'true';
 }
+let wasLoading=false;
 function render(s) {
+  if(s.load?.state==='loading'&&!wasLoading) window.dispatchEvent(new Event('plc-chat-model-loading'));
+  wasLoading=s.load?.state==='loading';
   state = s;
   if(s.device) env=s.device;
   const tier=s.selection.tier, item=s.tiers[tier], t=s.transfer;

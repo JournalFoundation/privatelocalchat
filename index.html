@@ -4276,6 +4276,8 @@
         });
         const ctl = mod.createVoiceChoice({ factory, env, ...(hook?.inputs || {}) });
         await ctl.init();
+        // the chat model is about to take memory: give the voice's back (its files stay; it loads again when it next reads)
+        window.addEventListener('plc-chat-model-loading', () => { ctl.release('chat model'); });
         voiceCtl = ctl;
         return ctl;
       })().catch(() => null));

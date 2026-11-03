@@ -265,6 +265,13 @@ body.shell .composer-bar .composer-actions:not(:has(> :not([hidden]))) { display
 /* ---- voice picker (beside the model picker) ---- */
 .shell-voicepick { margin-left: 0 !important; }
 body.shell .composer-bar .shell-voicepick { margin-left: 0 !important; }
+/* the dot shows where the voice is: hollow = on the device only, pulsing amber = loading, solid = in memory, ringed = reading */
+.shell-voicepick[data-memory="unloaded"] .shell-model-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--plc-success); }
+.shell-voicepick[data-memory="loading"] .shell-model-dot, .shell-voicepick[data-memory="unloading"] .shell-model-dot { background: var(--plc-warning); animation: plc-voice-pulse 1s ease-in-out infinite; }
+.shell-voicepick[data-memory="speaking"] .shell-model-dot { animation: plc-voice-ring 1.2s ease-out infinite; }
+@keyframes plc-voice-pulse { 50% { opacity: .35; } }
+@keyframes plc-voice-ring { 0% { box-shadow: 0 0 0 0 var(--plc-success); } 100% { box-shadow: 0 0 0 7px transparent; } }
+@media (prefers-reduced-motion: reduce) { .shell-voicepick .shell-model-dot { animation: none !important; } }
 .shell-voicepick[data-status="error"] .shell-model-dot { background: var(--plc-danger); }
 .shell-voicepick .shell-model-name { max-width: 9.5em; }
 @media (max-width: 520px) { .shell-voicepick .shell-model-name { max-width: 6.5em; } .shell-voicepick[data-status="none"] .shell-model-name, .shell-voicepick[data-status="ready"] .shell-model-name { display: none; } }
