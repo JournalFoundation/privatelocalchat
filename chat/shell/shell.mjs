@@ -431,8 +431,8 @@ function buildSettings({ app, shell, registry, moved }) {
   });
   add("security", "Security", "lock", "lock passcode app lock reminder splash not locked", () => {
     const box = h("input", { type: "checkbox", id: "lockReminder", "aria-label": "Remind me when the app is not locked" });
-    const sync = () => { box.checked = window.plcLock ? window.plcLock.reminderOn() : true; };
-    box.addEventListener("change", () => window.plcLock?.setReminder(box.checked));
+    const sync = () => { box.checked = app.lock ? app.lock.reminderOn() : true; };
+    box.addEventListener("change", () => app.lock?.setReminder(box.checked));
     const w = h("div", {}, h("h2", { text: "Security" }), card(
       row("App lock", "Ask for a passcode before the app opens on this device. Any passphrase will do, even one character.", btn("Set up", () => app.openLockSettings())),
       row("Not-locked reminder", "When the app has no passcode, show a short reminder as it opens, with a button to add one.", box)));
