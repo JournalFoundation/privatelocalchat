@@ -24,7 +24,7 @@ There is no linter. Commits must be Conventional Commits with body lines ≤100 
 
 ## Architecture
 
-Read `docs/ARCHITECTURE.md` first: the three layers (pure modules, feature modules, the host page), the official ways features connect (hook arrays and window globals), and how to extract a feature out of `index.html` (`chat/lock/lock.mjs` and `chat/dialogs.mjs` are the worked examples). Test the area you touched with `npm run e2e -- <name>`; the full browser sweep is a release check.
+Read `docs/ARCHITECTURE.md` first: the three layers (pure modules, feature modules, the host page), the official ways features connect (the event list in `chat/events.mjs` and the window globals), and how to extract a feature out of `index.html` (`chat/lock/lock.mjs` and `chat/dialogs.mjs` are the worked examples). Test the area you touched with `npm run e2e -- <name>`; the full browser sweep is a release check.
 
 - **`index.html`** (~5.7k lines) is the single-page chat app: the markup, the inline script and the chat engine. It owns the storage formats that must be preserved: `chatThreads` (localStorage) and `chatConfig`/`chatModels` (sessionStorage). Local mode must never silently fall back to an API.
 - **`local-models.js` / `local-models.css`** bridge the UI to local models (model panel, download/load flow). **`conversation-messages.mjs`** shapes messages for the model.

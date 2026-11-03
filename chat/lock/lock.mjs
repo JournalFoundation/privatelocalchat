@@ -8,7 +8,7 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
   const LOCK_KEY = 'plc.lock.v1';
   let lockCfg = readJson(localStorage, LOCK_KEY, null);
   const appEl = document.getElementById('app');
-  const lockScreen = el('div', 'lock-screen'); lockScreen.id = 'lockScreen'; lockScreen.setAttribute('role', 'dialog'); lockScreen.setAttribute('aria-modal', 'true'); lockScreen.setAttribute('aria-label', 'Unlock Private Local Chat');
+  const lockScreen = el('div', 'lock-screen'); lockScreen.id = 'lockScreen'; lockScreen.setAttribute('role', 'dialog'); lockScreen.setAttribute('aria-modal', 'true'); lockScreen.setAttribute('aria-label', 'Unlock Private Local Chat'); lockScreen.hidden = true; // shown only while locked (it used to cover an unlocked app until start-up finished)
   // padlocks (inline, so they look the same everywhere): closed when the app is locked, open on the "not locked" reminder
   const padlock = (open, cls = '') => {
     const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');

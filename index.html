@@ -1503,7 +1503,9 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs')]);
+      // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
+      const events = createEvents();
       // DOM element references
       const endpointSelect = document.getElementById('endpointSelect');
       const endpointInput = document.getElementById('endpointInput');
@@ -2561,7 +2563,7 @@
         systemPromptInput.value = thread.systemPrompt || '';
         // Render messages
         renderMessages(thread);
-        threadSelectedHooks.forEach(fn => fn(thread));
+        events.emit('thread:selected', thread);
         // Re-render thread list to highlight current
         renderThreadList();
         closeSidebar();
@@ -2810,7 +2812,6 @@
       }
 
       const messageDecorators = []; // later features add buttons/meta here: (thread, msg, index, ctx) => void
-      const threadSelectedHooks = []; // run after a conversation is shown
       let noteSupport = false;       // voice notes need the browser's text-to-speech; set by the speech block
       const ROBOT_NAME = 'Roberta';  // the app's robot (chat/ivr-content.mjs holds the same name for the menu)
       /** A link to the Help page section for a problem, opened in a new tab so the chat and draft stay put. */
@@ -3097,7 +3098,7 @@
         M.model.touch(thread);
         saveThreads();
         if (threadId === currentThreadId) renderMessages(thread, { keepScroll: false });
-        replyListeners.forEach(l => l.start?.(thread, msg));
+        events.emit('reply:start', thread, msg);
         const index = thread.messages.indexOf(msg);
         const join = next => (baseText && next && !/\s$/.test(baseText) && !/^\s/.test(next) && /[.!?:;,)\]]$/.test(baseText) && /^[\p{L}\p{N}]/u.test(next) ? ' ' : '');
         let streamed = '';
@@ -3108,7 +3109,7 @@
           generationStatus.textContent = (window.localModels?.mode === 'local' ? (generatingLabel() + ' ') : 'Receiving the response… ') + full.length + ' characters written';
           schedulePaint(threadId, msg);
           scheduleSave();
-          replyListeners.forEach(l => l.text?.(thread, streamed));
+          events.emit('reply:text', thread, streamed);
         };
         try {
           if (needsPrep) {
@@ -3178,16 +3179,10 @@
           if (threadId === currentThreadId) renderMessages(thread, { keepScroll: true });
           setGenerating(false);
           renderThreadList();
-          afterReplyHooks.forEach(fn => fn(thread, msg));
-          replyListeners.forEach(l => l.end?.(thread, msg));
+          events.emit('reply:end', thread, msg);
         }
       }
       let contextSources = [];
-      const afterReplyHooks = []; // features that react to a finished reply
-      const replyListeners = []; // { start(thread, msg), text(thread, fullText), end(thread, msg) }: features that follow a reply as it is written (voice conversation)
-      const beforeSendHooks = []; // run when a message is being sent, before the composer is read and cleared (dictation stops here)
-      const sendInterceptors = []; // (text, thread) => handled?  — e.g. slash commands answered without the model
-      const userMessageHooks = []; // run on a prompt before it is sent (exact tools)
 
       async function buildInferenceMessages(thread, index, mode) {
         const { messagesForInference } = await import(moduleBase() + 'conversation-messages.mjs');
@@ -3200,12 +3195,9 @@
         if (mode === 'continue') messages.push({ role: 'user', content: CONTINUE_PROMPT });
         return messages;
       }
-      // Features that add to what the model is told register here: (thread, view) => ({ preamble?: string[], attachmentText?: { [id]: text } })
-      const contextProviders = [];
       async function contextOptions(thread, view) {
         const out = { preamble: [], attachmentText: {}, sources: [] };
-        for (const provide of contextProviders) {
-          const part = await provide(thread, view);
+        for (const part of await events.collect('context:collect', thread, view)) {
           if (part?.preamble) out.preamble.push(...part.preamble);
           if (part?.attachmentText) Object.assign(out.attachmentText, part.attachmentText);
           if (part?.sources) out.sources.push(...part.sources);
@@ -3222,15 +3214,15 @@
           updateChatAvailability();
           return;
         }
-        beforeSendHooks.forEach(fn => fn());
+        events.emit('send:before');
         const text = messageInput.value.trim();
         if (!text && !(pendingAttachments?.length)) { messageInput.focus(); return; }
         const thread = currentThread();
         if (!thread) return;
-        for (const intercept of sendInterceptors) { if (await intercept(text, thread)) return; }
+        if (await events.intercept('send:intercept', text, thread)) return;
         const extra = pendingAttachments?.length ? { attachments: takePendingAttachments() } : {};
         const userMessage = M.model.makeMessage('user', text, extra);
-        for (const hook of userMessageHooks) await hook(userMessage);
+        await events.emitAwait('prompt:ready', userMessage);
         thread.messages.push(userMessage);
         if (thread.messages.filter(m => m.role === 'user').length === 1 && M.model.hasDefaultTitle(thread)) {
           thread.title = M.model.deriveTitle(text) || thread.title;
@@ -3304,14 +3296,14 @@
           if (!text) return;
           const previous = M.model.editPrompt(thread, index, text);
           if (!previous) return;
-          for (const hook of userMessageHooks) await hook(thread.messages[index]);
+          await events.emitAwait('prompt:ready', thread.messages[index]);
           M.model.touch(thread);
           saveThreads();
           renderMessages(thread);
           const undo = async () => {
             if (gen && gen.threadId === thread.id) { gen.controller.abort(); while (gen) await new Promise(r => window.setTimeout(r, 20)); }
             M.model.undoEditPrompt(thread, index, previous);
-            for (const hook of userMessageHooks) await hook(thread.messages[index]);
+            await events.emitAwait('prompt:ready', thread.messages[index]);
             M.model.touch(thread); saveThreads(); renderThreadList();
             if (thread.id === currentThreadId) renderMessages(thread);
             showToast('Edit undone');
@@ -3635,7 +3627,7 @@
         openAppDialog({ title: 'Move chat to a project', content: wrap, actions: [{ label: 'Cancel' }, { label: 'Move', primary: true, run: () => { if (sel.value) thread.folderId = sel.value; else delete thread.folderId; saveThreads(); renderThreadList(); } }] });
       }
 
-      contextProviders.push(async thread => ({ preamble: [selectedFolderInstructions(thread)] }));
+      events.on('context:collect', async thread => ({ preamble: [selectedFolderInstructions(thread)] }));
       messageDecorators.push((thread, msg, index, ctx, actions) => {
         if (!ctx.streaming && index < thread.messages.length) actions.appendChild(actionButton('branch-here', '🌿 Start a branch here', 'Start a branch here'));
       });
@@ -3804,7 +3796,7 @@
       messageInput.addEventListener('paste', e => { if (e.clipboardData?.files?.length) { e.preventDefault(); addFiles(e.clipboardData.files); } });
 
       // what the model is told about the documents
-      contextProviders.push(async (thread, view) => {
+      events.on('context:collect', async (thread, view) => {
         const attachmentList = view.messages.flatMap(m => m.attachments || []);
         const ids = [...new Set(attachmentList.filter(a => a.kind !== 'image').map(a => a.id))];
         const { docs, store } = await loadDocModules();
@@ -3965,9 +3957,9 @@
       canvasBtn.addEventListener('click', () => { const c = ensureCanvas(); if (c.pane.hidden) openCanvas(); else c.pane.querySelector('[aria-label="Close editor"]').click(); });
       document.getElementById('headerTools').appendChild(canvasBtn); // shown only for a chat that has a draft
       const syncCanvasBtn = thread => { canvasBtn.hidden = !(thread?.canvas?.text); };
-      threadSelectedHooks.push(syncCanvasBtn);
+      events.on('thread:selected', syncCanvasBtn);
       messageActionHandlers['open-canvas'] = (thread, msg) => openCanvas(msg.content);
-      threadSelectedHooks.push(() => { if (canvas && !canvas.pane.hidden) { canvas.pane.hidden = true; canvasBtn.setAttribute('aria-pressed', 'false'); } });
+      events.on('thread:selected', () => { if (canvas && !canvas.pane.hidden) { canvas.pane.hidden = true; canvasBtn.setAttribute('aria-pressed', 'false'); } });
 
       // ---- assistant: preferences, presets, memory, exact tools, speech ---------------------------------------------
       const MEMORY_KEY = 'plc.memory.v1', PRESETS_KEY = 'plc.presets.v1';
@@ -3988,7 +3980,7 @@
       const allPresets = () => [...BUILTIN_PRESETS, ...customPresets];
 
       // standing preferences and memory travel with every question
-      contextProviders.push(async thread => {
+      events.on('context:collect', async thread => {
         const preamble = [];
         if (prefs.instructions?.trim()) preamble.push('The user’s standing preferences for how you respond (follow them unless the conversation says otherwise):\n' + prefs.instructions.trim());
         if (memory.enabled && memory.items.length && !thread.temporary) {
@@ -4023,7 +4015,7 @@
         customPresets.push(preset); savePresets(); thread.presetId = preset.id; saveThreads(); renderPresetOptions(thread); showToast('Preset saved');
       });
       systemPromptInput.addEventListener('input', () => { const t = currentThread(); if (t?.presetId && allPresets().find(p => p.id === t.presetId)?.prompt !== systemPromptInput.value.trim()) { delete t.presetId; presetSelect.value = ''; } });
-      threadSelectedHooks.push(thread => renderPresetOptions(thread));
+      events.on('thread:selected', thread => renderPresetOptions(thread));
 
       // exact tools
       let toolsModule = null;
@@ -4123,7 +4115,7 @@
       }
 
       // slash commands are answered here, without the model; exact results are attached to ordinary questions
-      sendInterceptors.push(async (text, thread) => {
+      events.on('send:intercept', async (text, thread) => {
         if (!text.startsWith('/')) return false;
         const tools = await loadTools();
         const remember = /^\/remember\s+([\s\S]+)$/i.exec(text);
@@ -4137,7 +4129,7 @@
         const status = document.getElementById('generationStatus'); status.hidden = false; status.textContent = 'Answered on this device.';
         return true;
       });
-      userMessageHooks.push(retool);
+      events.on('prompt:ready', retool);
       // ---- dictation and voice conversation -------------------------------------------------------------------------
       // Both use the browser's own speech recognition and voices (Apple's on an iPhone). A control the browser cannot support is not shown.
       const speechAvailable = {
@@ -4193,7 +4185,7 @@
           stopSpeaking(); setListenButton(btn, true);
           await speakText(msg.content, () => { if (btn.isConnected) setListenButton(btn, false); });
         };
-        threadSelectedHooks.push(() => stopSpeaking());
+        events.on('thread:selected', () => stopSpeaking());
       }
 
       const toolButton = (id, icon, label) => {
@@ -4250,8 +4242,8 @@
       // typing while dictating is the person's edit: later words are added after it, never over it
       messageInput.addEventListener('input', () => { if (dictation && messageInput.value !== dictation.shown) { dictation.committed = messageInput.value.replace(/\s*$/, ' '); dictation.shown = messageInput.value; } });
       // sending (or leaving the conversation) ends the microphone for good: a recogniser keeps delivering late words after it is stopped
-      beforeSendHooks.push(() => endDictation({ abort: true }));
-      threadSelectedHooks.push(() => endDictation({ abort: true }));
+      events.on('send:before', () => endDictation({ abort: true }));
+      events.on('thread:selected', () => endDictation({ abort: true }));
 
       // ---- the voice call (chat/call/call.mjs); the call sounds are shared with Roberta, so they live here ----
       let loadedDocExports = null;
@@ -4269,7 +4261,7 @@
         currentThreadId: () => currentThreadId, chatReady: () => getChatState().ready,
         loadSpeech, loadVoice, ensureCallSounds, callSounds: () => callSounds, callSoundsOn, loadVoiceChoice, voiceOpts,
         cleanText: text => (loadedDocExports?.stripMarkdown ? loadedDocExports.stripMarkdown(text) : text), moduleBase,
-        explainSpeechInputFailure, endDictation, stopSpeaking, voiceButton: () => voiceBtn, replyListeners, contextProviders,
+        explainSpeechInputFailure, endDictation, stopSpeaking, voiceButton: () => voiceBtn, events,
         stallBaseMs: callStallBase
       });
 
@@ -4364,7 +4356,7 @@
         messageInput.value = text; growComposer();
         await handleSendMessage({ preventDefault() {} });
       }
-      userMessageHooks.push(message => { if (pendingVoice) { message.voice = pendingVoice; pendingVoice = null; } });
+      events.on('prompt:ready', message => { if (pendingVoice) { message.voice = pendingVoice; pendingVoice = null; } });
       const toggleVoiceNote = () => { if (!recordAvailable) return; if (recorderOpen()) closeRecorder(); else startVoiceNote(); };
 
       // ---- Roberta: the app's robot, a phone menu of prepared messages -----------------------------------------------------------

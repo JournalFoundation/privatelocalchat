@@ -7,23 +7,25 @@ A static, no-framework browser app: one HTML page, ES modules, no build step for
 1. **Pure modules** (no DOM, everything the browser provides is passed in). They read on their own and are unit-tested in plain Node.
    `chat/voice.mjs` (call turn-taking), `chat/voice-choice.mjs` (voice picker), `runtime/memory-manager.mjs`, `chat/models-view.mjs`, `runtime/download-recovery.mjs`, `chat/intent-router.mjs`, `chat/markdown.mjs`, `chat/crypto.mjs`, the provider layer in `runtime/providers/`.
 2. **Feature modules** (own the DOM of one feature). Each is a `createX({...everything it needs...})` function that the page calls once; it returns a small object. They never reach into the page's variables.
-   `chat/lock/lock.mjs` (app lock and the not-locked reminder), `chat/call/call.mjs` (the voice call screen: orb, status, model chips, message list, stall notice), `chat/models/services.mjs` (the memory manager, the shared embedding model and the voice choice, created once), `chat/dialogs.mjs` (modal dialogs), `chat/shell/` (rail, panel, Settings, pickers, search), `chat/transfer-ui.mjs`, `chat/roberta-ui.mjs`, `chat/memory-offer.mjs`.
+   `chat/lock/lock.mjs` (app lock and the not-locked reminder), `chat/call/call.mjs` (the voice call screen: orb, status, model chips, message list, stall notice), `chat/events.mjs` (the event list), `chat/models/services.mjs` (the memory manager, the shared embedding model and the voice choice, created once), `chat/dialogs.mjs` (modal dialogs), `chat/shell/` (rail, panel, Settings, pickers, search), `chat/transfer-ui.mjs`, `chat/roberta-ui.mjs`, `chat/memory-offer.mjs`.
 3. **The host page**, `index.html`: boot, the chat core (threads, sending, streaming, rendering), and the glue that creates the feature modules and hands them what they need. It is still large (about 5,450 lines, most of it one script) and is being shrunk one feature at a time: **move a feature out by turning its block into `createX({...})`, passing in what it used from the page, and replacing outside uses with the returned object.** The lock, the dialogs and the voice call are the worked examples: `createCall(host)` in `chat/call/call.mjs` lists the page's capabilities it needs in its header comment, which is the pattern to copy.
 
 ## How features talk to each other
 
-There is no event bus yet. These are the official connection points; anything else is a bug waiting to happen.
+These are the official connection points; anything else is a bug waiting to happen.
 
-**Hook arrays in `index.html`** (a feature pushes a function; the chat core calls them):
+**The event list, `chat/events.mjs`** (a feature adds a listener with `events.on(name, fn)`; the chat core and features fire events by name; a name that is not in the list is an error, so a typo fails at once). The table at the top of that file is the official list:
 
-| Array | Called | Used by |
+| Event | Fires | For |
 |---|---|---|
-| `threadSelectedHooks` | after a conversation is shown | |
-| `beforeSendHooks` | as a message is sent, before the composer is read and cleared | dictation stops here |
-| `userMessageHooks` | on a prompt before it is sent | exact tools |
-| `contextProviders` | to add to what the model is sent (async, returns `{ preamble }`) | voice call style |
-| `replyListeners` | `{ start, text(full), end }` as a reply is written | the voice call |
-| `afterReplyHooks` | after a finished reply | |
+| `thread:selected` | `emit(thread)` | a conversation was shown: stop speech, close the canvas, refresh presets |
+| `send:before` | `emit()` | a message is being sent, before the composer is read (dictation stops here) |
+| `send:intercept` | `intercept(text, thread)` | answer without the model; a listener returns `true` when it handled it (Roberta's slash commands) |
+| `prompt:ready` | `emitAwait(message)` | a user message before it is kept or edited: exact tools rewrite it, the voice call marks it |
+| `context:collect` | `collect(thread, view)` | add to what the model is told; each listener returns `{ preamble?, attachmentText?, sources? }` |
+| `reply:start` / `reply:text` / `reply:end` | `emit(...)` | a reply began, grew (the voice call speaks it as it is written), finished |
+
+`emit` never lets one listener's error stop the others (it is logged); `emitAwait`, `collect` and `intercept` wait for each listener in turn and let errors through. `messageDecorators` and `messageActionHandlers` (extra buttons on a message) are separate, because they shape rendering rather than moments.
 
 **Window globals** (each has one owner; modules outside the page use these instead of importing the page):
 

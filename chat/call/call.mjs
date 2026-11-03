@@ -5,10 +5,10 @@
 //
 // host: el, icons, prefs(), showToast, providerName, messageForm, messageInput, growComposer, sendMessage(), abortReply(), currentThreadId(), chatReady(),
 //       loadSpeech(), loadVoice(), ensureCallSounds(), callSounds(), callSoundsOn(), loadVoiceChoice(), voiceOpts(), cleanText(text), moduleBase(),
-//       explainSpeechInputFailure(code), endDictation(opts), stopSpeaking(), voiceButton(), replyListeners[], contextProviders[], stallBaseMs() (optional)
+//       explainSpeechInputFailure(code), endDictation(opts), stopSpeaking(), voiceButton(), events, stallBaseMs() (optional)
 
 export function createCall(host) {
-  const { el, icons, showToast, providerName, messageForm, messageInput, growComposer, replyListeners, contextProviders } = host;
+  const { el, icons, showToast, providerName, messageForm, messageInput, growComposer, events } = host;
   let speechMod = null, voiceMod = null;
   const setPressed = on => host.voiceButton()?.setAttribute('aria-pressed', String(on));
   let voiceSession = null, voiceUi = null, wakeLock = null;
@@ -258,17 +258,15 @@ export function createCall(host) {
   host.voiceButton()?.addEventListener('click', () => { if (voiceSession?.active) endVoice(); else startVoice(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && voiceSession?.active && !document.querySelector('.app-dialog')) endVoice(); });
   // the reply, as it is written, goes to the voice
-  replyListeners.push({
-    start: thread => { replyBegan = true; if (voiceSession?.active && thread.id === host.currentThreadId()) voiceSession.replyStarted(); },
-    text: (thread, full) => { if (voiceSession?.active && thread.id === host.currentThreadId()) { voiceSession.replyText(full); callLogLive(full); } },
-    end: (thread, msg) => {
-      if (!voiceSession?.active) return;
-      callLogEnd(msg.content || '');
-      if (msg.status === 'stopped' || msg.status === 'cancelled') voiceSession.replyEnded({ stopped: true });
-      else voiceSession.replyEnded({ text: msg.content || '', ok: msg.status !== 'failed' });
-    }
+  events.on('reply:start', thread => { replyBegan = true; if (voiceSession?.active && thread.id === host.currentThreadId()) voiceSession.replyStarted(); });
+  events.on('reply:text', (thread, full) => { if (voiceSession?.active && thread.id === host.currentThreadId()) { voiceSession.replyText(full); callLogLive(full); } });
+  events.on('reply:end', (thread, msg) => {
+    if (!voiceSession?.active) return;
+    callLogEnd(msg.content || '');
+    if (msg.status === 'stopped' || msg.status === 'cancelled') voiceSession.replyEnded({ stopped: true });
+    else voiceSession.replyEnded({ text: msg.content || '', ok: msg.status !== 'failed' });
   });
-  contextProviders.push(async () => voiceSession?.active && voiceMod ? { preamble: [voiceMod.VOICE_STYLE] } : {});
+  events.on('context:collect', async () => (voiceSession?.active && voiceMod ? { preamble: [voiceMod.VOICE_STYLE] } : {}));
   document.addEventListener('visibilitychange', () => { if (document.hidden) voiceSession?.pause('background'); });
   window.addEventListener('pagehide', () => { if (voiceSession?.active) voiceSession.stop(); host.callSounds()?.close(); });
   document.getElementById('stopGeneration').addEventListener('click', () => { if (voiceSession?.active) voiceSession.interrupt(); });
