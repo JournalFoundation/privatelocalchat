@@ -1503,7 +1503,7 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createProviderSettings }, { createTransferGlue }, { createPageChrome }, { createMessagesView }, { createSender }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/provider-settings.mjs'), import(modulesAt + 'chat/transfer/transfer-glue.mjs'), import(modulesAt + 'chat/core/page-chrome.mjs'), import(modulesAt + 'chat/core/messages-view.mjs'), import(modulesAt + 'chat/core/sender.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createProviderSettings }, { createTransferGlue }, { createPageChrome }, { createMessagesView }, { createSender }, { createThreadState }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/provider-settings.mjs'), import(modulesAt + 'chat/transfer/transfer-glue.mjs'), import(modulesAt + 'chat/core/page-chrome.mjs'), import(modulesAt + 'chat/core/messages-view.mjs'), import(modulesAt + 'chat/core/sender.mjs'), import(modulesAt + 'chat/core/thread-state.mjs')]);
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // DOM element references
@@ -1640,249 +1640,29 @@
         }
       };
 
-      function buildPreloadUrl() {
-        const baseHref = window.location.href.split('#')[0].split('?')[0];
-        const params = new URLSearchParams();
-        const title = (threadTitleInput?.value || '').trim();
-        const system = (systemPromptInput?.value || '').trim();
-        const prompt = (messageInput?.value || '').trim();
-        if (title) params.set('title', title);
-        if (system) params.set('system', system);
-        if (prompt) params.set('prompt', prompt);
-        const query = params.toString();
-        return query ? `${baseHref}?${query}` : baseHref;
-      }
-
-      function loadThreads() {
-        const storedThreads = readJson(localStorage, THREAD_KEY, []);
-        const list = Array.isArray(storedThreads) ? storedThreads : [];
-        threads = M.model.purgeExpired(list.map(t => M.model.normalizeThread(t)).filter(Boolean));
-      }
-
-      // Temporary chats are never written down.
-      function saveThreads() {
-        return writeJson(localStorage, THREAD_KEY, threads.filter(t => !t.temporary));
-      }
-
-      function generateThreadId() {
-        return `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
-      }
-
-      function createThread({ title = 'New chat', systemPrompt = '', messages = [], temporary = false } = {}) {
-        const id = generateThreadId();
-        const normalizedTitle = typeof title === 'string' ? title : 'New chat';
-        const normalizedSystemPrompt = typeof systemPrompt === 'string' ? systemPrompt : '';
-        const now = Date.now();
-        const thread = {
-          id,
-          title: normalizedTitle,
-          systemPrompt: normalizedSystemPrompt,
-          messages: (Array.isArray(messages) ? messages : []).map(m => M.model.normalizeMessage(m, now)).filter(Boolean),
-          createdAt: now,
-          updatedAt: now
-        };
-        if (temporary) thread.temporary = true;
-        threads.push(thread);
-        saveThreads();
-        return id;
-      }
-
-      function ensureThreadExists() {
-        const hasValidThread = threads.some(thread => thread && typeof thread.id === 'string' && thread.id);
-        if (hasValidThread) {
-          return null;
-        }
-        return createThread();
-      }
-
-      const getThread = id => threads.find(t => t.id === id);
-      const currentThread = () => getThread(currentThreadId);
-      const updateThread = mutator => {
-        const thread = currentThread();
-        if (!thread) return null;
-        mutator(thread);
-        saveThreads();
-        return thread;
-      };
-
-      /**
-       * Derive the state of the chat. A thread, endpoint and model must be selected
-       * before sending messages. This helper returns booleans representing those
-       * conditions as well as an aggregate "ready" flag.
-       */
       let generationController = null;
       let generationBusy = false;
       window.addEventListener('local-model-state', () => { updateChatAvailability(); const t = currentThread(); if (t && !t.messages.length && M && !messagesView.welcomeSetup?.card) renderMessages(t); });
       document.getElementById('stopGeneration').addEventListener('click', () => generationController?.abort());
 
-      function getChatState() {
-        if (!window.localModels) return {local:true,hasThread:Boolean(currentThread()),hasEndpoint:true,hasModel:false,canType:false,ready:false};
-        if (window.localModels?.mode === 'local') {
-          const hasThread = Boolean(currentThread());
-          const hasModel = window.localModels.ready || window.localModels.canPrepare !== false;
-          return { local: true, hasThread, hasEndpoint: true, hasModel, canType: hasThread && hasModel, ready: hasThread && hasModel && !generationBusy };
-        }
-        const thread = currentThread();
-        const hasThread = Boolean(thread);
-        const hasEndpoint = Boolean((provider.config.endpoint || '').trim());
-        const hasModel = Boolean((provider.config.model || '').trim());
-        return {
-          hasThread,
-          hasEndpoint,
-          hasModel,
-          canType: hasThread && hasEndpoint && hasModel,
-          ready: hasThread && hasEndpoint && hasModel && !generationBusy
-        };
-      }
-
-      /**
-       * Enable or disable the send button depending on whether a message is ready to send.
-       * @param {boolean} isReady indicates if chat conditions are met
-       */
-      // Send is always available when you can reply; while an answer is being written it gives way to Stop.
-      function updateSendButtonDisabled() {
-        if (!sendBtn) return;
-        sendBtn.hidden = Boolean(gen) || generationBusy;
-      }
-
-      /**
-       * Update the notice block above the chat area to indicate missing prerequisites.
-       * When there are no issues this hides the notice, otherwise lists guidance.
-       * @param {object} state output from getChatState()
-       */
-      function updateChatNotice(state) {
-        if (!chatNotice) return;
-        const instructions = [];
-        if (state.local && !state.hasModel && currentThread()?.messages.length) instructions.push(window.localModels?.installed ? 'Loading the model into memory. You can write a draft while it loads.' : 'Set up on-device chat to start. You can write a draft in the meantime.');
-        if (!state.hasEndpoint) {
-          instructions.push('Add a provider endpoint under Model and connection to send messages.');
-        }
-        if (!state.local && state.hasEndpoint && !state.hasModel) {
-          instructions.push('Refresh the provider’s model list and choose a model.');
-        }
-        if (!state.hasThread) {
-          instructions.push('Start a new chat or open one from the conversation list.');
-        }
-
-        const requiresEndpoint = !state.hasEndpoint;
-        chatNotice.classList.toggle('requires-endpoint', requiresEndpoint);
-        if (requiresEndpoint) {
-          chatNotice.setAttribute('tabindex', '0');
-        } else {
-          chatNotice.removeAttribute('tabindex');
-        }
-
-        chatNotice.innerHTML = '';
-        if (!instructions.length) {
-          chatNotice.classList.remove('active');
-          chatNotice.setAttribute('aria-hidden', 'true');
-          chatNotice.hidden = true;
-          if (messageInput) {
-            messageInput.removeAttribute('aria-describedby');
-          }
-          return;
-        }
-
-        const list = document.createElement('ul');
-        instructions.forEach(text => {
-          const item = document.createElement('li');
-          item.textContent = text;
-          list.appendChild(item);
-        });
-        chatNotice.appendChild(list);
-        chatNotice.classList.add('active');
-        chatNotice.setAttribute('aria-hidden', 'false');
-        chatNotice.hidden = false;
-        if (messageInput) {
-          messageInput.setAttribute('aria-describedby', 'chatNotice');
-        }
-      }
-
-      /**
-       * Based on chat state, enable/disable inputs and update placeholders
-       * to guide the user toward completing the necessary steps. When a
-       * message has been prefilled via URL, we leave that value intact
-       * so the user can see it even if sending is disabled.
-       */
-      function updateChatAvailability() {
-        const state = getChatState();
-        const placeholder = !state.hasThread ? 'Start a new chat to write a message' : 'Write a message…';
-        threadTitleInput.disabled = !state.hasThread;
-        systemPromptInput.disabled = !state.hasThread;
-        updateModeBadge();
-
-        // Only update the message placeholder if the input is empty. If there's
-        // pre-filled text we leave it alone so that the user can see it.
-        if (!messageInput.value) {
-          messageInput.placeholder = placeholder;
-        }
-        // Disable input when not ready, but leave the value alone.
-        messageInput.disabled = !state.hasThread;
-        if (state.hasThread) {
-          messageForm.classList.remove('disabled');
-          messageForm.setAttribute('aria-disabled', 'false');
-        } else {
-          messageForm.classList.add('disabled');
-          messageForm.setAttribute('aria-disabled', 'true');
-        }
-        updateChatNotice(state);
-        updateSendButtonDisabled(state.ready);
-      }
-
-      /**
-       * Select a thread by ID, updating UI and state accordingly. If the
-       * thread doesn't exist, the chat inputs are disabled.
-       * @param {string} id thread identifier
-       */
-      function selectThread(id) {
-        closeThreadMenu();
-        const previousId = currentThreadId;
-        if (previousId && previousId !== id) {
-          persistDraftNow(previousId);
-          messageInput.value = drafts[id] || '';
-          growComposer();
-        } else if (!previousId && !messageInput.value) {
-          messageInput.value = drafts[id] || '';
-          growComposer();
-        }
-        currentThreadId = id;
-        const thread = getThread(id);
-        if (!thread) {
-          updateChatAvailability();
-          return;
-        }
-        writeJson(localStorage, ACTIVE_THREAD_KEY, id);
-        // Populate title and system prompt
-        threadTitleInput.value = thread.title || '';
-        systemPromptInput.value = thread.systemPrompt || '';
-        // Render messages
-        renderMessages(thread);
-        events.emit('thread:selected', thread);
-        // Re-render thread list to highlight current
-        renderThreadList();
-        closeSidebar();
-        updateChatAvailability();
-      }
-
-      /**
-       * Rename the given thread by prompting the user for a new title. The
-       * current thread title input updates along with the list.
-       * @param {string} threadId id of the thread to rename
-       */
-      async function renameThread(threadId) {
-        const thread = getThread(threadId);
-        if (!thread) return;
-        const currentName = thread.title && thread.title.trim() ? thread.title.trim() : 'Untitled';
-        const newName = await promptDialog('Rename chat', 'Title', currentName);
-        if (newName === null) return;
-        thread.title = newName.trim() || 'Untitled';
-        saveThreads();
-        renderThreadList();
-        if (threadId === currentThreadId) {
-          threadTitleInput.value = thread.title;
-        }
-      }
-
+      // ---- threads and what the chat is ready to do (chat/core/thread-state.mjs): created further down; these keep earlier code simple ----
+      let threadState = null;
+      function buildPreloadUrl(...a) { return threadState.buildPreloadUrl(...a); }
+      function loadThreads(...a) { return threadState.loadThreads(...a); }
+      function saveThreads(...a) { return threadState.saveThreads(...a); }
+      function generateThreadId(...a) { return threadState.generateThreadId(...a); }
+      function createThread(...a) { return threadState.createThread(...a); }
+      function ensureThreadExists(...a) { return threadState.ensureThreadExists(...a); }
+      function getThread(...a) { return threadState.getThread(...a); }
+      function currentThread(...a) { return threadState.currentThread(...a); }
+      function updateThread(...a) { return threadState.updateThread(...a); }
+      function getChatState(...a) { return threadState.getChatState(...a); }
+      function updateSendButtonDisabled(...a) { return threadState.updateSendButtonDisabled(...a); }
+      function updateChatNotice(...a) { return threadState.updateChatNotice(...a); }
+      function updateChatAvailability(...a) { return threadState.updateChatAvailability(...a); }
+      function selectThread(...a) { return threadState.selectThread(...a); }
+      function renameThread(...a) { return threadState.renameThread(...a); }
+      function exportThreadMarkdown(...a) { return threadState.exportThreadMarkdown(...a); }
       /* DEV_DIAGNOSTICS_START */
       window.__plcDebugCurrentConversation = () => {
         const thread = getThread(currentThreadId);
@@ -1929,28 +1709,6 @@
         return {status,conversation:window.__plcDebugCurrentConversation()};
       };
       /* DEV_DIAGNOSTICS_END */
-
-      function exportThreadMarkdown(threadId = currentThreadId) {
-        if (!threadId) return;
-        const thread = getThread(threadId);
-        if (!thread) return;
-        const markdown = M.model.threadToMarkdown(thread);
-        const blob = new Blob([markdown], { type: 'text/markdown' });
-        const url = URL.createObjectURL(blob);
-        const safeTitle = typeof thread.title === 'string' && thread.title.trim()
-          ? thread.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-          : 'chat';
-        const filename = `${safeTitle || 'chat'}-${thread.id}.md`;
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-
-      // ---- chat core: answers are rendered, streamed and controlled per message -----------------------------------
       let M = null; // { markdown, model, stream }: the pure modules under /chat/
       const moduleBase = () => (window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/');
       async function loadChatModules() {
@@ -2222,6 +1980,17 @@
         onLock: () => { stopSpeaking?.(); call.stop(); }
       });
       lock.start();
+
+      // ---- threads and what the chat is ready to do (chat/core/thread-state.mjs) ----
+      threadState = createThreadState({
+        s: {
+          get threads() { return threads; }, set threads(v) { threads = v; },
+          get currentThreadId() { return currentThreadId; }, set currentThreadId(v) { currentThreadId = v; },
+          get generationBusy() { return generationBusy; }, get gen() { return gen; }
+        },
+        M: () => M, drafts: () => drafts, threadTitleInput, systemPromptInput, messageInput, readJson, writeJson, THREAD_KEY, ACTIVE_THREAD_KEY, provider, sendBtn, chatNotice, updateModeBadge,
+        messageForm, closeThreadMenu, persistDraftNow, growComposer, events, closeSidebar, promptDialog, messagesView, renderThreadList: () => renderThreadList()
+      });
 
       // ---- sending and streaming (chat/core/sender.mjs) ----
       const gstate = {
