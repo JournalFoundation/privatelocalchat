@@ -42,6 +42,7 @@ export function createVoiceChoice({
   config = VOICE_CONFIG,
   selfTestTimeoutMs = 90000,
   createContext,
+  hasAudioSession = () => Boolean(globalThis.navigator?.audioSession),   // iOS 16.4+: the player can ask for the speaker even in silent mode
   // Is a newer build published than this page? A deploy replaces the old release folder, so a page left open can no longer fetch its voice files.
   outdated = async () => {
     const commit = globalThis.APP_BUILD?.commit;
@@ -320,6 +321,8 @@ export function createVoiceChoice({
       // the person hears the voice at once, and is told if it is slow here (information only: the voice stays)
       const p = (player = createGaplessPlayer({ createContext })); for (const [s, r] of chunks) p.push(s, r); p.finish().catch(() => {});
       if (!voiceIsFastEnough({ ...metrics, typicalReplySeconds: TYPICAL_REPLY_SECONDS }, config)) say("slow", voiceOf(id).label + " runs at " + (metrics.realTimeFactor ?? 0).toFixed(1) + "× real time on this device, so replies will pause. It is selected; you can pick another voice any time.");
+      // the phone's side switch (silent mode) mutes a web page's sound on older iOS; the page cannot detect it, so the person is told where to look
+      else if (ios) say("tip", hasAudioSession() ? "Playing a sample. If you hear nothing, check the volume and the silent switch on the side of the phone." : "Playing a sample. On this version of iOS the silent switch on the side of the phone mutes downloaded voices: flip it, or use headphones.");
       return { ok: true, metrics };
     } catch (err) {
       record.pending = null;

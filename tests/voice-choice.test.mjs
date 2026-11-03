@@ -394,3 +394,15 @@ test("what the voice makes reaches the speaker: the real engine's chunk objects 
   assert.ok(scheduled() > mid, "a read-aloud through chat/speech.mjs plays");
   for (const c of contexts) for (const s of c.scheduled) assert.ok(s.duration > 0.05, "a real length of audio, not an empty chunk");
 });
+
+test("on iPhone the sample comes with a hint about the silent switch; where the page can ask for the speaker the hint is softer", async () => {
+  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+  const a = make({ ctl: { userAgent: IPHONE, maxTouchPoints: 5, hasAudioSession: () => true } });
+  await a.ctl.init(); await a.ctl.select("kitten");
+  assert.equal(a.ctl.snapshot().notice.kind, "tip"); assert.match(a.ctl.snapshot().notice.text, /silent switch/);
+  const b = make({ ctl: { userAgent: IPHONE, maxTouchPoints: 5, hasAudioSession: () => false } });
+  await b.ctl.init(); await b.ctl.select("kitten");
+  assert.match(b.ctl.snapshot().notice.text, /mutes downloaded voices: flip it, or use headphones/);
+  const c = make(); await c.ctl.init(); await c.ctl.select("kitten");
+  assert.equal(c.ctl.snapshot().notice, null, "no hint on a desktop");
+});

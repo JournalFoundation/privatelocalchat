@@ -9,7 +9,13 @@ object `{ samples, sampleRate, ... }`; the player and `chat/speech.mjs` take `(s
 two-argument form, so every test passed. Earlier "speaks at 4x real time" figures were durations, not proof of sound. Fixed in `chat/voice-choice.mjs`
 (`unpackChunk`), the fakes now use the real contract, `tests/voice-choice.test.mjs` plays through `chat/speech.mjs`, and `tests/e2e/voice-audible.e2e.mjs`
 records what reaches the AudioContext with the real engines (also in the Voice e2e workflow). Checked by transcription (faster-whisper base.en) of the
-recorded audio: both voices say the test sentences correctly. Not yet heard on the owner's devices.
+recorded audio: both voices say the test sentences correctly. Heard by the owner on a MacBook Pro (both voices).
+
+**iPhone: silent switch and headphones (2026-11-03).** With the phone's side switch on silent, downloaded voices were inaudible and came back with headphones: Web
+Audio defaults to the ambient audio session, which the ringer switch mutes. `chat/voice-player.mjs` now sets `navigator.audioSession.type = "playback"` while it plays
+(checked on iOS 26.6.2: the type changes to `playback`; whether it overrides the switch is for the owner to confirm by ear). The page cannot detect the switch, so after the
+sample on an iPhone the picker says to check the volume and the silent switch (and, on an iOS without `audioSession`, says the switch mutes downloaded voices).
+Open: Kitten once failed on the owner's iPhone with a WebAssembly out-of-memory error in a tab that had run Granite earlier; not reproduced.
 
 ## Goal
 
