@@ -1,6 +1,6 @@
 # How this app is put together
 
-A static, no-framework browser app: one HTML page, ES modules, no build step for the code itself (`scripts/build.mjs` only copies, versions and checksums). This page says where things live and how they talk, so a new feature has an obvious place. Written 2026-11-03 and kept in step with the code: since then the lock, dialogs, voice call and model services have been taken out of `index.html`, the hook arrays became one event list, and `chat/` was grouped into feature folders.
+A static, no-framework browser app: one HTML page, ES modules, no build step for the code itself (`scripts/build.mjs` only copies, versions and checksums). This page is how the app is put together **now**; `docs/RESTRUCTURE-PLAN.md` is where it is going and what is left. This page says where things live and how they talk, so a new feature has an obvious place. Written 2026-11-03 and kept in step with the code: since then the lock, dialogs, voice call and model services have been taken out of `index.html`, the hook arrays became one event list, and `chat/` was grouped into feature folders.
 
 ## Three layers
 
@@ -10,7 +10,7 @@ A static, no-framework browser app: one HTML page, ES modules, no build step for
    `chat/lock/lock.mjs` (app lock and the not-locked reminder), `chat/call/call.mjs` (the voice call screen: orb, status, model chips, message list, stall notice), `chat/models/services.mjs` (the memory manager, the shared embedding model and the voice choice, created once), `chat/dialogs.mjs` (modal dialogs), `chat/shell/` (rail, panel, Settings, pickers, search overlay), `chat/transfer/transfer-ui.mjs`, `chat/roberta/roberta-ui.mjs`, `chat/models/memory-offer.mjs`. `chat/events.mjs` (the event list) is shared plumbing for all of them.
 3. **The host page**, `index.html`: boot, the chat core (threads, sending, streaming, rendering), and the glue that creates the feature modules and hands them what they need. It is still large (about 5,450 lines, most of it one script) and is being shrunk one feature at a time: **move a feature out by turning its block into `createX({...})`, passing in what it used from the page, and replacing outside uses with the returned object.** The lock, the dialogs and the voice call are the worked examples: `createCall(host)` in `chat/call/call.mjs` lists the page's capabilities it needs in its header comment, which is the pattern to copy.
 
-   **Still in the page, by size (2026-11-03, lines of `index.html`):** the chat core with sending, streaming, the readiness card and per-message actions (about 820); sharing and transfer glue, URL parameters and start-up `init` (about 420); search results, the provider endpoint and model refresh, history and settings import/export, clear history and settings (about 380); documents (about 270); the conversation list (about 180); preferences, presets, memory and exact tools (about 170); the speech and dictation setup and voice notes (about 200); Roberta glue, the context meter, storage and backups (about 260). Taking each of these out is the same recipe; the chat core and the config, token and thread state around it go last.
+   What is still in the page, in what order it comes out, and what is done: `docs/RESTRUCTURE-PLAN.md`.
 
 ## How features talk to each other
 
