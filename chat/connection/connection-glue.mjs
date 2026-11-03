@@ -6,8 +6,9 @@
 //   models()      window.localModels
 //   voice()       the voice picker snapshot (or a promise of it), or null
 //   toast(text)   the page's toast
+//   endpoint()    the connected provider's address (where an on-device provider can still answer offline)
 // Returns { connection, readiness(), subscribe(fn) -> off, fix(action), reason(kind), isNetworkError(err), noteRequest(ok, err) }.
-import { createConnection, offlineReason } from './connection.mjs';
+import { createConnection, offlineReason, providerPlace } from './connection.mjs';
 import { createOfflineFacts } from './offline-facts.mjs';
 import { offlineReadiness } from '../../runtime/offline-readiness.mjs';
 
@@ -47,9 +48,23 @@ export function createConnectionGlue(host) {
     return false;
   }
 
+  // A control that needs the connection: disabled with the reason while offline (when `applies()` says it matters), as it was before otherwise.
+  function gate(el, kind, applies = () => true) {
+    if (!el) return;
+    const original = { title: el.getAttribute('title') };
+    const apply = () => {
+      const block = connection.state === 'offline' && applies();
+      if (block) { if (!el.dataset.offlineBlocked) { el.dataset.offlineBlocked = '1'; el.dataset.wasDisabled = el.disabled ? '1' : ''; } el.disabled = true; el.setAttribute('aria-disabled', 'true'); el.title = offlineReason(kind); }
+      else if (el.dataset.offlineBlocked) { delete el.dataset.offlineBlocked; el.disabled = el.dataset.wasDisabled === '1'; delete el.dataset.wasDisabled; el.removeAttribute('aria-disabled'); if (original.title == null) el.removeAttribute('title'); else el.title = original.title; }
+    };
+    host.events.on('connection:changed', apply); apply();
+  }
+
   return {
-    connection, readiness, fix, isNetworkError,
+    connection, readiness, fix, gate, isNetworkError,
     reason: offlineReason,
+    /** 'device' | 'network' | 'internet': where the connected provider is, so a provider on this device is not called a problem offline. */
+    providerPlace: () => providerPlace(host.endpoint?.()),
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
     /** The page saw a request finish (ok) or fail (err): a network failure counts toward "offline", a reply from a server counts toward "online". */
     noteRequest(ok, err) { if (ok) connection.reportSuccess(); else if (isNetworkError(err)) connection.reportFailure(); },

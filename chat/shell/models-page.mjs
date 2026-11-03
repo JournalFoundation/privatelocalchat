@@ -163,8 +163,8 @@ export function buildModelsPage({ app, h, row, btn, moved, chooseVoice, voiceHin
   }
   async function startMemory() { mm = await app.loadMemory?.(); if (!mm) return; const off = mm.subscribe((s) => { if (!memCard.isConnected && !w.isConnected) return; paintMemory(s); paintOther(s); }); void off; paintMemory(mm.snapshot()); paintOther(mm.snapshot()); }
 
-  const offlineSection = buildOfflineSection({ app, h }).section;
-  w.append(langSection, offlineSection, providerSection, voiceSection, otherSection, memSection);
+  const { section: offlineSection, note: offlineNote } = buildOfflineSection({ app, h });
+  w.append(offlineNote, langSection, offlineSection, providerSection, voiceSection, otherSection, memSection);
   paintLanguage(); paintProvider(); startVoice(); startMemory();
   w.addEventListener("shell-refresh", () => { paintLanguage(); paintProvider(); if (vctl) { paintVoice(vctl.snapshot()); vctl.advise(); } if (mm) { paintMemory(mm.snapshot()); paintOther(mm.snapshot()); } });
   return w;

@@ -412,7 +412,7 @@
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // whether the app is online, the offline checklist and its fixes (chat/connection/); the shell and Settings read it as plcApp.offline
-      const offline = createConnectionGlue({ events, models: () => window.localModels, voice: () => loadVoiceChoice().then(ctl => ctl?.snapshot?.() || null), toast: text => showToast(text) });
+      const offline = createConnectionGlue({ events, models: () => window.localModels, voice: () => loadVoiceChoice().then(ctl => ctl?.snapshot?.() || null), toast: text => showToast(text), endpoint: () => provider?.config?.endpoint });
       // DOM element references
       const endpointSelect = document.getElementById('endpointSelect');
       const endpointInput = document.getElementById('endpointInput');
@@ -1159,6 +1159,7 @@
         callOpen: () => Boolean(roberta.api()?.callOpen), loadVoice: () => loadVoiceChoice(), loadMemory: () => memoryManager(), getEmbedder: () => sharedEmbedder(),
         async openResult(result, query) { searchModule ||= await import(moduleBase() + 'chat/search.mjs'); if (result.messageId || result.title !== undefined) openSearchResult(result, query || ''); }
       };
+      offline.gate(refreshModelsBtn, 'refresh', () => offline.providerPlace() === 'internet'); // a provider on this device or network can still answer
       window.plcApp = plcApp;
       import(moduleBase() + 'chat/shell/shell.mjs').then(mod => { window.plcShell = mod.createShell(plcApp); renderThreadList(); })
         .catch(err => { console.error('The app shell failed to start.', err); showToast('Part of the app did not load. Reload the page; if it happens again, see Help.'); });

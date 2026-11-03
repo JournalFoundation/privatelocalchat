@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createConnection,offlineReason,OFFLINE_REASON_KINDS} from '../chat/connection/connection.mjs';
+import {createConnection,offlineReason,OFFLINE_REASON_KINDS,providerPlace} from '../chat/connection/connection.mjs';
 
 function rig(startOnline=true,options={}){
   let online=startOnline,now=0,nextId=1;const timers=new Map(),listeners={online:[],offline:[]},changes=[];
@@ -75,6 +75,12 @@ test('dispose removes the listeners and the timers',()=>{
 
 test('every refusal has its own sentence, in plain words, and the fallback is generic',()=>{
   const seen=new Set();
-  for(const kind of OFFLINE_REASON_KINDS){const s=offlineReason(kind);assert.match(s,/connection/i);assert.ok(!seen.has(s),kind+' repeats a sentence');seen.add(s);assert.ok(!/error|failed|exception/i.test(s),kind);}
+  for(const kind of OFFLINE_REASON_KINDS){const s=offlineReason(kind);assert.match(s,/connection|offline/i);assert.ok(!seen.has(s),kind+' repeats a sentence');seen.add(s);assert.ok(!/error|failed|exception/i.test(s),kind);}
   assert.equal(offlineReason('nothing-like-this'),'This needs a connection.');
+});
+
+test('where a provider lives: this device, your network or the internet',()=>{
+  for(const u of ['http://localhost:11434/v1','http://127.0.0.1:8080/v1','http://[::1]:1234/v1','http://api.localhost/v1'])assert.equal(providerPlace(u),'device',u);
+  for(const u of ['http://192.168.1.20:8000/v1','http://10.0.0.5/v1','http://172.20.1.1/v1','http://nas.local/v1','http://169.254.3.4/v1'])assert.equal(providerPlace(u),'network',u);
+  for(const u of ['https://api.openai.com/v1','http://172.32.0.1/v1','https://openrouter.ai/api/v1','','not a url',undefined])assert.equal(providerPlace(u),'internet',String(u));
 });

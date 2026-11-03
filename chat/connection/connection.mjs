@@ -73,7 +73,19 @@ const REASONS = {
   update: 'Checking for a new version needs a connection.',
   matching: 'The matching model is downloaded once and needs a connection the first time.',
   link: 'Opening this link needs a connection.',
+  'provider-device': 'Your provider runs on this device, so it can still answer offline.',
+  'provider-network': 'Your provider is on your own network. It answers offline only while that network is up.',
   unreachable: 'Could not reach the provider. Check its address and your connection, then retry.',
 };
 export function offlineReason(kind) { return REASONS[kind] || 'This needs a connection.'; }
 export const OFFLINE_REASON_KINDS = Object.keys(REASONS);
+
+/** Where a connected provider's address points: 'device' (this computer: localhost, 127.x, ::1), 'network' (a private or .local address) or 'internet'. */
+export function providerPlace(endpoint) {
+  let host;
+  try { host = new URL(String(endpoint || '')).hostname.toLowerCase().replace(/^\[|\]$/g, ''); } catch { return 'internet'; }
+  if (!host) return 'internet';
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '::1' || /^127\./.test(host)) return 'device';
+  if (host.endsWith('.local') || /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || /^(fc|fd)[0-9a-f]{2}:/.test(host) || /^169\.254\./.test(host)) return 'network';
+  return 'internet';
+}

@@ -353,3 +353,6 @@ body.shell .composer-bar .shell-voicepick { margin-left: 0 !important; }
 .shell-pop-right { margin-left: auto; padding-left: 12px; white-space: nowrap; font-weight: 600; color: var(--color-primary, var(--plc-accent, #2557d6)); }
 body.shell .composer-bar .shell-conn { margin-left: 0 !important; flex: none !important; min-width: auto !important; max-width: none; }
 body.shell .composer-bar .shell-conn .shell-model-name { max-width: none; overflow: visible; }
+.shell-conn[data-state="offline"][data-mode="device"] .shell-model-dot { box-shadow: inset 0 0 0 2px var(--plc-success); }
+.off-note { margin-bottom: 14px; }
+.off-note[hidden] { display: none; }

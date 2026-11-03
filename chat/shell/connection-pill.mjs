@@ -11,10 +11,13 @@ export function mountConnectionPill({ h, icon, bar, before, offline, popover, cl
   (announceTo || bar).append(live);
   let last = null, readiness = null, open = null;
 
-  const mode = () => (window.localModels?.mode === "api" ? "api" : "local");
+  // "local": an on-device model answers. "device": a provider running on this computer answers. "api": a provider that needs the internet.
+  const mode = () => (window.localModels?.mode !== "api" ? "local" : offline.providerPlace() === "internet" ? "api" : "device");
   function sentence(state) {
     if (state === "back") return "Back online.";
-    return mode() === "api" ? "You are offline. " + offline.reason("provider") : "You are offline. On-device chat still works.";
+    if (mode() === "api") return "You are offline. " + offline.reason("provider");
+    if (mode() === "device") return "You are offline. " + offline.reason("provider-device");
+    return "You are offline. On-device chat still works.";
   }
   function paint() {
     const { state } = offline.connection;
@@ -29,7 +32,7 @@ export function mountConnectionPill({ h, icon, bar, before, offline, popover, cl
   function rows() {
     const state = offline.connection.state;
     const out = [{ heading: state === "offline" ? "You are offline" : "Back online" }, { note: sentence(state), kind: state === "offline" && mode() === "api" ? "" : "ok" }];
-    if (readiness && mode() === "local") {
+    if (readiness && mode() !== "api") {
       const todo = readiness.items.filter((i) => i.state === "missing" || i.state === "partial");
       out.push({ divider: true }, { heading: todo.length ? "To use this offline later" : "Ready for offline use" });
       if (!todo.length) out.push({ note: "Everything this chat needs is saved on this device.", kind: "ok" });

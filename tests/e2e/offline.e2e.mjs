@@ -23,24 +23,40 @@ try{
  assert(/Ready for offline use|connected provider/i.test(await page.locator('#offlineSummary').innerText()),'the checklist has a one-line summary: '+await page.locator('#offlineSummary').innerText());
  await page.keyboard.press('Escape');
  ok('online: no pill, and Settings lists what is ready for offline use');
- await context.setOffline(true);
- await page.waitForSelector('#connectionPill',{state:'visible',timeout:8000});
+ const goOffline=async()=>{await context.setOffline(true);await page.waitForSelector('#connectionPill',{state:'visible',timeout:8000});};
+ const comeBack=async()=>{await context.setOffline(false);await page.waitForFunction(()=>/Back online/.test(document.querySelector('#connectionPill')?.innerText||''),null,{timeout:8000});await page.waitForSelector('#connectionPill',{state:'hidden',timeout:10000});};
+ const sendAndRead=async text=>{const n=await page.locator('.message.assistant').count();await page.fill('#messageInput',text);await page.click('#sendBtn');await page.waitForFunction(n=>{const all=[...document.querySelectorAll('.message.assistant')];const a=all[all.length-1];return all.length>n&&a&&!a.classList.contains('streaming')&&a.innerText.trim();},n,{timeout:15000});return page.locator('.message.assistant').last().innerText();};
+
+ // a provider that runs on this device (the test's fake API is on 127.0.0.1) can still answer offline: the app must not call that a problem
+ await goOffline();
  assert(/Offline/.test(await page.locator('#connectionPill').innerText()),'the pill says Offline');
- assert(/provider needs a connection/i.test(await page.locator('#connectionPill').getAttribute('title')),'with a connected provider the pill says what will not work');
+ assert(/runs on this device/i.test(await page.locator('#connectionPill').getAttribute('title')),'a provider on this device is said to keep working: '+await page.locator('#connectionPill').getAttribute('title'));
+ assert(await page.locator('#refreshModelsBtn').isEnabled(),'refreshing the model list of a provider on this device stays possible');
  assert(/offline/i.test(await page.locator('#connectionAnnounce').innerText()),'the change is announced to screen readers');
  await page.click('#connectionPill');await page.waitForSelector('.shell-pop');
  assert(/You are offline/.test(await page.locator('.shell-pop').innerText())&&/Offline settings/.test(await page.locator('.shell-pop').innerText()),'the pill opens an explanation and a way to the offline settings');
  await page.keyboard.press('Escape');
- await page.fill('#messageInput','are you there');await page.click('#sendBtn');
- await page.waitForSelector('.message.assistant.failed, .message.assistant .message-status.error, .message.assistant:has-text("offline")',{timeout:15000}).catch(()=>{});
- await page.waitForFunction(()=>!document.querySelector('.message.assistant.streaming'));
- const failedText=await page.locator('.message.assistant').last().innerText();
- assert(/You are offline/.test(failedText)&&/needs a connection/.test(failedText),'a provider failure while offline says so in words: '+failedText);
- assert(!/Failed to fetch/i.test(failedText),'and does not show the browser\'s words');
- ok('offline: the pill appears, explains itself, and a provider failure is explained');
- await context.setOffline(false);
- await page.waitForFunction(()=>/Back online/.test(document.querySelector('#connectionPill')?.innerText||''),null,{timeout:8000});
- await page.waitForSelector('#connectionPill',{state:'hidden',timeout:10000});
+ const unreachable=await sendAndRead('are you there');
+ assert(/Could not reach the provider/.test(unreachable)&&!/Failed to fetch/i.test(unreachable),'a failure of a provider on this device is "could not reach", in words: '+unreachable);
+ ok('offline with a provider on this device: calm pill, honest failure');
+ await comeBack();
+
+ // a provider on the internet needs a connection, and everything says so
+ await page.evaluate(()=>{const c=JSON.parse(sessionStorage.getItem('chatConfig'));c.endpoint='https://api.example.test/v1';sessionStorage.setItem('chatConfig',JSON.stringify(c));});
+ await page.reload();await page.waitForSelector('#messageInput');
+ await goOffline();
+ assert(/provider needs a connection/i.test(await page.locator('#connectionPill').getAttribute('title')),'with a provider on the internet the pill says what will not work');
+ assert(await page.locator('#refreshModelsBtn').isDisabled(),'refreshing the provider\'s model list is disabled while offline');
+ assert(/connection/i.test(await page.locator('#refreshModelsBtn').getAttribute('title')),'and says why');
+ await page.evaluate(()=>window.plcShell.openSettings('models'));
+ await page.waitForSelector('#offlineNote',{state:'visible'});
+ assert(/waits for a connection/.test(await page.locator('#offlineNote').innerText()),'the Models page says what a download does offline');
+ await page.keyboard.press('Escape');
+ const failedText=await sendAndRead('hello again');
+ assert(/You are offline/.test(failedText)&&/needs a connection/.test(failedText)&&!/Failed to fetch/i.test(failedText),'a provider failure while offline says so in words: '+failedText);
+ ok('offline with a provider on the internet: the pill, the disabled refresh, the note and the failure all say so');
+ await comeBack();
+ assert(await page.locator('#refreshModelsBtn').isEnabled(),'refresh works again when back online');
  ok('back online: the pill says so for a moment, then goes away');
 
  // ---- offline, in a brand-new page (the page and its workers start from the saved files)

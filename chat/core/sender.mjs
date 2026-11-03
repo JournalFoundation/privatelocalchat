@@ -112,7 +112,7 @@ export function createSender(host) {
         // connection layer agrees that the app is offline is it called "offline"; a stream that dropped on a working connection is "could not reach".
         const networkFailure = window.localModels?.mode === 'api' && offline?.isNetworkError(err);
         if (networkFailure) offline.noteRequest(false, err);
-        const isOffline = networkFailure && offline.connection.state === 'offline';
+        const isOffline = networkFailure && offline.connection.state === 'offline' && offline.providerPlace() === 'internet';
         msg.error = isOffline ? offline.reason('provider') : networkFailure ? offline.reason('unreachable') : isAuthError(err) ? buildAuthErrorMessage(errorText) : errorText;
         if (isOffline) msg.errorKind = 'offline'; else delete msg.errorKind;
         generationStatus.textContent = 'The response was interrupted. ' + (networkFailure ? msg.error : errorText);
