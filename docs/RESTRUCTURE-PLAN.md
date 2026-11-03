@@ -2,11 +2,11 @@
 
 This is the **plan**: where we are, where we are going, and the order. `docs/ARCHITECTURE.md` is the other half: it says how the app is put together *now* and stays short. When a step here is finished, tick it, date it, and make sure the architecture page still tells the truth (a test checks the folders and the events).
 
-Started 2026-11-03. Last updated 2026-11-03.
+Started 2026-11-03. Last updated 2026-11-03. **All nine steps are done** (see the notes under each).
 
 ## Where we need to be
 
-- `index.html` is boot, the chat core and the glue that creates feature modules. Target: **under about 1,500 lines**, down from 6,013 on 2026-11-03 (5,456 at the last count).
+- `index.html` is boot and the glue that creates feature modules. Target was **under about 1,500 lines**; it is **2,262** (from 6,013), of which about 1,490 are markup (the forms and About text), so the script is about 770 lines. The target counted the markup too, so it was not reached; moving the markup into the owning modules is the only way to go lower and is not planned.
 - Every feature is a module built as `createX(host)`: it gets what it needs as arguments, lists them in a header comment, and does not look things up in the page. `chat/call/call.mjs` is the pattern.
 - Features take part in each other's moments only through the event list in `chat/events.mjs`.
 - `chat/` has one folder per feature. New code goes in the folder of its feature.
@@ -43,7 +43,7 @@ Step 3 depends on step 4 (the transfer glue is mostly the provider settings), so
 - [x] **6. Preferences, presets, memory, exact tools** (2026-11-03): `chat/assistant/assistant.mjs`. `index.html` 5,025 -> 4,864 lines.
 - [x] **7. Speech, dictation and voice notes** (2026-11-03): `chat/voice/voice-ui.mjs` holds the speech services, Listen, dictation, the Dictate and Voice call buttons and voice notes with the recorder. `index.html` 5,214 -> 5,025 lines.
 - [x] **8. Roberta glue, context meter, storage and backups** (2026-11-03): `chat/roberta/roberta-glue.mjs`, `chat/context/context-ui.mjs`, `chat/storage/storage-ui.mjs`, `chat/transfer/backups.mjs`. `index.html` 4,864 -> 4,632 lines.
-- [ ] **9. The chat core and the config, token and thread state around it** (in slices, `chat/core/`). Done 2026-11-03: the page's own furniture (toast, About modal, sidebar, popup menus) in `chat/core/page-chrome.mjs` (`index.html` 3,243 -> 2,998); the messages on screen in `chat/core/messages-view.mjs` (2,998 -> 2,749); sending, streaming and the bubble buttons in `chat/core/sender.mjs` (2,749 -> 2,493); the conversations and the chat's readiness in `chat/core/thread-state.mjs` (2,493 -> 2,262). What is left in the page is boot (`init`), the wiring that creates the modules, the composer and prefs glue, and the event listeners. Each slice gets the same test pass as the others.
+- [x] **9. The chat core and the config, token and thread state around it** (2026-11-03, in four slices under `chat/core/`): the page's own furniture (toast, About modal, sidebar, popup menus) in `chat/core/page-chrome.mjs` (`index.html` 3,243 -> 2,998); the messages on screen in `chat/core/messages-view.mjs` (2,998 -> 2,749); sending, streaming and the bubble buttons in `chat/core/sender.mjs` (2,749 -> 2,493); the conversations and the chat's readiness in `chat/core/thread-state.mjs` (2,493 -> 2,262). What is left in the page is boot (`init`), the wiring that creates the modules, the composer and prefs glue, and the event listeners. Each slice gets the same test pass as the others.
 
 ## Not part of this plan
 
