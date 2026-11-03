@@ -187,3 +187,39 @@ export function branchThread(thread, upToIndex = thread.messages.length - 1, now
   if (copy.summary && copy.summary.upTo > copy.messages.length) delete copy.summary;
   return copy;
 }
+
+/** A conversation as a Markdown document: title, system prompt, then every message numbered by role. */
+export function threadToMarkdown(thread) {
+  if (!thread) return '';
+  const title = typeof thread.title === 'string' && thread.title.trim() ? thread.title.trim() : 'Untitled chat';
+  const lines = [`# ${title}`];
+  const prompt = typeof thread.systemPrompt === 'string' ? thread.systemPrompt.trim() : '';
+  if (prompt) {
+    lines.push('', '## System Prompt', '', prompt);
+  }
+  const messages = Array.isArray(thread.messages) ? thread.messages : [];
+  if (messages.length) {
+    lines.push('', '## Messages', '');
+    messages.forEach((message, index) => {
+      const rawRole = typeof message?.role === 'string' ? message.role.trim() : '';
+      const role = rawRole ? rawRole.charAt(0).toUpperCase() + rawRole.slice(1) : 'Message';
+      let content = '';
+      if (message && typeof message.content === 'string') {
+        content = message.content;
+      } else if (message && message.content != null) {
+        try {
+          content = JSON.stringify(message.content, null, 2);
+        } catch (err) {
+          content = String(message.content);
+        }
+      }
+      if (!content.trim()) {
+        content = '_No content_';
+      }
+      lines.push(`### ${index + 1}. ${role}`, '', content, '');
+    });
+  } else {
+    lines.push('', '_No messages yet._');
+  }
+  return lines.join('\n');
+}

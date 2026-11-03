@@ -60,3 +60,11 @@ test('voice notes survive saving: a reply shown as a voice note, and the length 
  assert.equal(normalizeMessage({role:'user',content:'x',voice:{seconds:999999}}).voice.seconds,86400);
  assert.equal(normalizeMessage({role:'assistant',content:'x',voice:{seconds:5}}).voice,undefined);
 });
+
+test('threadToMarkdown: title, system prompt and numbered messages', async () => {
+  const { threadToMarkdown } = await import('../chat/threads.mjs');
+  assert.equal(threadToMarkdown(null), '');
+  assert.equal(threadToMarkdown({ title: ' ', messages: [] }), '# Untitled chat\n\n_No messages yet._');
+  const md = threadToMarkdown({ title: 'Hi', systemPrompt: ' be brief ', messages: [{ role: 'user', content: 'a' }, { role: 'assistant', content: '  ' }, { role: '', content: { x: 1 } }] });
+  assert.match(md, /^# Hi\n\n## System Prompt\n\nbe brief\n\n## Messages\n\n### 1\. User\n\na\n\n### 2\. Assistant\n\n_No content_\n\n### 3\. Message\n\n\{\n  "x": 1\n\}\n$/);
+});
