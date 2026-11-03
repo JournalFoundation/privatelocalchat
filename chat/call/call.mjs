@@ -3,12 +3,12 @@
 // ones fading; a spoken reply whose sound never starts is given up on and explained. Underneath: listen -> send -> speak the reply while it is written -> listen again
 // (chat/voice/voice.mjs, which has no DOM). The page provides everything this needs in `host`; createCall(host) returns { active, start, end, stop }.
 //
-// host: el, icons, prefs(), showToast, providerName, messageForm, messageInput, growComposer, sendMessage(), abortReply(), currentThreadId(), chatReady(),
+// host: el, icons() (the icon set, once it has loaded), prefs(), showToast, providerName, messageForm, messageInput, growComposer, sendMessage(), abortReply(), currentThreadId(), chatReady(),
 //       loadSpeech(), loadVoice(), ensureCallSounds(), callSounds(), callSoundsOn(), loadVoiceChoice(), voiceOpts(), cleanText(text), moduleBase(),
 //       explainSpeechInputFailure(code), endDictation(opts), stopSpeaking(), voiceButton(), events, stallBaseMs() (optional)
 
 export function createCall(host) {
-  const { el, icons, showToast, providerName, messageForm, messageInput, growComposer, events } = host;
+  const { el, showToast, providerName, messageForm, messageInput, growComposer, events } = host;
   let speechMod = null, voiceMod = null;
   const setPressed = on => host.voiceButton()?.setAttribute('aria-pressed', String(on));
   let voiceSession = null, voiceUi = null, wakeLock = null;
@@ -16,7 +16,7 @@ export function createCall(host) {
   const call = { startedAt: null, ticker: null, endedTimer: null, prev: 'idle', failed: false, log: [], noticeTimer: null, lastVoiceNotice: 0 };
   const callSoundsOn = () => host.callSoundsOn();
   const buzz = ms => { try { if (callSoundsOn()) navigator.vibrate?.(ms); } catch { /* not supported */ } };
-  const callIcon = (name, fallback) => { const n = icons ? icons.iconNode(name) : null; if (n) return n; const f = el('span', null, fallback); f.setAttribute('aria-hidden', 'true'); return f; };
+  const callIcon = (name, fallback) => { const icons = host.icons(), n = icons ? icons.iconNode(name) : null; if (n) return n; const f = el('span', null, fallback); f.setAttribute('aria-hidden', 'true'); return f; };
   function buildVoiceUi() {
     const root = el('section', 'call'); root.id = 'voiceSheet'; root.hidden = true; root.setAttribute('role', 'group'); root.setAttribute('aria-label', 'Voice call');
     const top = el('div', 'call-top');

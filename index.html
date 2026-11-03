@@ -1503,7 +1503,7 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
-      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs')]);
+      const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs')]);
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // DOM element references
@@ -2812,7 +2812,6 @@
       }
 
       const messageDecorators = []; // later features add buttons/meta here: (thread, msg, index, ctx) => void
-      let noteSupport = false;       // voice notes need the browser's text-to-speech; set by the speech block
       const ROBOT_NAME = 'Roberta';  // the app's robot (chat/roberta/ivr-content.mjs holds the same name for the menu)
       /** A link to the Help page section for a problem, opened in a new tab so the chat and draft stay put. */
       function helpLink(anchor, label) {
@@ -2909,7 +2908,7 @@
         const body = el('div', 'message-body');
         fillBody(body, msg);
         if (msg.role === 'user' && msg.voice) div.appendChild(el('div', 'voice-badge', '\uD83C\uDF99 Voice note \u00B7 ' + clockText(msg.voice.seconds) + ' \u00B7 transcribed by your browser; the audio was not saved'));
-        if (msg.role === 'assistant' && msg.voiceNote && msg.content && !streaming && noteSupport) mountMessageVoiceNote(div, body, msg);
+        if (msg.role === 'assistant' && msg.voiceNote && msg.content && !streaming && voiceUiApi?.noteSupport) voiceUiApi.mountMessageVoiceNote(div, body, msg);
         div.appendChild(body);
         if (msg.role === 'assistant' && msg.sources?.length && !streaming) div.appendChild(renderSources(msg));
         if (msg.role === 'user' && msg.tools?.length) div.appendChild(el('div', 'message-meta', msg.tools.map(t => '\uD83E\uDDEE ' + t.label + ' = ' + t.result).join('   \u00B7   ')));
@@ -3850,7 +3849,7 @@
           voiceWrap.append(el('p', 'muted', 'Replies are read with your browser\u2019s voices.'), voiceSel, el('div', 'muted', 'Speed'), rate);
         }
         if (voiceWrap.childElementCount) sec('Read aloud', voiceWrap);
-        if (voiceBtn) {
+        if (voiceUi.voiceButton()) {
           const soundRow = el('label', 'list-row'); const soundBox = el('input'); soundBox.type = 'checkbox'; soundBox.id = 'callSoundsPref'; soundBox.checked = callSoundsOn();
           soundRow.append(soundBox, el('span', null, 'Play ringing, pick-up and hang-up sounds during voice calls'));
           soundBox.addEventListener('change', () => { prefs.callSounds = soundBox.checked; savePrefs(); });
@@ -3875,20 +3874,6 @@
         return true;
       });
       events.on('prompt:ready', retool);
-      // ---- dictation and voice conversation -------------------------------------------------------------------------
-      // Both use the browser's own speech recognition and voices (Apple's on an iPhone). A control the browser cannot support is not shown.
-      const speechAvailable = {
-        synth: Boolean(window.speechSynthesis && window.SpeechSynthesisUtterance),
-        recognition: Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
-      };
-      noteSupport = speechAvailable.synth;
-      // Speech input is never hidden because of an earlier failure: a failure shows its message and the buttons stay. (An older version hid them for
-      // days after one refusal; that stored flag is removed here so nobody stays locked out by it.)
-      try { localStorage.removeItem('plc.speechInputUnusable'); } catch { /* private mode */ }
-      const speechInputOk = speechAvailable.recognition;
-      let speechMod = null, voiceMod = null;
-      const loadSpeech = async () => (speechMod ||= await import(moduleBase() + 'chat/voice/speech.mjs'));
-      const loadVoice = async () => (voiceMod ||= await import(moduleBase() + 'chat/voice/voice.mjs'));
       // ---- model services (chat/models/services.mjs): memory manager, shared embedder, voice choice ----
       let voiceTestHook = null;
       /* DEV_DIAGNOSTICS_START */
@@ -3900,96 +3885,16 @@
       window.plcMemoryReady = memoryManager;
       let callSoundsMod = null;
       const loadCallSounds = async () => (callSoundsMod ||= await import(moduleBase() + 'chat/call/call-sounds.mjs'));
-      let speaking = null;
-      const setListenButton = (btn, on) => { btn.setAttribute('aria-pressed', String(on)); M.icons.setIconLabel(btn, on ? '⏹ Stop' : '🔊 Listen'); };
-      function stopSpeaking() { if (speaking) { speaking.handle.stop(); speaking = null; document.querySelectorAll('[data-action="speak"][aria-pressed="true"]').forEach(b => setListenButton(b, false)); } }
-      async function speakText(text, onDone) {
-        const sp = await loadSpeech();
-        stopSpeaking();
-        const { stripMarkdown } = (await loadDocModules()).exports;
-        await loadVoiceChoice();
-        const route = services.voiceCtl?.route();
-        const handle = sp.speak(stripMarkdown(text), { voiceURI: prefs.voiceURI, rate: prefs.speechRate || 1, ...(route ? { engine: route.engine, ...route.options } : {}) });
-        speaking = { handle };
-        try { await handle.done; } catch (err) { showToast(err.message, 8000, speechHelpAction); } finally { if (speaking?.handle === handle) speaking = null; onDone?.(); }
-      }
-      if (speechAvailable.synth) {
-        messageDecorators.push((thread, msg, index, ctx, actions) => {
-          if (msg.role !== 'assistant' || !msg.content || ctx.streaming) return;
-          actions.appendChild(actionButton('speak', '🔊 Listen', 'Read this answer aloud'));
-          actions.appendChild(actionButton('voice-note', msg.voiceNote ? '📄 Show as text' : '🎙️ Voice note', msg.voiceNote ? 'Show this reply as text again' : 'Turn this reply into a voice note you can play'));
-        });
-        messageActionHandlers['voice-note'] = async (thread, msg) => {
-          await loadNoteModules();
-          msg.voiceNote = !msg.voiceNote;
-          saveThreads(); renderMessages(thread, { keepScroll: true });
-          if (msg.voiceNote) nodeFor(msg.id)?.querySelector('.vn-play')?.click(); // turning a reply into a note plays it
-        };
-        messageActionHandlers['speak'] = async (thread, msg, btn) => {
-          if (btn.getAttribute('aria-pressed') === 'true') { stopSpeaking(); return; }
-          stopSpeaking(); setListenButton(btn, true);
-          await speakText(msg.content, () => { if (btn.isConnected) setListenButton(btn, false); });
-        };
-        events.on('thread:selected', () => stopSpeaking());
-      }
-
-      const toolButton = (id, icon, label) => {
-        const b = el('button', 'tool-btn'); b.type = 'button'; b.id = id; b.title = label; b.setAttribute('aria-label', label); b.setAttribute('aria-pressed', 'false');
-        b.appendChild(createEmoji(icon === 'mic' ? '🎙️' : icon === 'phone' ? '📞' : icon === 'waveform' ? '🎚️' : '🎧')); return b;
-      };
-      let recordAvailable = false;
-      let micBtn = speechInputOk ? toolButton('micBtn', 'mic', 'Dictate') : null;
-      let voiceBtn = speechInputOk && speechAvailable.synth ? toolButton('voiceModeBtn', 'phone', 'Voice call') : null;
-      [micBtn, voiceBtn].forEach(b => b && composerToolsEl.append(b));
-      const setPressed = (btn, on) => btn?.setAttribute('aria-pressed', String(on));
-      const hideSpeechInput = () => { micBtn?.remove(); voiceBtn?.remove(); micBtn = voiceBtn = null; recordAvailable = false; };
-      // WebKit only shows the microphone prompt for a recognition that starts inside the tap, so the code it needs is loaded up front.
-      if (speechInputOk) { loadSpeech().catch(() => hideSpeechInput()); if (voiceBtn) { voiceBtn.classList.add('call-start'); voiceBtn.title = 'Start a voice call'; loadVoice().catch(() => {}); loadCallSounds().catch(() => {}); } }
-
-      // Why speech recognition could not start, in words that say what to do. A blocked microphone is the person's to allow;
-      // a browser that exposes speech recognition but never lets sites use it is not, so the controls go away.
-      let speechFailures = 0;
-      const speechHelpAction = { label: 'Get help', run: () => window.open('/help/#speech-availability', '_blank', 'noopener') };
-      async function explainSpeechInputFailure(code) {
-        const sp = await loadSpeech();
-        if (code === 'audio-capture' || code === 'network') return sp.dictationMessage(code);
-        if (code !== 'not-allowed' && code !== 'service-not-allowed') return sp.dictationMessage(code);
-        const probe = await sp.probeMicrophone();
-        if (probe.state === 'denied') return 'The microphone is blocked for this site. Allow it in your browser’s site settings (in Safari: the aA menu, then Website Settings, then Microphone) and try again.';
-        if (probe.state === 'none') return sp.dictationMessage('audio-capture');
-        speechFailures++;
-        if (probe.state === 'granted' && speechFailures === 1) return 'The microphone is allowed now. Tap again to start.';
-        return 'This browser did not let the page use speech recognition just now. Check that Dictation is on and the microphone is allowed for this site (iPhone: Settings > General > Keyboard > Enable Dictation; in Safari: the aA menu, then Website Settings, then Microphone), then tap again. Safari and Chrome support it.';
-      }
-
-      // dictation: words go into the composer while the microphone is on
-      let dictation = null; // { handle, committed, shown }
-      function endDictation({ abort = false } = {}) {
-        const d = dictation; dictation = null; setPressed(micBtn, false);
-        if (!d) return;
-        if (abort) d.handle?.abort(); else d.handle?.stop();
-      }
-      const writeDictation = (d, value) => { d.shown = value; messageInput.value = value; growComposer(); updateSendButtonDisabled(); scheduleDraftSave(); };
-      function beginDictation() {
-        if (call.active) return;
-        const sp = speechMod;
-        if (!sp) { loadSpeech().then(beginDictation, () => hideSpeechInput()); return; }
-        const d = dictation = { handle: null, committed: messageInput.value ? messageInput.value.replace(/\s*$/, ' ') : '', shown: messageInput.value };
-        setPressed(micBtn, true);
-        if (!isTouchDevice()) messageInput.focus();
-        d.handle = sp.startDictation({
-          onText: ({ final, interim }) => { if (dictation !== d) return; if (final) d.committed += final.trim() + ' '; writeDictation(d, d.committed + interim); },
-          onEnd: () => { if (dictation !== d) return; if (messageInput.value === d.shown) writeDictation(d, d.committed.trimEnd()); endDictation(); },
-          onError: err => { if (dictation !== d) return; endDictation({ abort: true }); explainSpeechInputFailure(err.code).then(m => showToast(m, 9000, speechHelpAction)).catch(() => showToast(err.message, 9000, speechHelpAction)); }
-        });
-      }
-      micBtn?.addEventListener('click', () => { if (dictation) endDictation(); else beginDictation(); });
-      // typing while dictating is the person's edit: later words are added after it, never over it
-      messageInput.addEventListener('input', () => { if (dictation && messageInput.value !== dictation.shown) { dictation.committed = messageInput.value.replace(/\s*$/, ' '); dictation.shown = messageInput.value; } });
-      // sending (or leaving the conversation) ends the microphone for good: a recogniser keeps delivering late words after it is stopped
-      events.on('send:before', () => endDictation({ abort: true }));
-      events.on('thread:selected', () => endDictation({ abort: true }));
-
+      // ---- the voice features around the composer (chat/voice/voice-ui.mjs): speech services, Listen, dictation, the Dictate and Voice call buttons, voice notes ----
+      let voiceUiApi = null;
+      const voiceUi = createVoiceUi({
+        el, events, icons: () => M && M.icons, createEmoji, actionButton, messageDecorators, messageActionHandlers, messageForm, messageInput, composerTools: composerToolsEl, moduleBase,
+        prefs: () => prefs, savePrefs, saveThreads, scheduleDraftSave, showToast, growComposer, updateSendButtonDisabled, currentThread, renderMessages, nodeFor,
+        sendMessage: () => handleSendMessage({ preventDefault() {} }), isCallActive: () => call.active, isTouchDevice, loadDocModules, loadVoiceChoice,
+        voiceRoute: () => services.voiceCtl?.route(), voiceOpts, loadCallSounds, robotName: ROBOT_NAME, clockText
+      });
+      voiceUiApi = voiceUi;
+      const { speechAvailable, speechInputOk, loadSpeech, loadVoice, stopSpeaking, explainSpeechInputFailure, endDictation } = voiceUi;
       // ---- the voice call (chat/call/call.mjs); the call sounds are shared with Roberta, so they live here ----
       let loadedDocExports = null;
       let callSounds = null;
@@ -4001,108 +3906,14 @@
       callStallBase = () => window.__plcCallStallMs || 0; // test hook: shortens the wait before a silent spoken reply is given up on; stripped from production builds
       /* DEV_DIAGNOSTICS_END */
       const call = createCall({
-        el, icons: M && M.icons, prefs: () => prefs, showToast, providerName, messageForm, messageInput, growComposer,
+        el, icons: () => M && M.icons, prefs: () => prefs, showToast, providerName, messageForm, messageInput, growComposer,
         sendMessage: () => handleSendMessage({ preventDefault() {} }), abortReply: () => generationController?.abort(),
         currentThreadId: () => currentThreadId, chatReady: () => getChatState().ready,
         loadSpeech, loadVoice, ensureCallSounds, callSounds: () => callSounds, callSoundsOn, loadVoiceChoice, voiceOpts,
         cleanText: text => (loadedDocExports?.stripMarkdown ? loadedDocExports.stripMarkdown(text) : text), moduleBase,
-        explainSpeechInputFailure, endDictation, stopSpeaking, voiceButton: () => voiceBtn, events,
+        explainSpeechInputFailure, endDictation, stopSpeaking, voiceButton: voiceUi.voiceButton, events,
         stallBaseMs: callStallBase
       });
-
-      // ---- voice notes: any reply can be played like a voice message; long messages can be recorded as notes ------------------------
-      // The sound is the browser's own text-to-speech, one sentence at a time (chat/voice/voice-note.mjs). Nothing is recorded as audio:
-      // a note you record is kept as its transcript.
-      let voiceNoteMod = null, voiceRecorderMod = null;
-      const loadNoteModules = async () => {
-        await Promise.all([loadSpeech(), voiceNoteMod ? null : import(moduleBase() + 'chat/voice/voice-note.mjs').then(m => { voiceNoteMod = m; }), loadDocModules().then(m => { loadedDocExports = m.exports; }).catch(() => {})]);
-      };
-      if (noteSupport) loadNoteModules().catch(() => {});
-      function mountMessageVoiceNote(div, body, msg) {
-        if (!voiceNoteMod || !speechMod) { loadNoteModules().then(() => { const t = currentThread(); if (t) renderMessages(t, { keepScroll: true }); }).catch(() => {}); return; }
-        div.classList.add('voice-note-message');
-        const holder = el('div', 'voice-note-holder'); div.appendChild(holder);
-        const plain = loadedDocExports?.stripMarkdown ? loadedDocExports.stripMarkdown(msg.content) : msg.content;
-        voiceNoteMod.mountVoiceNote(holder, {
-          text: plain, from: ROBOT_NAME, id: msg.id, transcript: body, rate: prefs.noteRate || 1,
-          onRate: r => { prefs.noteRate = r; savePrefs(); },
-          onPlay: () => stopSpeaking(),
-          speakOne: (t, r) => speechMod.speak(t, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, r * (prefs.speechRate || 1)), ...voiceOpts() })
-        });
-      }
-      // the other audio features stop a playing note
-      const stopNotes = () => voiceNoteMod?.stopOtherNotes(null);
-      messageActionHandlers['speak'] = ((inner) => (...args) => { stopNotes(); return inner(...args); })(messageActionHandlers['speak'] || (() => {}));
-
-      // recording a voice note (also behind "leave a voice message" in Roberta's menu)
-      let recorder = null, recorderUi = null, pendingVoice = null;
-      recordAvailable = Boolean(speechInputOk);
-      function buildRecorderUi() {
-        const root = el('section', 'vn-recorder'); root.id = 'voiceRecorder'; root.hidden = true; root.setAttribute('role', 'group'); root.setAttribute('aria-label', 'Voice note');
-        const top = el('div', 'vnr-top'); const dot = el('span', 'vnr-dot'); dot.setAttribute('aria-hidden', 'true');
-        const label = el('span', 'vnr-label', 'Recording'); const timer = el('span', 'vnr-timer', '0:00'); timer.id = 'vnrTimer'; timer.setAttribute('role', 'timer'); timer.setAttribute('aria-live', 'off');
-        top.append(dot, label, timer);
-        const live = el('p', 'vnr-text'); live.id = 'vnrText'; live.setAttribute('aria-live', 'off');
-        const edit = el('textarea', 'vnr-edit'); edit.id = 'vnrEdit'; edit.rows = 5; edit.hidden = true; edit.setAttribute('aria-label', 'What was heard. You can correct it before sending.');
-        const note = el('p', 'hint-text', 'Only your words are kept, not the audio. They are written down by your browser’s speech recognition, which may send audio to its speech service.');
-        const err = el('p', 'vnr-error'); err.id = 'vnrError'; err.setAttribute('role', 'alert');
-        const cancel = el('button', 'secondary', 'Cancel'); cancel.type = 'button'; cancel.id = 'vnrCancel';
-        const stop = el('button', 'primary', 'Stop'); stop.type = 'button'; stop.id = 'vnrStop';
-        const send = el('button', 'primary', 'Send voice note'); send.type = 'button'; send.id = 'vnrSend'; send.hidden = true;
-        const row = el('div', 'vnr-actions'); row.append(cancel, stop, send);
-        root.append(top, live, edit, note, err, row);
-        messageForm.parentNode.insertBefore(root, messageForm);
-        cancel.addEventListener('click', () => closeRecorder());
-        stop.addEventListener('click', () => reviewRecording());
-        send.addEventListener('click', () => sendRecording());
-        root.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); closeRecorder(); } });
-        return { root, label, timer, live, edit, err, cancel, stop, send, dot };
-      }
-      const recorderOpen = () => Boolean(recorderUi && !recorderUi.root.hidden);
-      function renderRecorder(s) {
-        const ui = recorderUi; if (!ui) return;
-        ui.timer.textContent = clockText(s.seconds);
-        if (!ui.edit.hidden) return;
-        ui.live.textContent = s.text || 'Listening… start talking.';
-        ui.live.scrollTop = ui.live.scrollHeight;
-        if (s.state === 'stopped' && s.error) { ui.err.textContent = s.error.message; if (s.error.keep === false || !s.text) { explainSpeechInputFailure(s.error.code).then(m => { ui.err.textContent = m; }).catch(() => {}); } else reviewRecording(); }
-      }
-      async function startVoiceNote() {
-        if (call.active || recorderOpen()) return;
-        endDictation({ abort: true }); stopSpeaking(); stopNotes();
-        if (!speechMod || !voiceRecorderMod) await Promise.all([loadSpeech(), import(moduleBase() + 'chat/voice/voice-recorder.mjs').then(m => { voiceRecorderMod = m; })]);
-        recorderUi ||= buildRecorderUi();
-        const ui = recorderUi;
-        ui.root.hidden = false; document.body.classList.add('voice-on'); ui.edit.hidden = true; ui.edit.value = ''; ui.err.textContent = ''; ui.live.hidden = false;
-        ui.label.textContent = 'Recording'; ui.root.dataset.state = 'recording'; ui.stop.hidden = false; ui.send.hidden = true;
-        recorder = voiceRecorderMod.createVoiceRecorder({ listen: handlers => speechMod.startDictation(handlers), onChange: renderRecorder });
-        recorder.start(); ui.stop.focus({ preventScroll: true });
-      }
-      function reviewRecording() {
-        const ui = recorderUi; if (!ui || !recorder) return;
-        const out = recorder.stop();
-        ui.edit.hidden = false; ui.live.hidden = true; ui.edit.value = out.text; ui.root.dataset.state = 'review'; ui.label.textContent = 'Review';
-        ui.stop.hidden = true; ui.send.hidden = false; ui.timer.textContent = clockText(out.seconds); ui.root.dataset.seconds = String(out.seconds);
-        ui.err.textContent = out.text ? (out.error ? out.error.message : '') : 'Nothing was heard. Try again, or cancel.';
-        ui.cancel.textContent = out.text ? 'Discard' : 'Close';
-        ui.send.hidden = !out.text; (out.text ? ui.edit : ui.cancel).focus({ preventScroll: true });
-      }
-      function closeRecorder() {
-        recorder?.cancel(); recorder = null;
-        if (recorderUi) { recorderUi.root.hidden = true; recorderUi.cancel.textContent = 'Cancel'; }
-        if (!call.active) document.body.classList.remove('voice-on');
-        messageInput.focus({ preventScroll: true });
-      }
-      async function sendRecording() {
-        const ui = recorderUi; if (!ui) return;
-        const text = ui.edit.value.trim(); if (!text) return;
-        pendingVoice = { seconds: Number(ui.root.dataset.seconds) || 1 };
-        closeRecorder();
-        messageInput.value = text; growComposer();
-        await handleSendMessage({ preventDefault() {} });
-      }
-      events.on('prompt:ready', message => { if (pendingVoice) { message.voice = pendingVoice; pendingVoice = null; } });
-      const toggleVoiceNote = () => { if (!recordAvailable) return; if (recorderOpen()) closeRecorder(); else startVoiceNote(); };
 
       // ---- Roberta: the app's robot, a phone menu of prepared messages -----------------------------------------------------------
       // She is the front desk: it works before any language model is loaded, in parallel with the model download. Pressing numbers always
@@ -4142,11 +3953,11 @@
           mode: window.localModels?.mode, model: robertaModelFacts(), speechInput: speechInputOk, speechOutput: speechAvailable.synth,
           hasChats: threads.some(t => !t.temporary && t.messages.some(m => m.role === 'user'))
         }),
-        speak: (text, rate = 1) => (speechMod && speechAvailable.synth ? speechMod.speak(text, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, rate * (prefs.speechRate || 1)), ...voiceOpts() }) : { done: Promise.resolve(), stop() {} }),
+        speak: (text, rate = 1) => (voiceUi.speech() && speechAvailable.synth ? voiceUi.speech().speak(text, { voiceURI: prefs.voiceURI, rate: Math.min(2.5, rate * (prefs.speechRate || 1)), ...voiceOpts() }) : { done: Promise.resolve(), stop() {} }),
         canSpeak: () => speechAvailable.synth,
         getRouter: () => loadRouter(),
         warmUp: () => { loadRouter(); },
-        listen: speechInputOk ? handlers => speechMod.startDictation(handlers) : null,
+        listen: speechInputOk ? handlers => voiceUi.speech().startDictation(handlers) : null,
         explainListenFailure: code => explainSpeechInputFailure(code),
         get sounds() { return callSounds; },
         layout: () => (window.matchMedia('(min-width: 900px)').matches && !isTouchDevice() ? 'desktop' : 'mobile'),
@@ -4157,7 +3968,7 @@
           openExport() { loadTransferUi().then(ui => ui.openTransferChats()); },
           openTransferSettings() { loadTransferUi().then(ui => ui.openTransferSettings()); },
           openProvider() { window.localModels?.setMode('api'); openProviderSettings(endpointInput); },
-          startVoicemail() { startVoiceNote(); },
+          startVoicemail() { voiceUi.startVoiceNote(); },
           startChatting() { messageInput.focus({ preventScroll: true }); }
         }
       };
@@ -5196,7 +5007,7 @@
         createProject: () => createFolder(),
         openLibrary: () => openLibrary(), openPreferences: () => openPreferences(), openStorage: () => openStorage(), openLockSettings: () => lock.openLockSettings(),
         openHelp: async () => (await loadTransferUi()).openHelp(), openShare: async () => (await loadTransferUi()).openShare(),
-        attachFiles: () => docsUi.attachFiles(), canRecordNote: () => recordAvailable, toggleVoiceNote: () => toggleVoiceNote(),
+        attachFiles: () => docsUi.attachFiles(), canRecordNote: () => voiceUi.recordAvailable(), toggleVoiceNote: () => voiceUi.toggleVoiceNote(),
         openSidebar: () => openSidebar(), closeSidebar: () => closeSidebar({ restoreFocus: true }),
         moveCurrentToProject: () => { if (currentThreadId) moveToFolder(currentThreadId); },
         setThreadView: view => { threadView = view; renderThreadList(); },
