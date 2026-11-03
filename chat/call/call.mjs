@@ -5,7 +5,7 @@
 //
 // host: el, icons, prefs(), showToast, providerName, messageForm, messageInput, growComposer, sendMessage(), abortReply(), currentThreadId(), chatReady(),
 //       loadSpeech(), loadVoice(), ensureCallSounds(), callSounds(), callSoundsOn(), loadVoiceChoice(), voiceOpts(), cleanText(text), moduleBase(),
-//       explainSpeechInputFailure(code), endDictation(opts), stopSpeaking(), voiceButton(), replyListeners[], contextProviders[]
+//       explainSpeechInputFailure(code), endDictation(opts), stopSpeaking(), voiceButton(), replyListeners[], contextProviders[], stallBaseMs() (optional)
 
 export function createCall(host) {
   const { el, icons, showToast, providerName, messageForm, messageInput, growComposer, replyListeners, contextProviders } = host;
@@ -98,10 +98,7 @@ export function createCall(host) {
   function watchSpeech(state, info) {
     clearTimeout(call.stallTimer); call.stallTimer = null;
     if (state !== 'speaking' || info.phase !== 'preparing') return;
-    let base = 35000; // longer than the voice engine's own limit, which falls back to the system voice first
-    /* DEV_DIAGNOSTICS_START */
-    if (window.__plcCallStallMs) base = window.__plcCallStallMs; // test hook: stripped from production builds
-    /* DEV_DIAGNOSTICS_END */
+    const base = host.stallBaseMs?.() || 35000; // longer than the voice engine's own limit, which falls back to the system voice first (the page may shorten it in development builds)
     const ms = base + String(info.caption || '').length * 150;
     call.stallTimer = setTimeout(() => {
       if (call.prev !== 'speaking') return;

@@ -4259,13 +4259,18 @@
       const callSoundsOn = () => prefs.callSounds !== false;
       const ensureCallSounds = async () => { await loadCallSounds().catch(() => null); if (callSoundsMod && !callSounds) callSounds = callSoundsMod.createCallSounds({ enabled: callSoundsOn }); return callSounds; };
       loadDocModules().then(m => { loadedDocExports = m.exports; }).catch(() => {});
+      let callStallBase = null;
+      /* DEV_DIAGNOSTICS_START */
+      callStallBase = () => window.__plcCallStallMs || 0; // test hook: shortens the wait before a silent spoken reply is given up on; stripped from production builds
+      /* DEV_DIAGNOSTICS_END */
       const call = createCall({
         el, icons: M && M.icons, prefs: () => prefs, showToast, providerName, messageForm, messageInput, growComposer,
         sendMessage: () => handleSendMessage({ preventDefault() {} }), abortReply: () => generationController?.abort(),
         currentThreadId: () => currentThreadId, chatReady: () => getChatState().ready,
         loadSpeech, loadVoice, ensureCallSounds, callSounds: () => callSounds, callSoundsOn, loadVoiceChoice, voiceOpts,
         cleanText: text => (loadedDocExports?.stripMarkdown ? loadedDocExports.stripMarkdown(text) : text), moduleBase,
-        explainSpeechInputFailure, endDictation, stopSpeaking, voiceButton: () => voiceBtn, replyListeners, contextProviders
+        explainSpeechInputFailure, endDictation, stopSpeaking, voiceButton: () => voiceBtn, replyListeners, contextProviders,
+        stallBaseMs: callStallBase
       });
 
       // ---- voice notes: any reply can be played like a voice message; long messages can be recorded as notes ------------------------
