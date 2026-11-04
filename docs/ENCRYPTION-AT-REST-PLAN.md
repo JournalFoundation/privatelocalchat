@@ -41,6 +41,18 @@ Say these plainly in the UI and in `docs/`; they are the honest limits.
 - **No person is needed until the end.** Phases 0 to 5.3 are proven by tests and virtual authenticators. The owner's face is asked for once, in step 5.4, after everything else is green. Do not ask for a face (or a phone in hand) earlier.
 - **Nothing in production that is only for testing.** Test hooks stay inside the `DEV_DIAGNOSTICS` markers or `dev-tools/`.
 
+## Hardware targets (what is actually tested on)
+
+| Target | Used for | Notes |
+|---|---|---|
+| This machine, Chromium | every push: unit tests, browser tests, the virtual authenticator | the only target that runs without a person |
+| The Veriton (Linux, DGX Spark class) | unlock timing and a real-browser run of the vault tests on a second Linux machine | browser reached as in the Vulkan/GPU work; it may be busy with other jobs, so check before using it and never stop what it is running |
+| Mac Safari (macOS 26.7) | unlock timing, passkey support, Touch ID optional in 5.4 | reached over SSH; driven in a window of its own |
+| iPhone 15 Pro (iOS) | unlock timing, passkey support, and the one real Face ID check (5.4) | **the only iOS device in this plan**; the iPhone 11 Pro is out until the owner says it is back |
+| Galaxy S8+ (Android) | unlock timing on the slowest phone (decides the iteration count), passkey support with the phone's own screen lock | reached as in the tiny-models work |
+
+Not targets: Windows, other Linux desktops, other iPhones. The iPhone 11 Pro returns to the list only when the owner says so.
+
 ## What is stored today (survey)
 
 The machine-checked version of this table is `docs/evidence/encryption/storage-inventory.json` (every key, its class and its owner); this prose table is the readable summary. The inventory found things the first survey missed: pinned items (`plc.shell.pins.v1`), the chosen on-device model (`plc.models.v1`), the connect-or-local mode (`plc.inferenceMode.v1`), the pending download (`plc.downloadIntent.v1`), and that **`plc.memory.v1` was written by two different features** (see the log, 2026-11-04).
@@ -189,7 +201,7 @@ Each phase: write the failing test first, change, run `npm test` and `npm run e2
 
 - [x] **0.1 Storage inventory and its guard** (2026-11-04, `docs/evidence/encryption/storage-inventory.json`, `tests/storage-inventory.test.mjs`). Every key, database and file that touches browser storage is listed with a class (user / setting / plain / transient / test / device) and an owner. A key the source uses that is not listed, a file that starts using storage, a listed key that is gone, a key named by a file that is not its owner, and a test-only key outside the page's markers all fail the test. This is the "every new key is classified" check that was planned for phase 3; it exists now so nothing new is added unclassified while the vault is built.
 - [x] **0.2 One key, one owner** (2026-11-04, `tests/memory-manager.test.mjs`, `runtime/memory-manager.mjs`). The inventory showed that the model-memory switch and the assistant's memory items both wrote `plc.memory.v1`, each overwriting the other (the person's memory items could be erased by flipping "One model at a time"). The switch now has its own key, `plc.modelMemory.v1`, and reads the old one once to carry its choice over.
-- [ ] **0.3 Unlock time on real devices.** Measure PBKDF2-SHA-256 at 600,000 iterations (and AES-GCM of a typical record) on this machine, the Mac Safari, the iPhone 11 Pro and the iPhone 15 Pro; record in `docs/evidence/encryption/kdf-timing.json`. Decides the iteration count (target: unlock under about 1 s on the slowest phone, otherwise raise the number on strong devices only and store it in the header).
+- [ ] **0.3 Unlock time on real devices.** Measure PBKDF2-SHA-256 at 600,000 iterations (and AES-GCM of a typical record) on this machine, the Veriton, the Mac Safari, the iPhone 15 Pro and the Galaxy S8+; record in `docs/evidence/encryption/kdf-timing.json`. Decides the iteration count (target: unlock under about 1 s on the slowest phone, the Galaxy S8+, otherwise raise the number on strong devices only and store it in the header).
 - [ ] **0.4 Baseline sizes.** How big `chatThreads` is today for a heavy user (synthetic 500 chats, 10,000 messages), how long a save takes, and how close that is to the 5 MB localStorage limit. Decides compaction thresholds and whether the move to IndexedDB is also a fix for a limit people can hit.
 - [ ] **0.5 Review this plan** with the results of 0.3 and 0.4 and rewrite phases 1 to 6 where the facts disagree. This is the step that makes the plan honest.
 
@@ -225,7 +237,7 @@ Each phase: write the failing test first, change, run `npm test` and `npm run e2
 
 The aim is that the person taps "Unlock", looks at the phone, and the vault opens. The passphrase keeps working beside it and stays the only way back if the passkey is lost. Built after the passphrase flow of Phases 1 to 4, because it is a second wrap of the same vault key, not a different vault.
 
-- [ ] **5.1 Learn what is true on the devices we have** (before writing the feature): does `navigator.credentials.create` with the PRF extension work, with the platform authenticator, on Mac Safari, the iPhone 15 Pro, the iPhone 11 Pro (iOS 18.6) and Chromium; does it work in an installed home-screen app as well as in a tab; what happens in a private window. Probe pages only, results in `docs/evidence/encryption/passkey-prf.json`. No face is needed to learn *support* where the browser reports it; where a real prompt is unavoidable, it is saved for 5.4 and the step says so.
+- [ ] **5.1 Learn what is true on the devices we have** (before writing the feature): does `navigator.credentials.create` with the PRF extension work, with the platform authenticator, on Mac Safari, the iPhone 15 Pro, the Galaxy S8+ (Android, its own browser lock) and Chromium on this machine and on the Veriton; does it work in an installed home-screen app as well as in a tab; what happens in a private window. Probe pages only, results in `docs/evidence/encryption/passkey-prf.json`. No face is needed to learn *support* where the browser reports it; where a real prompt is unavoidable, it is saved for 5.4 and the step says so.
 - [ ] **5.2 Pure logic, tested with no hardware.** `chat/vault/passkey.mjs`: feature detection, the PRF salt per vault, HKDF of the PRF output to a wrapping key, wrap and unwrap of the vault key, multiple passkeys, removing one, every failure mapped to a plain sentence. Unit tests use a fake authenticator that returns deterministic PRF output.
 - [ ] **5.3 Browser tests with a virtual authenticator.** Chromium's virtual platform authenticator (with user verification and PRF switched on) drives the whole flow in `tests/e2e/vault-passkey.e2e.mjs`: add a passkey, lock, unlock with it, remove it, unlock with the passphrase, a browser without PRF falls back with a clear message, a cancelled prompt leaves the vault locked. Safari-specific behaviour that Chromium cannot show is recorded in 5.1 and handled in code. No person is involved.
 - [ ] **5.4 The one real check: the owner's face, last.** On the iPhone 15 Pro (and the Mac if wanted), add the passkey, lock, unlock with Face ID, then lock and unlock with the passphrase. Done once, at the end, after everything above is green; the owner is asked for ten minutes then and not before. Evidence in `docs/evidence/encryption/faceid-iphone15pro.md`.
@@ -245,7 +257,7 @@ What the interface must say: the passkey is kept by the device's account (Apple 
 - `tests/e2e/vault.e2e.mjs` (phase 2): no plaintext at rest (a marker string written in a chat, then every `localStorage`, `sessionStorage` and IndexedDB record scanned), the page killed mid-reply, wrong and changed passphrase, two tabs, migration on and off, backup and restore. Runs on every push once it exists.
 - `tests/e2e/vault-perf.e2e.mjs` (phase 4): unlock time and per-write latency with a 10,000-message chat; the limits are written in the test.
 - `tests/vault-passkey.test.mjs` (5.2) and `tests/e2e/vault-passkey.e2e.mjs` (5.3): the passkey flow with a fake authenticator and Chromium's virtual one. Created with phase 5.
-- Device runs (Mac Safari, iPhone 11 Pro and 15 Pro) write evidence files under `docs/evidence/encryption/` that this page links; a device-only finding is recorded in the log with the test that now catches it.
+- Device runs (the hardware targets above) write evidence files under `docs/evidence/encryption/` that this page links; a device-only finding is recorded in the log with the test that now catches it.
 - `docs/evidence/encryption/storage-inventory.json` is the one list of what the app keeps; phase 3 turns its guard from "classified" into "only through the vault".
 
 ## Open questions (my recommended answer in brackets; I will proceed on these unless told otherwise)
@@ -260,6 +272,7 @@ What the interface must say: the passkey is kept by the device's account (Apple 
 
 ## Log (newest first; add a line with every finding)
 
+* 2026-11-04: hardware targets fixed by the owner: add the Galaxy S8+ and the Veriton; the iPhone 11 Pro is out for now (unavailable), so the iPhone 15 Pro is the only iOS device in this plan. The S8+ is now the slowest phone for the iteration count.
 * 2026-11-04: owner decision: the vault must open with Face ID, and their physical face is not needed until the end. Phase 5 rewritten (passkey with PRF; learn device support, pure logic, virtual-authenticator browser tests, one real Face ID check last); the words "device-bound" were wrong (Apple passkeys sync through iCloud Keychain) and are gone; question 5 answered yes.
 * 2026-11-04: **found while writing the inventory: `plc.memory.v1` was shared by the assistant's memory items (`chat/assistant/assistant.mjs`) and the "One model at a time" switch (`runtime/memory-manager.mjs`).** Each rewrote the whole value, so flipping the switch could erase the person's memory items and saving a memory item reset the switch. Fixed: the switch has `plc.modelMemory.v1` and reads the old key once; `tests/memory-manager.test.mjs` and `tests/storage-inventory.test.mjs` now catch the class. Memory items already lost this way cannot be recovered.
 * 2026-11-04: the first survey missed four keys (`plc.shell.pins.v1`, `plc.models.v1`, `plc.inferenceMode.v1`, `plc.downloadIntent.v1`); the inventory test would have caught them, which is why it came first.
