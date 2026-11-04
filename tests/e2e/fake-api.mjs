@@ -30,6 +30,7 @@ export function startFakeApi(port=0){
   const system=isResponses?(body.instructions||''):isMessages?(typeof body.system==='string'?body.system:''):(body.messages||[]).filter(m=>m.role==='system').map(m=>typeof m.content==='string'?m.content:'').join('\n');
   let words;
   if(/markdown/.test(prompt))words=['# Heading\n\n','Some **bold** and `code`, plus <script>window.__pwned=1</script> and ![x](https://tracker.invalid/p.png) and [bad](javascript:window.__pwned=1).\n\n','- one\n- two\n\n','| a | b |\n|---|---|\n| 1 | 2 |\n\n','```js\nconst answer = 42;\n```\n'];
+  else if(/chili/i.test(prompt))words=['Cinnamon, ',"it's always the best secret ingredient."]; // the lock video's scripted chat
   else if(/compact summary/.test(prompt))words=['SUMMARY-TEXT'];
   else if(/cite it with its number/.test(system))words=['Per ','the ','excerpt ','[1], ','the ','answer ','is ','in ','the ','document.'];
   else if(/speak-long/.test(prompt))words=Array.from({length:40},(_,i)=>`This is sentence number ${i}. `);

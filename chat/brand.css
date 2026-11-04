@@ -808,3 +808,51 @@ button.call-avatar:active .call-face { transform: scale(0.96); }
 .g-load .arrow { animation: glyph-drop 1.2s ease-in infinite; }
 @keyframes glyph-drop { 0% { transform: translateY(-10px); opacity: 0; } 40% { opacity: 1; } 100% { transform: translateY(8px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .call-face::before, .call-face::after, .g-load .arrow { animation: none !important; } }
+
+/* ---- the padlock: a blue case with a bevel and a lit keyhole, a steel bar, a soft shadow; it snaps shut, opens in green and shakes (chat/lock/padlock.mjs) ---- */
+.padlock { --pl-top: #6a97f5; --pl-mid: #3f69d4; --pl-bottom: #2a4eb0; --pl-steel-a: #eef2f8; --pl-steel-b: #9eabc2; --pl-halo: rgba(90, 141, 238, 0.42); --pl-keylight: rgba(150, 195, 255, 0.95); overflow: visible; filter: drop-shadow(0 8px 12px rgba(20, 40, 100, 0.22)); }
+[data-theme='dark'] .padlock { --pl-top: #78a2ff; --pl-mid: #4a74e0; --pl-bottom: #3158c4; --pl-steel-a: #dfe6f2; --pl-steel-b: #8b9ab3; --pl-halo: rgba(110, 160, 255, 0.4); filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.55)); }
+.padlock .pl-shine { opacity: 0.2; }
+.padlock .pl-hole { fill: #0b1633; }
+.padlock .pl-keyglow { opacity: 0.55; }
+.padlock .pl-body-ok { opacity: 0; transition: opacity 0.35s ease; }
+.padlock .pl-glow { transform-box: view-box; transform-origin: 32px 46px; opacity: 0.75; }
+.padlock .pl-ground { transform-box: view-box; transform-origin: 32px 68px; }
+.padlock .pl-shackle { transform-box: view-box; transform-origin: 43px 34px; transition: transform 0.45s cubic-bezier(0.3, 1.5, 0.5, 1); }
+.padlock .pl-body, .padlock .pl-body-ok, .padlock .pl-edge, .padlock .pl-shine, .padlock .pl-key { transform-box: view-box; transform-origin: 32px 66px; }
+/* the reminder's open padlock: bar lifted, warm case */
+.padlock.open { --pl-top: #f8c76c; --pl-mid: #e9a23c; --pl-bottom: #cf8420; --pl-halo: rgba(242, 180, 86, 0.45); --pl-keylight: rgba(255, 220, 150, 0.95); }
+.padlock.open .pl-shackle { transform: translateY(-7px) rotate(-26deg); }
+.padlock.open .pl-hole { fill: #4a2d05; }
+/* locking: the bar drops and snaps into the case, the case thunks, the halo pulses once */
+.locking .padlock .pl-shackle { animation: pl-snap 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) 0.45s both; } /* the bar waits open for a beat, so the screen is seen before it closes */
+.locking .padlock .pl-body, .locking .padlock .pl-edge, .locking .padlock .pl-shine, .locking .padlock .pl-key { animation: pl-thunk 0.35s ease-out 0.95s both; }
+.locking .padlock .pl-ground { animation: pl-thunk 0.35s ease-out 0.95s both; }
+.locking .padlock .pl-glow { animation: pl-pulse 0.9s ease-out 0.9s both; }
+/* unlocking: the case turns green, the bar swings open, a ring of light spreads out */
+.unlocking .padlock .pl-body-ok { opacity: 1; }
+.unlocking .padlock .pl-shackle { transform: translateY(-8px) rotate(-28deg); }
+.unlocking .padlock { --pl-halo: rgba(95, 214, 155, 0.55); --pl-keylight: rgba(170, 255, 205, 0.95); }
+.unlocking .padlock .pl-hole { fill: #07351f; }
+.unlocking .padlock .pl-glow { animation: pl-burst 0.8s ease-out both; }
+.lock-screen.leaving { animation: pl-away 0.45s ease-in both; } /* after the lock has opened, the screen fades */
+/* a wrong passphrase: the whole lock shakes and flushes red */
+.denied .padlock { animation: pl-shake 0.5s ease-in-out both; --pl-top: #ef8d8d; --pl-mid: #cf5252; --pl-bottom: #a43b3b; --pl-halo: rgba(217, 100, 100, 0.55); --pl-keylight: rgba(255, 170, 170, 0.95); }
+@keyframes pl-snap { 0% { transform: translateY(-9px) rotate(-28deg); } 55% { transform: translateY(2px) rotate(0deg); } 100% { transform: translateY(0) rotate(0deg); } }
+@keyframes pl-thunk { 0% { transform: scale(1); } 40% { transform: scale(1.06, 0.94); } 100% { transform: scale(1); } }
+@keyframes pl-pulse { 0% { transform: scale(0.8); opacity: 0.2; } 60% { opacity: 0.9; } 100% { transform: scale(1.25); opacity: 0.7; } }
+@keyframes pl-burst { 0% { transform: scale(0.8); opacity: 0.9; } 100% { transform: scale(2); opacity: 0; } }
+@keyframes pl-away { to { opacity: 0; transform: scale(1.03); } }
+@keyframes pl-shake { 0%, 100% { transform: translateX(0); } 18% { transform: translateX(-7px); } 36% { transform: translateX(6px); } 54% { transform: translateX(-4px); } 72% { transform: translateX(3px); } }
+@media (prefers-reduced-motion: reduce) {
+  .locking .padlock *, .unlocking .padlock .pl-glow, .lock-screen.leaving, .denied .padlock { animation: none !important; }
+  .padlock .pl-shackle { transition: none; }
+}
+
+/* a bigger padlock on the lock screens */
+.lock-screen .lock-icon .padlock { width: 10.5rem; height: 11.5rem; }
+.lock-screen .lock-icon canvas.padlock3d { margin: -0.4rem 0 -0.6rem; }
+.lock-screen .lock-icon { margin-bottom: 0.25rem; }
+
+/* the 3D padlock is drawn on a canvas: no flat-drawing effects on it */
+canvas.padlock3d { filter: none !important; animation: none !important; display: block; }

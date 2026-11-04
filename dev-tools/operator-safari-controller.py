@@ -79,12 +79,20 @@ async def main(args):
                                 script='if(location.hostname!=="dev.privatelocal.chat")throw Error("Unexpected origin");'+c['script']
                                 value=await asyncio.wait_for(driver.execute_script(script),20)
                             elif c['action']=='tap':
-                                # a real tap through the automation channel (page script cannot make one): browsers only allow audio and speech after a tap
-                                from pymobiledevice3.services.web_protocol.selenium_api import By
+                                # a real touch through the automation channel (page script cannot make one): browsers only allow audio and speech after a touch.
+                                # iOS has no mouse input, so this is a touch input sequence at the centre of the element.
                                 assert isinstance(c.get('selector'),str) and len(c['selector'])<200
-                                await asyncio.wait_for(driver.execute_script('if(location.hostname!=="dev.privatelocal.chat")throw Error("Unexpected origin");return true;'),10)
-                                element=await asyncio.wait_for(driver.find_element(By.CSS_SELECTOR,c['selector']),10)
-                                await asyncio.wait_for(element.click(),10);value={'tapped':c['selector']}
+                                where=await asyncio.wait_for(driver.execute_script('if(location.hostname!=="dev.privatelocal.chat")throw Error("Unexpected origin");const e=document.querySelector('+json.dumps(c['selector'])+');if(!e)return null;e.scrollIntoView({block:"center"});const r=e.getBoundingClientRect();return JSON.stringify({x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)});'),10)
+                                if not where:raise ValueError('No element matches that selector')
+                                point=json.loads(where)
+                                sources=c.get('sources') or [{'sourceId':'finger','sourceType':'Touch'}]
+                                steps=c.get('steps') or [
+                                    {'states':[{'sourceId':'finger','location':'__POINT__','origin':'Viewport','duration':30}]},
+                                    {'states':[{'sourceId':'finger','pressedButtons':['Left']}]},
+                                    {'states':[{'sourceId':'finger','pressedButtons':[]}]}]
+                                steps=json.loads(json.dumps(steps).replace('"__POINT__"',json.dumps(point)))
+                                await asyncio.wait_for(session.perform_interaction_sequence(sources,steps),10)
+                                value={'tapped':c['selector'],'at':point}
                             elif c['action']=='close':
                                 out.write_text(json.dumps({'id':c['id'],'ok':True,'value':{'closing':True,'shutdownReceipt':'ready.json'}})+'\n')
                                 return

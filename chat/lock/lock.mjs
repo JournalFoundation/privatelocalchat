@@ -5,22 +5,16 @@
 // Everything the page provides is passed in, so this file reads on its own. createLock({...}).start() runs once as the page starts.
 // `vault` is chat/vault/vault-control.mjs (or null where there is none).
 
+import { createPadlock, playPadlock } from './padlock.mjs';
+
 export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog, confirmDialog, showToast, loadCrypto, passField, focusComposer, onLock, vault = null, busy = () => false }) {
   // app lock: a passphrase screen over the app. Without the vault it hides chats and does not encrypt what the browser stores.
   const LOCK_KEY = 'plc.lock.v1';
   let lockCfg = vault?.active ? { vault: true, autoMinutes: vault.autoMinutes } : readJson(localStorage, LOCK_KEY, null);
   const appEl = document.getElementById('app');
   const lockScreen = el('div', 'lock-screen'); lockScreen.id = 'lockScreen'; lockScreen.setAttribute('role', 'dialog'); lockScreen.setAttribute('aria-modal', 'true'); lockScreen.setAttribute('aria-label', 'Unlock Private Local Chat'); lockScreen.hidden = true; // shown only while locked (it used to cover an unlocked app until start-up finished)
-  // padlocks (inline, so they look the same everywhere): closed when the app is locked, open on the "not locked" reminder
-  const padlock = (open, cls = '') => {
-    const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 48 48'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('class', 'padlock ' + (open ? 'open' : 'closed') + (cls ? ' ' + cls : ''));
-    const body = document.createElementNS(NS, 'rect'); body.setAttribute('x', '9'); body.setAttribute('y', '21'); body.setAttribute('width', '30'); body.setAttribute('height', '21'); body.setAttribute('rx', '5'); body.setAttribute('fill', 'currentColor');
-    const shackle = document.createElementNS(NS, 'path'); shackle.setAttribute('fill', 'none'); shackle.setAttribute('stroke', 'currentColor'); shackle.setAttribute('stroke-width', '4.5'); shackle.setAttribute('stroke-linecap', 'round');
-    shackle.setAttribute('d', open ? 'M16 21 V14 a8 8 0 0 1 16 0' : 'M16 21 V14 a8 8 0 0 1 16 0 V21');
-    const keyhole = document.createElementNS(NS, 'circle'); keyhole.setAttribute('cx', '24'); keyhole.setAttribute('cy', '31'); keyhole.setAttribute('r', '3.2'); keyhole.setAttribute('fill', 'var(--plc-background, #fff)');
-    svg.append(shackle, body, keyhole); return svg;
-  };
+  // the padlock picture (chat/lock/padlock.mjs) is the same everywhere: closed when the app is locked, open on the "not locked" reminder
+  const padlock = (open, cls = '') => createPadlock({ open, cls });
   const lockForm = el('form'); const lockHead = el('h2', null, 'Private Local Chat is locked');
   const lockIcon = el('div', 'lock-icon'); lockIcon.appendChild(padlock(false));
   const lockPassLabel = el('label', 'sr-only', 'Passphrase'); lockPassLabel.htmlFor = 'unlockPass';
@@ -36,7 +30,7 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
     const waiting = locked || Boolean(document.getElementById('lockSplash')); // the not-locked reminder keeps the app out of reach too, until it is done
     appEl.inert = waiting; appEl.setAttribute('aria-hidden', String(waiting));
     lockScreen.hidden = !locked;
-    if (locked) { lockPass.value = ''; lockMsg.textContent = ''; window.setTimeout(() => lockPass.focus(), 0); } else lockNote.hidden = true;
+    if (locked) { lockPass.value = ''; lockMsg.textContent = ''; lockScreen.style.pointerEvents = ''; playPadlock(lockScreen, 'locking'); window.setTimeout(() => lockPass.focus(), 0); } else { lockNote.hidden = true; lockScreen.classList.remove('locking', 'unlocking', 'denied', 'leaving'); }
   }
   async function lockNow(options) {
     if (vault?.active) {
@@ -55,10 +49,14 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
     lockGo.setAttribute('aria-busy', 'true');
     const ok = await c.verifyLock(lockCfg, lockPass.value);
     lockGo.removeAttribute('aria-busy');
-    if (ok) { failures = 0; setLockedUi(false); armIdle(); focusComposer?.(); return; }
+    if (ok) { // the lock opens (green, the bar swings up) and the screen fades before the app is shown
+      failures = 0; lockScreen.style.pointerEvents = 'none'; playPadlock(lockScreen, 'unlocking');
+      window.setTimeout(() => lockScreen.classList.add('leaving'), 1150);                               // the lock opens first, then the screen fades
+      window.setTimeout(() => { setLockedUi(false); armIdle(); focusComposer?.(); }, 1550); return;
+    }
     failures++; const delay = c.lockDelaySeconds(failures); lockedUntil = Date.now() + delay * 1000;
     lockMsg.textContent = 'That passphrase is not right.' + (delay ? ' Wait ' + delay + ' seconds before trying again.' : '');
-    lockPass.select();
+    playPadlock(lockScreen, 'denied'); lockPass.select();
   });
   lockForgot.addEventListener('click', async () => {
     const sure = await confirmDialog('Erase and start over?', 'There is no way to recover a forgotten passphrase. You can erase this app’s saved chats, documents, memory and settings in this browser and remove the lock. Downloaded models are kept. If you have a backup you can restore it afterwards.', 'Erase everything', { danger: true });

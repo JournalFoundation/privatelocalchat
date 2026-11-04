@@ -4,17 +4,9 @@
 //   - a "Unlock with Face ID / Touch ID" button when the vault has a passkey (chat/vault/passkey.mjs)
 //   - "Forgot it?" erases everything after two explicit steps (there is no recovery, and the screen says so)
 import { lockDelaySeconds } from "../crypto.mjs";
+import { createPadlock, playPadlock } from "../lock/padlock.mjs";
 
-const NS = "http://www.w3.org/2000/svg";
 const h = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
-function padlock() {
-  const svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", "0 0 48 48"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("class", "padlock closed");
-  const body = document.createElementNS(NS, "rect"); for (const [k, v] of Object.entries({ x: 9, y: 21, width: 30, height: 21, rx: 5, fill: "currentColor" })) body.setAttribute(k, v);
-  const shackle = document.createElementNS(NS, "path"); for (const [k, v] of Object.entries({ fill: "none", stroke: "currentColor", "stroke-width": 4.5, "stroke-linecap": "round", d: "M16 21 V14 a8 8 0 0 1 16 0 V21" })) shackle.setAttribute(k, v);
-  const hole = document.createElementNS(NS, "circle"); for (const [k, v] of Object.entries({ cx: 24, cy: 31, r: 3.2, fill: "var(--plc-background, #fff)" })) hole.setAttribute(k, v);
-  svg.append(shackle, body, hole); return svg;
-}
-
 export const unlockScreen = {
   unlock({ vault, header, marker = {}, erase = null }) {
     return new Promise((resolve) => {
@@ -22,7 +14,7 @@ export const unlockScreen = {
       document.documentElement.classList.add("locked"); window.__plcVaultLocked = true; // the page's start-up check must not call a waiting unlock screen a failed start
       const app = document.getElementById("app"); if (app) { app.inert = true; app.setAttribute("aria-hidden", "true"); }
       const screen = h("div", "lock-screen"); screen.id = "lockScreen"; screen.setAttribute("role", "dialog"); screen.setAttribute("aria-modal", "true"); screen.setAttribute("aria-label", "Unlock Private Local Chat");
-      const form = h("form"); const icon = h("div", "lock-icon"); icon.appendChild(padlock());
+      const form = h("form"); const icon = h("div", "lock-icon"); icon.appendChild(createPadlock());
       const title = h("h2", null, "Private Local Chat is locked");
       const note = h("p", "muted lock-note", "Everything on this device is encrypted. Type your passphrase to open it."); 
       const user = h("input", "sr-only"); user.type = "text"; user.name = "username"; user.autocomplete = "username"; user.value = "Private Local Chat"; user.tabIndex = -1; user.setAttribute("aria-hidden", "true"); user.readOnly = true; // gives the OS password manager a fixed name, so it does not ask the person for one
@@ -37,10 +29,20 @@ export const unlockScreen = {
       const eraseGo = h("button", "danger", "Erase everything and start over"); eraseGo.type = "button";
       const eraseNo = h("button", "link-btn", "Keep trying"); eraseNo.type = "button";
       erasePanel.append(eraseGo, eraseNo);
-      form.append(icon, title, note, user, label, pass, go, face, msg, forgot, erasePanel); screen.appendChild(form); document.body.appendChild(screen);
+      form.append(icon, title, note, user, label, pass, go, face, msg, forgot, erasePanel); screen.appendChild(form); document.body.appendChild(screen); playPadlock(screen, "locking"); // the bar snaps shut as the screen appears
 
       let failures = 0, lockedUntil = 0, busy = false;
-      const finish = (session) => { window.__plcVaultLocked = false; window.dispatchEvent(new Event("plc-vault-unlocked")); screen.remove(); document.documentElement.classList.remove("locked"); document.documentElement.classList.remove("splashing"); if (app) { app.inert = false; app.removeAttribute("aria-hidden"); } resolve(session); };
+      const finish = (session) => {
+        // The lock opens first, with nothing else going on (the app would stutter it if it started now): the bar slides up, swings round, then the screen fades and the app starts.
+        playPadlock(screen, "unlocking"); screen.style.pointerEvents = "none";
+        window.setTimeout(() => {
+          screen.classList.add("leaving");
+          window.__plcVaultLocked = false; window.dispatchEvent(new Event("plc-vault-unlocked"));
+          document.documentElement.classList.remove("locked"); document.documentElement.classList.remove("splashing"); if (app) { app.inert = false; app.removeAttribute("aria-hidden"); }
+          resolve(session);
+          window.setTimeout(() => screen.remove(), 600);
+        }, 1150);
+      };
       const hasPasskey = (header.wraps || []).some((w) => w.type === "passkey");
       if (hasPasskey) {
         import("./passkey.mjs").then((pk) => { if (pk.passkeySupported()) { face.hidden = false; } }).catch(() => {});
@@ -59,7 +61,7 @@ export const unlockScreen = {
         const started = performance.now();
         try { const session = await vault.unlock(pass.value); window.__plcVaultUnlockMs = Math.round(performance.now() - started); finish(session); return; } // how long the passphrase took on this device (shown in Settings)
         catch (error) {
-          if (error?.code === "bad-passphrase") { failures++; const delay = lockDelaySeconds(failures); lockedUntil = Date.now() + delay * 1000; msg.textContent = "That passphrase is not right." + (delay ? " Wait " + delay + " seconds before trying again." : ""); pass.select(); }
+          if (error?.code === "bad-passphrase") { failures++; const delay = lockDelaySeconds(failures); lockedUntil = Date.now() + delay * 1000; msg.textContent = "That passphrase is not right." + (delay ? " Wait " + delay + " seconds before trying again." : ""); playPadlock(screen, "denied"); pass.select(); }
           else msg.textContent = error?.message || "The vault could not be opened.";
         }
         busy = false; go.removeAttribute("aria-busy");
