@@ -370,3 +370,34 @@ body.shell { height: 100dvh; }
 .settings-page { height: 100dvh; max-height: 100dvh; }
 .settings-content { min-height: 0; }
 @media (max-width: 760px) { .settings-page { padding-top: env(safe-area-inset-top, 0px); } .settings-content { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); } }
+
+/* ---- Security dialogs (passcode, encryption and lock): the Settings vocabulary inside a dialog ---- */
+.app-dialog .dialog-body .sec-lead { margin: 2px 0 16px; line-height: 1.5; }
+.app-dialog .dialog-body .set-card { margin: 0 0 14px; }
+.app-dialog .dialog-body .set-sub { margin: 18px 2px 8px; }
+.app-dialog .dialog-body .set-sub:first-child { margin-top: 2px; }
+.app-dialog .dialog-body .set-row { flex-direction: row; padding: 12px 16px; } /* a phone rule elsewhere stacks rows; inside a dialog they stay label | control */
+.app-dialog .dialog-body .set-row .set-control { flex: none; }
+.app-dialog .dialog-body .set-row select { width: auto; min-width: 11.5rem; max-width: 100%; }
+.app-dialog .dialog-body .set-row input[type="checkbox"] { width: 22px; height: 22px; margin: 0; accent-color: var(--plc-accent, #2563eb); cursor: pointer; }
+.app-dialog .dialog-body label.set-row { display: flex; align-items: center; cursor: pointer; font-weight: inherit; font-size: inherit; margin: 0; }
+.app-dialog .dialog-body .set-field { display: grid; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
+.app-dialog .dialog-body .set-field:last-child { border-bottom: 0; }
+.app-dialog .dialog-body .set-field label { margin: 0; font-weight: 600; font-size: 0.9rem; }
+.app-dialog .dialog-body .set-field input { margin: 0; }
+.app-dialog .dialog-body .sec-note { margin: 0 4px 12px; line-height: 1.5; }
+.app-dialog .dialog-body .sec-note:empty { display: none; }
+.app-dialog .dialog-body .sec-note.danger { color: var(--color-danger); }
+.app-dialog .dialog-body .sec-msg { margin: 0 4px 10px; min-height: 0; }
+.app-dialog .dialog-body .sec-msg:empty { display: none; }
+.app-dialog .dialog-body .face-box:empty { display: none; }
+@media (max-width: 520px) {
+  .app-dialog .dialog-body .set-row { flex-wrap: wrap; align-items: flex-start; }
+  .app-dialog .dialog-body .set-row .set-control { width: 100%; }
+  .app-dialog .dialog-body .set-row select { width: 100%; }
+  .app-dialog .dialog-body label.set-row { flex-wrap: nowrap; align-items: center; }
+  .app-dialog .dialog-body label.set-row .set-control { width: auto; flex: none; }
+}
+
+/* While a dialog is open, a toast must not sit on top of its buttons and swallow the tap (it covered "Remove it" on a phone). Elsewhere a toast still holds while it is touched. */
+body:has(.app-dialog) #toast, body:has(.app-dialog) .toast { pointer-events: none; }

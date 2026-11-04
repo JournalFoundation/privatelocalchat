@@ -7,7 +7,7 @@
       "title": "Encrypt everything on this device, and unlock with Face ID",
       "summary": "You can now encrypt your conversations, files, memory and settings with a passphrase, and unlock them with Face ID, Touch ID or your device's screen lock where the browser allows.",
       "points": [
-        "Add a passcode and leave \"Also encrypt everything this app saves on this device\" ticked. Your data is sealed in your browser and stored as you go, so closing the tab, or the browser ending the page, loses at most the last moment of a reply. Nothing leaves the device.",
+        "Add a passcode and tick \"Also encrypt everything this app saves\". It is off unless you choose it, because most people do not need it. Your data is sealed in your browser and stored as you go, so closing the tab, or the browser ending the page, loses at most the last moment of a reply. Nothing leaves the device.",
         "Locking forgets the key and asks again; you can lock after a time away or as soon as you leave. If you forget the passphrase and have no passkey, the data cannot be recovered, so keep an encrypted backup. Settings > Security explains what encryption does not protect against.",
         "The old unencrypted copy is removed only after the encrypted one has been read back and you agree. You can turn encryption off again with your passphrase.",
         "A second tab opens read-only while the first is writing, and says so. Fixed along the way: flipping \"One model at a time\" could overwrite your memory items, because both used one storage key."

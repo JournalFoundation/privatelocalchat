@@ -35,7 +35,8 @@ try{
 
  // turn it on through the interface
  await openSettings('security');await page.click('.set-row:has-text("App lock") button');
- assert(await page.locator('#lockEncrypt').isChecked(),'encryption is offered and ticked by default');
+ assert(!(await page.locator('#lockEncrypt').isChecked()),'encryption is offered, and not ticked by itself');
+ await page.check('#lockEncrypt');
  await page.fill('#lockNew1','correct horse');await page.fill('#lockNew2','correct horse');await page.click('.app-dialog button:has-text("Lock the app")');
  await page.waitForSelector('.app-dialog:has-text("Remove the unencrypted copy")',{timeout:30000});
  let d=await dump();

@@ -22,7 +22,7 @@ try{
 
  // turn the vault on, then add the passkey from the Encryption dialog
  await openSettings('security');await page.click('.set-row:has-text("App lock") button');
- await page.fill('#lockNew1','pass one');await page.fill('#lockNew2','pass one');await page.click('.app-dialog button:has-text("Lock the app")');
+ await page.fill('#lockNew1','pass one');await page.fill('#lockNew2','pass one');await page.check('#lockEncrypt');await page.click('.app-dialog button:has-text("Lock the app")');
  await page.waitForSelector('.app-dialog:has-text("Remove the unencrypted copy")',{timeout:30000});await page.click('.app-dialog button:has-text("Remove it")');
  await page.waitForFunction(()=>!localStorage.getItem('chatThreads'));
  await openSettings('security');await page.click('.set-row:has-text("App lock") button');
