@@ -238,9 +238,8 @@ body.shell #generationStatus { background: none; border: 0; padding: 0 16px; mar
   .settings-nav { display: grid; grid-template-columns: 1fr auto; padding: 8px 8px 0; gap: 0; }
   .settings-nav-head { grid-column: 1 / -1; padding: 4px 6px; }
   .settings-nav > .settings-nav-item { display: none; }
-  /* one scrolling row of tabs under the title. (The rule `.settings-nav-tabs { display: contents }` further down used to win and made the tabs a two-column grid 221 px tall, which scrolled away.) */
-  .settings-nav > .settings-nav-tabs { grid-column: 1 / -1; display: flex; overflow-x: auto; gap: 2px; padding-bottom: 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-  .settings-nav > .settings-nav-tabs::-webkit-scrollbar { display: none; }
+  /* every section is visible at once, in two columns under the title (a scrolling row hid what was there). The tabs' own wrapper steps aside so its items sit in the grid. */
+  .settings-nav > .settings-nav-tabs { display: contents; }
   .settings-nav > .settings-nav-tabs .settings-nav-item { display: flex; flex: none; white-space: nowrap; }
   .settings-content { padding: 18px 14px 56px; }
 }

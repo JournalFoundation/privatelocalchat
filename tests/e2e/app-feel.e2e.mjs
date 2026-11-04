@@ -1,5 +1,5 @@
-// On a phone the app must feel like an app, not a page: the page itself never scrolls or rubber-bands, Settings keeps its title and one row of tabs fixed at the top
-// (they were a two-column grid that took a third of the screen and scrolled away), and only the content scrolls. Checked in WebKit with an iPhone 11 Pro viewport.
+// On a phone the app must feel like an app, not a page: the page itself never scrolls or rubber-bands, Settings keeps its title and every section button visible at the top
+// (all of them at once, in two columns; a scrolling row hid some), and only the content scrolls. Checked in WebKit with an iPhone 11 Pro viewport.
 import {execFileSync,spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {setTimeout as sleep} from 'node:timers/promises';
@@ -23,13 +23,14 @@ try{
   const navBox=nav.getBoundingClientRect();const before={top:Math.round(navBox.top),h:Math.round(navBox.height),vh:innerHeight,ch:c.clientHeight,sh:c.scrollHeight};
   c.scrollTop=900;await new Promise(r=>setTimeout(r,300));
   return {before,navTopAfter:Math.round(nav.getBoundingClientRect().top),scrolled:c.scrollTop,page:document.scrollingElement.scrollTop};});
- assert(r.before.h<=0.2*r.before.vh,'the Settings header is compact: '+r.before.h+' px of '+r.before.vh);
  assert(r.before.sh>r.before.ch*2&&r.scrolled>0,'the content scrolls in its own region: '+JSON.stringify(r));
  assert(r.navTopAfter===0&&r.page===0,'while the header stays put and the page does not move: '+JSON.stringify(r));
- ok('Settings: a compact header that stays, a content area that scrolls by itself');
- const tabs=await page.evaluate(()=>{const t=document.querySelector('.settings-nav > .settings-nav-tabs');const s=getComputedStyle(t);return {display:s.display,wide:t.scrollWidth>t.clientWidth};});
- assert(tabs.display==='flex'&&tabs.wide,'the tabs are one swipeable row: '+JSON.stringify(tabs));
- ok('the tabs are one row you can swipe');
+ ok('Settings: a header that stays, a content area that scrolls by itself');
+ const nav=await page.evaluate(()=>{const n=document.querySelector('.settings-nav'),vw=innerWidth;const items=[...n.querySelectorAll('.settings-nav-item')].filter(b=>b.getBoundingClientRect().width>0);
+  return {count:items.length,allInside:items.every(b=>{const r=b.getBoundingClientRect();return r.left>=0&&r.right<=vw+0.5&&r.height>0;}),hScroll:n.scrollWidth>n.clientWidth+1,names:items.map(b=>b.innerText.trim())};});
+ assert(nav.count>=8,'every section button is visible: '+JSON.stringify(nav.names));
+ assert(nav.allInside&&!nav.hScroll,'all of them on the screen at once, nothing to swipe: '+JSON.stringify(nav));
+ ok('all '+nav.count+' Settings sections are visible at once, nothing to swipe');
  await browser.close();
  console.log('app-feel e2e: ok');
 }catch(e){console.error(e);process.exitCode=1;}
