@@ -956,7 +956,10 @@ body.sidebar-open {
   opacity: 0;
   transition: opacity 0.18s ease, transform 0.18s ease;
   z-index: 2000;
-  max-width: min(92vw, 420px);
+  /* as wide as its text needs, up to most of a phone's width and a comfortable measure on a large screen (left: 50% alone would cap it at half the screen) */
+  width: max-content;
+  max-width: min(calc(100vw - 24px), 40rem);
+  box-sizing: border-box;
   text-align: center;
   line-height: 1.35;
   cursor: pointer; /* a tap puts it away */

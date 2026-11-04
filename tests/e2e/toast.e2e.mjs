@@ -33,6 +33,20 @@ try{
  await page.locator('#toast').click({force:true,timeout:2000}).catch(()=>{});
  assert(await shown(),'a tap in the first moments (meant for something underneath) does not close it');
  ok('tap to dismiss, but not by accident');
+
+ // the toast uses the width the screen gives it: nearly all of a phone, a readable measure on a large screen (not half the screen)
+ const text='A longer message that should fill most of the width on a phone, and stop at a readable width on a wide screen, instead of wrapping at half the window.';
+ for(const [w,min,max] of [[375,0.85,1.0],[1280,0.25,0.6]]){
+  await page.setViewportSize({width:w,height:800});
+  await page.evaluate(t=>window.plcApp.toast(t,30000),text);await page.waitForTimeout(400);
+  const box=await page.locator('#toast').boundingBox();
+  assert(box&&box.x>=0&&box.x+box.width<=w+0.5,'the toast fits the screen at '+w+' px: '+JSON.stringify(box));
+  const frac=box.width/w;
+  assert(frac>=min&&frac<=max,'the toast is '+Math.round(frac*100)+'% of a '+w+' px screen, expected between '+Math.round(min*100)+'% and '+Math.round(max*100)+'%');
+  await page.locator('#toast').click({force:true,position:{x:5,y:5}}).catch(()=>{});
+  await page.evaluate(()=>window.plcApp.toast(' ',10));await page.waitForTimeout(100);
+ }
+ ok('the toast is as wide as the screen allows (nearly full on a phone, a readable measure on a desktop)');
  console.log('toast e2e: ok');
 }catch(e){console.error(e);process.exitCode=1;}
 finally{await h.close();}
