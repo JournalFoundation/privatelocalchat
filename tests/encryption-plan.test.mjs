@@ -27,7 +27,7 @@ test('the checks listed as existing under Automation exist; those promised for a
   const missing=[];
   for(const line of auto.split('\n')){
     if(!line.startsWith('- '))continue;
-    if(/Created with their phase|Runs on every push once it exists|phase 2\)|phase 4\)|phases 1 and 2\)/.test(line))continue; // promised, not built yet
+    if(/Created with (?:their|phase)|Runs on every push once it exists|phase 2\)|phase 4\)|phases 1 and 2\)/.test(line))continue; // promised, not built yet
     for(const m of line.matchAll(FILE))if(m[1].startsWith('tests/')&&!(await exists(m[1])))missing.push(m[1]);
   }
   assert.deepEqual(missing,[],'the Automation section names tests that do not exist');

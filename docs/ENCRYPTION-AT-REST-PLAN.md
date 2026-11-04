@@ -2,13 +2,15 @@
 
 This is a **living plan**, the same shape as `docs/OFFLINE-PLAN.md` and `docs/RESTRUCTURE-PLAN.md`: where we are, where we are going, the order, and a log that is updated as we learn. It does not have to be right at the start; each phase ends by correcting this page. `docs/ARCHITECTURE.md` stays the description of how the app is put together now; anything this plan adds (a folder, an event, a window global) goes there too.
 
-Proposed 2026-11-04; made a living plan the same day. **Status: phase 0 done (the inventory and its guard); the vault itself is not built.** The decisions marked **(owner)** are listed with a recommended answer under "Open questions"; work on phases 1 and 2 can start on the recommendations.
+Proposed 2026-11-04; made a living plan the same day. **Status: phase 0 done (the inventory and its guard); the vault itself is not built. Unlock with the owner's face is a goal (Phase 5), with the real face needed only in its last step.** The decisions marked **(owner)** are listed with a recommended answer under "Open questions"; work on phases 1 and 2 can start on the recommendations.
 
 ## Goal
 
 Everything the person creates or chooses is stored encrypted on the device and readable only after they enter their passphrase. Every prompt,
 every reply (while it streams) and every settings change is sealed and written as soon as the app has it, so closing the tab, a crash or the
 phone killing the page loses at most about a second of a streaming reply and nothing else.
+
+**The owner wants to unlock with their face (Face ID on iPhone, Touch ID on Mac).** That is a goal, not an optional extra: a passkey with the WebAuthn PRF extension releases a secret from the device's secure hardware after Face ID, and that secret wraps the vault key (Phase 5). The passphrase stays as the fallback and the recovery. **Nobody's physical face is needed until the very last step**: everything before it is built and proven with a virtual authenticator and automated tests; the single real-Face-ID check on the owner's phone is the final step of Phase 5 (5.4).
 
 Not encrypted (by design): the app itself (HTML/JS/CSS, service worker cache), model weights and runtimes in OPFS, and the few bytes the
 lock screen needs before unlock (see "Readable before unlock").
@@ -21,7 +23,7 @@ Say these plainly in the UI and in `docs/`; they are the honest limits.
 2. **The running browser.** Once unlocked, chats are plaintext in page memory; the browser, extensions with page access, and anything that can
    read the process's memory or swap can see them.
 3. **Offline guessing of a weak passphrase.** With a copy of the browser's files, an attacker can try passphrases as fast as their hardware
-   allows. PBKDF2 slows each guess; it cannot save a short passphrase. The optional device-bound key (Phase 5) closes this.
+   allows. PBKDF2 slows each guess; it cannot save a short passphrase. The Face ID / Touch ID passkey (Phase 5) helps here: the secret comes from the device's secure hardware, so copied files alone are not enough.
 4. **Metadata.** The number, sizes and write times of records show roughly how much and when the person chats. Which models are downloaded is
    visible from OPFS. Padding (Phase 4) reduces the size signal; nothing hides the timing.
 5. **Flash remanence.** Deleted or overwritten bytes may stay physically on flash. Per-chat keys (crypto-shredding) are the answer for data
@@ -36,6 +38,7 @@ Say these plainly in the UI and in `docs/`; they are the honest limits.
 - **An unencrypted mode keeps working** until the owner decides otherwise: the formats `CLAUDE.md` says to preserve (`chatThreads`, `chatConfig`, `chatModels`) are still what the app reads and writes when the vault is off.
 - **Say the limits plainly.** The "What this does not protect against" list is shown in the app and kept true; the app never says "secure" without saying what it does not cover.
 - **Device safety (from `docs/OFFLINE-PLAN.md`, unchanged):** do not clear user data on a device; read only the tab this work opened; one automation session per phone; never commit device identifiers or credentials. Test passphrases and test chats are synthetic.
+- **No person is needed until the end.** Phases 0 to 5.3 are proven by tests and virtual authenticators. The owner's face is asked for once, in step 5.4, after everything else is green. Do not ask for a face (or a phone in hand) earlier.
 - **Nothing in production that is only for testing.** Test hooks stay inside the `DEV_DIAGNOSTICS` markers or `dev-tools/`.
 
 ## What is stored today (survey)
@@ -75,7 +78,7 @@ Every new key added to the app must be classified in this table (user data → v
   only; no data is re-encrypted.
 - **Per-chat keys:** each chat gets its own random key, stored (wrapped by the DEK) inside the vault's key table. Deleting a chat deletes its
   key, so its old records become unreadable even if their bytes linger (crypto-shredding). Documents get per-document keys the same way.
-- **Optional device key (Phase 5):** a passkey with the WebAuthn PRF extension yields a secret from the device's secure hardware; the DEK can
+- **Face ID / Touch ID key (Phase 5, a goal):** a passkey with the WebAuthn PRF extension yields a secret from the device's secure hardware; the DEK can
   be wrapped by it as a second (or required) factor. Stolen files alone are then useless.
 
 The lock verifier in `plc.lock.v1` is replaced by the wrapped DEK: a passphrase is right exactly when the DEK unwraps.
@@ -218,9 +221,16 @@ Each phase: write the failing test first, change, run `npm test` and `npm run e2
 - [ ] **4.3 Iteration count** chosen from 0.3 and measured again on the devices after the vault exists; evidence in `docs/evidence/encryption/`.
 - [ ] **4.4 Failure honesty**: a full disk, a write that fails, a browser that clears storage; each says what happened and what is safe.
 
-### Phase 5: device-bound key (optional, open question 5)
+### Phase 5: unlock with Face ID / Touch ID (a passkey with PRF as a second way to wrap the vault key)
 
-- [ ] **5.1 WebAuthn PRF passkey** as a second wrap of the DEK, with a clear fallback when the browser lacks PRF.
+The aim is that the person taps "Unlock", looks at the phone, and the vault opens. The passphrase keeps working beside it and stays the only way back if the passkey is lost. Built after the passphrase flow of Phases 1 to 4, because it is a second wrap of the same vault key, not a different vault.
+
+- [ ] **5.1 Learn what is true on the devices we have** (before writing the feature): does `navigator.credentials.create` with the PRF extension work, with the platform authenticator, on Mac Safari, the iPhone 15 Pro, the iPhone 11 Pro (iOS 18.6) and Chromium; does it work in an installed home-screen app as well as in a tab; what happens in a private window. Probe pages only, results in `docs/evidence/encryption/passkey-prf.json`. No face is needed to learn *support* where the browser reports it; where a real prompt is unavoidable, it is saved for 5.4 and the step says so.
+- [ ] **5.2 Pure logic, tested with no hardware.** `chat/vault/passkey.mjs`: feature detection, the PRF salt per vault, HKDF of the PRF output to a wrapping key, wrap and unwrap of the vault key, multiple passkeys, removing one, every failure mapped to a plain sentence. Unit tests use a fake authenticator that returns deterministic PRF output.
+- [ ] **5.3 Browser tests with a virtual authenticator.** Chromium's virtual platform authenticator (with user verification and PRF switched on) drives the whole flow in `tests/e2e/vault-passkey.e2e.mjs`: add a passkey, lock, unlock with it, remove it, unlock with the passphrase, a browser without PRF falls back with a clear message, a cancelled prompt leaves the vault locked. Safari-specific behaviour that Chromium cannot show is recorded in 5.1 and handled in code. No person is involved.
+- [ ] **5.4 The one real check: the owner's face, last.** On the iPhone 15 Pro (and the Mac if wanted), add the passkey, lock, unlock with Face ID, then lock and unlock with the passphrase. Done once, at the end, after everything above is green; the owner is asked for ten minutes then and not before. Evidence in `docs/evidence/encryption/faceid-iphone15pro.md`.
+
+What the interface must say: the passkey is kept by the device's account (Apple passkeys sync through iCloud Keychain, so it is **not** bound to one phone); each site address has its own passkey, so `dev.privatelocal.chat` and `privatelocal.chat` do not share one; a lost passkey is recovered with the passphrase, and a lost passphrase with no passkey is not recoverable. A prompt that only checks the face and releases no key is not encryption and is never offered.
 
 ### Phase 6: default on (owner decision)
 
@@ -234,6 +244,7 @@ Each phase: write the failing test first, change, run `npm test` and `npm run e2
 - `tests/vault.test.mjs`, `tests/vault-reducer.test.mjs`, `tests/vault-store.test.mjs` (phases 1 and 2): keys, tamper detection, replay equals today's state, the storage adapter on both back ends. Created with their phase.
 - `tests/e2e/vault.e2e.mjs` (phase 2): no plaintext at rest (a marker string written in a chat, then every `localStorage`, `sessionStorage` and IndexedDB record scanned), the page killed mid-reply, wrong and changed passphrase, two tabs, migration on and off, backup and restore. Runs on every push once it exists.
 - `tests/e2e/vault-perf.e2e.mjs` (phase 4): unlock time and per-write latency with a 10,000-message chat; the limits are written in the test.
+- `tests/vault-passkey.test.mjs` (5.2) and `tests/e2e/vault-passkey.e2e.mjs` (5.3): the passkey flow with a fake authenticator and Chromium's virtual one. Created with phase 5.
 - Device runs (Mac Safari, iPhone 11 Pro and 15 Pro) write evidence files under `docs/evidence/encryption/` that this page links; a device-only finding is recorded in the log with the test that now catches it.
 - `docs/evidence/encryption/storage-inventory.json` is the one list of what the app keeps; phase 3 turns its guard from "classified" into "only through the vault".
 
@@ -243,12 +254,13 @@ Each phase: write the failing test first, change, run `npm test` and `npm run e2
 2. Theme readable before unlock? [Yes, plain: it reveals nothing about chats.]
 3. Lock (and reload) when the app is hidden, or only after the idle timer? [Only after the idle timer by default, with "lock when I leave" as a choice.]
 4. Pad record sizes (more storage, less leakage) or not? [Pad to 1 KB buckets; it is cheap and hides the length of short messages.]
-5. Offer the device-bound passkey as an extra factor, as a replacement for the passphrase, or not at all? [An optional extra factor, never a replacement, and only after phase 4.]
+5. Unlock with the owner's face (Face ID / Touch ID) through a passkey with PRF: [Yes, a goal. An added way to unlock beside the passphrase, never a replacement; built after the passphrase flow; everything automated first, the real face needed only for step 5.4 at the end.]
 6. API keys are kept only for the tab today (`sessionStorage`). Should the vault keep them across sessions? [Yes, inside the vault only: unlocking is then the one step, and a key is never in plaintext on disk. Provide a "do not remember keys" switch.]
 7. Should the first release ever delete the plaintext copy by itself after migrating? [No: it offers it, after the encrypted copy is read back and an encrypted backup exists.]
 
 ## Log (newest first; add a line with every finding)
 
+* 2026-11-04: owner decision: the vault must open with Face ID, and their physical face is not needed until the end. Phase 5 rewritten (passkey with PRF; learn device support, pure logic, virtual-authenticator browser tests, one real Face ID check last); the words "device-bound" were wrong (Apple passkeys sync through iCloud Keychain) and are gone; question 5 answered yes.
 * 2026-11-04: **found while writing the inventory: `plc.memory.v1` was shared by the assistant's memory items (`chat/assistant/assistant.mjs`) and the "One model at a time" switch (`runtime/memory-manager.mjs`).** Each rewrote the whole value, so flipping the switch could erase the person's memory items and saving a memory item reset the switch. Fixed: the switch has `plc.modelMemory.v1` and reads the old key once; `tests/memory-manager.test.mjs` and `tests/storage-inventory.test.mjs` now catch the class. Memory items already lost this way cannot be recovered.
 * 2026-11-04: the first survey missed four keys (`plc.shell.pins.v1`, `plc.models.v1`, `plc.inferenceMode.v1`, `plc.downloadIntent.v1`); the inventory test would have caught them, which is why it came first.
 * 2026-11-04: plan proposed (branch `claude/vigilant-ride-beaez6`) and made a living plan: phases with steps, an Automation section, recommended answers and this log.
