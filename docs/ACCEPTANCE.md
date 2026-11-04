@@ -120,5 +120,5 @@ Plan: `docs/OFFLINE-PLAN.md`; evidence: `docs/evidence/offline/`.
 | The connection pill, the checklist and the dead-connection check, on the real phone and on the Mac | iPhone 11 Pro (`ui-iphone11pro.json`, screenshots) and Mac Safari (`ui-mac-safari.json`) | Passed |
 | Download interrupted by losing the connection: waits, says so, resumes, cleans up | Chromium, real 2B download (`tests/e2e/offline-download.e2e.mjs`) | Passed |
 | The checklist explains a model that cannot fit (about 1.0 GB allowed, 1.2 GB needed) and lists the matching model | iPhone 11 Pro (`ui-iphone11pro-room.json`) | Passed |
-| The same on the iPhone 15 Pro | Not run. It connects to the lab machine's USB multiplexer and starts pairing, then the USB link stalls (`RX transfer stalled`, lockdown error -8) after about 6 s, repeatedly; the 11 Pro on another port is fine, so it is a cable, port or hub fault; needs the 11 Pro's cable and port | Open |
+| Cold start with the network denied, the pill, the checklist, and a real reply from the downloaded 2B model after a cold start | iPhone 15 Pro, iOS 26.6.2 (`ui-iphone15pro.json`) | Passed |
 | Real airplane mode on a phone | By hand | Open |
