@@ -13,6 +13,7 @@ import {shutdownNativeRuntime} from '../native-shutdown.mjs';
 import { preflight as webgpuPreflight } from "./webgpu.mjs";
 import {retryDownload} from '../download-retry.mjs';
 import {writeOpfsStream} from '../opfs-stream-writer.mjs';
+import {createCacheApiBackend} from '../cache-api-backend.mjs';
 import {createThinkFilter} from '../think.mjs';
 export async function preflight(config) {
   if (config?.backend === "cpu") { // the processor runs the model: only WebAssembly is needed, not a graphics card
@@ -26,6 +27,24 @@ export async function preflight(config) {
 
 const wllamaCache = new Map(); // runtime dir -> Wllama (used only for its cache manager in storage ops)
 
+// Where the model files are kept: OPFS, the browser's file storage, unless it cannot be opened, as on an iPhone 11 Pro's Safari 18 (navigator.storage.getDirectory()
+// rejects with "unknown transient reason") where the Cache API still works. Decided once per worker by really opening the cache directory.
+let storageKind = null;
+async function chooseStorage() {
+  if (storageKind) return storageKind;
+  try { const root = await navigator.storage.getDirectory(); await root.getDirectoryHandle("cache", { create: true }); storageKind = "opfs"; }
+  catch { storageKind = createCacheApiBackend().isSupported() ? "cache-api" : "opfs"; }
+  return storageKind;
+}
+/** Make this Wllama's cache manager use the storage that works here. */
+async function useStorage(w) {
+  if (await chooseStorage() === "cache-api") { w.cacheManager.sb = createCacheApiBackend(); return "cache-api"; }
+  // Keep the pinned cache keys/metadata while owning failure-safe writer cleanup.
+  // The vendored writer can retain a Worker when opening or closing a file rejects.
+  w.cacheManager.sb.priv.write = (key, stream) => writeOpfsStream(key, stream);
+  return "opfs";
+}
+
 async function openRuntime(runtimeDir) {
   const base = new URL(runtimeDir.endsWith("/") ? runtimeDir : runtimeDir + "/", self.location.href).href;
   const { Wllama } = await import(/* @vite-ignore */ base + "wllama.js");
@@ -37,10 +56,7 @@ async function cacheManagerFor(runtimeDir) {
   if (!w) {
     const { base, Wllama } = await openRuntime(runtimeDir);
     w = new Wllama({ default: base + "default.wasm", "single-thread/wllama.wasm": base + "default.wasm" }, { useMultiThread: false, allowOffline: true, logger: { debug() {}, log() {}, warn() {}, error() {} } });
-    // Keep the pinned cache keys/metadata while owning failure-safe writer cleanup.
-    // The vendored writer can retain a Worker when opening or closing a file rejects.
-    const backend=w.cacheManager.sb.priv;
-    backend.write=(key,stream)=>writeOpfsStream(key,stream);
+    await useStorage(w);
     wllamaCache.set(runtimeDir, w);
   }
   return w.cacheManager;
@@ -64,7 +80,7 @@ async function inspect({ files, runtimeDir }) {
   const t0 = performance.now(); const cm = await cacheManagerFor(runtimeDir);
   const { actual, noMeta } = await measure(cm, files);
   const inv = compareInventory(files, actual);
-  return { ...inv, partialNoMetadata: noMeta, ms: Math.round(performance.now() - t0), engine: "wllama", where: "OPFS (wllama cache)" };
+  return { ...inv, partialNoMetadata: noMeta, ms: Math.round(performance.now() - t0), engine: "wllama", where: storageKind === "cache-api" ? "Cache API (OPFS cannot be opened in this browser)" : "OPFS (wllama cache)", storage: storageKind };
 }
 
 async function verify({ files, runtimeDir, deep = false }, hooks = {}) {
@@ -167,6 +183,7 @@ export class WllamaAdapter {
       useMultiThread: false, parallelDownloads: 1, allowOffline: true, expectedBuildId: rt.buildId, forceCompat: rt.cls === "compat", logger: quiet
     });
     this.w.setCompat({ wasm: base + "compat.wasm", worker: { code: compatCode } }, "firefox_safari");
+    await useStorage(this.w); // the same storage the files were saved to (OPFS, or the Cache API where OPFS cannot be opened)
     const res = this.w.getWorkerResources();
     if ((rt.cls === "compat") !== (res.compat === true)) throw new Error(`runtime class mismatch: wanted ${rt.cls}, got compat=${res.compat}`);
     /* DEV_DIAGNOSTICS_START */
