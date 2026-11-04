@@ -84,3 +84,12 @@ test('the model host picks the backend from the device and reports it',async()=>
  host=await probe(make(NO_GPU,IPHONE));
  assert.equal(host.getState().backend.light,'gpu','an iPhone is never moved to the processor');
 });
+
+test('where the browser\'s file storage cannot be opened, the smallest model is the default, and everything else is unchanged',()=>{
+ const IPH='Mozilla/5.0 (iPhone; CPU iPhone OS 18_6_2 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1';
+ assert.deepEqual(pickTier({env:{...NO_GPU,opfs:false},userAgent:IPH,maxTouchPoints:5}),{tier:'nano',backend:'cpu',reason:'no-opfs-tiny'});
+ assert.equal(pickTier({env:{...NO_GPU,opfs:true},userAgent:IPH,maxTouchPoints:5}).tier,'mini','storage works: the better tiny model');
+ assert.equal(pickTier({env:{...NO_GPU,opfs:null},userAgent:IPH,maxTouchPoints:5}).tier,'mini','unknown is not a failure');
+ assert.equal(pickTier({env:{...NO_GPU,opfs:false},userAgent:IPH,maxTouchPoints:5,selection:{tier:'mini',chosenBy:'human'}}).tier,'mini','a person\'s choice is respected');
+ assert.equal(pickTier({env:{...NO_GPU,opfs:false},userAgent:IPH,maxTouchPoints:5,installed:{mini:true},selection:{tier:'mini',chosenBy:'default'}}).tier,'mini','a model already saved keeps its place');
+});

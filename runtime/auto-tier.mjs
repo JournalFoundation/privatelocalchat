@@ -48,6 +48,8 @@ export function pickTier({ env, installed = {}, selection = {}, userAgent = "", 
     if (chosen) return { tier: chosen, backend: "cpu", reason: "chosen-cpu" };
     const have = ["light", "lfm", "granite", "mini", "nano"].filter((t) => installed[t] && cpuOk(t));
     if (have.length) return { tier: have[0], backend: "cpu", reason: "installed-cpu" };
+    // where the browser's file storage cannot be opened the model lives in memory, and the 223 MB one froze an iPhone 11 Pro: the 105 MB one is the default there
+    if (env?.opfs === false && cpuOk("nano")) return { tier: "nano", backend: "cpu", reason: "no-opfs-tiny" };
     // a phone or tablet without a graphics card is better served by the tiny model than by a 2B model on its processor (slow, and 2 GB of memory)
     if (mobile && cpuOk("mini")) return { tier: "mini", backend: "cpu", reason: "mobile-cpu-tiny" };
     if (cpuOk("light")) return { tier: "light", backend: "cpu", reason: "no-gpu-cpu" };
