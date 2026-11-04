@@ -19,7 +19,7 @@ import { createProvider, openPort } from "./client.mjs";
 import { TIERS, TIER_ORDER, VARIANT_INFO, DEFAULT_VARIANT, chooseWebllmVariant, resolveSources, tierFiles, loadConfigFor, isWllamaTier } from "./catalog.mjs";
 import { gatherEnv } from "./capability-probe.mjs";
 import { classifyEngineError } from "./errors.mjs";
-import { lightBackend } from "../auto-tier.mjs";
+import { lightBackend, tierBackend } from "../auto-tier.mjs";
 
 const SETTINGS_KEY = "plc.models.v1";
 
@@ -231,7 +231,7 @@ export function createModelHost({
     provider() { if (!client) throw new Error("the model host has not been started; call init()"); return client; },
     /** A MessagePort wired to the shared host for one mind worker. Transfer it: mindWorker.postMessage({ port }, [port]). */
     openMindPort() { if (!worker || state.host.state !== "running") throw Object.assign(new Error("the model host is not running"), { class: "provider-unavailable", code: "host-not-running" }); return openPort(worker); },
-    tierConfig(tier = state.selection.tier) { const base = loadConfigFor(tier, { sources: src.sources, runtimeDir, variant, backend: isWllamaTier(tier) ? state.backend.light : "gpu" }); return loadConfigOverride ? loadConfigOverride(tier, base) : base; },
+    tierConfig(tier = state.selection.tier) { const base = loadConfigFor(tier, { sources: src.sources, runtimeDir, variant, backend: isWllamaTier(tier) ? (state.device ? tierBackend({ env: state.device, userAgent: userAgent(), maxTouchPoints: maxTouchPoints(), tier }) : state.backend.light) : "gpu" }); return loadConfigOverride ? loadConfigOverride(tier, base) : base; },
 
     async init({ autoLoad = false } = {}) {
       readSettings();

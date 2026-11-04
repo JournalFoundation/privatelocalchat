@@ -17,6 +17,7 @@ host: `https://assets.privatelocal.chat` (R2 bucket `privatelocalchat-assets`, p
 | Qwen3.5-9B WebLLM (q4f16_1, q4f32_1) and Qwen3.5-2B GGUF | **Yes** (275 objects, 11.3 GB, `models/catalog.json`) | Done. Verified by `ops/cloudflare/verify-cdn.py`. |
 | Small search model for Roberta (MongoDB/mdbr-leaf-ir int8 ONNX + ONNX Runtime WASM, about 37 MB) | **Yes** (10 objects, `models/memory/79cbff1e617b319a/`) | Done 2026-11-02; app switched over. |
 | LFM2.5-2.6B Q3_K_M (6 files, 1.37 GB) and Granite 4.0 H 1B Q4_K_M (12 files, 0.90 GB) | **Yes** (published 2026-11-02 with `ops/cloudflare/publish-gguf.py`, listed in `models/catalog.json`) | Every file was downloaded from the earlier host, checked against its SHA-256, uploaded, and read back over the public URL. Licences are stored beside the weights. |
+| Granite 4.0 H 350M Q4_K_M (1 file, 223 MB) and SmolLM2-135M Q4_K_M (1 file, 105 MB) | **Yes** (published 2026-11-03 with `ops/cloudflare/publish-gguf.py`, listed in `models/catalog.json`) | Single-file models downloaded from IBM's and bartowski's Hugging Face repositories at pinned commits, checked against their SHA-256 and uploaded unchanged. Licences stored beside the weights. |
 | Text-to-speech, speech-to-text models | Not used yet (the app uses the browser's own speech services) | Later; follow the layout below. |
 
 Coding sessions have no Cloudflare credentials, so this could not be done there. `ops/cloudflare/publish-embedding.py --dry-run` was run in

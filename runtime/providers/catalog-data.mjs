@@ -1502,5 +1502,31 @@ export const CATALOG_DATA = {
     "sha256": "ac4d95ff62e5ad509309371de48859e9bd20aa489e4c7622a1e6958a83f3ed76"
    }
   ]
+ },
+ "wllamaSmolLM2_135m": {
+  "manifestConfigurationId": "smollm2-135m-instruct-q4-k-m-4k-f16-wllama-3.5.1-v1",
+  "sourceRevision": "09816acd5d99df7be770d85ea30822623dab342c",
+  "totalBytes": 105454432,
+  "baseUrl": "https://assets.privatelocal.chat/models/SmolLM2-135M-Instruct-Q4_K_M/09816acd5d99df7be770d85ea30822623dab342c/",
+  "files": [
+   {
+    "path": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
+    "bytes": 105454432,
+    "sha256": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+   }
+  ]
+ },
+ "wllamaGranite40h350m": {
+  "manifestConfigurationId": "granite-4.0-h-350m-q4-k-m-4k-f16-wllama-3.5.1-v1",
+  "sourceRevision": "a864f823cce6e6048b5752e2816fe7a23987d790",
+  "totalBytes": 222662560,
+  "baseUrl": "https://assets.privatelocal.chat/models/Granite-4.0-H-350M-Q4_K_M/a864f823cce6e6048b5752e2816fe7a23987d790/",
+  "files": [
+   {
+    "path": "granite-4.0-h-350m-Q4_K_M.gguf",
+    "bytes": 222662560,
+    "sha256": "0a8d6a7373602fadfba274a640ba784b86cc6847f1c67f1b0a90fa2ec266b7fb"
+   }
+  ]
  }
 };

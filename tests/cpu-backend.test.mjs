@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {pickTier,lightBackend,cpuBackendSupport,gpuRunsLight} from '../runtime/auto-tier.mjs';
+import {pickTier,lightBackend,tierBackend,cpuBackendSupport,gpuRunsLight} from '../runtime/auto-tier.mjs';
 import {wasmSupport} from '../runtime/providers/capability-probe.mjs';
 import {loadConfigFor} from '../runtime/providers/catalog.mjs';
 import {createModelHost} from '../runtime/providers/model-host.mjs';
@@ -27,14 +27,33 @@ test('a card that works is used, and nothing changes for it',()=>{
  assert.equal(lightBackend({env,userAgent:DESK}),'gpu');assert.equal(gpuRunsLight(env),true);
 });
 test('the processor is not offered where it cannot work',()=>{
+ // no WebAssembly, no SIMD, or nothing probed: no model at all
  for(const [why,env,ua,touch] of [
-  ['iphone',NO_GPU,IPHONE,5],['ipad as a mac',NO_GPU,MAC,5],
-  ['no wasm',{...NO_GPU,wasm:{available:false}},DESK,0],['no simd',{...NO_GPU,wasm:{available:true,simd:false}},DESK,0],
-  ['little memory',{...NO_GPU,deviceMemoryGB:2},DESK,0],['unprobed',{webgpu:{available:false}},DESK,0]]){
+  ['no wasm',{...NO_GPU,wasm:{available:false}},DESK,0],['no simd',{...NO_GPU,wasm:{available:true,simd:false}},DESK,0],['unprobed',{webgpu:{available:false}},DESK,0]]){
   assert.equal(cpuBackendSupport({env,userAgent:ua,maxTouchPoints:touch}).ok,false,why);
+  assert.equal(cpuBackendSupport({env,userAgent:ua,maxTouchPoints:touch,tier:'nano'}).ok,false,why+' (tiny)');
   assert.equal(pickTier({env,userAgent:ua,maxTouchPoints:touch}).tier,null,why);
  }
+ // the 2B model on the processor is not offered on iPhone and iPad or with little memory; the tiny models are
+ for(const [why,env,ua,touch] of [['iphone',NO_GPU,IPHONE,5],['ipad as a mac',NO_GPU,MAC,5],['little memory',{...NO_GPU,deviceMemoryGB:2},DESK,0]]){
+  assert.equal(cpuBackendSupport({env,userAgent:ua,maxTouchPoints:touch}).ok,false,why);
+  assert.equal(cpuBackendSupport({env,userAgent:ua,maxTouchPoints:touch,tier:'mini'}).ok,true,why+' (tiny)');
+  const pick=pickTier({env,userAgent:ua,maxTouchPoints:touch});
+  assert.deepEqual([pick.tier,pick.backend],['mini','cpu'],why+': the tiny model is picked, on the processor');
+ }
+ assert.equal(cpuBackendSupport({env:{...NO_GPU,deviceMemoryGB:1},userAgent:DESK,tier:'nano'}).ok,false,'under 2 GB not even the tiny model');
  assert.equal(cpuBackendSupport({env:NO_GPU,userAgent:'Mozilla/5.0 (Linux; Android 14) Chrome/140 Mobile'}).ok,true);
+});
+test('a phone with no graphics card gets the tiny model by default; a person\'s choice and a desktop keep theirs',()=>{
+ const ANDROID='Mozilla/5.0 (Linux; Android 9) Chrome/131 Mobile';
+ assert.deepEqual(pickTier({env:NO_GPU,userAgent:ANDROID,maxTouchPoints:5}),{tier:'mini',backend:'cpu',reason:'mobile-cpu-tiny'});
+ assert.equal(pickTier({env:NO_GPU,userAgent:DESK}).tier,'light','a desktop without a graphics card still gets the small Qwen model');
+ assert.equal(pickTier({env:NO_GPU,userAgent:ANDROID,maxTouchPoints:5,selection:{tier:'nano',chosenBy:'human'}}).tier,'nano');
+ assert.equal(pickTier({env:NO_GPU,userAgent:IPHONE,maxTouchPoints:5,selection:{tier:'granite',chosenBy:'human'}}).tier,'mini','a 1B model chosen on an iPhone is not allowed on the processor, so the tiny one is used');
+ assert.equal(pickTier({env:NO_GPU,userAgent:IPHONE,maxTouchPoints:5,selection:{tier:'nano',chosenBy:'human'}}).tier,'nano');
+ assert.equal(pickTier({env:NO_GPU,userAgent:IPHONE,maxTouchPoints:5,installed:{nano:true},selection:{tier:'mini',chosenBy:'default'}}).tier,'nano','one already downloaded keeps its place');
+ assert.equal(tierBackend({env:NO_GPU,userAgent:IPHONE,maxTouchPoints:5,tier:'nano'}),'cpu');
+ assert.equal(tierBackend({env:NO_GPU,userAgent:IPHONE,maxTouchPoints:5,tier:'light'}),'gpu','the load will say what is missing');
 });
 test('WebAssembly and SIMD are detected from the browser',()=>{
  assert.deepEqual(wasmSupport(null),{available:false,simd:false});

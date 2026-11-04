@@ -50,6 +50,24 @@
       "license": "Apache-2.0"
     },
     {
+      "modelId": "SmolLM2-135M-Instruct-Q4_K_M",
+      "runtime": "wllama retained-v1q-chat-stable-slim-20260901",
+      "revision": "09816acd5d99df7be770d85ea30822623dab342c",
+      "baseUrl": "https://assets.privatelocal.chat/models/SmolLM2-135M-Instruct-Q4_K_M/09816acd5d99df7be770d85ea30822623dab342c/",
+      "firstShardUrl": "https://assets.privatelocal.chat/models/SmolLM2-135M-Instruct-Q4_K_M/09816acd5d99df7be770d85ea30822623dab342c/SmolLM2-135M-Instruct-Q4_K_M.gguf",
+      "bytes": 105454432,
+      "license": "Apache-2.0"
+    },
+    {
+      "modelId": "Granite-4.0-H-350M-Q4_K_M",
+      "runtime": "wllama retained-v1q-chat-stable-slim-20260901",
+      "revision": "a864f823cce6e6048b5752e2816fe7a23987d790",
+      "baseUrl": "https://assets.privatelocal.chat/models/Granite-4.0-H-350M-Q4_K_M/a864f823cce6e6048b5752e2816fe7a23987d790/",
+      "firstShardUrl": "https://assets.privatelocal.chat/models/Granite-4.0-H-350M-Q4_K_M/a864f823cce6e6048b5752e2816fe7a23987d790/granite-4.0-h-350m-Q4_K_M.gguf",
+      "bytes": 222662560,
+      "license": "Apache-2.0"
+    },
+    {
       "modelId": "Kitten-TTS-Nano-0.8-int8",
       "runtime": "onnxruntime-web",
       "revision": "84781d74e29ee25217551556398b42f80593a813",
@@ -2117,6 +2135,20 @@
       "sha256": "ac4d95ff62e5ad509309371de48859e9bd20aa489e4c7622a1e6958a83f3ed76",
       "key": "models/Granite-4.0-H-1B-Q4_K_M/d18cca4c121edb87d022116d281ce212c9136f57/granite-4.0-h-1b-q4-k-m-dd4623a74-00012-of-00012.gguf",
       "url": "https://assets.privatelocal.chat/models/Granite-4.0-H-1B-Q4_K_M/d18cca4c121edb87d022116d281ce212c9136f57/granite-4.0-h-1b-q4-k-m-dd4623a74-00012-of-00012.gguf"
+    },
+    {
+      "path": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
+      "bytes": 105454432,
+      "sha256": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d",
+      "key": "models/SmolLM2-135M-Instruct-Q4_K_M/09816acd5d99df7be770d85ea30822623dab342c/SmolLM2-135M-Instruct-Q4_K_M.gguf",
+      "url": "https://assets.privatelocal.chat/models/SmolLM2-135M-Instruct-Q4_K_M/09816acd5d99df7be770d85ea30822623dab342c/SmolLM2-135M-Instruct-Q4_K_M.gguf"
+    },
+    {
+      "path": "granite-4.0-h-350m-Q4_K_M.gguf",
+      "bytes": 222662560,
+      "sha256": "0a8d6a7373602fadfba274a640ba784b86cc6847f1c67f1b0a90fa2ec266b7fb",
+      "key": "models/Granite-4.0-H-350M-Q4_K_M/a864f823cce6e6048b5752e2816fe7a23987d790/granite-4.0-h-350m-Q4_K_M.gguf",
+      "url": "https://assets.privatelocal.chat/models/Granite-4.0-H-350M-Q4_K_M/a864f823cce6e6048b5752e2816fe7a23987d790/granite-4.0-h-350m-Q4_K_M.gguf"
     },
     {
       "path": "kitten_tts_nano_v0_8.onnx",

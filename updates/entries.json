@@ -1,6 +1,49 @@
 {
   "entries": [
     {
+      "id": "tiny-models",
+      "date": "2026-11-03",
+      "release": null,
+      "title": "Tiny models for phones with little room",
+      "summary": "Two very small on-device models, Granite 4.0 H 350M (about 223 MB) and SmolLM2-135M (about 105 MB), are in the model menu. They run on your processor, including on iPhone and iPad.",
+      "points": [
+        "Granite 4.0 H 350M (IBM) gives short, direct answers and is the one to try first. SmolLM2-135M is the smallest download and is wordy and easily wrong: use it only when storage or memory is the limit, and check what it says.",
+        "Both are Apache-2.0, served from the project's own storage and checked against pinned hashes. A phone or tablet with no usable graphics card now starts with Granite 4.0 H 350M instead of a 2B model that is slow there.",
+        "The larger models are still not offered on iPhone and iPad processors, because the browser ends a page that holds that much memory."
+      ],
+      "models": "Qwen3.5-2B, Qwen3.5-9B, LFM2.5-2.6B, Granite 4.0 H 1B, Granite 4.0 H 350M, SmolLM2-135M.",
+      "help": [
+        {
+          "label": "Privacy",
+          "href": "/privacy/"
+        }
+      ],
+      "issues": []
+    },
+    {
+      "id": "works-offline",
+      "date": "2026-11-03",
+      "release": null,
+      "title": "Clearer offline use",
+      "summary": "The app now says when you are offline and what is ready for offline use. Settings > Models has a Ready for offline use list.",
+      "points": [
+        "An Offline pill appears beside the model picker when there is no connection. With an on-device model nothing is wrong; with a provider on the internet it says what will not work.",
+        "Ready for offline use lists the app, the chat model, the files that run it, the voice and whether the browser will keep the data, with a button where something is missing.",
+        "A download that loses its connection now says it is waiting and carries on by itself. The app also checks that its own site is reachable when it starts, when you return to it and every few minutes while open."
+      ],
+      "help": [
+        {
+          "label": "Help",
+          "href": "/help/#offline-readiness"
+        },
+        {
+          "label": "Privacy",
+          "href": "/privacy/"
+        }
+      ],
+      "issues": []
+    },
+    {
       "id": "better-voice",
       "date": "2026-11-02",
       "release": null,

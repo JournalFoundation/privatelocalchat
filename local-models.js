@@ -100,11 +100,11 @@ function renderReadiness(s,supported,ready) {
     :downloaded&&offlineAppReady?'Everything needed is saved on this device. You can use it without a connection.':'The model is saved. Reload the app once while online so the app itself is saved for offline use too.';
   show('freeMemory',ready&&!s.busy&&!activeGeneration);
 }
-// The small model runs on the graphics card, or on the processor when there is no usable card (slower). The larger one needs the card.
-const cpuOk=()=>Boolean(env)&&cpuBackendSupport({env,userAgent:navigator.userAgent,maxTouchPoints:navigator.maxTouchPoints||0}).ok;
-const isWllama=t=>t==='light'||t==='lfm'||t==='granite';
-const isSupported=s=>{const tier=s.selection.tier;return isWllama(tier)?gpuRunsLight(env)||cpuOk():!!env?.webgpu.available;};
-const onCpu=s=>isWllama(s.selection.tier)&&!gpuRunsLight(env)&&cpuOk();
+// The wllama models run on the graphics card, or on the processor when there is no usable card (slower); the tiny ones can on iPhone and iPad too. The WebLLM model needs the card.
+const cpuOk=(tier)=>Boolean(env)&&cpuBackendSupport({env,userAgent:navigator.userAgent,maxTouchPoints:navigator.maxTouchPoints||0,tier}).ok;
+const isWllama=t=>t==='light'||t==='lfm'||t==='granite'||t==='mini'||t==='nano';
+const isSupported=s=>{const tier=s.selection.tier;return isWllama(tier)?gpuRunsLight(env)||cpuOk(tier):!!env?.webgpu.available;};
+const onCpu=s=>isWllama(s.selection.tier)&&!gpuRunsLight(env)&&cpuOk(s.selection.tier);
 // The model memory manager (runtime/memory-manager.mjs) is created by the page; with "One model at a time" on, using the chat model first unloads the others.
 const memoryLease=async(options)=>{try{const m=await window.plcMemoryReady?.();if(m)return await m.acquire('chat-llm',options);}catch{/* the manager is optional */}return {release(){}};};
 // A downloaded model loads by itself when the app opens (or when on-device chat is chosen), so chatting just works.

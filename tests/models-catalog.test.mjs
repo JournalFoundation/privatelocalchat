@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TIERS, TIER_ORDER, tierFiles, loadConfigFor, isWllamaTier, resolveSources, OFFICIAL_SOURCES } from "../runtime/providers/catalog.mjs";
+import { TIERS, TIER_ORDER, tierFiles, loadConfigFor, isWllamaTier, isTinyTier, resolveSources, OFFICIAL_SOURCES } from "../runtime/providers/catalog.mjs";
 import { pickTier } from "../runtime/auto-tier.mjs";
 import manifest from "../ops/cloudflare/gguf-models.json" with { type: "json" };
 
 const CDN = "https://assets.privatelocal.chat/models/";
 
 test("LFM2.5 and Granite are catalogued tiers served only from the project CDN", () => {
-  assert.deepEqual(TIER_ORDER, ["default", "light", "lfm", "granite"]);
+  assert.deepEqual(TIER_ORDER, ["default", "light", "lfm", "granite", "mini", "nano"]);
   for (const t of ["lfm", "granite"]) {
     assert.ok(isWllamaTier(t));
     const files = tierFiles(t);
@@ -23,7 +23,7 @@ test("LFM2.5 and Granite are catalogued tiers served only from the project CDN",
 });
 
 test("the repository manifest and the catalogue agree on every file", () => {
-  for (const [key, tier] of [["lfm25_2_6b_q3", "lfm"], ["granite40_h_1b_q4km", "granite"]]) {
+  for (const [key, tier] of [["lfm25_2_6b_q3", "lfm"], ["granite40_h_1b_q4km", "granite"], ["smollm2_135m_q4km", "nano"], ["granite40_h_350m_q4km", "mini"]]) {
     const m = manifest[key], files = tierFiles(tier);
     assert.equal(m.files.length, files.length);
     m.files.forEach((f, i) => { assert.equal(files[i].path, f.path); assert.equal(files[i].sha256, f.sha256); assert.equal(files[i].bytes, f.bytes); });
@@ -61,4 +61,21 @@ test("empty think blocks in a row are removed, streamed in any split, and real r
   assert.equal(run(["<think></think>"]), "");
   assert.equal(run(["<think>", "</think>", "<think>", "</think>", "ready"]), "ready");
   assert.equal(run(["<think></think>\n", "\nready"]), "ready");
+});
+
+test("the tiny models are catalogued, small, Apache-2.0, single files on the project CDN, and pinned by the manifest", () => {
+  for (const t of ["mini", "nano"]) {
+    assert.ok(isWllamaTier(t) && isTinyTier(t));
+    assert.equal(TIERS[t].license, "Apache-2.0");
+    const files = tierFiles(t);
+    assert.equal(files.length, 1);
+    assert.ok(files[0].url.startsWith(CDN) && /^[0-9a-f]{64}$/.test(files[0].sha256) && files[0].scope === "opfs");
+    assert.ok(TIERS[t].downloadBytes < 250e6, "tiny means under 250 MB");
+    assert.equal(TIERS[t].downloadBytes, files[0].bytes);
+    const cfg = loadConfigFor(t, { backend: "cpu" });
+    assert.equal(cfg.modelUrl, files[0].url); assert.equal(cfg.context.n_gpu_layers, 0); assert.equal(cfg.context.fused_gdn_auto, undefined);
+    assert.ok(cfg.context.n_ctx <= 4096);
+  }
+  assert.ok(TIERS.nano.downloadBytes < TIERS.mini.downloadBytes && TIERS.mini.downloadBytes < TIERS.granite.downloadBytes);
+  for (const big of ["default", "light", "lfm", "granite"]) assert.ok(!isTinyTier(big));
 });

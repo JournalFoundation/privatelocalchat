@@ -5,7 +5,7 @@ const KEY='plc.downloadIntent.v1';
 export const STALL_MS=120000;
 export function createDownloadRecovery({host,storage=localStorage,online=()=>navigator.onLine,onState=()=>{},beforeLoad=async()=>{},schedule=setTimeout,unschedule=clearTimeout,lock=globalThis.navigator?.locks,stallMs=STALL_MS,pollMs=5000,now=()=>Date.now(),poll=(fn,ms)=>setInterval(fn,ms),unpoll=clearInterval,visible=()=>!globalThis.document?.hidden,hangMs=15000}) {
  let intent=null,timer=null,running=false,failures=0,ready=false,lastMessage='',sameCount=0;
- try{const saved=JSON.parse(storage.getItem(KEY)||'null');if(saved?.version===1&&['light','default','lfm','granite'].includes(saved.tier)&&typeof saved.id==='string')intent=saved;}catch{}
+ try{const saved=JSON.parse(storage.getItem(KEY)||'null');if(saved?.version===1&&['light','default','lfm','granite','mini','nano'].includes(saved.tier)&&typeof saved.id==='string')intent=saved;}catch{}
  let remembered=!!intent;
  function persist(value){try{if(value)storage.setItem(KEY,JSON.stringify(value));else storage.removeItem(KEY);remembered=value?JSON.parse(storage.getItem(KEY)||'null')?.id===value.id:storage.getItem(KEY)===null;return remembered;}catch{remembered=false;return false;}}
  let status={pending:!!intent,tier:intent?.tier,phase:intent?'pending':'idle',retryInMs:0,remembered,reason:null};
@@ -17,7 +17,7 @@ export function createDownloadRecovery({host,storage=localStorage,online=()=>nav
    const saved=JSON.parse(storage.getItem(KEY)||'null');
    if(saved?.id===intent?.id)return;
    host.cancelTransfer();clearTimer();
-   intent=saved?.version===1&&['light','default','lfm','granite'].includes(saved.tier)&&typeof saved.id==='string'?saved:null;
+   intent=saved?.version===1&&['light','default','lfm','granite','mini','nano'].includes(saved.tier)&&typeof saved.id==='string'?saved:null;
    remembered=!!intent;publish(intent?'pending':'cancelled');
   }catch{} // Keep the in-memory request when the browser cannot read storage.
  }
@@ -90,7 +90,7 @@ export function createDownloadRecovery({host,storage=localStorage,online=()=>nav
  return {
   get state(){return {...status};},
   start(tier){
-   if(!['light','default','lfm','granite'].includes(tier))throw Error('Unknown model tier');
+   if(!['light','default','lfm','granite','mini','nano'].includes(tier))throw Error('Unknown model tier');
    if(intent?.tier===tier){persist(intent);failures=0;later(0);return;}
    intent={version:1,id:crypto.randomUUID(),tier,autoLoad:true};persist(intent);failures=0;publish('pending');later(0);
   },

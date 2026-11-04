@@ -184,5 +184,97 @@
    }
   ],
   "totalBytes": 901163200
+ },
+ "smollm2_135m_q4km": {
+  "prefix": "models/SmolLM2-135M-Instruct-Q4_K_M/09816acd5d99df7be770d85ea30822623dab342c/",
+  "licenseFile": "ops/cloudflare/licenses/smollm2-135m-instruct.txt",
+  "licenseName": "Apache-2.0",
+  "note": "bartowski/SmolLM2-135M-Instruct-GGUF at 09816acd5d99df7be770d85ea30822623dab342c (Q4_K_M, one file), published unchanged. Derived from HuggingFaceTB/SmolLM2-135M-Instruct (Apache-2.0). Immutable.",
+  "configurationId": "smollm2-135m-instruct-q4-k-m-4k-f16-wllama-3.5.1-v1",
+  "sourceBase": "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/09816acd5d99df7be770d85ea30822623dab342c/",
+  "languageModel": {
+   "id": "HuggingFaceTB/SmolLM2-135M-Instruct",
+   "sourceRevision": "09816acd5d99df7be770d85ea30822623dab342c",
+   "quantization": "Q4_K_M",
+   "license": "Apache-2.0",
+   "textOnly": true,
+   "totalBytes": 105454432,
+   "ggufRepo": "bartowski/SmolLM2-135M-Instruct-GGUF"
+  },
+  "context": {
+   "n_ctx": 4096,
+   "n_batch": 128,
+   "n_ubatch": 32,
+   "n_parallel": 1,
+   "cache_type_k": "f16",
+   "cache_type_v": "f16",
+   "n_threads": 1,
+   "jinja": true,
+   "n_gpu_layers": -1
+  },
+  "sampling": {
+   "answer": {
+    "temperature": 0.2,
+    "top_p": 0.9,
+    "top_k": 40,
+    "repetition_penalty": 1.1,
+    "seed": 1,
+    "max_tokens": 256
+   }
+  },
+  "files": [
+   {
+    "path": "SmolLM2-135M-Instruct-Q4_K_M.gguf",
+    "bytes": 105454432,
+    "sha256": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d"
+   }
+  ],
+  "totalBytes": 105454432
+ },
+ "granite40_h_350m_q4km": {
+  "prefix": "models/Granite-4.0-H-350M-Q4_K_M/a864f823cce6e6048b5752e2816fe7a23987d790/",
+  "licenseFile": "ops/cloudflare/licenses/granite-4.0-h-350m.txt",
+  "licenseName": "Apache-2.0",
+  "note": "ibm-granite/granite-4.0-h-350m-GGUF at a864f823cce6e6048b5752e2816fe7a23987d790 (Q4_K_M, one file), published unchanged. Derived from ibm-granite/granite-4.0-h-350m (Apache-2.0). Immutable.",
+  "configurationId": "granite-4.0-h-350m-q4-k-m-4k-f16-wllama-3.5.1-v1",
+  "sourceBase": "https://huggingface.co/ibm-granite/granite-4.0-h-350m-GGUF/resolve/a864f823cce6e6048b5752e2816fe7a23987d790/",
+  "languageModel": {
+   "id": "ibm-granite/granite-4.0-h-350m",
+   "sourceRevision": "a864f823cce6e6048b5752e2816fe7a23987d790",
+   "quantization": "Q4_K_M",
+   "license": "Apache-2.0",
+   "textOnly": true,
+   "totalBytes": 222662560,
+   "ggufRepo": "ibm-granite/granite-4.0-h-350m-GGUF"
+  },
+  "context": {
+   "n_ctx": 4096,
+   "n_batch": 128,
+   "n_ubatch": 32,
+   "n_parallel": 1,
+   "cache_type_k": "f16",
+   "cache_type_v": "f16",
+   "n_threads": 1,
+   "jinja": true,
+   "n_gpu_layers": -1
+  },
+  "sampling": {
+   "answer": {
+    "temperature": 0.2,
+    "top_p": 0.9,
+    "top_k": 40,
+    "repetition_penalty": 1.05,
+    "seed": 1,
+    "max_tokens": 256
+   }
+  },
+  "files": [
+   {
+    "path": "granite-4.0-h-350m-Q4_K_M.gguf",
+    "bytes": 222662560,
+    "sha256": "0a8d6a7373602fadfba274a640ba784b86cc6847f1c67f1b0a90fa2ec266b7fb"
+   }
+  ],
+  "totalBytes": 222662560
  }
 }

@@ -11,9 +11,14 @@ const W = CATALOG_DATA.webllmQwen35_9b;
 const L = CATALOG_DATA.wllamaQwen35_2b;
 const LFM = CATALOG_DATA.wllamaLfm25_2_6b;
 const GRANITE = CATALOG_DATA.wllamaGranite40h1b;
-const WLLAMA_DATA = Object.freeze({ light: L, lfm: LFM, granite: GRANITE });
+const MINI = CATALOG_DATA.wllamaGranite40h350m;
+const NANO = CATALOG_DATA.wllamaSmolLM2_135m;
+const WLLAMA_DATA = Object.freeze({ light: L, lfm: LFM, granite: GRANITE, mini: MINI, nano: NANO });
 /** Tiers served by the wllama engine (llama.cpp in WebAssembly): they share the runtime, the OPFS cache and the processor fallback. */
-export const WLLAMA_TIERS = Object.freeze(["light", "lfm", "granite"]);
+export const WLLAMA_TIERS = Object.freeze(["light", "lfm", "granite", "mini", "nano"]);
+/** The tiny models (a few hundred megabytes in memory at most): small enough for a phone with little free storage, and for iPhone and iPad on the processor. */
+export const TINY_TIERS = Object.freeze(["mini", "nano"]);
+export const isTinyTier = (t) => TINY_TIERS.includes(t);
 export const isWllamaTier = (t) => WLLAMA_TIERS.includes(t);
 
 /** The WebLLM builds of the default model. f16 is preferred; f32 exists for GPUs without shader-f16. */
@@ -28,7 +33,7 @@ export const OFFICIAL_SOURCES = Object.freeze({
   // Qwen/Qwen3.5-2B (Apache-2.0) as Q4_0 GGUF shards, served from the project's own CDN like the other two
   wllamaModelBase: "https://assets.privatelocal.chat/models/Qwen3.5-2B/" + L.sourceRevision + "/",
   // LFM2.5 and Granite are served only from the project's own CDN (assets.privatelocal.chat), pinned file by file
-  wllamaTierBase: Object.freeze({ lfm: LFM.baseUrl, granite: GRANITE.baseUrl })
+  wllamaTierBase: Object.freeze({ lfm: LFM.baseUrl, granite: GRANITE.baseUrl, mini: MINI.baseUrl, nano: NANO.baseUrl })
 });
 
 const f16Bytes = W.q4f16_1.files.reduce((n, f) => n + f.bytes, 0) + W.q4f16_1.lib.bytes;
@@ -93,10 +98,38 @@ export const TIERS = Object.freeze({
     speed: { decodeTokPerSec: "about 3 on a processor with no GPU (measured 2026-11-02, single thread); GPU not measured", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "about 9 for the first turn on a processor", loadSecondsWarm: 7 },
     strengths: "The smallest download here, quick on modest devices, and a hybrid (Mamba) design that is gentle on memory. Best for short, direct answers; weaker at open-ended writing.",
     cacheKind: "OPFS (wllama cache directory)"
+  }),
+  mini: Object.freeze({
+    tier: "mini", label: "Granite 4.0 H 350M (IBM, tiny)", engine: "wllama", adapter: "wllama", tiny: true,
+    modelId: "granite-4.0-h-350m-q4_k_m", family: "Granite 4.0", paramsB: 0.35, quantization: "Q4_K_M",
+    license: "Apache-2.0", licenseNote: "ibm-granite/granite-4.0-h-350m (Apache-2.0), IBM's own Q4_K_M GGUF, published unchanged; text only.",
+    runtime: { name: "wllama", version: "3.5.1 retained-v1q-chat-stable-slim-20260901", license: "owner build of llama.cpp (MIT) via wllama (MIT)" },
+    contextWindowTokens: 4096, maxOutputTokens: 512,
+    structured: { "json-schema": "validated" },
+    downloadBytes: MINI.totalBytes,
+    memory: { steadyBytes: 0.6e9, peakBytes: 0.9e9, note: "estimate from the file size plus context; measured values are in docs/SMALL-MODELS-PLAN.md" },
+    sampling: { temperature: 0.2, topP: 0.9, topK: 40, repetitionPenalty: 1.05 },
+    speed: { decodeTokPerSec: "see docs/SMALL-MODELS-PLAN.md", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "see docs/SMALL-MODELS-PLAN.md", loadSecondsWarm: 2 },
+    strengths: "The best small model here for its size: short, direct, correct answers, and a download under a quarter of a gigabyte. A hybrid (Mamba) design that is gentle on memory. It will not write long essays or reason through hard problems; it is for quick questions and short replies on a phone.",
+    cacheKind: "OPFS (wllama cache directory)"
+  }),
+  nano: Object.freeze({
+    tier: "nano", label: "SmolLM2-135M (tiny)", engine: "wllama", adapter: "wllama", tiny: true,
+    modelId: "smollm2-135m-instruct-q4_k_m", family: "SmolLM2", paramsB: 0.135, quantization: "Q4_K_M",
+    license: "Apache-2.0", licenseNote: "HuggingFaceTB/SmolLM2-135M-Instruct (Apache-2.0), Q4_K_M GGUF by bartowski, published unchanged; text only.",
+    runtime: { name: "wllama", version: "3.5.1 retained-v1q-chat-stable-slim-20260901", license: "owner build of llama.cpp (MIT) via wllama (MIT)" },
+    contextWindowTokens: 4096, maxOutputTokens: 512,
+    structured: { "json-schema": "validated" },
+    downloadBytes: NANO.totalBytes,
+    memory: { steadyBytes: 0.35e9, peakBytes: 0.55e9, note: "estimate from the file size plus context; measured values are in docs/SMALL-MODELS-PLAN.md" },
+    sampling: { temperature: 0.2, topP: 0.9, topK: 40, repetitionPenalty: 1.1 },
+    speed: { decodeTokPerSec: "see docs/SMALL-MODELS-PLAN.md", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "see docs/SMALL-MODELS-PLAN.md", loadSecondsWarm: 2 },
+    strengths: "The smallest download here (about 105 MB) and fast on any phone. It answers simple questions and follows short instructions, but it is wordy, makes mistakes and forgets easily: use it when storage or memory is the limit, and check what it says.",
+    cacheKind: "OPFS (wllama cache directory)"
   })
 });
 
-export const TIER_ORDER = Object.freeze(["default", "light", "lfm", "granite"]);
+export const TIER_ORDER = Object.freeze(["default", "light", "lfm", "granite", "mini", "nano"]);
 
 /** The build of the default model for a GPU: f16 where shader-f16 exists, else f32. Capability decides (DEC 57). null: no WebGPU. */
 export function chooseWebllmVariant(env) {

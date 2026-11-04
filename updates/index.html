@@ -53,7 +53,7 @@
     <h1>Updates</h1>
     <p class="lede">What changed in Private Local Chat, newest first. Each entry has its date, the release it shipped in and links to the help that goes with it.</p>
 <!--plc:last-updated-->
-<p class="page-meta">Last updated: <time class="last-updated" datetime="2026-11-02">2026-11-02</time></p>
+<p class="page-meta">Last updated: <time class="last-updated" datetime="2026-11-03">2026-11-03</time></p>
 <!--/plc:last-updated-->
     <div class="hero-actions">
       <a class="button primary" href="/">Open Private Local Chat</a>
@@ -65,6 +65,28 @@
   <section id="updates" aria-labelledby="updates-title">
     <h2 id="updates-title">Release notes</h2>
 <!--plc:updates-list-->
+<article class="update" id="tiny-models" aria-labelledby="tiny-models-title">
+  <h3 id="tiny-models-title"><a href="#tiny-models">Tiny models for phones with little room</a></h3>
+  <p class="update-meta"><time datetime="2026-11-03">3 November 2026</time> &middot; Release: the next published release after <a href="https://github.com/JournalFoundation/privatelocalchat/releases/tag/v0.12.0">v0.12.0</a></p>
+  <p>Two very small on-device models, Granite 4.0 H 350M (about 223 MB) and SmolLM2-135M (about 105 MB), are in the model menu. They run on your processor, including on iPhone and iPad.</p>
+  <ul>
+    <li>Granite 4.0 H 350M (IBM) gives short, direct answers and is the one to try first. SmolLM2-135M is the smallest download and is wordy and easily wrong: use it only when storage or memory is the limit, and check what it says.</li>
+    <li>Both are Apache-2.0, served from the project&#39;s own storage and checked against pinned hashes. A phone or tablet with no usable graphics card now starts with Granite 4.0 H 350M instead of a 2B model that is slow there.</li>
+    <li>The larger models are still not offered on iPhone and iPad processors, because the browser ends a page that holds that much memory.</li>
+  </ul>
+  <p class="update-links">Related help: <a href="/privacy/">Privacy</a>.</p>
+</article>
+<article class="update" id="works-offline" aria-labelledby="works-offline-title">
+  <h3 id="works-offline-title"><a href="#works-offline">Clearer offline use</a></h3>
+  <p class="update-meta"><time datetime="2026-11-03">3 November 2026</time> &middot; Release: the next published release after <a href="https://github.com/JournalFoundation/privatelocalchat/releases/tag/v0.12.0">v0.12.0</a></p>
+  <p>The app now says when you are offline and what is ready for offline use. Settings &gt; Models has a Ready for offline use list.</p>
+  <ul>
+    <li>An Offline pill appears beside the model picker when there is no connection. With an on-device model nothing is wrong; with a provider on the internet it says what will not work.</li>
+    <li>Ready for offline use lists the app, the chat model, the files that run it, the voice and whether the browser will keep the data, with a button where something is missing.</li>
+    <li>A download that loses its connection now says it is waiting and carries on by itself. The app also checks that its own site is reachable when it starts, when you return to it and every few minutes while open.</li>
+  </ul>
+  <p class="update-links">Related help: <a href="/help/#offline-readiness">Help</a>, <a href="/privacy/">Privacy</a>.</p>
+</article>
 <article class="update" id="better-voice" aria-labelledby="better-voice-title">
   <h3 id="better-voice-title"><a href="#better-voice">Choose your voice</a></h3>
   <p class="update-meta"><time datetime="2026-11-02">2 November 2026</time> &middot; Release: the next published release after <a href="https://github.com/JournalFoundation/privatelocalchat/releases/tag/v0.12.0">v0.12.0</a></p>

@@ -15,7 +15,8 @@ STATE = json.loads((ROOT / 'cdn-state.json').read_text())
 GGUF = json.loads((ROOT / 'gguf-models.json').read_text())
 MANIFEST = ROOT / 'model-cdn-manifest.json'
 HOST = 'https://' + STATE['domain'] + '/'
-IDS = {'lfm25_2_6b_q3': ('LFM2.5-2.6B-Q3_K_M', 'LFM Open License v1.0'), 'granite40_h_1b_q4km': ('Granite-4.0-H-1B-Q4_K_M', 'Apache-2.0')}
+IDS = {'lfm25_2_6b_q3': ('LFM2.5-2.6B-Q3_K_M', 'LFM Open License v1.0'), 'granite40_h_1b_q4km': ('Granite-4.0-H-1B-Q4_K_M', 'Apache-2.0'),
+       'smollm2_135m_q4km': ('SmolLM2-135M-Instruct-Q4_K_M', 'Apache-2.0'), 'granite40_h_350m_q4km': ('Granite-4.0-H-350M-Q4_K_M', 'Apache-2.0')}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dry-run', action='store_true')

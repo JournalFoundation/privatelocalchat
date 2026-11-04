@@ -38,7 +38,7 @@ export function toggleAction(vm) {
 export const ACTION_LABEL = { download: "Download", cancel: "Cancel", load: "Load", unload: "Unload", retry: "Try again", use: "Use", wait: "", "in-use": "In use" };
 
 // short descriptions of the on-device chat models (what the old model dropdown said after the dash)
-export const TIER_NOTES = Object.freeze({ default: "", light: "smaller download", lfm: "Liquid, strong writing", granite: "IBM, smallest download" });
+export const TIER_NOTES = Object.freeze({ default: "", light: "smaller download", lfm: "Liquid, strong writing", granite: "IBM, small download", mini: "IBM, tiny: for phones with little room", nano: "tiny: the smallest download" });
 
 /** Chat-model rows from the model host's state (window.localModels.state). `notes`: tier -> short description. */
 export function languageRows(lmState, { mode = "local", notes = TIER_NOTES, hide = [] } = {}) {
