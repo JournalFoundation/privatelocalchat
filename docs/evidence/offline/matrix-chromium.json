@@ -1,7 +1,7 @@
 {
  "origin": "http://127.0.0.1:18341",
  "build": "main",
- "startedAt": "2026-11-03T22:55:26.619Z",
+ "startedAt": "2026-11-04T00:14:48.866Z",
  "checks": [
   {
    "name": "A: the app is saved for offline use",
@@ -13,7 +13,7 @@
    "name": "A: a real reply from the downloaded model",
    "ok": true,
    "must": true,
-   "detail": "194 s: AI response\n\nThe zebra-lantern-mw1ad9ad is a unique identifier found in the system logs.\n\nqwen3.5-2b-q4_0 · on this device\nCopy\nRegenerate\nListen\nVoice note"
+   "detail": "175 s: AI response\n\nThe zebra-lantern-mw1d7c2q is a unique identifier found in the system logs.\n\nqwen3.5-2b-q4_0 · on this device\nCopy\nRegenerate\nListen\nVoice note"
   },
   {
    "name": "A: the model is installed",
@@ -25,7 +25,7 @@
    "name": "A: the model runtime files are saved by the service worker",
    "ok": true,
    "must": false,
-   "detail": "{\"files\":165,\"bulk\":8}"
+   "detail": "{\"files\":172,\"bulk\":8}"
   },
   {
    "name": "B: the app opens cold with no connection",
@@ -58,10 +58,10 @@
    "detail": "AI response\n\nTwo plus three equals five.\n\nqwen3.5-2b-q4_0 · on this device\nCopy\nRegenerate\nListen\nVoice note"
   },
   {
-   "name": "B: search opens and finds the earlier conversation",
-   "ok": false,
-   "must": false,
-   "detail": ""
+   "name": "B: search finds the earlier conversation by its words",
+   "ok": true,
+   "must": true,
+   "detail": "0 s: Reply with one short sentence that includes the… Nov 3"
   },
   {
    "name": "B: Help opens its own page",
@@ -76,22 +76,28 @@
    "detail": ""
   },
   {
-   "name": "B: the page says it is offline somewhere a person would see it",
-   "ok": false,
-   "must": false,
-   "detail": "(no connection indicator yet; offline plan phase 3)"
-  },
-  {
-   "name": "B: nothing outside this app was reached",
-   "ok": false,
-   "must": false,
-   "detail": "https://assets.privatelocal.chat/models/memory/79cbff1e617b319a/embed/tokenizer_config.json"
-  },
-  {
-   "name": "B: no file the app needs failed to load",
-   "ok": false,
+   "name": "B: the connection pill says Offline, and that on-device chat still works",
+   "ok": true,
    "must": true,
-   "detail": "/models/memory/79cbff1e617b319a/embed/tokenizer_config.json net::ERR_INTERNET_DISCONNECTED"
+   "detail": ""
+  },
+  {
+   "name": "B: Settings says this device is ready for offline use",
+   "ok": true,
+   "must": true,
+   "detail": "{\"app\":\"ready\",\"model\":\"ready\",\"runtime\":\"ready\",\"voice\":\"ready\",\"storage\":\"partial\"}"
+  },
+  {
+   "name": "B: no file of the app itself failed to load",
+   "ok": true,
+   "must": true,
+   "detail": ""
+  },
+  {
+   "name": "B: nothing outside this app was reached except the optional matching model",
+   "ok": true,
+   "must": true,
+   "detail": ""
   },
   {
    "name": "C: back online, the app opens and still has the conversation",
@@ -102,11 +108,11 @@
  ],
  "requests": {
   "failedOffline": [
-   "/models/memory/79cbff1e617b319a/embed/tokenizer_config.json net::ERR_INTERNET_DISCONNECTED"
+   "foreign /models/memory/79cbff1e617b319a/embed/tokenizer_config.json net::ERR_INTERNET_DISCONNECTED"
   ],
   "foreign": [
    "https://assets.privatelocal.chat/models/memory/79cbff1e617b319a/embed/tokenizer_config.json"
   ]
  },
- "finishedAt": "2026-11-03T23:00:23.150Z"
+ "finishedAt": "2026-11-04T00:19:29.581Z"
 }
