@@ -31,10 +31,25 @@ const wllamaCache = new Map(); // runtime dir -> Wllama (used only for its cache
 // rejects with "unknown transient reason"; its IndexedDB cannot store Blobs either, which is why the files are not kept there). Then the Cache API. Decided once per worker
 // by really opening the cache directory.
 let storageKind = null;
+const CACHE_API_NAME = "plc-model-files-v1";
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/** Can the cache directory be opened? The failure is described as "transient", so it is tried a few times before it is believed. */
+async function opfsOpens() {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { const root = await navigator.storage.getDirectory(); await root.getDirectoryHandle("cache", { create: true }); return true; }
+    catch { if (attempt < 2) await sleep(250 * (attempt + 1)); }
+  }
+  return false;
+}
+const countOpfsFiles = async () => { try { const root = await navigator.storage.getDirectory(); const dir = await root.getDirectoryHandle("cache"); let n = 0; for await (const _ of dir.entries()) n++; return n; } catch { return 0; } };
+const cacheApiHoldsFiles = async () => { try { return (await caches.has(CACHE_API_NAME)) && (await (await caches.open(CACHE_API_NAME)).keys()).length > 0; } catch { return false; } };
 async function chooseStorage() {
   if (storageKind) return storageKind;
-  try { const root = await navigator.storage.getDirectory(); await root.getDirectoryHandle("cache", { create: true }); storageKind = "opfs"; }
-  catch { storageKind = createCacheApiBackend().isSupported() ? "cache-api" : "opfs"; }
+  const cacheApi = createCacheApiBackend().isSupported();
+  if (!(await opfsOpens())) storageKind = cacheApi ? "cache-api" : "opfs";
+  // OPFS opens now, but a model saved while it did not is in the Cache API: keep using that, or the app would look in the wrong place and download it again
+  else if (cacheApi && (await cacheApiHoldsFiles()) && (await countOpfsFiles()) === 0) storageKind = "cache-api";
+  else storageKind = "opfs";
   return storageKind;
 }
 /** Make this Wllama's cache manager use the storage that works here. */

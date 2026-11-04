@@ -37,7 +37,14 @@ export async function gatherEnv(nav = globalThis.navigator) {
   try { const e = await nav?.storage?.estimate?.(); env.storage = e ? { usage: e.usage ?? null, quota: e.quota ?? null } : null; } catch (e) { env.storage = { error: String(e?.message || e) }; }
   // Can the browser's file storage (OPFS) be opened? Not in an iPhone 11 Pro's Safari 18 automation or private session (getDirectory() rejects with "unknown transient
   // reason"). Then models are kept in the Cache API and in memory, and only a small one fits. null: this browser has no OPFS to ask.
-  env.opfs = await (async () => { try { const root = await nav?.storage?.getDirectory?.(); if (!root) return null; await root.getDirectoryHandle("cache", { create: true }); return true; } catch { return false; } })();
+  env.opfs = await (async () => {
+    if (typeof nav?.storage?.getDirectory !== "function") return null;
+    for (let attempt = 0; attempt < 3; attempt++) { // the failure is described as "transient": try again before believing it
+      try { const root = await nav.storage.getDirectory(); await root.getDirectoryHandle("cache", { create: true }); return true; }
+      catch { if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1))); }
+    }
+    return false;
+  })();
   if (typeof globalThis.performance?.measureUserAgentSpecificMemory === "function") {
     env.userAgentMemory = "measurement pending";
     const reading = performance.measureUserAgentSpecificMemory().then(result => { env.userAgentMemory = result.bytes; }, error => { env.userAgentMemory = `refused: ${error?.message || error}`; });

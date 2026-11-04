@@ -28,6 +28,16 @@ try{
  assert(where.cacheApi.some(n=>/SmolLM2.*\.gguf$/.test(n)),'the model file is in the Cache API: '+JSON.stringify(where));
  assert(!where.opfs.some(n=>/SmolLM2/.test(n)),'and not in OPFS: '+JSON.stringify(where));
  ok('with OPFS unusable the model is kept in the Cache API, loads and answers ("'+a.replace(/\s+/g,' ')+'")');
+ // OPFS works again at the next launch (the failure was "transient"): the model saved in the Cache API is still found and used, not downloaded again
+ await context.unroute('**/runtime/providers/adapters/wllama.mjs');
+ let downloaded=0;page.on('request',r=>{if(/assets\.privatelocal\.chat\/models\//.test(r.url())&&/\.gguf/.test(r.url()))downloaded++;});
+ await page.reload();await page.waitForFunction(()=>window.localModels?.state?.device&&window.localModels.supported!==undefined,null,{timeout:60000});
+ await page.evaluate(()=>window.localModels.inspectAll());
+ assert(await page.evaluate(()=>window.localModels.state.tiers.nano.install.ok),'with OPFS working again the model saved earlier is still found');
+ await page.evaluate(()=>window.localModels.switchTier('nano'));await page.evaluate(()=>window.localModels.ensureReady());
+ assert(downloaded===0,'and not downloaded again ('+downloaded+' downloads)');
+ ok('a model saved while OPFS was unusable is still used when OPFS works again');
+ await context.route('**/runtime/providers/adapters/wllama.mjs',async route=>{const r=await route.fetch();route.fulfill({response:r,body:BREAK+await r.text()});});
  // it survives a reload (saved, not in memory), and removing it frees the Cache API
  await page.reload();await page.waitForFunction(()=>window.localModels?.state?.device&&window.localModels.supported!==undefined,null,{timeout:60000});
  await page.evaluate(()=>window.localModels.inspectAll());
