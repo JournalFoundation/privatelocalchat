@@ -28,6 +28,8 @@ Pages secret `DEBUG_READ_TOKEN`, with its local copy outside Git at
 remain active until explicitly revoked by an authenticated operator DELETE request. Read access requires the separate operator credential. Other HTTPS
 receivers may be used if they accept the documented JSON batch format and appropriate CORS.
 
+The panel is in **Settings > Models**, after "Details and repair" ("Development diagnostics"; expand it). A tester can also open `https://dev.privatelocal.chat/?diag=<session id>` (the UUID the receiver URL ends with): that fills in this site's own receiver and nothing else, so no long URL has to be typed on a phone. `tests/e2e/dev-diagnostics-panel.e2e.mjs` (run with `PLC_E2E_BRANCH=dev`) checks both; the panel was once lost for weeks when the model panel it was anchored to was removed, because only the dev site has it.
+
 Create a session with `python dev-tools/operator-session.py new`; give the returned receiver URL
 to the tester. Fetch saved server events with `python dev-tools/operator-session.py read --out
 work/evidence/iphone-session.json`. Entering a receiver URL enables diagnostics; devices without a URL send no events.

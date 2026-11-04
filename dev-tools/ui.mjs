@@ -5,10 +5,14 @@ import {RemoteControl} from './remote-control.mjs';
 export async function startDiagnostics(){
  if(location.hostname!=='dev.privatelocal.chat')return;
  const panel=document.createElement('details');panel.id='devDiagnostics';panel.innerHTML=`<summary>Development diagnostics</summary><p>Enter a receiver URL to start streaming immediately. It stays on across reloads and restarts. Clear the URL to stop. Full local conversation objects are sent only when content capture is enabled. API settings and authorization headers are not recorded.</p><label for="debugReceiver">Diagnostic receiver URL</label><input id="debugReceiver" type="url" placeholder="https://your-receiver.example/session" autocomplete="off"><label><input id="debugDisk" type="checkbox"> Save diagnostics on this device, including airplane mode</label><p>Up to about 5 MB is retained, including native construction checkpoints. Saved events upload after reconnecting and clear only after acknowledgement.</p><div class="model-actions"><button type="button" id="debugSend">Send saved events now</button><button type="button" id="debugExport">Export saved events</button><button type="button" id="debugClear">Clear saved events</button></div><p id="debugStatus" role="status">Enter a receiver URL to enable diagnostics.</p>`;
- document.querySelector('#localModelPanel').after(panel);
+ // The panel lives in Settings > Models, after "Details and repair" (#advancedModels). The old model panel it was anchored to is gone (the model UI rework), and the
+ // shell builds the Settings page a moment after start-up (and may rebuild it), so the panel is placed when the anchor appears and kept after it.
+ const place=()=>{const anchor=document.querySelector('#advancedModels')||document.querySelector('#localModelPanel');if(anchor&&anchor.nextElementSibling!==panel)anchor.after(panel);};
+ const holder=document.createElement('div');holder.hidden=true;holder.id='devDiagnosticsHolder';document.body.append(holder);holder.append(panel); // in the document at once (the setup below finds its fields by id); moved when the anchor appears
+ place();new MutationObserver(place).observe(document.documentElement,{childList:true,subtree:true});
  const content=document.createElement('label');content.innerHTML='<input id="debugCapture" type="checkbox"> Include full local requests, streamed responses, and the active saved chat';panel.querySelector('#debugStatus').before(content);
  const remoteLabel=document.createElement('label');remoteLabel.innerHTML='<input id="debugRemote" type="checkbox"> Allow remote local-model prompts and controls through this receiver (includes conversation content)';panel.querySelector('#debugStatus').before(remoteLabel);const remoteStatus=document.createElement('p');remoteStatus.id='debugRemoteStatus';panel.querySelector('#debugStatus').before(remoteStatus);
- const badge=document.createElement('p');badge.id='debugBadge';badge.setAttribute('role','status');document.querySelector('#modelStatus').after(badge);
+ const badge=document.createElement('p');badge.id='debugBadge';badge.setAttribute('role','status');panel.querySelector('summary').after(badge); // (it used to follow the old model status line, which is gone)
  const $=id=>document.getElementById(id);let lastStatus='',generating=false,sampling=false,lastSample=0,lastHeartbeat=0,lastNative='';
  let checkpointTask=null,lastSequence=-1;
  const t=new Telemetry({onStatus:text=>{lastStatus=text;update();}});
@@ -126,4 +130,12 @@ export async function startDiagnostics(){
   t.flush();update();
  },250);
  await update();if(t.config.enabled){t.flush();sample();}
+ // A tester on a phone can open /?diag=<session id> instead of typing the receiver URL. Only a session id is accepted (a UUID), and it always means this site's own
+ // receiver, so a crafted link cannot point the stream anywhere else. Metadata only: content capture and remote control stay off unless the tester ticks them.
+ const diag=new URLSearchParams(location.search).get('diag');
+ if(diag&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(diag)){
+  const receiver=location.origin+'/api/debug/'+diag;
+  $('debugReceiver').value=receiver;$('debugReceiver').dispatchEvent(new Event('input',{bubbles:true}));
+  history.replaceState(null,'',location.pathname+location.hash);
+ }
 }
