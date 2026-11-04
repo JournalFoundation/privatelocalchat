@@ -38,8 +38,8 @@ export function createConnectionGlue(host) {
   // served the app, only when the page comes back to the front, when the browser reports a change, and slowly while it is open (faster while offline,
   // to notice the return). The query string makes it skip the saved copy, so it tests the network and not the cache.
   let probing = false;
-  async function probe() {
-    if (probing || document.visibilityState === 'hidden') return;
+  async function probe(force = false) {
+    if (probing || (!force && document.visibilityState === 'hidden')) return; // a page in the background does not ask, except the one check at start-up
     probing = true;
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 6000);
     try {
@@ -49,11 +49,11 @@ export function createConnectionGlue(host) {
     finally { clearTimeout(timeout); probing = false; }
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') probe(); });
-  window.addEventListener('focus', probe);
-  window.addEventListener('online', () => setTimeout(probe, 300));
-  setTimeout(probe, 2500); // once at start-up, so a page opened on a dead connection says so
+  window.addEventListener('focus', () => probe());
+  window.addEventListener('online', () => setTimeout(() => probe(), 300));
+  setTimeout(() => probe(true), 2500); // once at start-up, so a page opened on a dead connection says so
   setInterval(() => { if (connection.state === 'offline') probe(); }, 15000);
-  setInterval(probe, 300000);
+  setInterval(() => probe(), 300000);
   const listeners = new Set();
   let timer = null;
   function notify() { clearTimeout(timer); timer = setTimeout(async () => { const r = await readiness(); for (const fn of [...listeners]) { try { fn(r, connection); } catch (e) { console.error(e); } } }, 50); }
