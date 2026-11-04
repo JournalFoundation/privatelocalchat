@@ -123,3 +123,5 @@ Plan: `docs/OFFLINE-PLAN.md`; evidence: `docs/evidence/offline/`.
 | Cold start with the network denied, the pill, the checklist, and a real reply from the downloaded 2B model after a cold start | iPhone 15 Pro, iOS 26.6.2 (`ui-iphone15pro.json`) | Passed |
 | Real airplane mode on a phone | By hand | Open |
 | Real airplane mode, Safari force-quit and reopened, a message sent | iPhone 15 Pro, by hand (owner): the Offline pill showed, the model thought for a while, then replied | Passed |
+| Real airplane mode on the iPhone 11 Pro in a normal Safari tab, Safari force-quit, the 350M Granite answers | Owner, by hand, 2026-11-04 (after finding the first tab was private) | Passed |
+| A private window is recognised and named (WebKit under Playwright stands in for it) | `tests/e2e/private-window.e2e.mjs` | Passed |
