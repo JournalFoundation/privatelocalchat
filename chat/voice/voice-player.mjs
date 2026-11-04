@@ -28,6 +28,10 @@ export function createGaplessPlayer({ createContext = () => new (globalThis.Audi
   let ctx = null, next = 0, pending = 0, ended = false, stopped = false, waiter = null;
   const sources = new Set();
   let closed = false;
+  /* DEV_DIAGNOSTICS_START */
+  // Development trace (dev.privatelocal.chat only; stripped by the build): the audio graph's own state, so a sentence that "plays" but never ends can be told apart from one that never played.
+  const trace = (kind, data = {}) => { try { window.__plcDiagCall?.(kind, { outcome: ctx?.state || 'no-context', phase: audioSession?.type || 'no-audiosession', ...data }); } catch { /* never disturb playback */ } };
+  /* DEV_DIAGNOSTICS_END */
   const closeContext = () => { if (closed || !ctx) return; closed = true; giveBackSpeaker(); try { el?.pause?.(); if (el) el.srcObject = null; } catch { /* gone */ } try { Promise.resolve(ctx.close?.()).catch(() => {}); } catch { /* already closed */ } };
   const settle = () => { if (waiter && ended && pending === 0) { const w = waiter; waiter = null; w(); } };
   return {
@@ -48,10 +52,18 @@ export function createGaplessPlayer({ createContext = () => new (globalThis.Audi
         } catch { sink = null; mediaFailed = true; }
       }
       src.buffer = buf; src.connect(sink || ctx.destination);
+      /* DEV_DIAGNOSTICS_START */
+      trace('player-push', { durationMs: Math.round(buf.duration * 1000), characters: pending, speaking: Boolean(sink), speechPending: Boolean(mediaFailed), sinceStartMs: Math.round(ctx.currentTime * 1000) });
+      /* DEV_DIAGNOSTICS_END */
       const at = Math.max(next, ctx.currentTime + 0.02);
       next = at + buf.duration;
       pending++; sources.add(src);
-      src.onended = () => { sources.delete(src); pending--; settle(); };
+      src.onended = () => {
+        sources.delete(src); pending--; settle();
+        /* DEV_DIAGNOSTICS_START */
+        trace('player-ended', { characters: pending, sinceStartMs: Math.round((ctx?.currentTime || 0) * 1000) });
+        /* DEV_DIAGNOSTICS_END */
+      };
       src.start(at);
     },
     /** Start playing what was held, and everything after it. */
@@ -59,6 +71,10 @@ export function createGaplessPlayer({ createContext = () => new (globalThis.Audi
     /** No more chunks are coming. Resolves when everything queued has been played (or the player was stopped). */
     finish() {
       if (held) this.release(); ended = true;
+      /* DEV_DIAGNOSTICS_START */
+      trace('player-finish', { characters: pending, sinceStartMs: Math.round((ctx?.currentTime || 0) * 1000) });
+      if (pending > 0) setTimeout(() => trace('player-finish-still', { characters: pending, sinceStartMs: Math.round((ctx?.currentTime || 0) * 1000) }), 6000);
+      /* DEV_DIAGNOSTICS_END */
       // the audio context is closed when playback is over, so repeated read-alouds do not pile up open contexts
       return (pending === 0 ? Promise.resolve() : new Promise((r) => { waiter = r; })).then(closeContext);
     },
