@@ -100,7 +100,8 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
     const encRow = el('label', 'check-row'); const encBox = el('input'); encBox.type = 'checkbox'; encBox.id = 'lockEncrypt'; encBox.checked = canEncrypt; encBox.disabled = !canEncrypt;
     encRow.append(encBox, el('span', null, ' Also encrypt everything this app saves on this device (recommended)'));
     const encNote = el('p', 'muted lock-disclaimer', canEncrypt ? ENCRYPT_NOTE : 'This browser cannot keep an encrypted vault, so this passcode is a screen lock only.');
-    root.append(a, b, autoLab, auto, encRow, encNote, msg, fine);
+    const fixedName = el('input', 'sr-only'); fixedName.type = 'text'; fixedName.name = 'username'; fixedName.autocomplete = 'username'; fixedName.value = 'Private Local Chat'; fixedName.tabIndex = -1; fixedName.readOnly = true; fixedName.setAttribute('aria-hidden', 'true'); // a fixed name for the OS password manager
+    root.append(fixedName, a, b, autoLab, auto, encRow, encNote, msg, fine);
     openAppDialog({ title: 'Add a passcode', content: root, actions: [{ label: 'Cancel' }, { label: 'Lock the app', primary: true, close: false, run: async (d, button) => {
       if (!pa.value.length) { msg.textContent = 'Type a passphrase (any length, even one character).'; return; }
       if (pa.value !== pb.value) { msg.textContent = 'The two passphrases do not match.'; return; }

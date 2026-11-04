@@ -25,6 +25,7 @@ export const unlockScreen = {
       const form = h("form"); const icon = h("div", "lock-icon"); icon.appendChild(padlock());
       const title = h("h2", null, "Private Local Chat is locked");
       const note = h("p", "muted lock-note", "Everything on this device is encrypted. Type your passphrase to open it."); 
+      const user = h("input", "sr-only"); user.type = "text"; user.name = "username"; user.autocomplete = "username"; user.value = "Private Local Chat"; user.tabIndex = -1; user.setAttribute("aria-hidden", "true"); user.readOnly = true; // gives the OS password manager a fixed name, so it does not ask the person for one
       const label = h("label", "sr-only", "Passphrase"); label.htmlFor = "unlockPass";
       const pass = h("input"); pass.type = "password"; pass.id = "unlockPass"; pass.autocomplete = "current-password"; pass.placeholder = "Passphrase"; pass.autofocus = true;
       const go = h("button", "primary", "Unlock"); go.type = "submit";
@@ -36,7 +37,7 @@ export const unlockScreen = {
       const eraseGo = h("button", "danger", "Erase everything and start over"); eraseGo.type = "button";
       const eraseNo = h("button", "link-btn", "Keep trying"); eraseNo.type = "button";
       erasePanel.append(eraseGo, eraseNo);
-      form.append(icon, title, note, label, pass, go, face, msg, forgot, erasePanel); screen.appendChild(form); document.body.appendChild(screen);
+      form.append(icon, title, note, user, label, pass, go, face, msg, forgot, erasePanel); screen.appendChild(form); document.body.appendChild(screen);
 
       let failures = 0, lockedUntil = 0, busy = false;
       const finish = (session) => { window.__plcVaultLocked = false; window.dispatchEvent(new Event("plc-vault-unlocked")); screen.remove(); document.documentElement.classList.remove("locked"); document.documentElement.classList.remove("splashing"); if (app) { app.inert = false; app.removeAttribute("aria-hidden"); } resolve(session); };
