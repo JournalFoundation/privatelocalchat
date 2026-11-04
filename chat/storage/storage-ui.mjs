@@ -3,6 +3,7 @@
 //
 // host: el, M() (the pure chat modules), moduleBase(), threads(), THREAD_KEY, prefs, savePrefs, localModels (window), confirmDialog, showToast, humanSize, loadDocModules(),
 // loadVoiceChoice(), loadTransferUi(), openAppDialog, openLibrary(), referencedDocIds(), pruneOrphanDocs()
+import { appLocal } from "../vault/vault-store.mjs";
 export function createStorageUi(host) {
   const { el, THREAD_KEY, prefs, savePrefs, confirmDialog, showToast, humanSize, loadVoiceChoice, loadTransferUi, openAppDialog,
     referencedDocIds, pruneOrphanDocs } = host;
@@ -34,7 +35,7 @@ export function createStorageUi(host) {
       if (vctl) mv2.voiceRows(vctl.snapshot()).filter(vm => vm.kind === 'voice').forEach(vm => row('Voice: ' + vm.label, mv2.stateLine(vm), vm.state === 'loaded' ? 'In memory now' : '',
         vm.bytesOnDevice > 0 ? btn('Remove files', async () => { if (!await confirmDialog('Remove ' + vm.label + '?', 'This deletes the downloaded voice (' + humanSize(vm.bytesOnDevice) + ') from this device. Reading aloud goes back to the system voice if it was in use. You can download it again later.', 'Remove files', { danger: true })) return; await vctl.remove(vm.id); openStorageRefresh(); }) : null));
     } catch { /* voices are optional */ }
-    const chatJson = (() => { try { return localStorage.getItem(THREAD_KEY) || ''; } catch { return ''; } })();
+    const chatJson = (() => { try { return appLocal.getItem(THREAD_KEY) || ''; } catch { return ''; } })();
     const real = host.threads().filter(t => !t.temporary && t.deletedAt == null);
     row('Conversations', humanSize(chatJson.length * 2) + ' · ' + real.length + ' chat' + (real.length === 1 ? '' : 's'), host.threads().some(t => t.deletedAt != null) ? 'Includes chats in Trash.' : '');
     let docsList = []; try { docsList = await store.list(); } catch { /* none */ }

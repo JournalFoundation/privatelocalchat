@@ -39,7 +39,7 @@ try{
  await page.click('#splashAdd');
  await page.waitForSelector('.app-dialog');
  assert(/Choose any passphrase/.test(await page.locator('.app-dialog').innerText())&&/enough skill/.test(await page.locator('.app-dialog').innerText()),'the dialog allows any passphrase and repeats the disclaimer');
- await page.fill('#lockNew1','1');await page.fill('#lockNew2','1');await page.click('.app-dialog button:has-text("Lock the app")');
+ await page.fill('#lockNew1','1');await page.fill('#lockNew2','1');await page.uncheck('#lockEncrypt');await page.click('.app-dialog button:has-text("Lock the app")');
  await page.waitForSelector('#lockScreen',{state:'visible'});
  assert(await page.locator('#lockScreen .padlock.closed').count()===1,'the closed padlock is shown');
  assert(/Passcode set/.test(await page.locator('#lockScreen').innerText()),'it says the passcode is set');

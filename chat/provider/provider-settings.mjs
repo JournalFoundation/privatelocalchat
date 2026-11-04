@@ -10,6 +10,7 @@ import { createEndpointTokens } from './endpoint-tokens.mjs';
 import * as endpointUrls from './endpoint-urls.mjs';
 import { endpointOptions, GROUPS, escapeHtml, getEndpointOptionById, findEndpointOptionForValue } from './endpoint-options.mjs';
 import { API_FORMATS, FORMAT_IDS, isFormat, effectiveFormat, buildModelsRequest, modelIdsFrom } from './api-formats.mjs';
+import { appSession } from "../vault/vault-store.mjs";
 
 export function createProviderSettings(host) {
   const { endpointSelect, endpointInput, endpointHint, apiFormatSelect, tokenInput, peekTokenBtn, copyTokenBtn, modelSelect, refreshModelsBtn, themeToggleBtn, authGuidance, authHintText,
@@ -71,6 +72,7 @@ export function createProviderSettings(host) {
 
   function applyTheme(preference) {
     const resolved = resolveTheme(preference);
+    try { localStorage.setItem('plc.theme.v1', resolved); } catch { /* private mode */ } // a plain hint so the unlock screen can match the theme before anything is unlocked (it says nothing about the person's chats)
     if (resolved === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark');
     } else {
@@ -95,8 +97,8 @@ export function createProviderSettings(host) {
   // ---- the token saved for each endpoint ----
   // the token saved for each endpoint (chat/provider/endpoint-tokens.mjs)
   const endpointTokens = createEndpointTokens({
-    storage: sessionStorage, key: ENDPOINT_TOKENS_KEY, base: window.location.href,
-    onSet: endpoint => { if (sessionStorage.getItem('plc.pendingToken.v1')) loadTransferUi().then(ui => ui.tokenSetFor(endpoint)).catch(() => {}); }
+    storage: appSession, key: ENDPOINT_TOKENS_KEY, base: window.location.href,
+    onSet: endpoint => { if (appSession.getItem('plc.pendingToken.v1')) loadTransferUi().then(ui => ui.tokenSetFor(endpoint)).catch(() => {}); }
   });
   const canonicalizeEndpoint = value => endpointTokens.canonicalize(value);
   const getTokenForEndpoint = endpoint => endpointTokens.get(endpoint);
@@ -287,15 +289,15 @@ export function createProviderSettings(host) {
   }
 
   // ---- saving, the model list ----
-  const persistConfig = () => writeJson(sessionStorage, CONFIG_KEY, config);
+  const persistConfig = () => writeJson(appSession, CONFIG_KEY, config);
 
   function loadModels() {
-    models = readJson(sessionStorage, MODELS_KEY, []);
+    models = readJson(appSession, MODELS_KEY, []);
   }
 
   function storeModels(list) {
     models = [...new Set(list.filter(Boolean))];
-    writeJson(sessionStorage, MODELS_KEY, models);
+    writeJson(appSession, MODELS_KEY, models);
   }
 
   /**
@@ -338,7 +340,7 @@ export function createProviderSettings(host) {
   }
 
   function loadConfig() {
-    config = { ...defaults, ...readJson(sessionStorage, CONFIG_KEY, {}) };
+    config = { ...defaults, ...readJson(appSession, CONFIG_KEY, {}) };
     endpointInput.value = config.endpoint;
     tokenInput.value = config.token;
     syncEndpointControls(config.endpoint);
@@ -504,9 +506,9 @@ export function createProviderSettings(host) {
       return;
     }
     try {
-      sessionStorage.removeItem(CONFIG_KEY);
-      sessionStorage.removeItem(MODELS_KEY);
-      sessionStorage.removeItem(ENDPOINT_TOKENS_KEY);
+      appSession.removeItem(CONFIG_KEY);
+      appSession.removeItem(MODELS_KEY);
+      appSession.removeItem(ENDPOINT_TOKENS_KEY);
     } catch (err) {
       console.warn('Unable to clear settings from storage:', err);
     }

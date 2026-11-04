@@ -9,7 +9,7 @@ const reqs=async()=>(await fetch(`http://127.0.0.1:${h.api.port}/__requests`)).j
 const done=()=>page.waitForFunction(()=>/^(Response complete\.|Response stopped|The response was interrupted|The response reached)/.test(document.querySelector('#generationStatus').textContent),null,{timeout:20000});
 const configure=async(cfg)=>{
  await page.evaluate(c=>{const old=JSON.parse(sessionStorage.getItem('chatConfig')||'{}');sessionStorage.setItem('chatConfig',JSON.stringify({...old,...c}));},cfg);
- await page.reload();await page.waitForSelector('#messageInput');await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
+ await page.reload();await page.waitForSelector('#messageInput');await page.waitForFunction(()=>window.__plcBooted===true&&Boolean(window.plcShell));await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
 };
 const ask=async text=>{await page.click('#newChatBtn');await page.fill('#messageInput',text);await page.click('#sendBtn');await done();};
 const lastChat=async(re)=>{const all=await reqs();return [...all].reverse().find(r=>re.test(r.url));};

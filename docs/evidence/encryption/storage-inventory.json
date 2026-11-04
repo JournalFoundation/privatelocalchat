@@ -6,7 +6,8 @@
     "plain": "needed before unlock or about the device and the app, not about the person: stays readable",
     "transient": "lives for one tab or one step and is removed: must still never hold plaintext user content once the vault is on",
     "test": "read only by a development or test hook: never shipped to production",
-    "device": "model files, runtimes and the saved app: not user data, not encrypted"
+    "device": "model files, runtimes and the saved app: not user data, not encrypted",
+    "vault": "the encrypted store itself: nothing in it is readable without the passphrase"
   },
   "keys": [
     {
@@ -233,6 +234,26 @@
       "alsoIn": [
         "index.html"
       ]
+    },
+    {
+      "key": "plc.vault.v1",
+      "store": "localStorage",
+      "class": "plain",
+      "owner": "chat/vault/vault-store.mjs",
+      "note": "says a vault exists (and its auto-lock minutes), so the page can paint the locked state before IndexedDB answers",
+      "alsoIn": [
+        "index.html"
+      ]
+    },
+    {
+      "key": "plc.theme.v1",
+      "store": "localStorage",
+      "class": "plain",
+      "owner": "chat/provider/provider-settings.mjs",
+      "alsoIn": [
+        "chat/vault/unlock-screen.mjs"
+      ],
+      "note": "the resolved theme (light or dark), so the unlock screen matches it before anything is unlocked"
     }
   ],
   "databases": [
@@ -242,6 +263,13 @@
       "class": "user",
       "owner": "chat/documents/doc-store.mjs",
       "note": "attached and library documents"
+    },
+    {
+      "name": "plc-vault",
+      "store": "indexedDB",
+      "class": "vault",
+      "owner": "chat/vault/vault-db.mjs",
+      "note": "the encrypted header and log"
     }
   ],
   "deviceStores": [
@@ -281,6 +309,10 @@
       "chat/storage/storage-ui.mjs",
       "chat/transfer/transfer-glue.mjs",
       "chat/transfer/transfer-ui.mjs",
+      "chat/vault/unlock-screen.mjs",
+      "chat/vault/vault-control.mjs",
+      "chat/vault/vault-db.mjs",
+      "chat/vault/vault-store.mjs",
       "chat/voice/voice-choice.mjs",
       "chat/voice/voice-engine.mjs",
       "chat/voice/voice-ui.mjs",

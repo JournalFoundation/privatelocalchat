@@ -127,12 +127,12 @@ try{
 
  // ---- app lock
  await openSettings('security');await page.click('.set-row:has-text("App lock") button');
- await page.click('.app-dialog button:has-text("Lock the app")');
+ await page.uncheck('#lockEncrypt');await page.click('.app-dialog button:has-text("Lock the app")');
  assert(/Type a passphrase/.test(await page.locator('.app-dialog [role=alert]').innerText()),'an empty passphrase is refused');
- await page.fill('#lockNew1','one');await page.fill('#lockNew2','two');await page.click('.app-dialog button:has-text("Lock the app")');
+ await page.fill('#lockNew1','one');await page.fill('#lockNew2','two');await page.uncheck('#lockEncrypt');await page.click('.app-dialog button:has-text("Lock the app")');
  assert(/do not match/.test(await page.locator('.app-dialog [role=alert]').innerText()),'a mismatch is refused');
  // any passphrase is allowed, even a single character
- await page.fill('#lockNew1','x');await page.fill('#lockNew2','x');await page.click('.app-dialog button:has-text("Lock the app")');
+ await page.fill('#lockNew1','x');await page.fill('#lockNew2','x');await page.uncheck('#lockEncrypt');await page.click('.app-dialog button:has-text("Lock the app")');
  await page.waitForSelector('#lockScreen',{state:'visible'});
  assert(await page.locator('#lockScreen .padlock.closed').count()===1&&/Passcode set/.test(await page.locator('#lockScreen').innerText()),'it locks at once and shows the closed padlock');
  await page.fill('#unlockPass','x');await page.press('#unlockPass','Enter');await page.waitForSelector('#lockScreen',{state:'hidden'});
@@ -141,7 +141,7 @@ try{
  await openSettings('security');await page.click('.set-row:has-text("App lock") button');
  await page.fill('#lockCurrent','x');await page.click('.app-dialog button:has-text("Turn lock off")');await page.waitForFunction(()=>!localStorage.getItem('plc.lock.v1'));
  await page.click('.set-row:has-text("App lock") button');
- await page.fill('#lockNew1','open sesame');await page.fill('#lockNew2','open sesame');await page.click('.app-dialog button:has-text("Lock the app")');
+ await page.fill('#lockNew1','open sesame');await page.fill('#lockNew2','open sesame');await page.uncheck('#lockEncrypt');await page.click('.app-dialog button:has-text("Lock the app")');
  await page.waitForSelector('#lockScreen',{state:'visible'});await page.fill('#unlockPass','open sesame');await page.press('#unlockPass','Enter');await page.waitForSelector('#lockScreen',{state:'hidden'});
  await page.waitForSelector('#lockNowBtn');
  assert(!(await page.evaluate(()=>localStorage.getItem('plc.lock.v1'))).includes('open sesame'),'passphrase not stored');
@@ -152,7 +152,7 @@ try{
  await page.fill('#unlockPass','open sesame');await page.press('#unlockPass','Enter');
  await page.waitForSelector('#lockScreen',{state:'hidden'});
  await page.reload();
- assert(await page.locator('#lockScreen').isVisible(),'locked again after a reload, before anything is shown');
+ await page.waitForSelector('#lockScreen',{state:'visible'});assert(await page.evaluate(()=>document.documentElement.classList.contains('locked')&&document.querySelector('#app').inert===true),'locked again after a reload, with the app out of reach');
  assert(await page.evaluate(()=>getComputedStyle(document.querySelector('#app')).visibility==='hidden'),'chats not visible while locked');
  await page.fill('#unlockPass','open sesame');await page.press('#unlockPass','Enter');
  await page.waitForSelector('#lockScreen',{state:'hidden'});

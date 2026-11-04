@@ -6,17 +6,18 @@
 // host: el, events, messageDecorators, messageActionHandlers, actionButton (buttons under a message), model() (the thread model functions), prefs (the object), savePrefs, readJson, writeJson, messageInput, systemPromptInput, threadTitleInput, openAppDialog,
 //       promptDialog, showToast, saveThreads, currentThread(), generateThreadId, growComposer, persistDraftNow, renderMessages, renderThreadList, updateComposerHint,
 //       enterSends(), callSoundsOn(), loadSpeech(), speechAvailable() (what the browser can do), voiceButton() (null when there is no call button), moduleBase()
+import { appLocal } from "../vault/vault-store.mjs";
 
 export function createAssistant(host) {
   const { el, events, prefs, savePrefs, readJson, writeJson, messageInput, systemPromptInput, threadTitleInput, openAppDialog, promptDialog, showToast, saveThreads, growComposer,
     persistDraftNow, renderMessages, renderThreadList, updateComposerHint, generateThreadId, currentThread, messageDecorators, messageActionHandlers, actionButton } = host;
   const MEMORY_KEY = 'plc.memory.v1', PRESETS_KEY = 'plc.presets.v1';
-  let memory = readJson(localStorage, MEMORY_KEY, { enabled: true, items: [] });
+  let memory = readJson(appLocal, MEMORY_KEY, { enabled: true, items: [] });
   if (!memory || !Array.isArray(memory.items)) memory = { enabled: true, items: [] };
-  const saveMemory = () => writeJson(localStorage, MEMORY_KEY, memory);
-  let customPresets = readJson(localStorage, PRESETS_KEY, []);
+  const saveMemory = () => writeJson(appLocal, MEMORY_KEY, memory);
+  let customPresets = readJson(appLocal, PRESETS_KEY, []);
   if (!Array.isArray(customPresets)) customPresets = [];
-  const savePresets = () => writeJson(localStorage, PRESETS_KEY, customPresets);
+  const savePresets = () => writeJson(appLocal, PRESETS_KEY, customPresets);
   const BUILTIN_PRESETS = [
     { id: 'builtin-writing', name: 'Writing helper', prompt: 'You are a careful writing assistant. Improve clarity and flow while keeping the author’s own voice and meaning. Give the revised text first, then briefly list what you changed.' },
     { id: 'builtin-tutor', name: 'Study tutor', prompt: 'You are a patient tutor. Explain step by step in plain language, use small examples, and end with one short question that checks understanding. For exercises, guide the student instead of simply giving the answer.' },

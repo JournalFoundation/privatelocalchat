@@ -20,7 +20,9 @@ async function walk(dir,rel=''){
 }
 const files=[...await walk(ROOT),'scripts/service-worker.js'];
 const sources=Object.fromEntries(await Promise.all(files.map(async f=>[f,await readFile(new URL(f,ROOT),'utf8')])));
-const API=/\b(localStorage|sessionStorage|indexedDB)\b/;
+const INFRA=new Set(['chat/vault/key-classes.mjs','chat/vault/vault-store.mjs']); // the vault's own files name keys on purpose (tests/vault-store.test.mjs checks them against the inventory)
+const keySources=Object.fromEntries(Object.entries(sources).filter(([f])=>!INFRA.has(f)));
+const API=/\b(localStorage|sessionStorage|indexedDB|appLocal|appSession)\b/;
 const LEGACY=['chatThreads','chatConfig','chatModels','chatEndpointTokens','promoDismissed'];
 
 test('every file that touches browser storage is in the inventory, and every listed file still does',()=>{
@@ -33,7 +35,7 @@ test('every file that touches browser storage is in the inventory, and every lis
 test('every plc.* key and every older key the source uses is classified',()=>{
   const known=new Set(inv.keys.map(k=>k.key));
   const used=new Set();
-  for(const [f,text] of Object.entries(sources))for(const m of text.matchAll(/['"`](plc\.[A-Za-z0-9_.-]+)['"`]/g))used.add(m[1]);
+  for(const [f,text] of Object.entries(keySources))for(const m of text.matchAll(/['"`](plc\.[A-Za-z0-9_.-]+)['"`]/g))used.add(m[1]);
   assert.deepEqual([...used].filter(k=>!known.has(k)).sort(),[],'keys used in the source but not in the inventory');
   for(const k of LEGACY)assert.ok(known.has(k),k+' is classified');
 });
@@ -44,7 +46,7 @@ test('every classified key is still used by its owner',()=>{
     const text=sources[k.owner];
     if(text===undefined){gone.push(k.key+' (owner file '+k.owner+' not found)');continue;}
     // the key is named in its owner, or (for the older keys that the page declares as constants) in the page itself
-    const named=text.includes(`'${k.key}'`)||text.includes(`"${k.key}"`)||text.includes('`'+k.key+'`')||(LEGACY.includes(k.key)&&sources['index.html'].includes(`'${k.key}'`));
+    const named=text.includes(`'${k.key}'`)||text.includes(`"${k.key}"`)||text.includes('`'+k.key+'`')||(LEGACY.includes(k.key)&&keySources['index.html'].includes(`'${k.key}'`));
     if(!named)gone.push(k.key+' is not named in '+k.owner);
   }
   assert.deepEqual(gone,[],'inventory lines that no longer match the source');
@@ -65,7 +67,7 @@ test('the inventory is well formed: unique keys, a known class, a store, an owne
 test('a key is named only by its owner and the files the inventory lists in alsoIn (the model-memory switch once overwrote the memory items)',()=>{
   const extra={};
   for(const k of inv.keys){
-    const named=Object.keys(sources).filter(f=>sources[f].includes(`'${k.key}'`)||sources[f].includes(`"${k.key}"`));
+    const named=Object.keys(keySources).filter(f=>keySources[f].includes(`'${k.key}'`)||keySources[f].includes(`"${k.key}"`));
     const allowed=new Set([k.owner,...(k.alsoIn||[])]);
     const others=named.filter(f=>!allowed.has(f));
     if(others.length)extra[k.key]=others;
@@ -76,11 +78,46 @@ test('a key is named only by its owner and the files the inventory lists in also
 test('production builds carry no test-only key outside the page markers',async()=>{
   const test_=inv.keys.filter(k=>k.class==='test').map(k=>k.key);
   for(const k of test_){
-    for(const [f,text] of Object.entries(sources)){
+    for(const [f,text] of Object.entries(keySources)){
       if(!text.includes(k))continue;
       assert.equal(f,'index.html',k+' appears outside the page: '+f);
       const before=text.slice(0,text.indexOf(k));
       assert.ok(before.lastIndexOf('DEV_DIAGNOSTICS_START')>before.lastIndexOf('DEV_DIAGNOSTICS_END'),k+' must sit inside DEV_DIAGNOSTICS markers');
     }
   }
+});
+
+// ---- phase 3.2 of the encryption plan: nothing the vault keeps is reached through the browser's raw storage ------------------------------------------------------------
+import {KEY_CLASSES,isVaulted} from '../chat/vault/key-classes.mjs';
+const stripComments=t=>t.replace(/\/\*[\s\S]*?\*\//g,'').replace(/(^|[^:'"`])\/\/.*$/gm,'$1');
+const RAW=/\b(?:window\.|globalThis\.)?(localStorage|sessionStorage)\.(getItem|setItem|removeItem)\(\s*([^,)]+)/g;
+function resolveKey(arg,text){
+  const a=arg.trim();
+  const lit=/^['"`]([^'"`]+)['"`]$/.exec(a);if(lit)return lit[1];
+  const named=new RegExp(`\\b${a.replace(/[^\w$]/g,'')}\\s*=\\s*['"\`]([^'"\`]+)['"\`]`).exec(text);
+  return named?named[1]:null;
+}
+test('no vaulted key (user, setting, transient) is read or written through raw localStorage / sessionStorage',()=>{
+  const offenders=[],unresolved=[];
+  for(const [f,raw] of Object.entries(sources)){
+    if(INFRA.has(f))continue;
+    const text=stripComments(raw);
+    for(const m of text.matchAll(RAW)){
+      const key=resolveKey(m[3],text);
+      if(key===null){unresolved.push(`${f}: ${m[1]}.${m[2]}(${m[3].trim()})`);continue;}
+      if(isVaulted(key))offenders.push(`${f}: ${m[1]}.${m[2]}('${key}') is a ${KEY_CLASSES[key].class} key: use appLocal / appSession from chat/vault/vault-store.mjs`);
+    }
+  }
+  assert.deepEqual(offenders,[],'vaulted keys must go through the vault store');
+  assert.deepEqual(unresolved,[],'a raw storage call whose key the test cannot see: use a named constant with a string literal, or the vault store');
+});
+
+test('the vault store is what the app files import, not a copy of the browser storage',()=>{
+  // every file that names a vaulted key through appLocal / appSession imports them from the vault store
+  const missing=[];
+  for(const [f,text] of Object.entries(sources)){
+    if(INFRA.has(f)||f==='index.html')continue;
+    if(/\b(appLocal|appSession)\b/.test(stripComments(text))&&!/vault-store\.mjs/.test(text))missing.push(f);
+  }
+  assert.deepEqual(missing,[]);
 });

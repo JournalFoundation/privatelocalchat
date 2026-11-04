@@ -1,12 +1,14 @@
 // The app lock and the "not locked" reminder.
 //   With a passcode the app opens on a closed padlock and a passphrase field. It is a screen lock: it hides chats, it does not encrypt what the browser stores.
 //   With no passcode the app opens on a short reminder (an open padlock inside a countdown ring) with a button to add one; doing nothing continues into the app.
+//   With the encrypted vault on (chat/vault/), locking is real: "Lock now" forgets the key and reloads, and the next visit asks for the passphrase (or Face ID / Touch ID) before anything is read.
 // Everything the page provides is passed in, so this file reads on its own. createLock({...}).start() runs once as the page starts.
+// `vault` is chat/vault/vault-control.mjs (or null where there is none).
 
-export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog, confirmDialog, showToast, loadCrypto, passField, focusComposer, onLock }) {
-  // app lock: a passphrase screen over the app. It hides chats; it does not encrypt what the browser stores.
+export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog, confirmDialog, showToast, loadCrypto, passField, focusComposer, onLock, vault = null, busy = () => false }) {
+  // app lock: a passphrase screen over the app. Without the vault it hides chats and does not encrypt what the browser stores.
   const LOCK_KEY = 'plc.lock.v1';
-  let lockCfg = readJson(localStorage, LOCK_KEY, null);
+  let lockCfg = vault?.active ? { vault: true, autoMinutes: vault.autoMinutes } : readJson(localStorage, LOCK_KEY, null);
   const appEl = document.getElementById('app');
   const lockScreen = el('div', 'lock-screen'); lockScreen.id = 'lockScreen'; lockScreen.setAttribute('role', 'dialog'); lockScreen.setAttribute('aria-modal', 'true'); lockScreen.setAttribute('aria-label', 'Unlock Private Local Chat'); lockScreen.hidden = true; // shown only while locked (it used to cover an unlocked app until start-up finished)
   // padlocks (inline, so they look the same everywhere): closed when the app is locked, open on the "not locked" reminder
@@ -36,7 +38,11 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
     lockScreen.hidden = !locked;
     if (locked) { lockPass.value = ''; lockMsg.textContent = ''; window.setTimeout(() => lockPass.focus(), 0); } else lockNote.hidden = true;
   }
-  function lockNow() {
+  async function lockNow(options) {
+    if (vault?.active) {
+      if (busy() && !options?.quiet && !await confirmDialog('A reply is still being written', 'Locking now stops it. What was written so far is kept.', 'Lock now')) return;
+      onLock?.(); vault.lockNow(); return; // the key is forgotten and the page reloads; the unlock screen takes over
+    }
     if (!lockCfg) return;
     setLockedUi(true); onLock?.();
   }
@@ -63,13 +69,14 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
   function armIdle() {
     window.clearTimeout(idleTimer);
     if (!lockCfg || !lockCfg.autoMinutes) return;
-    idleTimer = window.setTimeout(lockNow, lockCfg.autoMinutes * 60000);
+    idleTimer = window.setTimeout(() => lockNow({ quiet: true }), lockCfg.autoMinutes * 60000);
   }
   ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(t => window.addEventListener(t, () => { if (lockCfg && !document.documentElement.classList.contains('locked')) armIdle(); }, { passive: true, capture: true }));
   document.addEventListener('visibilitychange', () => {
     if (!lockCfg) return;
+    if (document.hidden && vault?.active && vault.lockOnHide) { lockNow({ quiet: true }); return; } // the person asked to be locked as soon as they leave
     if (document.hidden) hiddenAt = Date.now();
-    else if (lockCfg.autoMinutes && hiddenAt && Date.now() - hiddenAt > lockCfg.autoMinutes * 60000) lockNow();
+    else if (lockCfg.autoMinutes && hiddenAt && Date.now() - hiddenAt > lockCfg.autoMinutes * 60000) lockNow({ quiet: true });
   });
   const lockBtn = el('button', 'icon-btn'); lockBtn.appendChild(createEmoji('🔒')); lockBtn.type = 'button'; lockBtn.id = 'lockNowBtn'; lockBtn.title = 'Lock now'; lockBtn.setAttribute('aria-label', 'Lock now');
   lockBtn.addEventListener('click', lockNow);
@@ -89,10 +96,15 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
     const auto = autoOptions(), autoLab = el('label', null, 'Lock automatically'); autoLab.htmlFor = 'lockAuto';
     const [a, pa] = passField('New passphrase', 'lockNew1'), [b, pb] = passField('Repeat the passphrase', 'lockNew2');
     const fine = el('p', 'muted lock-disclaimer', DISCLAIMER);
-    root.append(a, b, autoLab, auto, msg, fine);
+    const canEncrypt = Boolean(vault?.supported);
+    const encRow = el('label', 'check-row'); const encBox = el('input'); encBox.type = 'checkbox'; encBox.id = 'lockEncrypt'; encBox.checked = canEncrypt; encBox.disabled = !canEncrypt;
+    encRow.append(encBox, el('span', null, ' Also encrypt everything this app saves on this device (recommended)'));
+    const encNote = el('p', 'muted lock-disclaimer', canEncrypt ? ENCRYPT_NOTE : 'This browser cannot keep an encrypted vault, so this passcode is a screen lock only.');
+    root.append(a, b, autoLab, auto, encRow, encNote, msg, fine);
     openAppDialog({ title: 'Add a passcode', content: root, actions: [{ label: 'Cancel' }, { label: 'Lock the app', primary: true, close: false, run: async (d, button) => {
       if (!pa.value.length) { msg.textContent = 'Type a passphrase (any length, even one character).'; return; }
       if (pa.value !== pb.value) { msg.textContent = 'The two passphrases do not match.'; return; }
+      if (encBox.checked && canEncrypt) { await enableVault(d, button, pa.value, Number(auto.value), msg); return; }
       button.setAttribute('aria-busy', 'true'); msg.textContent = 'Setting up…';
       lockCfg = { ...(await c.createLock(pa.value)), autoMinutes: Number(auto.value) };
       writeJson(localStorage, LOCK_KEY, lockCfg); try { localStorage.removeItem(SPLASH_KEY); } catch { /* ignore */ }
@@ -100,7 +112,86 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
       setLockedUi(true); lockNote.textContent = 'Passcode set. Type it to open the app.'; lockNote.hidden = false;
     } }] });
   }
+  const ENCRYPT_NOTE = 'Your chats, documents, memory and settings are sealed with this passphrase and stored as you go, so closing the tab loses nothing. Without the passphrase they cannot be read, and if you forget it they cannot be recovered: keep an encrypted backup. It does not protect against someone who controls the website you load, or against a device that is already unlocked and being watched.';
+
+  /** Encrypt what is saved, check it by reading it back, then offer to remove the unencrypted copy. */
+  async function enableVault(d, button, passphrase, autoMinutes, msg) {
+    button.setAttribute('aria-busy', 'true'); msg.textContent = 'Encrypting everything and checking it…';
+    try {
+      const result = await vault.enable(passphrase, { autoMinutes });
+      lockCfg = { vault: true, autoMinutes }; syncLockUi(); armIdle(); d.close();
+      showToast('Everything is now encrypted with your passphrase.');
+      if (result.remaining.length) {
+        const sure = await confirmDialog('Remove the unencrypted copy?', 'Your data is encrypted now, but the old unencrypted copy is still stored in this browser, readable by anyone with the device. Remove it now? An encrypted backup first is a good idea (Settings > Storage).', 'Remove it', { danger: true });
+        if (sure) { await vault.removePlaintext(); showToast('The unencrypted copy is removed.'); }
+        else showToast('The unencrypted copy is still on this device. Remove it in Settings > Security.', 9000);
+      }
+    } catch (error) {
+      button.removeAttribute('aria-busy');
+      msg.textContent = 'Nothing was changed. ' + (error?.message || 'The encrypted copy could not be checked.');
+    }
+  }
+
+  async function openVaultSettings() {
+    const root = el('div');
+    root.appendChild(el('p', null, 'Everything this app saves on this device is encrypted with your passphrase. Locking forgets the key and asks for it again.'));
+    const leftover = vault.plaintextRemaining();
+    const leftoverNote = el('p', 'danger', leftover.length ? 'The old unencrypted copy of your data is still stored in this browser. Remove it so only the encrypted copy remains.' : ''); leftoverNote.hidden = !leftover.length;
+    const msg = el('p', 'danger'); msg.setAttribute('role', 'alert');
+    const auto = autoOptions(); auto.value = String(vault.autoMinutes || 0); const autoLab = el('label', null, 'Lock automatically'); autoLab.htmlFor = 'lockAuto';
+    const hideRow = el('label', 'check-row'); const hideBox = el('input'); hideBox.type = 'checkbox'; hideBox.checked = vault.lockOnHide; hideRow.append(hideBox, el('span', null, ' Lock as soon as I leave this tab or app (the page reloads)'));
+    const keysRow = el('label', 'check-row'); const keysBox = el('input'); keysBox.type = 'checkbox'; keysBox.checked = vault.rememberKeys; keysRow.append(keysBox, el('span', null, ' Remember my API keys (encrypted). Off: keys last until the tab closes.'));
+    const [cur, pc] = passField('Current passphrase (to change it or turn encryption off)', 'lockCurrent'); pc.autocomplete = 'current-password';
+    const [nw, pn] = passField('New passphrase (to change it)', 'lockNewPass'); pn.autocomplete = 'new-password';
+    const faceBox = el('div', 'face-box');
+    root.append(leftoverNote, autoLab, auto, hideRow, keysRow, faceBox, cur, nw, msg, el('p', 'muted lock-disclaimer', ENCRYPT_NOTE));
+    if (window.__plcVaultUnlockMs) root.appendChild(el('p', 'muted', 'Unlocking with the passphrase took ' + (window.__plcVaultUnlockMs / 1000).toFixed(1) + ' seconds on this device.'));
+    const pending = vault.stats.pending; if (pending) root.appendChild(el('p', 'muted', pending + ' change(s) are still being stored.'));
+    // Face ID / Touch ID
+    (async () => {
+      const pk = await import('../vault/passkey.mjs').catch(() => null);
+      if (!pk || !pk.passkeySupported()) { faceBox.appendChild(el('p', 'muted', 'This browser cannot unlock with Face ID, Touch ID or a screen lock. The passphrase always works.')); return; }
+      const render = () => {
+        faceBox.textContent = '';
+        const list = vault.passkeys;
+        faceBox.appendChild(el('p', null, list.length ? 'Unlock with Face ID, Touch ID or this device’s screen lock is on for this address.' : 'Unlock with Face ID, Touch ID or this device’s screen lock instead of typing.'));
+        const add = el('button', null, list.length ? 'Add another device' : 'Turn on Face ID / Touch ID'); add.type = 'button'; add.id = 'addPasskey';
+        add.addEventListener('click', async () => {
+          add.setAttribute('aria-busy', 'true'); msg.textContent = '';
+          try { await vault.addPasskey(pk.createPasskeyWrap); showToast('You can now unlock with Face ID or Touch ID.'); render(); }
+          catch (error) { add.removeAttribute('aria-busy'); msg.textContent = pk.passkeyMessage(error); }
+        });
+        faceBox.appendChild(add);
+        for (const w of list) {
+          const row = el('div', 'face-row', (w.label || 'Passkey') + ' · added ' + new Date(w.createdAt || Date.now()).toLocaleDateString() + ' '); const rm = el('button', 'link-btn', 'Remove'); rm.type = 'button';
+          rm.addEventListener('click', async () => { await vault.removePasskey(w.id); render(); }); row.appendChild(rm); faceBox.appendChild(row);
+        }
+        faceBox.appendChild(el('p', 'muted lock-disclaimer', 'A passkey is kept by your device account (Apple passkeys sync through iCloud Keychain), and each web address has its own. If you lose it, the passphrase still opens everything; if you lose both, nothing can.'));
+      };
+      render();
+    })();
+    const actions = [
+      { label: 'Lock now', run: () => lockNow() },
+      { label: 'Save', run: () => { vault.setAutoMinutes(Number(auto.value)); vault.setLockOnHide(hideBox.checked); lockCfg = { vault: true, autoMinutes: Number(auto.value) }; vault.setRememberKeys(keysBox.checked); armIdle(); showToast('Saved.'); } },
+      { label: 'Change passphrase', close: false, run: async d => {
+        if (!pc.value || !pn.value) { msg.textContent = 'Type the current passphrase and the new one.'; return; }
+        try { msg.textContent = 'Changing…'; await vault.changePassphrase(pc.value, pn.value); d.close(); showToast('Passphrase changed. Nothing was re-encrypted; the old one no longer works.'); }
+        catch (error) { msg.textContent = error?.code === 'bad-passphrase' ? 'That is not the current passphrase.' : (error?.message || 'Could not change it.'); }
+      } },
+      { label: 'Turn encryption off', danger: true, close: false, run: async d => {
+        if (!pc.value) { msg.textContent = 'Type the current passphrase to turn encryption off.'; return; }
+        const sure = await confirmDialog('Turn encryption off?', 'Your chats, documents, memory and settings will be stored in this browser without encryption, readable by anyone with the device.', 'Turn it off', { danger: true });
+        if (!sure) return;
+        try { msg.textContent = 'Turning off…'; await vault.disable(pc.value); lockCfg = null; syncLockUi(); d.close(); showToast('Encryption is off.'); }
+        catch (error) { msg.textContent = error?.code === 'bad-passphrase' ? 'That is not the current passphrase.' : (error?.message || 'Could not turn it off.'); }
+      } }
+    ];
+    if (leftover.length) actions.unshift({ label: 'Remove the unencrypted copy', danger: true, close: false, run: async d => { await vault.removePlaintext(); d.close(); showToast('The unencrypted copy is removed.'); } });
+    openAppDialog({ title: 'Encryption and lock', content: root, actions });
+  }
+
   async function openLockSettings() {
+    if (vault?.active) { openVaultSettings(); return; }
     if (!lockCfg) { openSetLock(); return; }
     const c = await loadCrypto();
     const root = el('div');
@@ -112,6 +203,11 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
     root.append(autoLab, auto, cur, msg);
     openAppDialog({ title: 'App lock', content: root, actions: [
       { label: 'Lock now', run: () => lockNow() },
+      ...(vault?.supported ? [{ label: 'Encrypt everything…', close: false, run: async (d, button) => {
+        if (!pc.value) { msg.textContent = 'Type your passphrase to encrypt everything with it.'; return; }
+        if (!await c.verifyLock(lockCfg, pc.value)) { msg.textContent = 'That passphrase is not right.'; return; }
+        await enableVault(d, button, pc.value, Number(auto.value), msg);
+      } }] : []),
       { label: 'Save', run: () => { lockCfg.autoMinutes = Number(auto.value); writeJson(localStorage, LOCK_KEY, lockCfg); armIdle(); } },
       { label: 'Turn lock off', danger: true, close: false, run: async d => {
         if (!await c.verifyLock(lockCfg, pc.value)) { msg.textContent = 'That passphrase is not right.'; return; }
@@ -160,7 +256,8 @@ export function createLock({ el, createEmoji, readJson, writeJson, openAppDialog
     sync: syncLockUi,
     /** Call once at start-up: locked, or the reminder, or straight into the app. */
     start() {
-      if (lockCfg) { setLockedUi(true); syncLockUi(); }
+      if (vault?.active) { document.documentElement.classList.remove('locked', 'splashing'); syncLockUi(); armIdle(); } // unlocked at start-up by chat/vault/unlock-screen.mjs
+      else if (lockCfg) { setLockedUi(true); syncLockUi(); }
       else if (reminderOn()) showLockSplash();
       else document.documentElement.classList.remove('splashing');
     }

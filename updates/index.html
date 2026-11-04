@@ -65,6 +65,17 @@
   <section id="updates" aria-labelledby="updates-title">
     <h2 id="updates-title">Release notes</h2>
 <!--plc:updates-list-->
+<article class="update" id="encrypted-vault" aria-labelledby="encrypted-vault-title">
+  <h3 id="encrypted-vault-title"><a href="#encrypted-vault">Encrypt everything on this device, and unlock with Face ID</a></h3>
+  <p class="update-meta"><time datetime="2026-11-04">4 November 2026</time> &middot; Release: the next published release after <a href="https://github.com/JournalFoundation/privatelocalchat/releases/tag/v0.12.0">v0.12.0</a></p>
+  <p>You can now encrypt your conversations, files, memory and settings with a passphrase, and unlock them with Face ID, Touch ID or your device&#39;s screen lock where the browser allows.</p>
+  <ul>
+    <li>Add a passcode and leave &quot;Also encrypt everything this app saves on this device&quot; ticked. Your data is sealed in your browser and stored as you go, so closing the tab, or the browser ending the page, loses at most the last moment of a reply. Nothing leaves the device.</li>
+    <li>Locking forgets the key and asks again; you can lock after a time away or as soon as you leave. If you forget the passphrase and have no passkey, the data cannot be recovered, so keep an encrypted backup. Settings &gt; Security explains what encryption does not protect against.</li>
+    <li>The old unencrypted copy is removed only after the encrypted one has been read back and you agree. You can turn encryption off again with your passphrase.</li>
+    <li>A second tab opens read-only while the first is writing, and says so. Fixed along the way: flipping &quot;One model at a time&quot; could overwrite your memory items, because both used one storage key.</li>
+  </ul>
+</article>
 <article class="update" id="providers-refresh" aria-labelledby="providers-refresh-title">
   <h3 id="providers-refresh-title"><a href="#providers-refresh">Connected providers: Anthropic, the Responses API and a refreshed list</a></h3>
   <p class="update-meta"><time datetime="2026-11-04">4 November 2026</time> &middot; Release: the next published release after <a href="https://github.com/JournalFoundation/privatelocalchat/releases/tag/v0.12.0">v0.12.0</a></p>

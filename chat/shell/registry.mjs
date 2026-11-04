@@ -1,7 +1,8 @@
 // The app shell is data-driven: the icon rail, the Explore menu, the composer "+" menu and the settings sections are all lists
 // of entries in one registry. Adding a place to the app means adding one entry (id, label, icon, order, visible(), open()).
+import { appLocal } from "../vault/vault-store.mjs";
 
-export function createRegistry(storage = globalThis.localStorage) {
+export function createRegistry(storage = appLocal) {
   const areas = new Map();
   const PIN_KEY = "plc.shell.pins.v1";
   let pins = null;

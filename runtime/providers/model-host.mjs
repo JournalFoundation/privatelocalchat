@@ -20,6 +20,7 @@ import { TIERS, TIER_ORDER, VARIANT_INFO, DEFAULT_VARIANT, chooseWebllmVariant, 
 import { gatherEnv } from "./capability-probe.mjs";
 import { classifyEngineError } from "./errors.mjs";
 import { lightBackend, tierBackend } from "../auto-tier.mjs";
+import { appLocal } from "../../chat/vault/vault-store.mjs";
 
 const SETTINGS_KEY = "plc.models.v1";
 
@@ -29,7 +30,7 @@ export function createModelHost({
   workerUrl = new URL("./host.worker.mjs", import.meta.url).href,
   runtimeDir = new URL("./vendor/wllama/v1q/", import.meta.url).href,
   sources: sourceOverrides = null,
-  settings = globalThis.localStorage ?? null,
+  settings = appLocal,
   storageManager = globalThis.navigator?.storage ?? null,
   createWorker = (url) => new Worker(url, { type: "module" }),
   tiers = TIERS,

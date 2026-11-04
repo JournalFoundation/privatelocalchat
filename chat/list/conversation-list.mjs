@@ -5,15 +5,16 @@
 // host: el, M() (pure chat modules), events, readJson, writeJson, threads(), currentThreadId(), clearCurrentThread(), getThread, createThread, selectThread, renameThread,
 // exportThreadMarkdown, buildPreloadUrl, saveThreads, generateThreadId, generation() (the running answer, or null), threadList (the <ul>), messageInput, createEmoji, actionButton,
 // messageDecorators, messageActionHandlers, closeThreadMenu, placeMenu, openThreadMenu() (the open menu or null), updateThreadListMinHeight, promptDialog, confirmDialog, copyTextDialog, openAppDialog, showToast
+import { appLocal } from "../vault/vault-store.mjs";
 export function createConversationList(host) {
   const { el, events, readJson, writeJson, getThread, createThread, selectThread, renameThread, exportThreadMarkdown, buildPreloadUrl, saveThreads,
     generateThreadId, threadList, messageInput, createEmoji, actionButton, messageDecorators, messageActionHandlers, closeThreadMenu, placeMenu,
     updateThreadListMinHeight, promptDialog, confirmDialog, copyTextDialog, openAppDialog, showToast } = host;
   const FOLDERS_KEY = 'plc.folders.v1';
-  let folders = readJson(localStorage, FOLDERS_KEY, []);
+  let folders = readJson(appLocal, FOLDERS_KEY, []);
   if (!Array.isArray(folders)) folders = [];
   folders = folders.filter(f => f && typeof f.id === 'string' && typeof f.name === 'string');
-  const saveFolders = () => writeJson(localStorage, FOLDERS_KEY, folders);
+  const saveFolders = () => writeJson(appLocal, FOLDERS_KEY, folders);
   let threadView = 'active'; // active | archived | trash
   const setView = v => { threadView = v; };
 

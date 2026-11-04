@@ -5,6 +5,7 @@
 // host: provider (chat/provider/provider-settings.mjs), M(), moduleBase(), el, openAppDialog, showToast, loadRoberta(), importConfigInput, importInput, tokenInput, downloadText,
 // exportHistory, updateBackupNudge, threads(), folders(), assistant, prefs, savePrefs, loadDocModules, loadCrypto, buildBackup, openAbout, openProviderSettings, createThread, getThread,
 // setCurrentThreadId, renderThreadList, selectThread, updateChatAvailability, threadTitleInput, systemPromptInput, messageInput
+import { appSession } from "../vault/vault-store.mjs";
 export function createTransferGlue(host) {
   const { provider, el, openAppDialog, showToast, importConfigInput, importInput, tokenInput, downloadText, exportHistory, updateBackupNudge,
     assistant, prefs, savePrefs, loadDocModules, loadCrypto, buildBackup, openAbout, openProviderSettings, createThread, getThread, renderThreadList,
@@ -24,7 +25,7 @@ export function createTransferGlue(host) {
     return transferUiLoading;
   }
   function transferUiDiscardPending() {
-    try { sessionStorage.removeItem('plc.pendingToken.v1'); } catch (err) { /* nothing stored */ }
+    try { appSession.removeItem('plc.pendingToken.v1'); } catch (err) { /* nothing stored */ }
     transferUi?.renderPending();
   }
   const transferApp = {

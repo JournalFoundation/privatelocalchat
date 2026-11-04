@@ -51,7 +51,7 @@
   <div class="page-intro">
     <h1>Privacy</h1>
     <p class="lede">This page describes how Private Local Chat works today, written from the deployed app and its hosting setup. It says what stays on your device, what leaves it, and who receives it.</p>
-    <p class="page-meta">Last reviewed: <time class="last-updated" datetime="2026-11-01">2026-11-01</time></p>
+    <p class="page-meta">Last reviewed: <time class="last-updated" datetime="2026-11-04">2026-11-04</time></p>
     <div class="hero-actions">
       <a class="button primary" href="/">Open Private Local Chat</a>
       <a class="button" href="/help/#contact">Ask a question</a>
@@ -115,9 +115,10 @@
           <tr><th scope="row">Attached files and the document library</th><td>IndexedDB database <code>plc-docs</code></td><td>A temporary chat's files stay in memory only.</td></tr>
           <tr><th scope="row">API settings and keys</th><td>Session storage: <code>chatConfig</code> (endpoint, key, model, theme), <code>chatEndpointTokens</code> (keys by endpoint), <code>chatModels</code></td><td>Kept for the browser session, not in the long-term storage used for conversations. Backups and chat exports do not contain them.</td></tr>
           <tr><th scope="row">Optional read-aloud voice</th><td>Local storage: <code>plc.voice.v2</code> (which voice you chose, and why a voice failed if it did). Files: the origin private file system, one folder per downloaded voice (<code>plc-voice-kitten-nano-0.8</code>, <code>plc-voice-kokoro-q8</code>), plus the voice program in Cache Storage</td><td>Downloaded only when you choose that voice in the voice menu. The voice menu and Settings &gt; Voice have a Remove button that deletes all of it.</td></tr>
-          <tr><th scope="row">Model memory setting</th><td>Local storage: <code>plc.memory.v1</code> (whether &ldquo;One model at a time&rdquo; is on, and whether you chose &ldquo;Don&rsquo;t ask again&rdquo; on the memory offer). Nothing else is stored and nothing is sent.</td></tr>
+          <tr><th scope="row">Model memory setting</th><td>Local storage: <code>plc.modelMemory.v1</code> (whether &ldquo;One model at a time&rdquo; is on, and whether you chose &ldquo;Don&rsquo;t ask again&rdquo; on the memory offer). Nothing else is stored and nothing is sent.</td></tr>
           <tr><th scope="row">Model files</th><td>The browser's origin private file system and Cache Storage</td><td>Reused until you remove them (see <a href="/help/#model-storage">model storage</a>) or the browser clears them.</td></tr>
           <tr><th scope="row">A copy of the app for offline use</th><td>Cache Storage (a service worker cache)</td><td>Includes these public pages.</td></tr>
+          <tr><th scope="row">Encrypted vault (only if you turn it on)</th><td>IndexedDB database <code>plc-vault</code> (everything below in encrypted form); Local storage: <code>plc.vault.v1</code> (says a vault exists and your auto-lock choice), <code>plc.theme.v1</code> (light or dark, so the unlock screen matches)</td><td>When the vault is on, conversations, drafts, preferences, memory, presets, projects, attached files and API settings are kept here, sealed, instead of in the rows above. See <a href="#app-lock">App lock and encryption</a>.</td></tr>
           <tr><th scope="row">App lock</th><td>Local storage: <code>plc.lock.v1</code></td><td>A salted check value, never the passphrase. See <a href="#app-lock">App lock</a>.</td></tr>
           <tr><th scope="row">Not-locked reminder</th><td>Local storage: <code>plc.lockSplash.v1</code></td><td>Set to <code>off</code> when you choose &ldquo;Don&rsquo;t remind me again&rdquo;. It only says whether the reminder is shown as the app opens.</td></tr>
           <tr><th scope="row">Small settings</th><td>Local storage: <code>plc.inferenceMode.v1</code> (where replies run), <code>plc.downloadIntent.v1</code> (a download to resume)</td><td></td></tr>
@@ -127,8 +128,10 @@
   </section>
 
   <section id="app-lock" aria-labelledby="app-lock-title">
-    <h2 id="app-lock-title">App lock</h2>
-    <p class="prose">App lock puts a passphrase screen over the app and can lock it when idle or when you are away. It is a screen lock: it does not encrypt what the browser stores, so someone with access to the browser's files can still read saved conversations and documents. A forgotten passphrase cannot be recovered; the only way back in is to erase the app's data in this browser and restore a backup.</p>
+    <h2 id="app-lock-title">App lock and encryption</h2>
+    <p class="prose">App lock puts a passphrase screen over the app and can lock it when idle or when you are away. On its own it is a screen lock: it does not encrypt what the browser stores, so someone with access to the browser's files can still read saved conversations and documents.</p>
+    <p class="prose">When you add a passcode you can also choose to encrypt everything the app saves on this device. Your conversations, drafts, preferences, memory, presets, projects, attached files and API settings are then sealed in your browser with AES-256-GCM, using a key that your passphrase unlocks (PBKDF2-SHA-256, 600,000 rounds); each conversation and file has its own key, and changes are stored as you make them, including a reply while it is being written. Nothing is sent anywhere. The passphrase is never stored. If you turn on Face ID, Touch ID or your device's screen lock, a passkey kept by your device account (Apple passkeys sync through iCloud Keychain) can unlock the same key instead of typing; the passphrase keeps working beside it. API keys are kept in the vault unless you switch &ldquo;Remember my API keys&rdquo; off.</p>
+    <p class="prose">What it does not protect against: whoever serves the app (it is a web app, and a changed page could read what you type), a browser that is already unlocked and being watched or running a hostile extension, a short or guessable passphrase if someone copies the browser's files, and the pattern of when and how much you chat (the number and rough size of stored records can be seen; their contents cannot). Bytes the browser wrote to disk before you turned encryption on may remain until the browser overwrites them; the app removes its unencrypted copy only after checking the encrypted one and asking you. A forgotten passphrase cannot be recovered; if you forget it and have no passkey, the only way back in is to erase the app's data in this browser and restore an encrypted backup.</p>
   </section>
 
   <section id="backups" aria-labelledby="backups-title">

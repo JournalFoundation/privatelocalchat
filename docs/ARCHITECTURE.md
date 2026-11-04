@@ -27,6 +27,7 @@ These are the official connection points; anything else is a bug waiting to happ
 | `context:collect` | `collect(thread, view)` | add to what the model is told; each listener returns `{ preamble?, attachmentText?, sources? }` |
 | `reply:start` / `reply:text` / `reply:end` | `emit(...)` | a reply began, grew (the voice call speaks it as it is written), finished |
 | `connection:changed` | `emit(info)` | the app went offline, came back, or is online again (`info.state` is `online`, `offline` or `back`): the connection pill, offline-aware controls and the one-time hints |
+| `vault:unlocked` / `vault:locked` / `vault:write-failed` | `emit(info)` | the encrypted vault was turned on or opened, was locked or turned off, or could not store a change (`info.message`): the lock button, the security dialog and a warning toast. Fired from the page, which turns the vault store's window events into these |
 
 `emit` never lets one listener's error stop the others (it is logged); `emitAwait`, `collect` and `intercept` wait for each listener in turn and let errors through. `messageDecorators` and `messageActionHandlers` (extra buttons on a message) are separate, because they shape rendering rather than moments.
 
@@ -65,6 +66,7 @@ chat/documents/         attachments: reading, storing (IndexedDB), PDF text, ret
 chat/transfer/          moving things in and out: share, QR, settings transfer, other chatbots' exports, answer export, the public pages script
 chat/models/            model services (memory manager, shared embedder, voice choice) and the one vocabulary for model rows
 chat/lock/              the app lock and the not-locked reminder
+chat/vault/             the encrypted vault: keys and the append-only log (vault.mjs), where it lives (vault-db.mjs), the one storage interface the app uses (vault-store.mjs: appLocal / appSession), which key is kept where (key-classes.mjs), the unlock screen. See docs/ENCRYPTION-AT-REST-PLAN.md
 chat/history/           chat history in and out: export, import (with preview), clear
 chat/core/              the chat core, in slices: the page's own furniture (toast, About, sidebar, popup menus) so far, and the messages on screen
 chat/provider/          the connected provider: endpoint, token per destination, model list, theme, provider catalogue

@@ -25,7 +25,7 @@ const FAQ={
  'voice':"Voice uses the speech services available in your browser. Dictation and voice conversation may send audio to the browser's speech service. Speech processing and the location where text replies are generated are separate capabilities.",
  'compatibility':'Compatibility and performance depend on the device, browser, available memory, and selected model. Follow the setup guidance and consult the dated known-issues section. Include your device, browser, and model when reporting setup or performance problems.',
  'saved-conversations':"Saved conversations are kept in this browser's storage. Each browser and device has its own storage. Back up important work before clearing site data or moving devices. Browser storage removal or loss of the device can affect what remains available.",
- 'app-lock':"App lock provides a passphrase screen that helps prevent casual access through the app. Saved conversation and document data remain readable to someone with access to the browser's stored files. Encrypted backups provide a separately protected copy of the included data.",
+ 'app-lock':"App lock puts a passphrase screen over the app. You can also encrypt everything the app saves on this device with the same passphrase: conversations, documents, memory and settings are then unreadable without it, or without Face ID or Touch ID if you turn that on. Without encryption, App lock is a screen lock only, and saved data remains readable to someone with access to the browser's stored files. A forgotten passphrase cannot be recovered. Encrypted backups provide a separately protected copy of the included data.",
  'storage':'Unload (or clicking the loaded model in the model menu) unloads the model from working memory and keeps its downloaded files. Remove download deletes the saved model files, which can be downloaded again later. Back up important conversations before clearing all site data.',
  'checking-answers':'Review generated work and check facts that matter. Models differ in capability and can make mistakes, misunderstand a question, or invent details.',
  'share':"Open Share and choose your device's sharing option, copy the link, or display the QR code. The public address is https://privatelocal.chat/. Each person uses their own device and browser storage.",
@@ -130,7 +130,7 @@ test('the share panel is mounted on Help and About only',()=>{
 test('the Privacy page covers every required topic and records its review date',()=>{
  const html=source.privacy;
  for(const anchor of ['on-device','providers','speech','downloads','storage','app-lock','backups','chat-exports','product-sharing','settings-transfers','support','logging'])assert.ok(ids(html).includes(anchor),'#'+anchor);
- assert.ok(html.includes('Last reviewed: <time class="last-updated" datetime="2026-11-01">2026-11-01</time>'));
+ assert.ok(html.includes('Last reviewed: <time class="last-updated" datetime="2026-11-04">2026-11-04</time>'));
  for(const text of ['assets.privatelocal.chat','huggingface.co','raw.githubusercontent.com','chatThreads','plc-docs','Session storage','chatConfig','chatEndpointTokens','Cloudflare Pages','https://www.cloudflare.com/privacypolicy/','no analytics, advertising or tracking scripts','after the <code>#</code>','public'])assert.ok(html.includes(text),text);
  assert.doesNotMatch(html,/\b\d+\s*(days|day|hours|months)\b.{0,40}(log|retention)/i,'no unverified retention periods');
 });

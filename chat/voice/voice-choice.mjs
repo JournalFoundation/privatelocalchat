@@ -9,6 +9,7 @@
 
 import { VOICE_ENGINES, VOICE_CONFIG, voiceIsFastEnough, startDelayMs, pickVoiceEngine, isIOSDevice } from "../../runtime/voice-pick.mjs";
 import { createGaplessPlayer } from "./voice-player.mjs";
+import { appLocal } from "../vault/vault-store.mjs";
 
 export const CHOICE_KEY = "plc.voice.v2";
 const OLD_KEY = "plc.voice.v1";
@@ -33,7 +34,7 @@ const blank = () => ({ v: 2, selected: "os", failures: {}, pending: null, speaki
 
 export function createVoiceChoice({
   factory,                       // async (engineId) -> engine
-  storage = globalThis.localStorage,
+  storage = appLocal,
   env = () => ({}),              // () -> { deviceMemoryGB, cores, webgpu }
   loadModule = (name) => import(new URL("./" + name, import.meta.url).href),
   userAgent = globalThis.navigator?.userAgent || "",

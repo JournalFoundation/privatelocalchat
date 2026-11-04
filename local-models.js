@@ -6,6 +6,10 @@ import {cpuBackendSupport,gpuRunsLight} from './runtime/auto-tier.mjs';
 import {createOfflineStatusProbe} from './runtime/offline-status.mjs';
 import {createModelHost} from './runtime/providers/model-host.mjs';
 import {gatherEnv} from './runtime/providers/capability-probe.mjs';
+import {bootVault,appLocal,appSession} from './chat/vault/vault-store.mjs';
+
+// If the person has an encrypted vault, nothing below may read a saved setting until it is unlocked (the page's own script waits for the same answer).
+await bootVault();
 
 const $ = id => document.getElementById(id);
 const base = 'https://assets.privatelocal.chat/models/';
@@ -27,9 +31,9 @@ let updatePending = false, quality = null, qualityAvailable = true, offlineAppRe
 let checkOffline = null; // set when the service worker is available
 let offlineApp = { checked: false, supported: 'serviceWorker' in navigator, controlled: false, current: false, bulkSaved: 0, bulkExpected: 0 };
 let existingApi = false;
-try {existingApi = Boolean(JSON.parse(sessionStorage.getItem('chatConfig') || '{}').endpoint);} catch {}
+try {existingApi = Boolean(JSON.parse(appSession.getItem('chatConfig') || '{}').endpoint);} catch {}
 let mode = existingApi ? 'api' : 'local';
-try {mode=localStorage.getItem(modeKey)||mode;} catch(e) {console.warn('Mode storage unavailable:',e.name);}
+try {mode=appLocal.getItem(modeKey)||mode;} catch(e) {console.warn('Mode storage unavailable:',e.name);}
 if (!['local','api'].includes(mode)) mode = 'local';
 const gb = n => (n/1e9).toFixed(2)+' GB';
 // What the page's own UI (Settings > Models, the pickers) shows is kept here, not in page elements: window.localModels.view.
@@ -117,7 +121,7 @@ function maybeAutoLoad() {
 }
 function applyMode() {
   $('apiSettings').hidden=mode!=='api';
-  try {localStorage.setItem(modeKey,mode);} catch(e) {showError(new Error('The browser cannot save settings: '+e.name));}
+  try {appLocal.setItem(modeKey,mode);} catch(e) {showError(new Error('The browser cannot save settings: '+e.name));}
   if(mode==='local')autoLoadTried=false;
   notify();
   maybeAutoLoad();
@@ -213,8 +217,8 @@ window.localModels={
     } catch(e) {if(e.name==='AbortError')resetPromptAfterAbort=true;throw e;} finally {activeGeneration=false;render(host.getState());}
   }
 };
-$('reloadApp').addEventListener('click',()=>{try {sessionStorage.setItem('plc.draft',document.querySelector('#messageInput').value);location.reload();}catch(e){showError(new Error('Copy your message draft before reloading; browser storage is unavailable.'));}});
-try {const draft=sessionStorage.getItem('plc.draft');if(draft){document.querySelector('#messageInput').value=draft;sessionStorage.removeItem('plc.draft');}} catch {}
+$('reloadApp').addEventListener('click',()=>{try {appSession.setItem('plc.draft',document.querySelector('#messageInput').value);location.reload();}catch(e){showError(new Error('Copy your message draft before reloading; browser storage is unavailable.'));}});
+try {const draft=appSession.getItem('plc.draft');if(draft){document.querySelector('#messageInput').value=draft;appSession.removeItem('plc.draft');}} catch {}
 $('releaseInfo').textContent=`${window.APP_BUILD?.environment || 'local'} · ${window.APP_BUILD?.version || 'development'} · ${window.APP_BUILD?.commit?.slice(0,12) || 'unbuilt'}`;
 applyMode();
 if('serviceWorker' in navigator) {

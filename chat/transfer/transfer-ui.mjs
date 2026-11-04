@@ -8,6 +8,7 @@ import * as ST from "./settings-transfer.mjs";
 import { PRODUCT, mountProductShare, canShareNatively } from "./product-share.mjs";
 import { renderQr, fitsQr } from "./qr.mjs";
 import { ROBOT_NAME } from "../roberta/ivr-content.mjs";
+import { appSession } from "../vault/vault-store.mjs";
 
 export const NOTICE_SETTINGS = "This transfer includes the settings listed below. These settings may contain sensitive information. Anyone with the link, QR code, or settings file can read the listed settings. An included API token is encrypted with your chosen password. Communicate that password separately.";
 export const NOTICE_EXPORT = "This file includes the conversations and items listed below. Anyone able to open the file can read its included content. Choose where to save it and who to give it to.";
@@ -186,9 +187,9 @@ export function createTransferUi({ app, el, openAppDialog, showToast, icon, doc 
   }
 
   // ---- pending (still locked) token ---------------------------------------------------------------------------------------
-  const readPending = () => { try { const v = JSON.parse(sessionStorage.getItem(PENDING_KEY)); return v?.envelope ? v : null; } catch { return null; } };
-  const writePending = (envelope) => { try { sessionStorage.setItem(PENDING_KEY, JSON.stringify({ envelope, at: Date.now() })); } catch { /* the token can still be typed in */ } renderPending(); };
-  function discardPending() { try { sessionStorage.removeItem(PENDING_KEY); } catch { /* nothing stored */ } renderPending(); }
+  const readPending = () => { try { const v = JSON.parse(appSession.getItem(PENDING_KEY)); return v?.envelope ? v : null; } catch { return null; } };
+  const writePending = (envelope) => { try { appSession.setItem(PENDING_KEY, JSON.stringify({ envelope, at: Date.now() })); } catch { /* the token can still be typed in */ } renderPending(); };
+  function discardPending() { try { appSession.removeItem(PENDING_KEY); } catch { /* nothing stored */ } renderPending(); }
   let pendingRow = null;
   function renderPending() {
     if (!pendingRow) return;

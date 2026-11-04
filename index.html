@@ -33,7 +33,7 @@
   <link rel="icon" href="/brand/favicon.ico" sizes="48x48" />
   <link rel="apple-touch-icon" href="/brand/apple-touch-icon-180.png" />
   <link rel="stylesheet" href="/chat/page.css" />
-  <script>try{if(localStorage.getItem('plc.lock.v1'))document.documentElement.classList.add('locked');else if(localStorage.getItem('plc.lockSplash.v1')!=='off')document.documentElement.classList.add('splashing');}catch(e){}</script>
+  <script>try{if(localStorage.getItem('plc.lock.v1')||localStorage.getItem('plc.vault.v1'))document.documentElement.classList.add('locked');else if(localStorage.getItem('plc.lockSplash.v1')!=='off')document.documentElement.classList.add('splashing');}catch(e){}</script>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="/local-models.css" />
   <link rel="stylesheet" href="/chat/chat.css" />
@@ -82,13 +82,14 @@
         newerBuild(function () { show('A newer version of PrivateLocal.Chat is available.', 'Update now', updateNow); });
       });
       function failed(detail) {
-        if (window.__plcBooted || (bar && bar.dataset.failed)) return;
+        if (window.__plcBooted || window.__plcVaultLocked || (bar && bar.dataset.failed)) return; // an encrypted vault waiting for its passphrase is not a failed start
         show('PrivateLocal.Chat did not start properly. ' + (build.commit ? '(build ' + String(build.commit).slice(0, 7) + ') ' : '') + (detail ? String(detail).slice(0, 160) : ''), 'Update the app', updateNow);
         if (bar) bar.dataset.failed = '1';
       }
       window.addEventListener('error', function (e) { failed(e && e.message); });
       window.addEventListener('unhandledrejection', function (e) { failed(e && e.reason && e.reason.message); });
       window.addEventListener('load', function () { setTimeout(function () { failed('The app files did not finish loading.'); }, 4000); });
+      window.addEventListener('plc-vault-unlocked', function () { setTimeout(function () { failed('The app did not start after unlocking.'); }, 8000); });
     })();
   </script>
   <script type="module" src="/local-models.js"></script>
@@ -413,9 +414,26 @@
     (async () => {
       // the page's own dialogs and the app lock live in modules (chat/dialogs.mjs, chat/lock/lock.mjs); they are needed from the start
       const modulesAt = window.APP_BUILD?.commit ? '/releases/' + window.APP_BUILD.commit + '/' : '/';
+      // the vault's modules are fetched together with the rest, so the start-up does not wait one more round trip for them
+      const vaultModules = Promise.all([import(modulesAt + 'chat/vault/vault-store.mjs'), import(modulesAt + 'chat/vault/vault-control.mjs'), import(modulesAt + 'chat/documents/doc-store.mjs')]);
       const [{ createDialogs }, { createLock }, { createCall }, { createModelServices }, { createEvents }, { createDocumentsUi }, { createDrafts }, { createVoiceUi }, { createAssistant }, { createRobertaGlue }, { createContextUi }, { createBackups }, { createStorageUi }, { createConversationList }, { createHistoryIo }, { createProviderSettings }, { createTransferGlue }, { createPageChrome }, { createMessagesView }, { createSender }, { createThreadState }, { createConnectionGlue }] = await Promise.all([import(modulesAt + 'chat/dialogs.mjs'), import(modulesAt + 'chat/lock/lock.mjs'), import(modulesAt + 'chat/call/call.mjs'), import(modulesAt + 'chat/models/services.mjs'), import(modulesAt + 'chat/events.mjs'), import(modulesAt + 'chat/documents/documents-ui.mjs'), import(modulesAt + 'chat/documents/drafts.mjs'), import(modulesAt + 'chat/voice/voice-ui.mjs'), import(modulesAt + 'chat/assistant/assistant.mjs'), import(modulesAt + 'chat/roberta/roberta-glue.mjs'), import(modulesAt + 'chat/context/context-ui.mjs'), import(modulesAt + 'chat/transfer/backups.mjs'), import(modulesAt + 'chat/storage/storage-ui.mjs'), import(modulesAt + 'chat/list/conversation-list.mjs'), import(modulesAt + 'chat/history/history-io.mjs'), import(modulesAt + 'chat/provider/provider-settings.mjs'), import(modulesAt + 'chat/transfer/transfer-glue.mjs'), import(modulesAt + 'chat/core/page-chrome.mjs'), import(modulesAt + 'chat/core/messages-view.mjs'), import(modulesAt + 'chat/core/sender.mjs'), import(modulesAt + 'chat/core/thread-state.mjs'), import(modulesAt + 'chat/connection/connection-glue.mjs')]);
+      // an encrypted vault, if the person made one, is unlocked before anything reads a saved setting (chat/vault/); the same answer gates local-models.js. Importing the other modules first is safe: none of them reads storage until it is created below.
+      const [{ bootVault, appLocal, appSession, app: vaultApp }, { createVaultControl }, { docStore: vaultDocs }] = await vaultModules;
+      await bootVault();
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
+      // a change the vault could not store: say so at once (the chat on screen is not lost), and let features listen
+      window.addEventListener('plc:vault-write-failed', event => {
+        events.emit('vault:write-failed', event.detail);
+        showToast('A change could not be saved to the encrypted vault (' + (event.detail?.message || 'unknown reason') + '). It is still on screen: export your chats if this keeps happening.', 12000);
+      });
+      window.addEventListener('plc:vault-readonly', () => showToast('This app is open in another tab, so changes made here are not saved. Close the other tab and reload this one.', 12000));
+      window.addEventListener('plc:vault-remote-change', () => showToast('Something changed in another tab. Reload to see it.', 8000));
+      window.addEventListener('plc:vault-writer-free', () => showToast('The other tab was closed. Reload this one to make changes.', 10000));
+      window.addEventListener('plc:vault-damaged', event => showToast(event.detail.count + ' saved item(s) in the encrypted vault could not be read. The rest is fine; an encrypted backup can restore them.', 12000));
+      window.addEventListener('plc:vault-missing', () => window.setTimeout(() => showToast('The encrypted vault that was on this device is gone (the browser may have cleared its storage). Restore from an encrypted backup if you have one.', 15000), 1500));
+      window.addEventListener('pagehide', () => { vaultApp.flush().catch(() => {}); }); // finish what is queued when the page goes away
+      document.addEventListener('visibilitychange', () => { if (document.hidden) vaultApp.flush().catch(() => {}); });
       // whether the app is online, the offline checklist and its fixes (chat/connection/); the shell and Settings read it as plcApp.offline
       const offline = createConnectionGlue({ events, models: () => window.localModels, voice: () => loadVoiceChoice().then(ctl => ctl?.snapshot?.() || null), toast: text => showToast(text), endpoint: () => provider?.config?.endpoint, loadMatching: () => sharedEmbedder().then(embedder => embedder.ready()) });
       // DOM element references
@@ -545,7 +563,7 @@
           return true;
         } catch (err) {
           console.error(`Failed to write ${key}:`, err);
-          if (!storageWarned && store === localStorage) {
+          if (!storageWarned && store === appLocal) {
             storageWarned = true;
             showToast('This browser could not save your changes (storage is full or blocked). Export your chats now so nothing is lost.', 9000);
           }
@@ -587,7 +605,7 @@
         const est = async () => { try { const e = await navigator.storage.estimate(); return { usageMB: +(e.usage / 1e6).toFixed(1), quotaMB: Math.round(e.quota / 1e6) }; } catch { return null; } };
         const ctl = await window.plcApp.loadVoice();
         if (!ctl) return { error: 'the voice controller did not load' };
-        if (action === 'voice-state') return { snapshot: ctl.snapshot(), storage: await est(), record: localStorage.getItem('plc.voice.v2') };
+        if (action === 'voice-state') return { snapshot: ctl.snapshot(), storage: await est(), record: appLocal.getItem('plc.voice.v2') };
         const advice = await ctl.advise();
         if (action === 'voice-decide') return { advice };
         const id = advice?.recommended || 'kitten', before = await est(), t0 = performance.now();
@@ -658,8 +676,8 @@
       const CONTINUE_PROMPT = 'Continue exactly where your last message stopped. Do not repeat anything you already wrote and do not add an introduction.';
 
       const PREFS_KEY = 'plc.prefs.v1';
-      const prefs = { enterSends: null, ...readJson(localStorage, PREFS_KEY, {}) };
-      const savePrefs = () => writeJson(localStorage, PREFS_KEY, prefs);
+      const prefs = { enterSends: null, ...readJson(appLocal, PREFS_KEY, {}) };
+      const savePrefs = () => writeJson(appLocal, PREFS_KEY, prefs);
       const isTouchDevice = () => Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
       const enterSends = () => (typeof prefs.enterSends === 'boolean' ? prefs.enterSends : !isTouchDevice());
       const composerHint = document.getElementById('composerHint');
@@ -676,14 +694,14 @@
 
       // Each conversation keeps its own unsent draft.
       const DRAFTS_KEY = 'plc.drafts.v1';
-      let drafts = readJson(localStorage, DRAFTS_KEY, {});
+      let drafts = readJson(appLocal, DRAFTS_KEY, {});
       if (!drafts || typeof drafts !== 'object' || Array.isArray(drafts)) drafts = {};
       let draftTimer = null;
       function persistDraftNow(threadId = currentThreadId) {
         window.clearTimeout(draftTimer); draftTimer = null;
         if (!threadId) return;
         if (messageInput.value) drafts[threadId] = messageInput.value; else delete drafts[threadId];
-        writeJson(localStorage, DRAFTS_KEY, drafts);
+        writeJson(appLocal, DRAFTS_KEY, drafts);
       }
       const scheduleDraftSave = () => { window.clearTimeout(draftTimer); draftTimer = window.setTimeout(() => persistDraftNow(), 250); };
       function growComposer() {
@@ -887,8 +905,9 @@
       const { loadCrypto, passField, buildBackup, askPassphrase, restoreExtras } = backups;
 
       // ---- app lock and the not-locked reminder (chat/lock/lock.mjs) ----
+      const vaultControl = createVaultControl({ app: vaultApp, docs: vaultDocs, events });
       const lock = createLock({
-        el, createEmoji, readJson, writeJson, openAppDialog, confirmDialog, showToast, loadCrypto, passField,
+        vault: vaultControl, busy: () => generationBusy, el, createEmoji, readJson, writeJson, openAppDialog, confirmDialog, showToast, loadCrypto, passField,
         focusComposer: options => messageInput.focus(options),
         onLock: () => { stopSpeaking?.(); call.stop(); }
       });
@@ -982,7 +1001,7 @@
         upgradeStaticIcons();
         document.querySelectorAll('[data-flow-icon]').forEach(node => { if (!node.firstChild) node.appendChild(M.icons.iconNode(node.dataset.flowIcon)); });
         updateComposerHint();
-        if (sessionStorage.getItem('plc.pendingToken.v1')) loadTransferUi();
+        if (appSession.getItem('plc.pendingToken.v1')) loadTransferUi();
         document.getElementById('newChatBtn').addEventListener('click', () => newThread());
         provider.restore();
         await applyConfigFromUrl();
@@ -993,7 +1012,7 @@
         renderThreadList();
         // If a thread was created via URL params select it; otherwise pick the first existing
         const firstThreadWithId = threads.find(thread => thread && typeof thread.id === 'string' && thread.id);
-        const savedThreadId = readJson(localStorage, ACTIVE_THREAD_KEY, null);
+        const savedThreadId = readJson(appLocal, ACTIVE_THREAD_KEY, null);
         const resumeThreadId = typeof savedThreadId === 'string' && getThread(savedThreadId) ? savedThreadId : null;
         const targetThreadId = currentThreadId || resumeThreadId || ensuredId || firstThreadWithId?.id || null;
         if (targetThreadId) {

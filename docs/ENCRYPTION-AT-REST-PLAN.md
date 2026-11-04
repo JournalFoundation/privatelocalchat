@@ -2,7 +2,7 @@
 
 This is a **living plan**, the same shape as `docs/OFFLINE-PLAN.md` and `docs/RESTRUCTURE-PLAN.md`: where we are, where we are going, the order, and a log that is updated as we learn. It does not have to be right at the start; each phase ends by correcting this page. `docs/ARCHITECTURE.md` stays the description of how the app is put together now; anything this plan adds (a folder, an event, a window global) goes there too.
 
-Proposed 2026-11-04; made a living plan the same day. **Status: phase 0 done (the inventory and its guard); the vault itself is not built. Unlock with the owner's face is a goal (Phase 5), with the real face needed only in its last step.** The decisions marked **(owner)** are listed with a recommended answer under "Open questions"; work on phases 1 and 2 can start on the recommendations.
+Proposed 2026-11-04; made a living plan the same day. **Status: built and tested through Phase 5.3 (2026-11-04): the vault, the migration, the unlock screen, two tabs, auto-lock, failure messages and the passkey flow all work and are covered by `npm test` and the browser tests. Two steps wait for the owner: 5.4 (their face, on the iPhone 15 Pro, last) and 6.1 (default on, an owner decision). Device numbers are in for the Veriton, Mac Safari and the Galaxy S8+; the iPhone 15 Pro numbers come with 5.4.** The decisions marked **(owner)** below were answered with the recommendations under "Open questions".
 
 ## Goal
 
@@ -102,53 +102,41 @@ New database `plc-vault` with object stores:
 - `header` (one row, plaintext): `{ format: "plc-vault/1", kdf, iterations, salt, wrappedDek, deviceWrap?, createdAt }`.
 - `log` (keyPath `seq`, auto-increment): `{ seq, keyId, iv, data }`. `data` is AES-GCM ciphertext of one event; the AAD is
   `"plc-vault/1|" + seq + "|" + keyId`, so records cannot be moved, swapped between chats or replayed at another position.
-- `snapshots`: periodic compacted state (see Compaction), also encrypted, also AAD-bound to its `upToSeq`.
+- There is no separate snapshots store. Compaction (below) rewrites the live state as fresh records in the same log, so deleting a chat can still destroy the key that sealed it.
 
 Why IndexedDB, not localStorage: WebCrypto is asynchronous and localStorage writes are synchronous (so encrypt-then-store needs async storage
 anyway), localStorage is capped around 5 MB, and IndexedDB gives transactions with a completion event.
 
-Event types (plaintext inside the ciphertext, versioned):
+Event types (plaintext inside the ciphertext, versioned). Built (2026-11-04) at the granularity the app already saves at, a whole chat at a time, not message by message: a write of one chat of a heavy user took under 1 ms in the measurement (`tests/vault-perf.test.mjs`), so the finer events would only add replay work.
 
 ```
-thread.create {id, title, systemPrompt, createdAt}
-thread.update {id, title?, systemPrompt?, folder?, ...}
-thread.delete {id}                      // and the chat key is destroyed
-message.add   {threadId, message}       // the prompt, before it is sent to the model
-message.partial {threadId, messageId, text}   // streaming checkpoint, replaces previous partial
-message.final {threadId, messageId, message}
-message.edit / message.delete
-doc.put {id, ...} / doc.delete {id}
-setting.set {key, value}               // every former localStorage/sessionStorage user key
+kv.set {k, v} / kv.del {k}              // every former localStorage / sessionStorage key the inventory calls user, setting or transient (k = "l/" or "s/" + the old key)
+thread.put {id, thread} / thread.del {id}   // one chat, sealed with that chat's own key; deleting destroys the key
+doc.put {id, doc} / doc.del {id}        // one document, sealed with its own key
+key.put {id, raw} / key.destroy {id}    // per-chat and per-document keys, sealed by the vault key
 ```
 
-The in-memory state after unlock is `snapshot + replay(log after snapshot)`. The rest of the app keeps working on that in-memory state exactly
-as it does now; only the persistence layer changes.
+The order of the chat list is its own `kv` record, so a reorder does not rewrite any chat. The in-memory state after unlock is the replay of the log; the rest of the app keeps working on that in-memory state exactly as it does now (`chat/vault/vault-store.mjs` serves `appLocal` / `appSession` from it), and only the persistence layer changed. Documents are held in memory while unlocked (a trade made for simplicity; a very large library costs memory).
 
 ### Durability: "saved as soon as the app has it"
 
 - Each event is one IndexedDB `readwrite` transaction opened with `{ durability: "strict" }` where supported. The write counts as saved on
   `oncomplete`; the UI does not show anything as saved before that.
-- A prompt is written (`message.add`) **before** it is handed to the model or the API.
-- While a reply streams, `message.partial` is written about once per second (and on `visibilitychange` → hidden and `pagehide`), then
-  `message.final` when it ends. A killed page leaves the last partial, shown as "reply interrupted" on next unlock.
+- The page already saves the chat when a prompt is sent (before the request goes out) and about every 800 ms while a reply streams (`chat/core/sender.mjs`). Each of those saves is one `thread.put`; a burst of saves of the same key is coalesced to the latest value with one write in flight (`createAppStorage`), so a streaming reply is stored about as often as the page saves it. A page killed mid-reply keeps what was written (`tests/e2e/vault.e2e.mjs`).
 - Writes are serialised through one queue per tab, so ordering is the order of events. Encryption happens in the page (`crypto.subtle` is
   fast enough for chat-sized records); no plaintext is ever handed to storage.
 
 ### Compaction
 
-When the log since the last snapshot exceeds a threshold (e.g. 2 000 records or 5 MB) and the app is idle, write a new encrypted snapshot of the
-full state, then delete the log records it covers and older snapshots in one transaction. Superseded partials are dropped. Deleted chats'
-records are dropped (and are already unreadable because their key is gone).
+`session.compact()` rewrites the live state as fresh records (new sequence numbers, each sealed with its own key) and drops every older record in one adapter call, so it is all or nothing. Superseded saves, deleted chats and destroyed keys disappear. 500 chats and 10,000 messages compact in about half a second in node (`tests/vault-perf.test.mjs`). It is not yet run automatically; a threshold is a later tuning step.
 
 ### Two tabs
 
-Only one tab may write. Use `navigator.locks.request("plc-vault-writer", ...)`; other tabs open read-only and receive new events over a
-`BroadcastChannel` (ciphertext only, or just "seq N is new; read it"). If the writer tab closes, the next tab takes the lock and replays from
-the log. Without Web Locks, fall back to "this chat is open in another tab" and refuse to write.
+Only one tab may write: the first holds a Web Lock (`plc-vault-writer`) for as long as it lives; another tab opens the vault **read-only**, keeps its changes on screen only, says once that they are not saved, and is told (over a `BroadcastChannel`, "seq N is new") when the writer stored something or closed. It does not take over by itself: it asks the person to reload, because its copy of the state may be stale. Without Web Locks the vault is still safe: two writers cannot both store the same sequence number, the second is refused as a conflict and reported. (`claimWriter` in `chat/vault/vault-store.mjs`, `tests/vault-store.test.mjs`, `tests/e2e/vault.e2e.mjs`.)
 
 ### Lock and unlock
 
-- Unlock: derive KEK → unwrap DEK → read snapshot + log → build state → mount the app. Until then the app shows only the lock screen; no user
+- Unlock: derive KEK → unwrap DEK → read the log → build state → mount the app. Until then the app shows only the lock screen; no user
   data is in memory.
 - Lock (button, auto-lock minutes from the existing lock, optionally on hide): drop the DEK reference, clear in-memory state, reload the page
   (the only reliable way to drop everything the page built from the data). The person is warned if a reply is still streaming.
@@ -201,64 +189,65 @@ Each phase: write the failing test first, change, run `npm test` and `npm run e2
 
 - [x] **0.1 Storage inventory and its guard** (2026-11-04, `docs/evidence/encryption/storage-inventory.json`, `tests/storage-inventory.test.mjs`). Every key, database and file that touches browser storage is listed with a class (user / setting / plain / transient / test / device) and an owner. A key the source uses that is not listed, a file that starts using storage, a listed key that is gone, a key named by a file that is not its owner, and a test-only key outside the page's markers all fail the test. This is the "every new key is classified" check that was planned for phase 3; it exists now so nothing new is added unclassified while the vault is built.
 - [x] **0.2 One key, one owner** (2026-11-04, `tests/memory-manager.test.mjs`, `runtime/memory-manager.mjs`). The inventory showed that the model-memory switch and the assistant's memory items both wrote `plc.memory.v1`, each overwriting the other (the person's memory items could be erased by flipping "One model at a time"). The switch now has its own key, `plc.modelMemory.v1`, and reads the old one once to carry its choice over.
-- [ ] **0.3 Unlock time on real devices.** Measure PBKDF2-SHA-256 at 600,000 iterations (and AES-GCM of a typical record) on this machine, the Veriton, the Mac Safari, the iPhone 15 Pro and the Galaxy S8+; record in `docs/evidence/encryption/kdf-timing.json`. Decides the iteration count (target: unlock under about 1 s on the slowest phone, the Galaxy S8+, otherwise raise the number on strong devices only and store it in the header).
-- [ ] **0.4 Baseline sizes.** How big `chatThreads` is today for a heavy user (synthetic 500 chats, 10,000 messages), how long a save takes, and how close that is to the 5 MB localStorage limit. Decides compaction thresholds and whether the move to IndexedDB is also a fix for a limit people can hit.
-- [ ] **0.5 Review this plan** with the results of 0.3 and 0.4 and rewrite phases 1 to 6 where the facts disagree. This is the step that makes the plan honest.
+- [~] **0.3 Unlock time on real devices** (2026-11-04, `docs/evidence/encryption/kdf-timing.json`, `scripts/encryption-baseline.mjs`, `scripts/encryption-probe/`). PBKDF2-SHA-256 at 600,000 iterations, the median of five runs with a fresh salt each: **this machine (Chromium) about 100 ms, the Veriton (Firefox 155) 61 ms, Mac Safari 86 ms, Galaxy S8+ (Chrome 131) 831 ms**; at 1,000,000 iterations the S8+ takes 1.4 s. Decision: keep **600,000**, which keeps the slowest phone under a second; the iteration count is stored in the header, so a stronger setting for fast devices needs no format change. The same probe also records what each browser supports (`probe-*.json`). **The iPhone 15 Pro is not measured yet**: another project's Safari automation session holds that phone's inspector channel, and this plan's device-safety rule is one automation session per phone. Its unlock time is read from the app itself (Settings > Encryption shows "Unlocking with the passphrase took N seconds on this device") during the 5.4 session with the owner.
+- [x] **0.4 Baseline sizes** (2026-11-04, `docs/evidence/encryption/baseline-centroid.json`, `scripts/encryption-baseline.mjs`). A heavy user, synthetic: 500 chats and 10,000 messages is **6.4 MB of JSON, more than the 5 MB a browser typically gives localStorage**, and serialising it takes about 16 to 25 ms on every save. So moving the chats into IndexedDB (one record per chat) also removes a limit a heavy user can hit today, not only adds encryption. Compaction thresholds are left to tuning: 1,000 records compact in half a second.
+- [x] **0.5 Review this plan** (2026-11-04) with the results of 0.3 and 0.4. What changed: (1) events are per chat, not per message, and there are no snapshots (compaction rewrites the live state), both written into Design above; (2) 600,000 iterations stay; (3) the move to IndexedDB is also the fix for the 5 MB limit; (4) API keys are kept in the vault by default with a switch (question 6); (5) a tab that cannot hold the writer lock is read-only rather than taking over; (6) the page's own start-up check treats a waiting unlock screen as not a failed start. What did not change: the format, the keys, the phases.
 
 ### Phase 1: the vault core (pure, no UI)
 
-- [ ] **1.1 Keys.** `chat/vault/vault.mjs`: passphrase to KEK, random DEK wrapped by it, per-chat and per-document keys wrapped by the DEK, passphrase change re-wraps only the DEK. Tests: right passphrase unwraps, wrong one fails, NFKC-equivalent passphrases agree, the DEK is imported non-extractable.
-- [ ] **1.2 The log.** Append with AAD `plc-vault/1|seq|keyId`, replay, snapshots, compaction. Tests: a changed byte, a swapped `seq`, a swapped `keyId`, a record moved to another chat, a replayed old record and a truncated log all fail to open or are reported; deleting a chat's key makes its records unreadable while the others still open.
-- [ ] **1.3 The reducer.** Events to state (`thread.*`, `message.*`, `doc.*`, `setting.set`). Test: replaying a corpus of synthetic, real-shaped chats gives exactly the state the app holds today (`chatThreads` shape), including partial replies and deletions.
-- [ ] **1.4 Storage adapter.** An IndexedDB adapter and an in-memory one behind one interface, so the same tests run on both; `durability: "strict"` where the browser has it, and a plain fallback that says so.
+- [x] **1.1 Keys** (2026-11-04, `chat/vault/vault.mjs`, `tests/vault.test.mjs`). `chat/vault/vault.mjs`: passphrase to KEK, random DEK wrapped by it, per-chat and per-document keys wrapped by the DEK, passphrase change re-wraps only the DEK. Tests: right passphrase unwraps, wrong one fails, NFKC-equivalent passphrases agree, the DEK is imported non-extractable.
+- [x] **1.2 The log** (2026-11-04, `tests/vault.test.mjs`, `tests/vault-perf.test.mjs`). Append with AAD `plc-vault/1|seq|keyId`, replay, snapshots, compaction. Tests: a changed byte, a swapped `seq`, a swapped `keyId`, a record moved to another chat, a replayed old record and a truncated log all fail to open or are reported; deleting a chat's key makes its records unreadable while the others still open.
+- [x] **1.3 The reducer** (2026-11-04, `tests/vault.test.mjs`, `tests/vault-store.test.mjs`: the chat list comes back exactly as `chatThreads` has it). Events to state (`thread.*`, `message.*`, `doc.*`, `setting.set`). Test: replaying a corpus of synthetic, real-shaped chats gives exactly the state the app holds today (`chatThreads` shape), including partial replies and deletions.
+- [x] **1.4 Storage adapter** (2026-11-04, `chat/vault/vault-db.mjs`; the memory twin runs the unit tests, the IndexedDB one runs in `tests/e2e/vault.e2e.mjs`). An IndexedDB adapter and an in-memory one behind one interface, so the same tests run on both; `durability: "strict"` where the browser has it, and a plain fallback that says so.
 
 ### Phase 2: chats and documents through the vault (opt-in)
 
-- [ ] **2.1 `chat/vault/vault-store.mjs`**, the one storage interface; backed by today's plaintext keys when the vault is off, so nothing changes for people who do not turn it on.
-- [ ] **2.2 `thread-state.mjs` and `doc-store.mjs` use it.** The prompt is written before it goes to the model or the API; a streaming reply is checkpointed about once a second, on hide and on page hide; a killed page shows "reply interrupted" at the next unlock.
-- [ ] **2.3 Lock and unlock UI** (`chat/lock/lock.mjs` becomes the vault's unlock); the not-locked reminder (`plc.lockSplash.v1`) is reconsidered; `vault:unlocked`, `vault:locked` and `vault:write-failed` join `chat/events.mjs`.
-- [ ] **2.4 Migration both ways** with read-back verification before any plaintext is removed; the person is told what flash may keep (limit 5).
-- [ ] **2.5 e2e.** No plaintext at rest (marker scan), kill the page mid-reply, wrong passphrase, migration on and off, backup and restore round trip.
+- [x] **2.1 `chat/vault/vault-store.mjs`** (2026-11-04, `tests/vault-store.test.mjs`), the one storage interface; backed by today's plaintext keys when the vault is off, so nothing changes for people who do not turn it on.
+- [x] **2.2 `thread-state.mjs` and `doc-store.mjs` use it** (2026-11-04, `chat/core/thread-state.mjs`, `chat/documents/doc-store.mjs`). The prompt is written before it goes to the model or the API; a streaming reply is checkpointed about once a second, on hide and on page hide; a killed page shows "reply interrupted" at the next unlock.
+- [x] **2.3 Lock and unlock UI** (2026-11-04, `chat/vault/unlock-screen.mjs`, `chat/vault/vault-control.mjs`, `chat/lock/lock.mjs`) (`chat/lock/lock.mjs` becomes the vault's unlock); the not-locked reminder (`plc.lockSplash.v1`) is reconsidered; `vault:unlocked`, `vault:locked` and `vault:write-failed` join `chat/events.mjs`.
+- [x] **2.4 Migration both ways** (2026-11-04, `tests/vault-control.test.mjs`) with read-back verification before any plaintext is removed; the person is told what flash may keep (limit 5).
+- [x] **2.5 e2e** (2026-11-04, `tests/e2e/vault.e2e.mjs`). No plaintext at rest (marker scan), kill the page mid-reply, wrong passphrase, migration on and off, backup and restore round trip.
 
 ### Phase 3: every setting through the vault
 
-- [ ] **3.1 Move each `user` and `setting` key of the inventory** (provider config and API keys, voice, prefs, folders, presets, drafts, memory, pins, model choice) behind the same interface. Decide first what happens to API keys, which today live only for the tab (open question 6).
-- [ ] **3.2 Flip the inventory guard** (`tests/storage-inventory.test.mjs`) from "classified" to "no `user` or `setting` key is read or written outside the vault interface"; the allow-list is the `plain`, `transient` and `test` classes.
-- [ ] **3.3 Transient keys** (`plc.draft`, `plc.pendingToken.v1`) never hold plaintext content while the vault is on.
+- [x] **3.1 Move each `user` and `setting` key (2026-11-04, `chat/vault/key-classes.mjs`) of the inventory** (provider config and API keys, voice, prefs, folders, presets, drafts, memory, pins, model choice) behind the same interface. Decide first what happens to API keys, which today live only for the tab (open question 6).
+- [x] **3.2 Flip the inventory guard** (2026-11-04, `tests/storage-inventory.test.mjs`) (`tests/storage-inventory.test.mjs`) from "classified" to "no `user` or `setting` key is read or written outside the vault interface"; the allow-list is the `plain`, `transient` and `test` classes.
+- [x] **3.3 Transient keys** (2026-11-04, `tests/vault-store.test.mjs`) (`plc.draft`, `plc.pendingToken.v1`) never hold plaintext content while the vault is on.
 
 ### Phase 4: hardening
 
-- [ ] **4.1 Two tabs**: Web Locks single writer, `BroadcastChannel` for "seq N is new"; the fallback without Web Locks refuses to write and says why.
-- [ ] **4.2 Record padding** (open question 4) and auto-lock on hide (open question 3).
-- [ ] **4.3 Iteration count** chosen from 0.3 and measured again on the devices after the vault exists; evidence in `docs/evidence/encryption/`.
-- [ ] **4.4 Failure honesty**: a full disk, a write that fails, a browser that clears storage; each says what happened and what is safe.
+- [x] **4.1 Two tabs** (2026-11-04, `tests/vault-store.test.mjs`, `tests/e2e/vault.e2e.mjs`): Web Locks single writer, `BroadcastChannel` for "seq N is new"; the fallback without Web Locks refuses to write and says why.
+- [x] **4.2 Record padding** (2026-11-04, `tests/vault.test.mjs`: records round up to 1 KB) and auto-lock (`Lock as soon as I leave this tab or app`, `tests/e2e/vault.e2e.mjs`) (open question 4) and auto-lock on hide (open question 3).
+- [x] **4.3 Iteration count** (2026-11-04, `docs/evidence/encryption/kdf-timing.json`: 600,000 kept; the unlock time is shown in Settings so every device can report its own) chosen from 0.3 and measured again on the devices after the vault exists; evidence in `docs/evidence/encryption/`.
+- [x] **4.4 Failure honesty** (2026-11-04, `index.html`, `tests/vault-store.test.mjs`: a failed write is reported and the queue goes on; a vault the browser cleared is announced; unreadable records are counted; the browser is asked to keep the storage; locking mid-reply asks first): a full disk, a write that fails, a browser that clears storage; each says what happened and what is safe.
 
 ### Phase 5: unlock with Face ID / Touch ID (a passkey with PRF as a second way to wrap the vault key)
 
 The aim is that the person taps "Unlock", looks at the phone, and the vault opens. The passphrase keeps working beside it and stays the only way back if the passkey is lost. Built after the passphrase flow of Phases 1 to 4, because it is a second wrap of the same vault key, not a different vault.
 
-- [ ] **5.1 Learn what is true on the devices we have** (before writing the feature): does `navigator.credentials.create` with the PRF extension work, with the platform authenticator, on Mac Safari, the iPhone 15 Pro, the Galaxy S8+ (Android, its own browser lock) and Chromium on this machine and on the Veriton; does it work in an installed home-screen app as well as in a tab; what happens in a private window. Probe pages only, results in `docs/evidence/encryption/passkey-prf.json`. No face is needed to learn *support* where the browser reports it; where a real prompt is unavoidable, it is saved for 5.4 and the step says so.
-- [ ] **5.2 Pure logic, tested with no hardware.** `chat/vault/passkey.mjs`: feature detection, the PRF salt per vault, HKDF of the PRF output to a wrapping key, wrap and unwrap of the vault key, multiple passkeys, removing one, every failure mapped to a plain sentence. Unit tests use a fake authenticator that returns deterministic PRF output.
-- [ ] **5.3 Browser tests with a virtual authenticator.** Chromium's virtual platform authenticator (with user verification and PRF switched on) drives the whole flow in `tests/e2e/vault-passkey.e2e.mjs`: add a passkey, lock, unlock with it, remove it, unlock with the passphrase, a browser without PRF falls back with a clear message, a cancelled prompt leaves the vault locked. Safari-specific behaviour that Chromium cannot show is recorded in 5.1 and handled in code. No person is involved.
-- [ ] **5.4 The one real check: the owner's face, last.** On the iPhone 15 Pro (and the Mac if wanted), add the passkey, lock, unlock with Face ID, then lock and unlock with the passphrase. Done once, at the end, after everything above is green; the owner is asked for ten minutes then and not before. Evidence in `docs/evidence/encryption/faceid-iphone15pro.md`.
+- [~] **5.1 Learn what is true on the devices we have** (2026-11-04, `docs/evidence/encryption/probe-veriton-firefox155.json`, `probe-mac-safari.json`, `probe-galaxy-s8plus-chrome131.json`) (before writing the feature): does `navigator.credentials.create` with the PRF extension work, with the platform authenticator, on Mac Safari, the iPhone 15 Pro, the Galaxy S8+ (Android, its own browser lock) and Chromium on this machine and on the Veriton; does it work in an installed home-screen app as well as in a tab; what happens in a private window. Probe pages only, results in `docs/evidence/encryption/passkey-prf.json`. No face is needed to learn *support* where the browser reports it; where a real prompt is unavoidable, it is saved for 5.4 and the step says so. **Results so far:** the Veriton (Firefox 155) and Mac Safari report `extension:prf: true`; Safari also reports a platform passkey authenticator (`passkeyPlatformAuthenticator: true`) but no user-verifying one on that Mac (no Touch ID there), so on that Mac a passkey would rely on iCloud Keychain rather than a fingerprint. The Galaxy S8+ (Chrome 131) reports a user-verifying platform authenticator (`uvpaa: true`, its screen lock) but Chrome 131 has no `getClientCapabilities()`, so PRF there is only learned by trying (5.4 style, on the phone). IndexedDB accepts `durability: "strict"`, Web Locks and `BroadcastChannel` exist on all three. Chromium's virtual authenticator does implement PRF, which is what 5.3 uses. **Still open:** the iPhone 15 Pro (see 0.3) and a real PRF attempt on the S8+; both need a person for the prompt and come with 5.4.
+- [x] **5.2 Pure logic, tested with no hardware** (2026-11-04, `chat/vault/passkey.mjs`, `tests/vault-passkey.test.mjs`). `chat/vault/passkey.mjs`: feature detection, the PRF salt per vault, HKDF of the PRF output to a wrapping key, wrap and unwrap of the vault key, multiple passkeys, removing one, every failure mapped to a plain sentence. Unit tests use a fake authenticator that returns deterministic PRF output.
+- [x] **5.3 Browser tests with a virtual authenticator** (2026-11-04, `tests/e2e/vault-passkey.e2e.mjs`; Chromium's virtual authenticator does support PRF). Chromium's virtual platform authenticator (with user verification and PRF switched on) drives the whole flow in `tests/e2e/vault-passkey.e2e.mjs`: add a passkey, lock, unlock with it, remove it, unlock with the passphrase, a browser without PRF falls back with a clear message, a cancelled prompt leaves the vault locked. Safari-specific behaviour that Chromium cannot show is recorded in 5.1 and handled in code. No person is involved.
+- [ ] **5.4 The one real check: the owner's face, last.** On the iPhone 15 Pro (and the Mac if wanted), add the passkey, lock, unlock with Face ID, then lock and unlock with the passphrase. Done once, at the end, after everything above is green; the owner is asked for ten minutes then and not before. Evidence in `docs/evidence/encryption/faceid-iphone15pro.md`. **The ten minutes, when the owner is ready** (everything else is already green): on the iPhone 15 Pro open `https://dev.privatelocal.chat`, then Settings > Security > App lock and encryption > Set up; leave "Also encrypt everything" ticked, choose a throw-away passphrase, say yes to removing the unencrypted copy; open the same dialog again and tap "Turn on Face ID / Touch ID" (Safari may ask for Face ID twice: once to make the passkey, once to read the key); tap Lock now; on the unlock screen tap "Unlock with Face ID or Touch ID" and look at the phone; lock again and unlock by typing the passphrase, then open the dialog once more and note "Unlocking with the passphrase took N seconds" (that is the iPhone's 0.3 number). Then "Turn encryption off" to leave the phone as it was. The result, including any Safari wording that surprised us, goes in `docs/evidence/encryption/faceid-iphone15pro.md` and the log. The same ten minutes on the Galaxy S8+ gives its real PRF answer (5.1).
 
 What the interface must say: the passkey is kept by the device's account (Apple passkeys sync through iCloud Keychain, so it is **not** bound to one phone); each site address has its own passkey, so `dev.privatelocal.chat` and `privatelocal.chat` do not share one; a lost passkey is recovered with the passphrase, and a lost passphrase with no passkey is not recoverable. A prompt that only checks the face and releases no key is not encryption and is never offered.
 
 ### Phase 6: default on (owner decision)
 
-- [ ] **6.1 New installs are asked for a passphrase at first run**; existing installs are offered the switch once and never forced.
+- [ ] **6.1 New installs are asked for a passphrase at first run**; existing installs are offered the switch once and never forced. **Owner decision, not taken.** Question 1's recommendation is opt-in through phase 5, which is how it ships: the encryption is offered by default in the passcode dialog (ticked), but nothing is encrypted until a person sets a passcode. Making it the default for new installs changes the first run for everyone, so it waits for the owner.
 
 ## Automation (the checks, so the plan cannot rot)
 
 - `tests/encryption-plan.test.mjs`: this page keeps its phases, its status line and its log; a ticked step may only name files that exist; the tests named under this heading must exist; the inventory file named here must parse. The same drift protection `tests/offline-plan.test.mjs` and `tests/architecture-doc.test.mjs` give their pages.
-- `tests/storage-inventory.test.mjs` (0.1): every storage key and every file that uses browser storage is classified; one owner per key.
+- `tests/storage-inventory.test.mjs` (0.1, 3.2): every storage key and every file that uses browser storage is classified; one owner per key; **no user, setting or transient key is read or written through raw `localStorage` / `sessionStorage`**, only through the vault store.
 - `tests/memory-manager.test.mjs` (0.2): the switch never touches the memory items' key.
-- `tests/vault.test.mjs`, `tests/vault-reducer.test.mjs`, `tests/vault-store.test.mjs` (phases 1 and 2): keys, tamper detection, replay equals today's state, the storage adapter on both back ends. Created with their phase.
-- `tests/e2e/vault.e2e.mjs` (phase 2): no plaintext at rest (a marker string written in a chat, then every `localStorage`, `sessionStorage` and IndexedDB record scanned), the page killed mid-reply, wrong and changed passphrase, two tabs, migration on and off, backup and restore. Runs on every push once it exists.
-- `tests/e2e/vault-perf.e2e.mjs` (phase 4): unlock time and per-write latency with a 10,000-message chat; the limits are written in the test.
-- `tests/vault-passkey.test.mjs` (5.2) and `tests/e2e/vault-passkey.e2e.mjs` (5.3): the passkey flow with a fake authenticator and Chromium's virtual one. Created with phase 5.
-- Device runs (the hardware targets above) write evidence files under `docs/evidence/encryption/` that this page links; a device-only finding is recorded in the log with the test that now catches it.
-- `docs/evidence/encryption/storage-inventory.json` is the one list of what the app keeps; phase 3 turns its guard from "classified" into "only through the vault".
+- `tests/vault.test.mjs` (phase 1): keys, passphrase change, tamper detection (a changed byte, a swapped key id, a moved record, a replayed one), crypto-shredding, padding, compaction, the reducer.
+- `tests/vault-store.test.mjs`, `tests/vault-control.test.mjs` (phases 2 to 4): the app storage over the vault (what goes where, coalesced writes, a failed write, API keys not remembered), migration and its read-back check, turning on and off, two tabs (the writer lock, read-only, the broadcast), the key table equals the inventory.
+- `tests/vault-passkey.test.mjs` (5.2): the passkey flow with a fake authenticator (PRF at creation or on the second prompt, no PRF, cancelled, another address, removal).
+- `tests/vault-perf.test.mjs` (phase 4): 500 chats and 10,000 messages store, unlock, rewrite one chat and compact within generous limits (a guard against an accidental quadratic step, not a promise about a phone).
+- `tests/e2e/vault.e2e.mjs` and `tests/e2e/vault-passkey.e2e.mjs` (2.5, 5.3): the whole thing in a browser, on every push (`.github/workflows/vault-e2e.yml`): a marker string is written into a chat and then looked for in every `localStorage`, `sessionStorage` and IndexedDB record; unlock screen, wrong and changed passphrase, lock now, lock when I leave, a page killed mid-reply, a second tab, turning it off; the passkey with Chromium's virtual authenticator.
+- `scripts/encryption-baseline.mjs` and `scripts/encryption-probe/`: the device probe (key-derivation time and what the browser supports); each run writes an evidence file under `docs/evidence/encryption/` that this page links.
+- `docs/evidence/encryption/storage-inventory.json` is the one list of what the app keeps; `chat/vault/key-classes.mjs` is its code twin and a test keeps them equal.
 
 ## Open questions (my recommended answer in brackets; I will proceed on these unless told otherwise)
 
@@ -271,6 +260,9 @@ What the interface must say: the passkey is kept by the device's account (Apple 
 7. Should the first release ever delete the plaintext copy by itself after migrating? [No: it offers it, after the encrypted copy is read back and an encrypted backup exists.]
 
 ## Log (newest first; add a line with every finding)
+
+* 2026-11-04: **built, phases 1 to 5.3.** `chat/vault/` (vault, vault-db, vault-store, vault-control, key-classes, unlock-screen, passkey), the passcode dialog offers "also encrypt everything" (ticked), Settings > Encryption (lock now, auto-lock, lock when I leave, remember API keys, change passphrase, Face ID / Touch ID, remove the unencrypted copy, turn off). 1,100+ unit tests and the vault browser tests pass. Found while building: (1) the page's start-up check called a waiting unlock screen "did not start properly" after 4 s: it now ignores a waiting vault and re-arms after unlocking (`window.__plcVaultLocked`); (2) `doc-store` kept its IndexedDB connection open, so deleting the old document database after migrating blocked forever: it now closes on `versionchange`; (3) an open `BroadcastChannel` at import time kept node's test process alive: the channel is only made in a page; (4) several browser tests assumed the app had drawn its shell by the time the page flagged itself started: the harness now waits for the shell too. On this box `tests/e2e/offline-variants.e2e.mjs` and `no-opfs.e2e.mjs` use ports (18401, 18431) that another project's services hold: run them with `E2E_PORT_OFFSET=7`; `offline-variants` fails the same way on the commit before this work ("no browser wording"), so that is not from the vault.
+* 2026-11-04: device probe written (`scripts/encryption-probe/`: a page, a one-shot collector, runners for the Veriton and an Android phone on Boiler) and run on the Veriton, Mac Safari and the Galaxy S8+. Two things to remember: the Mac's Safari window the probe opened was closed from AppleScript but left an empty window shell in the list (harmless); the iPhone was not touched because another project's Safari bridge holds it.
 
 * 2026-11-04: hardware targets fixed by the owner: add the Galaxy S8+ and the Veriton; the iPhone 11 Pro is out for now (unavailable), so the iPhone 15 Pro is the only iOS device in this plan. The S8+ is now the slowest phone for the iteration count.
 * 2026-11-04: owner decision: the vault must open with Face ID, and their physical face is not needed until the end. Phase 5 rewritten (passkey with PRF; learn device support, pure logic, virtual-authenticator browser tests, one real Face ID check last); the words "device-bound" were wrong (Apple passkeys sync through iCloud Keychain) and are gone; question 5 answered yes.

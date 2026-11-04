@@ -5,6 +5,7 @@
 // getChatState, updateSendButtonDisabled, updateChatNotice, updateChatAvailability, selectThread, renameThread, exportThreadMarkdown }.
 //
 // host: s (threads, currentThreadId, generationBusy, gen as get / set), M(), drafts(), and the page capabilities named in the destructure below
+import { appLocal } from "../vault/vault-store.mjs";
 
 export function createThreadState(host) {
   const { threadTitleInput, systemPromptInput, messageInput, readJson, writeJson, THREAD_KEY, ACTIVE_THREAD_KEY, provider, sendBtn, chatNotice, updateModeBadge, messageForm, closeThreadMenu, persistDraftNow, growComposer, events, closeSidebar, promptDialog, messagesView, renderThreadList } = host;
@@ -24,14 +25,14 @@ export function createThreadState(host) {
   }
 
   function loadThreads() {
-    const storedThreads = readJson(localStorage, THREAD_KEY, []);
+    const storedThreads = readJson(appLocal, THREAD_KEY, []);
     const list = Array.isArray(storedThreads) ? storedThreads : [];
     s.threads = host.M().model.purgeExpired(list.map(t => host.M().model.normalizeThread(t)).filter(Boolean));
   }
 
   // Temporary chats are never written down.
   function saveThreads() {
-    return writeJson(localStorage, THREAD_KEY, s.threads.filter(t => !t.temporary));
+    return writeJson(appLocal, THREAD_KEY, s.threads.filter(t => !t.temporary));
   }
 
   function generateThreadId() {
@@ -216,7 +217,7 @@ export function createThreadState(host) {
       updateChatAvailability();
       return;
     }
-    writeJson(localStorage, ACTIVE_THREAD_KEY, id);
+    writeJson(appLocal, ACTIVE_THREAD_KEY, id);
     // Populate title and system prompt
     threadTitleInput.value = thread.title || '';
     systemPromptInput.value = thread.systemPrompt || '';

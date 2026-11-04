@@ -4,6 +4,7 @@
 // host: el, M() (pure chat modules), moduleBase(), threads(), setThreads(list), currentThreadId(), clearCurrentThread(), prefs, savePrefs, saveThreads, getThread, ensureThreadExists,
 // selectThread, renderThreadList, updateChatAvailability, loadCrypto, askPassphrase, restoreExtras, openAppDialog, confirmDialog, showToast, THREAD_KEY, ACTIVE_THREAD_KEY,
 // importInput, threadTitleInput, systemPromptInput, messageInput, messagesEl
+import { appLocal } from "../vault/vault-store.mjs";
 export function createHistoryIo(host) {
   const { el, prefs, savePrefs, saveThreads, getThread, ensureThreadExists, selectThread, renderThreadList, updateChatAvailability, loadCrypto,
     askPassphrase, restoreExtras, openAppDialog, confirmDialog, showToast, THREAD_KEY, ACTIVE_THREAD_KEY, importInput, threadTitleInput,
@@ -119,8 +120,8 @@ export function createHistoryIo(host) {
     host.setThreads([]);
     host.clearCurrentThread();
     try {
-      localStorage.removeItem(THREAD_KEY);
-      localStorage.removeItem(ACTIVE_THREAD_KEY);
+      appLocal.removeItem(THREAD_KEY);
+      appLocal.removeItem(ACTIVE_THREAD_KEY);
     } catch (err) {
       console.warn('Unable to remove chat history from storage:', err);
       saveThreads();

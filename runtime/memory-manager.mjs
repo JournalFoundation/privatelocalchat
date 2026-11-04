@@ -11,13 +11,14 @@
 //     unload() -> Promise, isBusy() -> boolean, estimateBytes?() -> number|null}
 // There are no exceptions: whichever model is about to be used makes every other model unload, however small it is.
 // A model asks for the device with `acquire(id)`, holds the lease while it works and calls `lease.release()` when done.
+import { appLocal } from "../chat/vault/vault-store.mjs";
 
 export const MEMORY_KEY = "plc.modelMemory.v1";
 /** The key this switch used to share with the assistant's memory items (`plc.memory.v1`), which each overwrote. Read once to carry the choice over; never written. */
 export const OLD_SHARED_KEY = "plc.memory.v1";
 export const POLICIES = Object.freeze(["keep", "one-at-a-time"]);
 
-export function createMemoryManager({ storage = globalThis.localStorage, wait = (ms) => new Promise((r) => setTimeout(r, ms)), now = () => Date.now(), pollMs = 100 } = {}) {
+export function createMemoryManager({ storage = appLocal, wait = (ms) => new Promise((r) => setTimeout(r, ms)), now = () => Date.now(), pollMs = 100 } = {}) {
   const residents = new Map();           // id -> resident
   const leases = new Map();              // id -> count
   const listeners = new Set();

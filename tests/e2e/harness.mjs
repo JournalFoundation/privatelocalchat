@@ -25,6 +25,7 @@ export async function launch({build=true,port:basePort=18271,viewport={width:128
  if(init)await page.addInitScript(init);
  await page.goto(`http://127.0.0.1:${port}/`);
  await page.waitForSelector('#messageInput');
+ await page.waitForFunction(()=>(window.__plcBooted===true&&Boolean(window.plcShell))||window.__plcVaultLocked===true,null,{timeout:10000}).catch(()=>{}); // the page finished starting and drew its shell (fresh.e2e strips the flag, so this only waits, it does not fail)
  const close=async()=>{await browser.close();web.kill();await api.close();};
  return {page,context,browser,api,errors,close,web,origin:`http://127.0.0.1:${port}`}; // web: the static server process (stopping it makes the origin truly unreachable, even for the service worker)
 }

@@ -16,6 +16,7 @@ const run=async(label,viewport,touch)=>{
  const {page}=h;
  try{
   if(touch)await openDrawer(page);
+  await page.waitForSelector('#backupNudge',{state:'visible',timeout:15000}); // the page flags itself started a moment before it has drawn the saved chats
   const nudge=await page.locator('#backupNudge').boundingBox();
   assert(nudge&&nudge.width>200,label+': the backup reminder is visible');
   const [a,b]=await page.locator('#backupNudge .backup-nudge-actions button').evaluateAll(bs=>bs.map(x=>{const r=x.getBoundingClientRect();return {w:r.width,h:r.height,x:r.x,r:r.right,t:r.top};}));
