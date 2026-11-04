@@ -945,7 +945,7 @@ body.sidebar-open {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   transform: translate(-50%, 100%);
   background: var(--color-toast-bg);
   color: var(--color-toast-text);
@@ -956,8 +956,10 @@ body.sidebar-open {
   opacity: 0;
   transition: opacity 0.18s ease, transform 0.18s ease;
   z-index: 2000;
-  max-width: min(90vw, 320px);
+  max-width: min(92vw, 420px);
   text-align: center;
+  line-height: 1.35;
+  cursor: pointer; /* a tap puts it away */
 }
 
 .toast.visible {

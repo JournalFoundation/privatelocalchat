@@ -1034,9 +1034,6 @@
           }
         });
       }
-      if (toast) {
-        toast.addEventListener('click', hideToast);
-      }
       importBtn.addEventListener('click', () => importInput.click());
       importInput.addEventListener('change', importHistory);
       if (clearHistoryBtn) {
@@ -1146,6 +1143,7 @@
       const plcApp = {
         parts: shellParts, get models() { return window.localModels; }, dialogs: window.plcDialogs, build: window.APP_BUILD,
         offline,
+        toast: (text, duration, action) => showToast(text, duration, action), // the shell's messages (a voice busy, a model error in Settings) had no toast before
         lock: { reminderOn: () => lock.reminderOn(), setReminder: on => lock.setReminder(on) },
         threads: () => threads, folders: () => convoList.folders(), currentThreadId: () => currentThreadId, currentThread: () => getThread(currentThreadId) || null,
         newThread: opts => newThread(opts || {}), toggleThreadMenu: (id, anchor) => toggleThreadMenu(id, anchor), moduleBase, loadRoberta,

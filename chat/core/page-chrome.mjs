@@ -4,10 +4,11 @@
 //
 // host: toast, modalBackdrop, aboutModal, aboutCloseBtn, promoBanner, sidebarEl, closeSidebarBtn, threadList, endpointSelect, desktopMediaQuery
 
+import { toastDuration, createPausableTimer } from './toast-timing.mjs';
+
 export function createPageChrome(host) {
   const { toast, modalBackdrop, aboutModal, aboutCloseBtn, promoBanner, sidebarEl, closeSidebarBtn, threadList, endpointSelect, desktopMediaQuery } = host;
 
-  let toastHideTimer = null;
 
   let activeModal = null;
 
@@ -90,10 +91,7 @@ export function createPageChrome(host) {
     if (!toast) return;
     toast.classList.remove('visible');
     toast.setAttribute('aria-hidden', 'true');
-    if (toastHideTimer) {
-      window.clearTimeout(toastHideTimer);
-      toastHideTimer = null;
-    }
+    toastClock.stop();
     window.setTimeout(() => {
       if (!toast.classList.contains('visible')) {
         toast.hidden = true;
@@ -101,12 +99,21 @@ export function createPageChrome(host) {
     }, 180);
   }
 
+  // The toast stays as long as its message takes to read (chat/core/toast-timing.mjs), is held while a finger or the pointer is on it or the tab is hidden, and a tap
+  // on it (after a moment, so a tap that was meant for something under it does not close it) puts it away.
+  const toastClock = createPausableTimer();
+  let toastShownAt = 0;
+  if (toast) {
+    const hold = () => toastClock.pause(), release = () => toastClock.resume();
+    for (const name of ['pointerenter', 'touchstart', 'focusin']) toast.addEventListener(name, hold, { passive: true });
+    for (const name of ['pointerleave', 'touchend', 'touchcancel', 'focusout']) toast.addEventListener(name, release, { passive: true });
+    toast.addEventListener('click', event => { if (!event.target.closest?.('.toast-action') && Date.now() - toastShownAt > 800) hideToast(); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') toastClock.pause(); else toastClock.resume(); });
+  }
+
   function showToast(message, duration = 3200, action = null) {
     if (!toast) return;
-    if (toastHideTimer) {
-      window.clearTimeout(toastHideTimer);
-      toastHideTimer = null;
-    }
+    toastClock.stop();
     toast.textContent = message;
     if (action) {
       const run = document.createElement('button');
@@ -120,10 +127,8 @@ export function createPageChrome(host) {
     // Force reflow so the animation retriggers when showToast runs rapidly.
     void toast.offsetWidth;
     toast.classList.add('visible');
-    toastHideTimer = window.setTimeout(() => {
-      toastHideTimer = null;
-      hideToast();
-    }, duration);
+    toastShownAt = Date.now();
+    toastClock.start(toastDuration(message, duration, { hasAction: Boolean(action) }), hideToast);
   }
 
   /**
