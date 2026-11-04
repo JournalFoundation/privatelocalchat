@@ -35,7 +35,7 @@ The smallest model was 901 MB (Granite 4.0 H 1B), the 2B Qwen is 1.2 GB. The S8+
 
 - [x] Galaxy S8+: download, chat, second turn, offline reopen, cleanup (2026-11-03).
 - [x] iPhone, processor path for the tiny models, on a real iPhone (15 Pro, forced) (2026-11-03).
-- [x] iPhone 11 Pro: first run in the automation session answers with `nano` (2026-11-03). **Confirmed by the owner in a normal Safari tab on the real phone (2026-11-03): sent "hi", the app loaded SmolLM2-135M and replied.** Not yet checked: that the model survives a force-quit.
+- [x] iPhone 11 Pro: first run in the automation session answers with `nano` (2026-11-03). **Confirmed by the owner in a normal Safari tab on the real phone (2026-11-03): sent "hi", the app loaded SmolLM2-135M and replied.** The owner force-quit Safari and said hi: it answered, but **downloaded the model again**. Cause (best explanation): the failure to open OPFS is called transient; at the next launch OPFS opened, the app looked there, found nothing (the model was in the Cache API) and downloaded again. Fixed (`35c7f02`): opening is tried three times, and a model already in the Cache API keeps being used when OPFS holds none. **Offline on the phone (automation session):** a fresh page load keeps the model (install state complete), and with the network denied a cold start shows the Offline pill, the checklist says Ready for offline use, and the model answers in 9 s.
 - [x] Measured speeds in the catalogue notes (memory is still an estimate: no tool here reads a phone page's memory).
 - [x] The unhelpful "needs 6 GB" message for a failed storage call.
 
