@@ -1,0 +1,301 @@
+{
+  "about": "Every place the app keeps anything in the browser, and what the encryption plan (docs/ENCRYPTION-AT-REST-PLAN.md) does with it. tests/storage-inventory.test.mjs fails if the source uses a key or a storage API that is not listed here, or if this file lists something the source no longer uses. When you add a key, add a line here first.",
+  "classes": {
+    "user": "what the person wrote or chose to keep (chats, drafts, memory, documents, API keys): goes into the vault",
+    "setting": "a choice the person made that does not reveal content (voice, switches, model choice): goes into the vault with the rest",
+    "plain": "needed before unlock or about the device and the app, not about the person: stays readable",
+    "transient": "lives for one tab or one step and is removed: must still never hold plaintext user content once the vault is on",
+    "test": "read only by a development or test hook: never shipped to production",
+    "device": "model files, runtimes and the saved app: not user data, not encrypted"
+  },
+  "keys": [
+    {
+      "key": "chatThreads",
+      "store": "localStorage",
+      "class": "user",
+      "owner": "chat/core/thread-state.mjs",
+      "note": "every saved chat, rewritten whole on each save",
+      "alsoIn": [
+        "index.html"
+      ]
+    },
+    {
+      "key": "plc.activeThread.v1",
+      "store": "localStorage",
+      "class": "user",
+      "owner": "index.html",
+      "note": "which chat is open (an id)"
+    },
+    {
+      "key": "plc.drafts.v1",
+      "store": "localStorage",
+      "class": "user",
+      "owner": "index.html",
+      "note": "unsent composer text per chat"
+    },
+    {
+      "key": "plc.prefs.v1",
+      "store": "localStorage",
+      "class": "setting",
+      "owner": "index.html",
+      "note": "composer preferences; the theme is the one value the lock screen would like to read"
+    },
+    {
+      "key": "plc.folders.v1",
+      "store": "localStorage",
+      "class": "user",
+      "owner": "chat/list/conversation-list.mjs",
+      "note": "folder names and which chats are in them"
+    },
+    {
+      "key": "plc.presets.v1",
+      "store": "localStorage",
+      "class": "user",
+      "owner": "chat/assistant/assistant.mjs",
+      "note": "the person's own prompt presets"
+    },
+    {
+      "key": "plc.memory.v1",
+      "store": "localStorage",
+      "class": "user",
+      "owner": "chat/assistant/assistant.mjs",
+      "note": "memory items. It was shared with the model-memory switch until 2026-11-04, which overwrote it",
+      "alsoIn": [
+        "runtime/memory-manager.mjs"
+      ]
+    },
+    {
+      "key": "plc.modelMemory.v1",
+      "store": "localStorage",
+      "class": "setting",
+      "owner": "runtime/memory-manager.mjs",
+      "note": "One model at a time, and whether the offer was declined"
+    },
+    {
+      "key": "plc.voice.v2",
+      "store": "localStorage",
+      "class": "setting",
+      "owner": "chat/voice/voice-choice.mjs",
+      "note": "chosen voice and its settings",
+      "alsoIn": [
+        "index.html"
+      ]
+    },
+    {
+      "key": "plc.voice.v1",
+      "store": "localStorage",
+      "class": "setting",
+      "owner": "chat/voice/voice-choice.mjs",
+      "note": "the older voice record, read once and migrated"
+    },
+    {
+      "key": "plc.inferenceMode.v1",
+      "store": "localStorage",
+      "class": "setting",
+      "owner": "local-models.js",
+      "note": "on this device or a connected provider"
+    },
+    {
+      "key": "plc.models.v1",
+      "store": "localStorage",
+      "class": "setting",
+      "owner": "runtime/providers/model-host.mjs",
+      "note": "which on-device model is chosen"
+    },
+    {
+      "key": "plc.shell.pins.v1",
+      "store": "localStorage",
+      "class": "user",
+      "owner": "chat/shell/registry.mjs",
+      "note": "pinned items; may name chats"
+    },
+    {
+      "key": "plc.shell.collapsed",
+      "store": "localStorage",
+      "class": "plain",
+      "owner": "chat/shell/shell.mjs",
+      "note": "side panel open or closed"
+    },
+    {
+      "key": "plc.downloadIntent.v1",
+      "store": "localStorage",
+      "class": "plain",
+      "owner": "runtime/download-recovery.mjs",
+      "note": "a model download that should resume; about the device, not the person",
+      "alsoIn": [
+        "local-models.js"
+      ]
+    },
+    {
+      "key": "plc.offlineHint.v1",
+      "store": "localStorage",
+      "class": "plain",
+      "owner": "chat/connection/connection-glue.mjs",
+      "note": "the offline hint was shown"
+    },
+    {
+      "key": "plc.lockSplash.v1",
+      "store": "localStorage",
+      "class": "plain",
+      "owner": "chat/lock/lock.mjs",
+      "note": "the not-locked reminder is on or off",
+      "alsoIn": [
+        "index.html"
+      ]
+    },
+    {
+      "key": "plc.lock.v1",
+      "store": "localStorage",
+      "class": "plain",
+      "owner": "chat/lock/lock.mjs",
+      "note": "lock verifier and auto-lock minutes; replaced by the vault header",
+      "alsoIn": [
+        "index.html"
+      ]
+    },
+    {
+      "key": "plc.speechInputUnusable",
+      "store": "localStorage",
+      "class": "plain",
+      "owner": "chat/voice/voice-ui.mjs",
+      "note": "this browser's speech input did not work"
+    },
+    {
+      "key": "plc.test.voice",
+      "store": "localStorage",
+      "class": "test",
+      "owner": "index.html",
+      "note": "development hook, stripped from production"
+    },
+    {
+      "key": "chatConfig",
+      "store": "sessionStorage",
+      "class": "user",
+      "owner": "chat/provider/provider-settings.mjs",
+      "note": "provider endpoint, model and format",
+      "alsoIn": [
+        "index.html",
+        "local-models.js"
+      ]
+    },
+    {
+      "key": "chatModels",
+      "store": "sessionStorage",
+      "class": "setting",
+      "owner": "chat/provider/provider-settings.mjs",
+      "note": "the provider's model list",
+      "alsoIn": [
+        "index.html"
+      ]
+    },
+    {
+      "key": "chatEndpointTokens",
+      "store": "sessionStorage",
+      "class": "user",
+      "owner": "chat/provider/endpoint-tokens.mjs",
+      "note": "API keys, one per endpoint",
+      "alsoIn": [
+        "index.html"
+      ]
+    },
+    {
+      "key": "plc.draft",
+      "store": "sessionStorage",
+      "class": "transient",
+      "owner": "local-models.js",
+      "note": "composer text kept across the page reload that applies an update"
+    },
+    {
+      "key": "plc.pendingToken.v1",
+      "store": "sessionStorage",
+      "class": "transient",
+      "owner": "chat/transfer/transfer-ui.mjs",
+      "note": "a settings link waiting for the person's choice",
+      "alsoIn": [
+        "chat/provider/provider-settings.mjs",
+        "chat/transfer/transfer-glue.mjs",
+        "index.html"
+      ]
+    },
+    {
+      "key": "plc.update.tried",
+      "store": "sessionStorage",
+      "class": "plain",
+      "owner": "index.html",
+      "note": "an update reload was already tried"
+    },
+    {
+      "key": "promoDismissed",
+      "store": "sessionStorage",
+      "class": "plain",
+      "owner": "chat/core/page-chrome.mjs",
+      "note": "the banner was closed",
+      "alsoIn": [
+        "index.html"
+      ]
+    }
+  ],
+  "databases": [
+    {
+      "name": "plc-docs",
+      "store": "indexedDB",
+      "class": "user",
+      "owner": "chat/documents/doc-store.mjs",
+      "note": "attached and library documents"
+    }
+  ],
+  "deviceStores": [
+    {
+      "name": "OPFS model and voice files",
+      "class": "device",
+      "owner": "runtime/providers/, chat/voice/voice-engine.mjs"
+    },
+    {
+      "name": "Cache Storage: the saved app and, where OPFS cannot be used, model files",
+      "class": "device",
+      "owner": "scripts/service-worker.js, runtime/providers/cache-api-backend.mjs"
+    },
+    {
+      "name": "throw-away IndexedDB probe databases",
+      "class": "plain",
+      "owner": "chat/connection/connection-glue.mjs, chat/connection/private-mode.mjs",
+      "note": "created and deleted to test what the browser allows; never hold data"
+    }
+  ],
+  "files": {
+    "about": "Every source file that touches a browser storage API. A new file here needs a line in this list, which is the moment to decide how the vault will see it.",
+    "list": [
+      "chat/assistant/assistant.mjs",
+      "chat/connection/connection-glue.mjs",
+      "chat/connection/private-mode.mjs",
+      "chat/core/page-chrome.mjs",
+      "chat/core/thread-state.mjs",
+      "chat/documents/doc-store.mjs",
+      "chat/history/history-io.mjs",
+      "chat/list/conversation-list.mjs",
+      "chat/lock/lock.mjs",
+      "chat/provider/provider-settings.mjs",
+      "chat/shell/registry.mjs",
+      "chat/shell/shell.mjs",
+      "chat/storage-check.mjs",
+      "chat/storage/storage-ui.mjs",
+      "chat/transfer/transfer-glue.mjs",
+      "chat/transfer/transfer-ui.mjs",
+      "chat/voice/voice-choice.mjs",
+      "chat/voice/voice-engine.mjs",
+      "chat/voice/voice-ui.mjs",
+      "index.html",
+      "local-models.js",
+      "runtime/download-recovery.mjs",
+      "runtime/memory-manager.mjs",
+      "runtime/providers/adapters/webllm.mjs",
+      "runtime/providers/adapters/wllama.mjs",
+      "runtime/providers/cache-api-backend.mjs",
+      "runtime/providers/capability-probe.mjs",
+      "runtime/providers/model-host.mjs",
+      "runtime/providers/opfs-write-worker.mjs",
+      "runtime/voice-pick.mjs",
+      "scripts/service-worker.js"
+    ]
+  }
+}

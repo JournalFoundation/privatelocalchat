@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMemoryManager, MEMORY_KEY } from "../runtime/memory-manager.mjs";
+import { createMemoryManager, MEMORY_KEY, OLD_SHARED_KEY } from "../runtime/memory-manager.mjs";
 
 const mem = () => { const m = {}; return { getItem: (k) => m[k] ?? null, setItem: (k, v) => { m[k] = v; }, m }; };
 function model(id, { state = "unloaded", busy = false, failUnload = false } = {}) {
@@ -85,4 +85,21 @@ test("unloadAll skips busy models; snapshot lists every resident with its state;
 test("declining the offer is remembered", () => {
   const storage = mem(); const m = createMemoryManager({ storage }); m.declineOffer();
   assert.equal(createMemoryManager({ storage }).offerDeclined, true);
+});
+
+test("the switch never touches the key that holds the person's memory items (they once overwrote each other)", () => {
+  const storage = mem();
+  storage.setItem("plc.memory.v1", JSON.stringify({ enabled: true, items: [{ id: "m1", text: "likes green" }] }));
+  const m = createMemoryManager({ storage });
+  m.setPolicy("one-at-a-time"); m.declineOffer();
+  assert.deepEqual(JSON.parse(storage.m["plc.memory.v1"]).items, [{ id: "m1", text: "likes green" }]);
+  assert.notEqual(MEMORY_KEY, OLD_SHARED_KEY);
+  assert.equal(createMemoryManager({ storage }).policy, "one-at-a-time");
+});
+test("a choice saved under the old shared key is carried over once", () => {
+  const storage = mem();
+  storage.setItem(OLD_SHARED_KEY, JSON.stringify({ policy: "one-at-a-time", offerDeclined: true }));
+  const m = createMemoryManager({ storage });
+  assert.equal(m.policy, "one-at-a-time"); assert.equal(m.offerDeclined, true);
+  assert.equal(storage.m[MEMORY_KEY], undefined, "nothing is written until the person changes it");
 });

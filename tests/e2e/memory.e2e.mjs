@@ -38,7 +38,7 @@ try{
  // switch on: using the voice unloads the other model first, and says so
  await page.evaluate(()=>window.plcShell.openSettings('models'));
  await page.waitForSelector('#oneAtATime');await page.locator('#oneAtATime').check();
- assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('plc.memory.v1')).policy==='one-at-a-time'),'the choice is stored');
+ assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('plc.modelMemory.v1')).policy==='one-at-a-time'),'the choice is stored');
  await page.evaluate(()=>{window.__seen=[];window.plcMemoryReady().then(m=>m.subscribe(s=>{if(s.activity)window.__seen.push(s.activity.text);}));});
  await page.evaluate(()=>window.plcShell.closeSettings?.());
  await page.evaluate(async()=>{const m=await window.plcMemoryReady();const l=await m.acquire('voice');l.release();});
@@ -68,7 +68,7 @@ try{
  assert(await page.evaluate(()=>window.plcMemoryReady().then(m=>m.policy==='one-at-a-time')),'Turn on switches it on');
  await page.evaluate(()=>window.plcMemoryReady().then(m=>{m.setPolicy('keep');return m.offerFailure('image','the image model');}));
  await page.getByRole('button',{name:"Don't ask again"}).click();
- assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('plc.memory.v1')).offerDeclined===true),"Don't ask again is stored");
+ assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('plc.modelMemory.v1')).offerDeclined===true),"Don't ask again is stored");
  ok('the failure offer');
  assert(h.errors.length===0,'no page errors: '+h.errors.join('|'));
  console.log('memory e2e passed');

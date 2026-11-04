@@ -12,7 +12,9 @@
 // There are no exceptions: whichever model is about to be used makes every other model unload, however small it is.
 // A model asks for the device with `acquire(id)`, holds the lease while it works and calls `lease.release()` when done.
 
-export const MEMORY_KEY = "plc.memory.v1";
+export const MEMORY_KEY = "plc.modelMemory.v1";
+/** The key this switch used to share with the assistant's memory items (`plc.memory.v1`), which each overwrote. Read once to carry the choice over; never written. */
+export const OLD_SHARED_KEY = "plc.memory.v1";
 export const POLICIES = Object.freeze(["keep", "one-at-a-time"]);
 
 export function createMemoryManager({ storage = globalThis.localStorage, wait = (ms) => new Promise((r) => setTimeout(r, ms)), now = () => Date.now(), pollMs = 100 } = {}) {
@@ -24,7 +26,7 @@ export function createMemoryManager({ storage = globalThis.localStorage, wait = 
   let queue = Promise.resolve();         // acquisitions are ordered, so two models never unload each other
 
   function read() {
-    try { const r = JSON.parse(storage?.getItem(MEMORY_KEY)); if (r && typeof r === "object") return { policy: POLICIES.includes(r.policy) ? r.policy : "keep", offerDeclined: Boolean(r.offerDeclined) }; } catch { /* unreadable: defaults */ }
+    for (const key of [MEMORY_KEY, OLD_SHARED_KEY]) try { const r = JSON.parse(storage?.getItem(key)); if (r && typeof r === "object") return { policy: POLICIES.includes(r.policy) ? r.policy : "keep", offerDeclined: Boolean(r.offerDeclined) }; } catch { /* unreadable: defaults */ }
     return { policy: "keep", offerDeclined: false };
   }
   function save() { try { storage?.setItem(MEMORY_KEY, JSON.stringify(record)); } catch { /* private mode: the choice lasts this page only */ } }
