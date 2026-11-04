@@ -43,6 +43,12 @@ export function classifyEngineError(err, { phase = "generate" } = {}) {
   const message = String(err?.message ?? err ?? "unknown error");
   const name = String(err?.name ?? "Error");
   const probe = `${name}: ${message}`;
+  // Safari's generic wording for a storage call that failed ("unknown transient reason (e.g. out of memory)"). While saving or checking files it means the
+  // browser would not give the page a place to keep them (Private Browsing, a restricted browser, a full disk), not that the model needs too much RAM.
+  if ((phase === "install" || phase === "inspect" || phase === "load") && /unknown transient reason/i.test(probe)) {
+    return { class: "load-failed", code: "storage-unavailable", reason: "storage-unavailable", providerFault: false, recoverable: false, message, name,
+      advice: "This browser would not give the page a place to save files. On iPhone and iPad that usually means Private Browsing or a restricted browser: open the app in a normal Safari tab and try again. If the device is nearly full, free some space first. Or use a connected provider, which needs no storage." };
+  }
   for (const rule of RULES) {
     if (rule.re.test(probe)) {
       // a generic "download" or fault rule applied to a generation is still a fault, never a load problem

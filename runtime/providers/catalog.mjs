@@ -109,7 +109,7 @@ export const TIERS = Object.freeze({
     downloadBytes: MINI.totalBytes,
     memory: { steadyBytes: 0.6e9, peakBytes: 0.9e9, note: "estimate from the file size plus context; measured values are in docs/SMALL-MODELS-PLAN.md" },
     sampling: { temperature: 0.2, topP: 0.9, topK: 40, repetitionPenalty: 1.05 },
-    speed: { decodeTokPerSec: "see docs/SMALL-MODELS-PLAN.md", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "see docs/SMALL-MODELS-PLAN.md", loadSecondsWarm: 2 },
+    speed: { decodeTokPerSec: "about 12 on a desktop processor and about 21 on an iPhone 15 Pro processor (measured 2026-11-03, single thread); a Galaxy S8+ answered a short follow-up in about 12 s", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "about 2 on an iPhone 15 Pro processor", loadSecondsWarm: 2 },
     strengths: "The best small model here for its size: short, direct, correct answers, and a download under a quarter of a gigabyte. A hybrid (Mamba) design that is gentle on memory. It will not write long essays or reason through hard problems; it is for quick questions and short replies on a phone.",
     cacheKind: "OPFS (wllama cache directory)"
   }),
@@ -123,7 +123,7 @@ export const TIERS = Object.freeze({
     downloadBytes: NANO.totalBytes,
     memory: { steadyBytes: 0.35e9, peakBytes: 0.55e9, note: "estimate from the file size plus context; measured values are in docs/SMALL-MODELS-PLAN.md" },
     sampling: { temperature: 0.2, topP: 0.9, topK: 40, repetitionPenalty: 1.1 },
-    speed: { decodeTokPerSec: "see docs/SMALL-MODELS-PLAN.md", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "see docs/SMALL-MODELS-PLAN.md", loadSecondsWarm: 2 },
+    speed: { decodeTokPerSec: "about 10 on a desktop processor and about 32 on an iPhone 15 Pro processor (measured 2026-11-03, single thread)", bodyStepSeconds: "not yet measured", chatTurnFirstTokenSeconds: "about 2.5 on an iPhone 15 Pro processor", loadSecondsWarm: 1 },
     strengths: "The smallest download here (about 105 MB) and fast on any phone. It answers simple questions and follows short instructions, but it is wordy, makes mistakes and forgets easily: use it when storage or memory is the limit, and check what it says.",
     cacheKind: "OPFS (wllama cache directory)"
   })
