@@ -119,5 +119,6 @@ Plan: `docs/OFFLINE-PLAN.md`; evidence: `docs/evidence/offline/`.
 | Saved app opens cold with the network denied in the service worker (not airplane mode), local data kept | iPhone 11 Pro, iOS 18.6.2 (`matrix-iphone11pro.json`) | Passed |
 | The connection pill, the checklist and the dead-connection check, on the real phone and on the Mac | iPhone 11 Pro (`ui-iphone11pro.json`, screenshots) and Mac Safari (`ui-mac-safari.json`) | Passed |
 | Download interrupted by losing the connection: waits, says so, resumes, cleans up | Chromium, real 2B download (`tests/e2e/offline-download.e2e.mjs`) | Passed |
-| The same on the iPhone 15 Pro | Not run: attached to the lab machine but not listed by its USB multiplexer (needs a replug or unlock) | Open |
+| The checklist explains a model that cannot fit (about 1.0 GB allowed, 1.2 GB needed) and lists the matching model | iPhone 11 Pro (`ui-iphone11pro-room.json`) | Passed |
+| The same on the iPhone 15 Pro | Not run. After a replug it reached the lab machine's USB multiplexer once, then the USB link stalled (`RX transfer stalled`) after 10 s and it dropped off; needs a different cable or port and an unlocked screen | Open |
 | Real airplane mode on a phone | By hand | Open |
