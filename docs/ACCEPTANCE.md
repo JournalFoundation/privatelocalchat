@@ -122,4 +122,4 @@ Plan: `docs/OFFLINE-PLAN.md`; evidence: `docs/evidence/offline/`.
 | The checklist explains a model that cannot fit (about 1.0 GB allowed, 1.2 GB needed) and lists the matching model | iPhone 11 Pro (`ui-iphone11pro-room.json`) | Passed |
 | Cold start with the network denied, the pill, the checklist, and a real reply from the downloaded 2B model after a cold start | iPhone 15 Pro, iOS 26.6.2 (`ui-iphone15pro.json`) | Passed |
 | Real airplane mode on a phone | By hand | Open |
-| Real airplane mode, Safari force-quit and reopened, a message sent | Owner's phone, by hand: the Offline pill showed, the model thought for a while, then replied | Passed |
+| Real airplane mode, Safari force-quit and reopened, a message sent | iPhone 15 Pro, by hand (owner): the Offline pill showed, the model thought for a while, then replied | Passed |
