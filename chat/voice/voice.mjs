@@ -112,10 +112,16 @@ export function createSpeaker(speakOne, { onError, onBegin, onStall, retryStalle
   };
 }
 
-export function createVoiceSession({ listen, speakOne, send, abortReply, onState = () => {}, onNote = () => {}, retryStalled = 1, now = Date.now, thinkingMs = 0, holdThinking = () => false, sentenceMs = defaultSentenceMs, clean = (s) => s, unlockAudio = () => {}, keepAwake = () => {}, setTimer = setTimeout, clearTimer = clearTimeout, silenceMs = 1400, restartMs = 250, minChars = 2, connectMs = 0 }) {
+/** Room noise can make a phone's recogniser write the same word over and over ("Test Test Test ..."): not speech, and it never stops arriving. */
+export function isBabble(text) {
+  const words = String(text || "").toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, " ").split(/\s+/).filter(Boolean);
+  return words.length >= 6 && new Set(words).size <= 2;
+}
+
+export function createVoiceSession({ listen, speakOne, send, abortReply, onState = () => {}, onNote = () => {}, retryStalled = 1, now = Date.now, thinkingMs = 0, holdThinking = () => false, sentenceMs = defaultSentenceMs, clean = (s) => s, unlockAudio = () => {}, keepAwake = () => {}, setTimer = setTimeout, clearTimer = clearTimeout, silenceMs = 1400, restartMs = 250, minChars = 2, connectMs = 0, maxListenMs = 45000 }) {
   let connectTimer = null, recDead = false;
   let sentence = "", userText = "", writing = false;
-  let thinkTimer = null, recFails = 0, listenedAt = 0;
+  let thinkTimer = null, recFails = 0, listenedAt = 0, maxTimer = null;
   let active = false, confirmed = false, state = "idle", heard = "", rec = null, silence = null, restart = null, replyDone = true, muted = false, turn = 0, spokeAny = false;
   const set = (next, info = {}) => { state = next; onState(next, { heard, muted, ...info }); };
   const speaker = createSpeaker(speakOne, {
@@ -126,7 +132,7 @@ export function createVoiceSession({ listen, speakOne, send, abortReply, onState
     onBegin: (text) => { sentence = text; if (state === "speaking") set("speaking", { caption: text, phase: "preparing" }); }
   });
   const stream = createSentenceStream({ clean, onSentence: (text) => { spokeAny = true; speaker.enqueue(text); if (state !== "speaking") set("speaking", { caption: text, phase: "preparing" }); } });
-  const stopListening = () => { clearTimer(silence); clearTimer(restart); silence = restart = null; recDead = false; try { rec?.abort(); } catch { /* not running */ } rec = null; };
+  const stopListening = () => { clearTimer(maxTimer); maxTimer = null; clearTimer(silence); clearTimer(restart); silence = restart = null; recDead = false; try { rec?.abort(); } catch { /* not running */ } rec = null; };
   // Nothing at all from the reply for `thinkingMs` (and the page is not waiting on a model download or load): give up on it and listen again, so a hung reply cannot end the call.
   const stopThinkWatch = () => { clearTimer(thinkTimer); thinkTimer = null; };
   function armThinkWatch() {
@@ -164,6 +170,11 @@ export function createVoiceSession({ listen, speakOne, send, abortReply, onState
         if (state !== "listening") return;
         heard = (heard.replace(/\s*$/, " ") + (final || "")).trimStart();
         const live = (heard + (interim ? (heard ? " " : "") + interim : "")).trim();
+        if (isBabble(live)) { // noise written as words: forget it and open a fresh recogniser, so it can neither keep the turn open nor be sent as what the person said
+          onNote("babble"); heard = ""; clearTimer(silence); silence = null; try { rec?.abort(); } catch { /* not running */ } rec = null;
+          onState("listening", { heard: "", muted, caption: "" }); clearTimer(restart); restart = setTimer(() => startListening(), restartMs); return;
+        }
+        if (live && !maxTimer) maxTimer = setTimer(() => { maxTimer = null; if (active && state === "listening" && heard.trim().length >= minChars) submit(); }, maxListenMs); // however the words keep coming, a turn does not stay open for ever
         onState("listening", { heard: live, muted, caption: live });
         if (live) { clearTimer(silence); silence = setTimer(() => submit(), silenceMs); }
       },
