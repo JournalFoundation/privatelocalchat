@@ -29,3 +29,12 @@ test('gatherEnv records why WebGPU is missing and prefers the fast GPU',async()=
  const none=await gatherEnv({userAgent:CR,gpu:{requestAdapter:async o=>o?.forceFallbackAdapter?{}:null}});
  assert.equal(none.webgpu.hasApi,true);assert.equal(none.webgpu.softwareAdapterExists,true);
 });
+
+test('on Linux, an NVIDIA graphics card without 16-bit shaders is told about the Dawn switch; other cards and systems are not',()=>{
+ const linuxChrome='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36';
+ const env=(vendor,ua,platform)=>({webgpu:{available:true,hasApi:true,shaderF16:false,isFallbackAdapter:false,adapter:{vendor}},userAgent:ua,platform});
+ const nv=explainGpu(env('nvidia',linuxChrome,'Linux x86_64'),{tier:'light'});
+ assert.equal(nv.kind,'no-f16');assert.ok(nv.steps.some(s=>/vulkan_enable_f16_on_nvidia/.test(s)&&/enable-dawn-features/.test(s)),'the switch is named: '+nv.steps.join(' | '));
+ assert.ok(!explainGpu(env('amd',linuxChrome,'Linux x86_64'),{tier:'light'}).steps.some(s=>/vulkan_enable_f16_on_nvidia/.test(s)),'not for an AMD card');
+ assert.ok(!explainGpu(env('nvidia','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/156.0.0.0 Safari/537.36','Win32'),{tier:'light'}).steps.some(s=>/vulkan_enable_f16_on_nvidia/.test(s)),'not on Windows');
+});
