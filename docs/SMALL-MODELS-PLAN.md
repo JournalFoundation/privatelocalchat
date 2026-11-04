@@ -35,7 +35,7 @@ The smallest model was 901 MB (Granite 4.0 H 1B), the 2B Qwen is 1.2 GB. The S8+
 
 - [x] Galaxy S8+: download, chat, second turn, offline reopen, cleanup (2026-11-03).
 - [x] iPhone, processor path for the tiny models, on a real iPhone (15 Pro, forced) (2026-11-03).
-- [x] iPhone 11 Pro: first run in the automation session answers with `nano` (2026-11-03). Not yet checked: that the model survives a force-quit in the owner's normal tab.
+- [x] iPhone 11 Pro: first run in the automation session answers with `nano` (2026-11-03). **Confirmed by the owner in a normal Safari tab on the real phone (2026-11-03): sent "hi", the app loaded SmolLM2-135M and replied.** Not yet checked: that the model survives a force-quit.
 - [x] Measured speeds in the catalogue notes (memory is still an estimate: no tool here reads a phone page's memory).
 - [x] The unhelpful "needs 6 GB" message for a failed storage call.
 
@@ -44,3 +44,4 @@ The smallest model was 901 MB (Granite 4.0 H 1B), the 2B Qwen is 1.2 GB. The S8+
 - 2026-11-03: candidates tested, `mini` and `nano` published to the CDN and added to the app; desktop checks pass; unit tests 1,023 pass.
 - 2026-11-03: S8+ and iPhone 15 Pro (processor) results in; found that OPFS is unavailable in the 11 Pro's Safari automation session and fixed the misleading error text.
 - 2026-11-03: iPhone 11 Pro: OPFS and IndexedDB-Blob unavailable; Cache API fallback; 223 MB froze, 105 MB works; default rule added; the development diagnostics panel (broken since the model panel was removed) fixed on the way.
+- 2026-11-03: the owner confirmed the iPhone 11 Pro works in a normal tab: "hi" loads SmolLM2-135M and gets a reply.
