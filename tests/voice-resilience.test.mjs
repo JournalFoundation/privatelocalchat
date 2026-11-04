@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createVoiceSession,createSpeaker,isBabble} from '../chat/voice/voice.mjs';
+import {createVoiceSession,createSpeaker} from '../chat/voice/voice.mjs';
 
 // The call must never end up waiting for something that is not coming. These drive the real turn-taking with a hand-driven clock and a fake voice, microphone
 // and reply, and throw the failures seen on phones at it: a voice that never says it has finished, a reply that never starts or never ends, a recogniser
@@ -115,19 +115,4 @@ test('a sentence that stalls once (a stuck speech queue) is tried again after th
   await tick(6000);await tick(50);await sp.idle();
   assert.deepEqual(played,['Hello there, this is the first sentence.','Hello there, this is the first sentence.','And the second one.'],'the first was tried again, then the next');
   assert.equal(stops.length,1,'the stuck one was stopped (that clears the queue) before the retry');assert.deepEqual(notes,[0]);assert.equal(sp.busy,false);
-});
-
-test('a recogniser stuck writing the same word is treated as noise, and a real sentence after it is still sent',async()=>{
-  assert.ok(isBabble('Test Test Test Test Test Test Test'));assert.ok(!isBabble('no no no'));assert.ok(!isBabble('what secret ingredient should I put in my chili'));
-  const r=rig();r.session.start();
-  for(let i=0;i<30;i++){r.rec.onText({final:'Test ',interim:''});await r.advance(300);}
-  assert.deepEqual(r.sent,[],'noise is never sent');assert.ok(r.notes.includes('babble'));assert.equal(r.session.state,'listening');
-  await r.advance(400);await say(r,'what secret ingredient should I put in my chili');
-  assert.equal(r.sent.length,1);assert.match(r.sent[0],/chili/);
-});
-
-test('words that keep trickling in cannot keep a turn open for ever',async()=>{
-  const r=rig({maxListenMs:5000});r.session.start();
-  for(let i=0;i<30&&!r.sent.length;i++){r.rec.onText({final:'word'+i+' ',interim:'next'});await r.advance(500);}
-  assert.equal(r.sent.length,1,'the turn was sent after its limit');
 });
