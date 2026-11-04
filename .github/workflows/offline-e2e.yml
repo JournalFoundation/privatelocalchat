@@ -24,4 +24,6 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Offline e2e (the saved app opens cold with no connection, the connection pill, the checklist)
         # No model is downloaded here. tests/e2e/offline-model.e2e.mjs, the full lifecycle with a real model, is a release check (docs/OPERATIONS.md).
-        run: node tests/e2e/offline.e2e.mjs
+        run: |
+          node tests/e2e/offline.e2e.mjs
+          node tests/e2e/offline-variants.e2e.mjs

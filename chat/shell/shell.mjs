@@ -102,6 +102,11 @@ function voiceDescription(v) {
 }
 /** Choose a voice from the picker or from Settings: downloads it when it is not on the device; after a failure asks once, then goes ahead. */
 async function chooseVoice(ctl, id, toast, { toggle = false } = {}) {
+  // A voice that is not downloaded cannot be fetched with no connection: say so in the shared words instead of starting a download that fails.
+  const target = ctl.voices?.find((x) => x.id === id);
+  if (target && id !== "os" && target.state !== "ready" && target.state !== "installing" && target.state !== "testing" && host.offline?.connection.state === "offline") {
+    toast?.(host.offline.reason("voice-download")); return { ok: false, offline: true };
+  }
   let r = await (toggle ? ctl.toggle(id) : ctl.select(id));
   if (r.needsConfirm) {
     const v = ctl.voices.find((x) => x.id === id);

@@ -6,12 +6,14 @@
 //   models()      window.localModels
 //   voice()       the voice picker snapshot (or a promise of it), or null
 //   toast(text)   the page's toast
+//   loadMatching() starts the download of the small matching model (the shared embedder)
 //   endpoint()    the connected provider's address (where an on-device provider can still answer offline)
 //   probeUrl      the address of a small file on the app's own origin used to check reachability (default /version.json)
 // Returns { connection, readiness(), subscribe(fn) -> off, fix(action), reason(kind), isNetworkError(err), noteRequest(ok, err) }.
 import { createConnection, offlineReason, providerPlace } from './connection.mjs';
 import { createOfflineFacts } from './offline-facts.mjs';
-import { offlineReadiness, offlineHint } from '../../runtime/offline-readiness.mjs';
+import { embeddingSaved } from '../embedding/embedding-saved.mjs';
+import { offlineReadiness, offlineHint, installHint, updateHint } from '../../runtime/offline-readiness.mjs';
 
 // The words browsers use when a request could not leave the device or got no answer. A server that answered "no" is not one of these.
 const NETWORK_MESSAGE = /failed to fetch|load failed|networkerror|network request failed|network error|internet connection appears to be offline|err_internet_disconnected|err_network/i;
@@ -31,8 +33,10 @@ export function createConnectionGlue(host) {
   });
   const facts = createOfflineFacts({
     models: () => host.models?.(), app: () => host.models?.()?.offlineApp,
-    voice: () => host.voice?.(), persisted: () => navigator.storage?.persisted?.() ?? Promise.resolve(null),
+    voice: () => host.voice?.(), storage: () => navigator.storage?.estimate?.() ?? Promise.resolve(null), matching: () => embeddingSaved(),
+    persisted: () => navigator.storage?.persisted?.() ?? Promise.resolve(null),
     standalone: () => navigator.standalone === true || matchMedia?.('(display-mode: standalone)').matches,
+    ios: () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
   });
   // Is the app's own origin reachable? The browser's online flag stays true behind a dead Wi-Fi, so this asks directly. It talks only to the origin that
   // served the app, only when the page comes back to the front, when the browser reports a change, and slowly while it is open (faster while offline,
@@ -77,12 +81,21 @@ export function createConnectionGlue(host) {
       } catch { /* a hint is never worth an error */ }
     }, 2500);
   });
+  // The two other moments, each said once: add to the Home Screen (iPhone/iPad, once a model is saved), and an update that was saved while the app was open.
+  const sayOnce = (hint) => { try { const seen = JSON.parse(localStorage.getItem(HINT_KEY) || '{}'); if (!hint || seen[hint.kind]) return false; seen[hint.kind] = true; localStorage.setItem(HINT_KEY, JSON.stringify(seen)); host.toast?.(hint.text); return true; } catch { return false; } };
+  let updateSaid = false;
+  window.addEventListener('offline-status', async () => {
+    const f = await facts.read();
+    if (!updateSaid && updateHint(f)) { updateSaid = true; host.toast?.(updateHint(f).text); }
+    else if (installHint(f)) setTimeout(() => sayOnce(installHint(f)), 6000);
+  });
 
   async function fix(action) {
     const L = host.models?.();
     if (action === 'reload') { location.reload(); return true; }
     if (action === 'save-runtime') { await L?.saveRuntime?.(); notify(); return true; }
     if (action === 'download-model') { if (!connection.online) { host.toast?.(offlineReason('download')); return false; } L?.download?.(); return true; }
+    if (action === 'download-matching') { if (!connection.online) { host.toast?.(offlineReason('matching')); return false; } try { await host.loadMatching?.(); } catch { /* the embedder explains its own failure */ } notify(); return true; }
     if (action === 'persist') { await L?.requestPersist?.(); notify(); return true; }
     return false;
   }

@@ -9,6 +9,7 @@
 //   model:     { name, downloaded, loaded } the chosen on-device chat model, or null
 //   voice:     { name, system, downloaded } the voice reading answers aloud
 //   matching:  { needed, downloaded } the small matching model for search and Roberta; needed=false when nothing will ask for it
+//   storage:   { free } bytes this browser will still let the site save, or null when not known; model.bytes is what the chosen model still has to download
 //   persisted: true | false | null  whether the browser promised not to delete the saved data
 //   standalone: true when opened from the home screen
 //
@@ -36,7 +37,11 @@ export function offlineReadiness(f = {}) {
   } else if (!f.model) {
     items.push(item('model', ITEM_LABELS.model, 'unknown', 'Checking…'));
   } else if (!f.model.downloaded) {
-    items.push(item('model', ITEM_LABELS.model, 'missing', (f.model.name || 'The model') + ' is not downloaded yet.', 'download-model'));
+    const need = f.model.bytes, free = f.storage?.free;
+    if (need > 0 && free != null && free < need * 1.05) {
+      const gb = n => (n / 1e9).toFixed(1) + ' GB';
+      items.push(item('model', ITEM_LABELS.model, 'missing', (f.model.name || 'The model') + ' needs ' + gb(need) + ', but this browser will only let this site save about ' + gb(Math.max(0, free)) + ' more. It may not fit on this device: try a smaller model in Settings > Models, or use a connected provider.'));
+    } else items.push(item('model', ITEM_LABELS.model, 'missing', (f.model.name || 'The model') + ' is not downloaded yet.', 'download-model'));
   } else {
     items.push(item('model', ITEM_LABELS.model, 'ready', (f.model.name || 'The model') + ' is saved on this device.'));
     if (f.runtime && f.runtime.expected > 0) {
@@ -83,4 +88,15 @@ export function offlineHint(result) {
   if (result.summary === 'ready') return { kind: 'ready', text: 'Your model is ready for offline use. You can chat without a connection.' };
   if (result.summary === 'not-ready' || result.summary === 'almost') return { kind: 'todo', text: 'One more step before this works offline: open Settings, Models, Ready for offline use.' };
   return null;
+}
+
+/** Safari on iPhone and iPad may delete a site's saved data when the site is unused for a while, unless the app is on the Home Screen. Said once, only when it matters. */
+export function installHint(facts) {
+  if (!facts?.ios || facts.standalone || !facts.model?.downloaded) return null;
+  return { kind: 'install', text: 'To keep your saved model, add this app to your Home Screen (Share, then Add to Home Screen). Safari can delete saved data from sites that are not on it.' };
+}
+
+/** An update was saved while the app was open: say it once; the chats are kept. */
+export function updateHint(facts) {
+  return facts?.app === 'stale' ? { kind: 'update', text: 'A newer version of the app is ready. Reload when it suits you; your chats are kept.' } : null;
 }

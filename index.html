@@ -412,7 +412,7 @@
       // how features take part in each other's moments (a conversation was shown, a message is being sent, a reply is written...): the names are listed in chat/events.mjs
       const events = createEvents();
       // whether the app is online, the offline checklist and its fixes (chat/connection/); the shell and Settings read it as plcApp.offline
-      const offline = createConnectionGlue({ events, models: () => window.localModels, voice: () => loadVoiceChoice().then(ctl => ctl?.snapshot?.() || null), toast: text => showToast(text), endpoint: () => provider?.config?.endpoint });
+      const offline = createConnectionGlue({ events, models: () => window.localModels, voice: () => loadVoiceChoice().then(ctl => ctl?.snapshot?.() || null), toast: text => showToast(text), endpoint: () => provider?.config?.endpoint, loadMatching: () => sharedEmbedder().then(embedder => embedder.ready()) });
       // DOM element references
       const endpointSelect = document.getElementById('endpointSelect');
       const endpointInput = document.getElementById('endpointInput');

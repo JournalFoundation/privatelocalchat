@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {offlineReadiness,offlineHint} from '../runtime/offline-readiness.mjs';
+import {offlineReadiness,offlineHint,installHint,updateHint} from '../runtime/offline-readiness.mjs';
 
 const ready={app:'current',mode:'local',model:{name:'Light',downloaded:true,loaded:false},runtime:{saved:8,expected:8},voice:{system:true},matching:{needed:true,downloaded:true},persisted:true};
 const byId=(r,id)=>r.items.find(i=>i.id===id);
@@ -67,4 +67,13 @@ test('the first-use hint says it works, or what is left, and is silent when ther
   assert.equal(offlineHint(offlineReadiness({...ready,mode:'api'})),null);
   assert.equal(offlineHint(offlineReadiness({})).kind,'todo','still checking is not "ready"');
   assert.equal(offlineHint(null),null);
+});
+
+test('the Home Screen hint is for iPhone and iPad with a saved model that is not on the Home Screen, and the update hint for a saved newer version',()=>{
+  const m={model:{downloaded:true}};
+  assert.equal(installHint({ios:true,standalone:false,...m}).kind,'install');
+  assert.equal(installHint({ios:true,standalone:true,...m}),null,'already on the Home Screen');
+  assert.equal(installHint({ios:false,standalone:false,...m}),null,'other browsers do not delete it this way');
+  assert.equal(installHint({ios:true,standalone:false,model:{downloaded:false}}),null,'nothing to keep yet');
+  assert.equal(updateHint({app:'stale'}).kind,'update');assert.equal(updateHint({app:'current'}),null);assert.equal(updateHint(null),null);
 });

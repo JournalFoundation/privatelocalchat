@@ -10,12 +10,13 @@ const text=h=>h.replace(/<[^>]+>/g,' ').replace(/&rsquo;/g,'’').replace(/&hell
 const help=text(await readFile(new URL('../help/index.html',import.meta.url),'utf8'));
 const section=help.slice(help.indexOf('Checking that it will work offline'),help.indexOf('Freeing memory or removing a model'));
 
-test('Help names every line of the offline checklist the app shows (except the optional matching model)',()=>{
-  for(const [id,label] of Object.entries(ITEM_LABELS)){ if(id==='matching')continue; assert.ok(section.includes(label),'Help explains "'+label+'"'); }
+test('Help names every line of the offline checklist the app shows ',()=>{
+  for(const [id,label] of Object.entries(ITEM_LABELS)){ assert.ok(section.includes(label),'Help explains "'+label+'"'); }
 });
 test('Help uses the state words the checklist uses',()=>{
   for(const [state,word] of Object.entries(STATE_WORDS))assert.ok(section.includes(word),'Help uses "'+word+'" ('+state+')');
 });
+test('Help says what happens when a model cannot fit in the room the browser allows',()=>{assert.match(section,/will not let this site save enough/);});
 test('Help explains the buttons the checklist offers in Settings and the pill',()=>{
   for(const label of [FIX_LABEL['save-runtime'],FIX_LABEL.persist])assert.ok(section.includes(label),'Help explains the "'+label+'" button');
 });

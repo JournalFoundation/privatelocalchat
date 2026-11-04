@@ -11,12 +11,13 @@ export function mountConnectionPill({ h, icon, bar, before, offline, popover, cl
   (announceTo || bar).append(live);
   let last = null, readiness = null, open = null;
 
-  // "local": an on-device model answers. "device": a provider running on this computer answers. "api": a provider that needs the internet.
-  const mode = () => (window.localModels?.mode !== "api" ? "local" : offline.providerPlace() === "internet" ? "api" : "device");
+  // "local": an on-device model answers. "device": a provider on this computer. "network": a provider on your own network. "internet": a provider that needs the internet.
+  const mode = () => (window.localModels?.mode !== "api" ? "local" : offline.providerPlace());
   function sentence(state) {
     if (state === "back") return "Back online.";
-    if (mode() === "api") return "You are offline. " + offline.reason("provider");
+    if (mode() === "internet") return "You are offline. " + offline.reason("provider");
     if (mode() === "device") return "You are offline. " + offline.reason("provider-device");
+    if (mode() === "network") return "You are offline. " + offline.reason("provider-network");
     return "You are offline. On-device chat still works.";
   }
   function paint() {
@@ -31,8 +32,8 @@ export function mountConnectionPill({ h, icon, bar, before, offline, popover, cl
   // Short on purpose: what is going on, only the lines that need attention (each with its fix), and a way to the whole list in Settings.
   function rows() {
     const state = offline.connection.state;
-    const out = [{ heading: state === "offline" ? "You are offline" : "Back online" }, { note: sentence(state), kind: state === "offline" && mode() === "api" ? "" : "ok" }];
-    if (readiness && mode() !== "api") {
+    const out = [{ heading: state === "offline" ? "You are offline" : "Back online" }, { note: sentence(state), kind: state === "offline" && mode() === "internet" ? "" : "ok" }];
+    if (readiness && mode() !== "internet") {
       const todo = readiness.items.filter((i) => i.state === "missing" || i.state === "partial");
       out.push({ divider: true }, { heading: todo.length ? "To use this offline later" : "Ready for offline use" });
       if (!todo.length) out.push({ note: "Everything this chat needs is saved on this device.", kind: "ok" });
