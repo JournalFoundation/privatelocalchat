@@ -31,18 +31,17 @@ try{
   const ctx=await browser.newContext({storageState:state,viewport:SIZE,recordVideo:{dir,size:SIZE},colorScheme:theme});
   const v=await ctx.newPage();
   await v.addInitScript(t=>{try{localStorage.setItem('plc.theme.v1',t);}catch{}},theme);
+  await v.addInitScript(()=>{const f=()=>document.querySelectorAll('.message-model').forEach(n=>{if(/ · (localhost|127\.0\.0\.1)$/.test(n.textContent))n.textContent=n.textContent.replace(/ · (localhost|127\.0\.0\.1)$/,'');});new MutationObserver(f).observe(document,{subtree:true,childList:true,characterData:true});}); // the model name only: no host after it
   await v.goto(origin+'/');
   await v.waitForSelector('#lockScreen',{state:'visible'});
-  await v.waitForTimeout(1900);                                           // the lock snaps shut as the screen appears
+  await v.waitForTimeout(1500);                                           // the lock snaps shut as the screen appears
   await v.locator('#unlockPass').pressSequentially('wrong guess',{delay:85});await v.waitForTimeout(250);
-  await v.press('#unlockPass','Enter');await v.waitForTimeout(1700);      // a wrong passphrase: the lock shakes and flushes red
+  await v.press('#unlockPass','Enter');await v.waitForTimeout(1200);      // a wrong passphrase: the lock shakes and flushes red
   await v.fill('#unlockPass','');await v.locator('#unlockPass').pressSequentially('correct horse',{delay:85});await v.waitForTimeout(300);
   await v.press('#unlockPass','Enter');                                   // the right one: the lock opens in green, the screen fades, the chat is there
   await v.waitForSelector('#lockScreen',{state:'hidden',timeout:20000});await ready(v);
   await v.waitForFunction(()=>[...document.querySelectorAll('.message.user')].some(n=>/cookoff/.test(n.textContent)),null,{timeout:15000});
-  await v.waitForTimeout(2200);
-  await v.click('#lockNowBtn');                                           // locking again from inside the app
-  await v.waitForSelector('#lockScreen',{state:'visible',timeout:20000});await v.waitForTimeout(2600);
+  await v.waitForTimeout(1300);                                           // the video ends here, on the unlocked chat; the end hold is added below
   await v.close();await ctx.close();
   const webm=(await readdir(dir)).find(f=>f.endsWith('.webm'));
   // a browser address bar under the picture, so the lock is seen where it lives: privatelocal.chat
@@ -54,7 +53,7 @@ try{
       <span>https://privatelocal.chat</span></div></body>`;
   await barPage.setContent(barHtml);
   const barPng=join(dir,'bar.png');await barPage.screenshot({path:barPng});await barPage.close();
-  execFileSync('ffmpeg',['-y','-loglevel','error','-ss','0.3','-i',join(dir,webm),'-i',barPng,'-filter_complex',`[0:v]pad=iw:ih+${BAR}:0:0:color=${dark?'#1c1c1e':'#f2f2f7'}[p];[p][1:v]overlay=0:H-h,tpad=stop_mode=clone:stop_duration=4,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]`,'-map','[v]','-c:v','libx264','-pix_fmt','yuv420p','-crf','20','-movflags','+faststart',out]);
+  execFileSync('ffmpeg',['-y','-loglevel','error','-ss','0.3','-i',join(dir,webm),'-i',barPng,'-filter_complex',`[0:v]pad=iw:ih+${BAR}:0:0:color=${dark?'#1c1c1e':'#f2f2f7'}[p];[p][1:v]overlay=0:H-h,tpad=stop_mode=clone:stop_duration=3,pad=ceil(iw/2)*2:ceil(ih/2)*2[v]`,'-map','[v]','-c:v','libx264','-pix_fmt','yuv420p','-crf','20','-movflags','+faststart',out]);
   if(dark){ // the page reload on re-lock flashes a blank white frame before the dark theme paints: cut those frames out
     const r=spawnSync('ffmpeg',['-i',out,'-vf','signalstats,metadata=print:key=lavfi.signalstats.YAVG','-f','null','-'],{encoding:'utf8'});
     const times=[...(r.stderr||'').matchAll(/pts_time:([0-9.]+)[^\n]*\n[^\n]*YAVG=([0-9.]+)/g)].filter(m=>+m[2]>150).map(m=>+m[1]);
