@@ -2,16 +2,17 @@
 // share one `config` object (kept in session storage, gone when the tab closes) and one set of form controls in Settings.
 // createProviderSettings(host) returns the state as getters ({ config, models, authErrors }) and the actions the page needs.
 //
-// host: the form controls (endpointSelect, endpointInput, endpointHint, tokenInput, peekTokenBtn, copyTokenBtn, modelSelect, refreshModelsBtn, themeToggleBtn, authGuidance, authHintText,
+// host: the form controls (endpointSelect, endpointInput, endpointHint, apiFormatSelect (optional), tokenInput, peekTokenBtn, copyTokenBtn, modelSelect, refreshModelsBtn, themeToggleBtn, authGuidance, authHintText,
 // clearSettingsBtn), M() (pure modules, for icons), readJson, writeJson, keys (CONFIG_KEY, MODELS_KEY, ENDPOINT_TOKENS_KEY), showToast, confirmDialog, alertDialog, copyTextDialog,
 // updateChatAvailability, loadTransferUi, transferUiDiscardPending, openProviderSettings
 
 import { createEndpointTokens } from './endpoint-tokens.mjs';
 import * as endpointUrls from './endpoint-urls.mjs';
-import { endpointOptions, escapeHtml, getEndpointOptionById, findEndpointOptionForValue } from './endpoint-options.mjs';
+import { endpointOptions, GROUPS, escapeHtml, getEndpointOptionById, findEndpointOptionForValue } from './endpoint-options.mjs';
+import { API_FORMATS, FORMAT_IDS, isFormat, effectiveFormat, buildModelsRequest, modelIdsFrom } from './api-formats.mjs';
 
 export function createProviderSettings(host) {
-  const { endpointSelect, endpointInput, endpointHint, tokenInput, peekTokenBtn, copyTokenBtn, modelSelect, refreshModelsBtn, themeToggleBtn, authGuidance, authHintText,
+  const { endpointSelect, endpointInput, endpointHint, apiFormatSelect, tokenInput, peekTokenBtn, copyTokenBtn, modelSelect, refreshModelsBtn, themeToggleBtn, authGuidance, authHintText,
     clearSettingsBtn, readJson, writeJson, showToast, confirmDialog, alertDialog, copyTextDialog, updateChatAvailability, loadTransferUi, transferUiDiscardPending, openProviderSettings } = host;
   const { CONFIG_KEY, MODELS_KEY, ENDPOINT_TOKENS_KEY } = host.keys;
 
@@ -21,14 +22,15 @@ export function createProviderSettings(host) {
     endpoint: '',
     token: '',
     model: '',
-    theme: ''
+    theme: '',
+    format: '' // the API format chosen by the person ('chat' | 'responses' | 'anthropic'); '' = the provider's own default (chat/api-formats.mjs)
   };
 
   let models = [];
 
   let consecutiveAuthErrors = 0;
 
-  const defaults = { endpoint: '', token: '', model: '', theme: '' };
+  const defaults = { endpoint: '', token: '', model: '', theme: '', format: '' };
 
   const promptedCopyFor = new Set();
 
@@ -114,6 +116,10 @@ export function createProviderSettings(host) {
     } else if (target.baseUrl) {
       html += `<br /><strong>Endpoint URL:</strong> <code>${escapeHtml(target.baseUrl)}</code>`;
     }
+    if (target.id !== 'choose') {
+      const api = apiSettingsFor(currentValue || target.baseUrl);
+      html += `<br /><strong>API used:</strong> ${escapeHtml(API_FORMATS[api.format].label)}${api.explicit ? ' (your choice)' : ''}`;
+    }
     if (!html) {
       endpointHint.textContent = '';
       endpointHint.hidden = true;
@@ -123,11 +129,32 @@ export function createProviderSettings(host) {
     }
   }
 
+  /** How the app talks to the provider at `endpoint`: the format (the person's choice, else the provider's default) and the provider's quirks. */
+  function apiSettingsFor(endpoint = config.endpoint) {
+    const option = findEndpointOptionForValue(endpoint);
+    return { format: effectiveFormat(config.format, option), explicit: isFormat(config.format), option, authStyle: option.authStyle || '', modelsUrl: option.modelsUrl || '', stripModelPrefix: option.stripModelPrefix || '' };
+  }
+
+  function populateFormatSelect() {
+    if (!apiFormatSelect) return;
+    apiFormatSelect.innerHTML = '';
+    const auto = document.createElement('option'); auto.value = ''; apiFormatSelect.appendChild(auto);
+    for (const id of FORMAT_IDS) { const o = document.createElement('option'); o.value = id; o.textContent = API_FORMATS[id].label; apiFormatSelect.appendChild(o); }
+    syncFormatSelect();
+  }
+  function syncFormatSelect() {
+    if (!apiFormatSelect) return;
+    const option = findEndpointOptionForValue(endpointInput ? endpointInput.value.trim() : config.endpoint);
+    apiFormatSelect.options[0].textContent = 'Automatic (' + API_FORMATS[effectiveFormat('', option)].label + ')';
+    apiFormatSelect.value = isFormat(config.format) ? config.format : '';
+  }
+
   function syncEndpointControls(value) {
     const option = findEndpointOptionForValue(value);
     if (endpointSelect) {
       endpointSelect.value = option.id;
     }
+    syncFormatSelect();
     updateEndpointHint(option, value);
   }
 
@@ -234,18 +261,27 @@ export function createProviderSettings(host) {
     } else if (option.baseUrl) {
       endpointInput.value = option.baseUrl;
     }
+    if (config.format) { config.format = ''; persistConfig(); } // a provider picked from the list brings its own API format
     persistEndpointValue(endpointInput.value, { refresh: true });
   }
 
   function populateEndpointSelect() {
     if (!endpointSelect) return;
     endpointSelect.innerHTML = '';
-    endpointOptions.forEach(option => {
+    const add = (parent, option) => {
       const opt = document.createElement('option');
       opt.value = option.id;
       opt.textContent = option.label;
-      endpointSelect.appendChild(opt);
-    });
+      parent.appendChild(opt);
+    };
+    endpointOptions.filter(option => !option.group).forEach(option => add(endpointSelect, option));
+    for (const name of GROUPS) {
+      const group = document.createElement('optgroup');
+      group.label = name;
+      endpointOptions.filter(option => option.group === name).forEach(option => add(group, option));
+      if (group.children.length) endpointSelect.appendChild(group);
+    }
+    populateFormatSelect();
     const currentValue = endpointInput ? endpointInput.value.trim() : '';
     syncEndpointControls(currentValue);
   }
@@ -406,12 +442,10 @@ export function createProviderSettings(host) {
       refreshModelsBtn.textContent = 'Loading...';
     }
     try {
-      const headers = { Accept: 'application/json' };
+      const api = apiSettingsFor(endpoint);
       const token = authTokenFor(endpoint) || tokenInput.value.trim();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      const response = await fetch(modelsEndpoint, { method: 'GET', headers });
+      const request = buildModelsRequest({ format: api.format, endpoint, token, authStyle: api.authStyle, modelsUrl: api.modelsUrl, base: window.location.href });
+      const response = await fetch(request.url, request.init);
       if (!response.ok) {
         const error = new Error('Status ' + response.status);
         error.status = response.status;
@@ -421,7 +455,7 @@ export function createProviderSettings(host) {
         throw error;
       }
       const data = await response.json();
-      const ids = endpointUrls.parseModelIds(data);
+      const ids = modelIdsFrom(data, apiSettingsFor(endpoint).option);
       if (!ids.length) {
         throw new Error('No models returned.');
       }
@@ -499,7 +533,7 @@ export function createProviderSettings(host) {
   function applyImportedSettings(next, { token = null, clearToken = false, models: fileModels = null } = {}) {
     const previous = { ...config };
     const endpointChanged = (next.endpoint || '') !== (previous.endpoint || '');
-    config = { ...defaults, ...config, endpoint: next.endpoint || '', model: next.model || '', theme: stringifyTheme(next.theme) };
+    config = { ...defaults, ...config, endpoint: next.endpoint || '', model: next.model || '', theme: stringifyTheme(next.theme), format: endpointChanged ? '' : config.format };
     if (clearToken && next.endpoint) clearTokenForEndpoint(next.endpoint);
     if (typeof token === 'string' && token.trim() && next.endpoint) setTokenForEndpoint(next.endpoint, token);
     const effective = next.endpoint ? getTokenForEndpoint(next.endpoint) : '';
@@ -594,6 +628,16 @@ export function createProviderSettings(host) {
     endpointSelect.addEventListener('change', () => {
       applyEndpointOption(endpointSelect.value);
     });
+    if (apiFormatSelect) {
+      apiFormatSelect.addEventListener('change', () => {
+        config.format = isFormat(apiFormatSelect.value) ? apiFormatSelect.value : '';
+        persistConfig();
+        syncEndpointControls(endpointInput ? endpointInput.value.trim() : config.endpoint);
+        consecutiveAuthErrors = 0;
+        updateAuthGuidance();
+        refreshModels({ silent: true }); // the model list is asked for the way this format asks
+      });
+    }
   }
 
   if (endpointInput) {
@@ -678,6 +722,6 @@ export function createProviderSettings(host) {
     restore, bind, applyTheme, resolveTheme, syncEndpointControls, persistEndpointValue, persistTokenValue, persistConfig, applyEndpointOption, populateEndpointSelect,
     loadModels, storeModels, renderModelOptions, loadConfig, updateAuthGuidance, buildAuthErrorMessage, isAuthError, refreshModels, deriveChatCompletionsUrl,
     clearAllSettings, applyImportedSettings, canonicalizeEndpoint, getTokenForEndpoint, authTokenFor, setTokenForEndpoint, clearTokenForEndpoint, loadEndpointTokens,
-    findEndpointOptionForValue, endpointOptions, tokens: endpointTokens
+    findEndpointOptionForValue, endpointOptions, apiSettings: apiSettingsFor, tokens: endpointTokens
   };
 }

@@ -5,6 +5,8 @@
 //
 // host: g (the running answer: gen, controller, busy, with setters), M(), moduleBase(), currentThreadId(), and the page capabilities named in the destructure below
 // (threads, the messages view, the provider settings, documents, the event list)
+import { buildApiRequest, readApiStream, errorDetail } from '../provider/api-formats.mjs';
+
 export function createSender(host) {
   const { saveThreads, updateChatAvailability, updateSendButtonDisabled, getThread, STATUS, messagesView, providerName, renderMessages, events,
     schedulePaint, modelLabel, provider, updateAuthGuidance, isAuthError, buildAuthErrorMessage, renderThreadList, CONTINUE_PROMPT, getChatState,
@@ -208,24 +210,27 @@ export function createSender(host) {
     }
     if (!provider.config.endpoint) throw new Error('Endpoint is not configured.');
     if (!provider.config.model) throw new Error('Model is not selected.');
-    const headers = { 'Content-Type': 'application/json' };
+    // The provider's API format (Chat Completions, Responses or Anthropic Messages) decides the address, the key header, the body and how the answer is read: chat/provider/api-formats.mjs
+    const api = provider.apiSettings();
     const requestToken = authTokenFor(provider.config.endpoint);
-    if (requestToken) headers['Authorization'] = `Bearer ${requestToken}`;
-    let chatEndpoint;
-    try { chatEndpoint = deriveChatCompletionsUrl(provider.config.endpoint); } catch (err) { throw new Error('Invalid endpoint: ' + err.message); }
     const payloadMessages = await docsUi.apiMessages(messages);
-    const post = stream => fetch(chatEndpoint, { method: 'POST', headers, body: JSON.stringify({ model: provider.config.model, messages: payloadMessages, ...(stream ? { stream: true } : {}) }), signal });
+    const post = stream => {
+      let request;
+      try { request = buildApiRequest({ format: api.format, endpoint: provider.config.endpoint, model: provider.config.model, messages: payloadMessages, token: requestToken, authStyle: api.authStyle, stream, base: window.location.href }); }
+      catch (err) { throw new Error('Invalid endpoint: ' + err.message); }
+      return fetch(request.url, { ...request.init, signal });
+    };
     let response = await post(true);
     if (!response.ok && (response.status === 400 || response.status === 422)) response = await post(false); // a provider that rejects streaming
     if (!response.ok) {
       let detail = '';
-      try { const data = await response.clone().json(); detail = data?.error?.message || data?.message || ''; } catch { /* body is not JSON */ }
-      const error = new Error('API responded with status ' + response.status + (detail ? ': ' + String(detail).slice(0, 300) : ''));
+      try { detail = errorDetail(await response.clone().json()); } catch { /* body is not JSON */ }
+      const error = new Error('API responded with status ' + response.status + (detail ? ': ' + detail : ''));
       error.status = response.status;
       if (response.status === 401 || response.status === 403) error.isAuthError = true;
       throw error;
     }
-    const result = await host.M().stream.readChatStream(response, { signal, onDelta: (delta, full) => onText(full) });
+    const result = await readApiStream(api.format, response, { signal, onDelta: (delta, full) => onText(full) });
     return { text: result.text, finishReason: result.finishReason };
   }
 

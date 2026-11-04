@@ -53,7 +53,7 @@
     <h1>Updates</h1>
     <p class="lede">What changed in Private Local Chat, newest first. Each entry has its date, the release it shipped in and links to the help that goes with it.</p>
 <!--plc:last-updated-->
-<p class="page-meta">Last updated: <time class="last-updated" datetime="2026-11-03">2026-11-03</time></p>
+<p class="page-meta">Last updated: <time class="last-updated" datetime="2026-11-04">2026-11-04</time></p>
 <!--/plc:last-updated-->
     <div class="hero-actions">
       <a class="button primary" href="/">Open Private Local Chat</a>
@@ -65,6 +65,16 @@
   <section id="updates" aria-labelledby="updates-title">
     <h2 id="updates-title">Release notes</h2>
 <!--plc:updates-list-->
+<article class="update" id="providers-refresh" aria-labelledby="providers-refresh-title">
+  <h3 id="providers-refresh-title"><a href="#providers-refresh">Connected providers: Anthropic, the Responses API and a refreshed list</a></h3>
+  <p class="update-meta"><time datetime="2026-11-04">4 November 2026</time> &middot; Release: the next published release after <a href="https://github.com/JournalFoundation/privatelocalchat/releases/tag/v0.12.0">v0.12.0</a></p>
+  <p>The list of providers you can connect to has been rebuilt, and the app now speaks three request formats: Chat Completions, the OpenAI Responses API and Anthropic Messages.</p>
+  <ul>
+    <li>Anthropic (Claude) is in the list and is called straight from the browser with your own key. OpenAI and xAI use the Responses API, and Azure OpenAI is in the list too.</li>
+    <li>An API format menu under the endpoint lets you change the format for a provider or a server of your own; the provider you pick sets it for you.</li>
+    <li>Providers that no longer exist or that do not allow calls from a web page were removed. Your saved endpoint keeps working: an address that is no longer in the list is shown as Custom.</li>
+  </ul>
+</article>
 <article class="update" id="tiny-models" aria-labelledby="tiny-models-title">
   <h3 id="tiny-models-title"><a href="#tiny-models">Tiny models for phones with little room</a></h3>
   <p class="update-meta"><time datetime="2026-11-03">3 November 2026</time> &middot; Release: the next published release after <a href="https://github.com/JournalFoundation/privatelocalchat/releases/tag/v0.12.0">v0.12.0</a></p>

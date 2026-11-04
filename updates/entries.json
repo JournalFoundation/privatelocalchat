@@ -1,6 +1,21 @@
 {
   "entries": [
     {
+      "id": "providers-refresh",
+      "date": "2026-11-04",
+      "release": null,
+      "title": "Connected providers: Anthropic, the Responses API and a refreshed list",
+      "summary": "The list of providers you can connect to has been rebuilt, and the app now speaks three request formats: Chat Completions, the OpenAI Responses API and Anthropic Messages.",
+      "points": [
+        "Anthropic (Claude) is in the list and is called straight from the browser with your own key. OpenAI and xAI use the Responses API, and Azure OpenAI is in the list too.",
+        "An API format menu under the endpoint lets you change the format for a provider or a server of your own; the provider you pick sets it for you.",
+        "Providers that no longer exist or that do not allow calls from a web page were removed. Your saved endpoint keeps working: an address that is no longer in the list is shown as Custom."
+      ],
+      "models": null,
+      "help": [],
+      "issues": []
+    },
+    {
       "id": "tiny-models",
       "date": "2026-11-03",
       "release": null,

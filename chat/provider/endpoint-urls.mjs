@@ -1,4 +1,4 @@
-// Pure helpers for an OpenAI-compatible endpoint: the models URL, the chat completions URL, and the model ids in a models response.
+// Pure helpers for a provider endpoint: the models URL, the chat completions / responses / messages URLs, and the model ids in a models response.
 // `base` is what a relative endpoint resolves against (the page address).
 
 function toUrl(endpoint, base) {
@@ -23,6 +23,7 @@ export function deriveChatCompletionsUrl(endpoint, base = 'http://localhost/') {
   const url = toUrl(endpoint, base);
   const segments = url.pathname.split('/').filter(Boolean);
   url.search = ''; url.hash = '';
+  if (['responses', 'messages'].includes(segments[segments.length - 1])) segments.pop(); // an address copied from another format's docs
   if (segments.length >= 2 && segments[segments.length - 2] === 'chat' && segments[segments.length - 1] === 'completions') return url.toString();
   const cleaned = [];
   for (let i = 0; i < segments.length; i += 1) {
@@ -34,8 +35,26 @@ export function deriveChatCompletionsUrl(endpoint, base = 'http://localhost/') {
   return url.toString();
 }
 
+const ACTIONS = [['chat', 'completions'], ['responses'], ['messages'], ['models']];
+/** The URL of one API action ("responses", "messages"...) under an endpoint: whatever action the endpoint already ends with is replaced, other segments are kept, query and hash dropped. */
+export function deriveActionUrl(endpoint, action, base = 'http://localhost/') {
+  const url = toUrl(endpoint, base);
+  let segments = url.pathname.split('/').filter(Boolean);
+  url.search = ''; url.hash = '';
+  for (const a of ACTIONS) {
+    const tail = segments.slice(-a.length);
+    if (tail.length === a.length && tail.every((v, i) => v === a[i])) { segments = segments.slice(0, -a.length); break; }
+  }
+  url.pathname = '/' + [...segments, ...action.split('/')].join('/');
+  return url.toString();
+}
+/** The Responses API URL: .../v1 -> .../v1/responses */
+export const deriveResponsesUrl = (endpoint, base) => deriveActionUrl(endpoint, 'responses', base);
+/** The Anthropic Messages URL: .../v1 -> .../v1/messages */
+export const deriveMessagesUrl = (endpoint, base) => deriveActionUrl(endpoint, 'messages', base);
+
 /** The model ids in a models response ({ data: [...] }, { models: [...] }, strings or objects with id / name). */
-export function parseModelIds(data) {
+export function parseModelIds(data, { stripPrefix = '' } = {}) {
   const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : [];
   return raw
     .map(item => {
@@ -44,5 +63,6 @@ export function parseModelIds(data) {
       if (item && typeof item.name === 'string') return item.name.trim();
       return '';
     })
+    .map(id => (stripPrefix && id.startsWith(stripPrefix) ? id.slice(stripPrefix.length) : id))
     .filter(id => id.length > 0);
 }

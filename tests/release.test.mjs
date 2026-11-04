@@ -15,7 +15,7 @@ test('local inference gates API requests and supports cancellation',async()=>{
  const html=await readFile('chat/core/sender.mjs','utf8');
  const gate=html.search(/if \(window.localModels\?\.mode === 'local'\) \{[\s\S]*?window.localModels.generate[\s\S]*?return \{ text, finishReason \};\s*\}\s*if \(!provider.config.endpoint\)/);
  assert.ok(gate>=0,'local mode must return before any API request is prepared');
- assert.ok(html.indexOf('fetch(chatEndpoint',gate)>gate,'the only chat fetch comes after the local-mode gate');
+ assert.ok(html.indexOf('fetch(request.url',gate)>gate,'the only chat fetch comes after the local-mode gate');
  assert.match(await readFile('index.html','utf8'),/generationController\?\.abort\(\)/);
  const bridge=await readFile('local-models.js','utf8');
  assert.match(bridge,/call.done/);assert.match(bridge,/attempt-completed/);

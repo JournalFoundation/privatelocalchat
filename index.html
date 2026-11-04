@@ -173,6 +173,11 @@
       </div>
       <p id="endpointHint" class="hint-text" role="note"></p>
       <div class="form-group">
+        <label for="apiFormatSelect">API format</label>
+        <select id="apiFormatSelect" aria-describedby="apiFormatHelp"></select>
+        <p id="apiFormatHelp" class="hint-text">How the app talks to this provider. Automatic is right for the providers in the list; change it for a custom endpoint, or to use a provider's other API.</p>
+      </div>
+      <div class="form-group">
         <label for="modelSelect">Model</label>
         <div class="model-select-row">
           <button type="button" id="refreshModelsBtn">
@@ -415,6 +420,7 @@
       const offline = createConnectionGlue({ events, models: () => window.localModels, voice: () => loadVoiceChoice().then(ctl => ctl?.snapshot?.() || null), toast: text => showToast(text), endpoint: () => provider?.config?.endpoint, loadMatching: () => sharedEmbedder().then(embedder => embedder.ready()) });
       // DOM element references
       const endpointSelect = document.getElementById('endpointSelect');
+      const apiFormatSelect = document.getElementById('apiFormatSelect');
       const endpointInput = document.getElementById('endpointInput');
       const tokenInput = document.getElementById('tokenInput');
       const modelSelect = document.getElementById('modelSelect');
@@ -511,7 +517,7 @@
 
       // ---- provider settings (chat/provider/provider-settings.mjs): endpoint, tokens, models, theme ----
       const provider = createProviderSettings({
-        endpointSelect, endpointInput, endpointHint, tokenInput, peekTokenBtn, copyTokenBtn, modelSelect, refreshModelsBtn, themeToggleBtn, authGuidance, authHintText, clearSettingsBtn,
+        endpointSelect, endpointInput, endpointHint, apiFormatSelect, tokenInput, peekTokenBtn, copyTokenBtn, modelSelect, refreshModelsBtn, themeToggleBtn, authGuidance, authHintText, clearSettingsBtn,
         M: () => M, readJson: (...a) => readJson(...a), writeJson: (...a) => writeJson(...a), keys: { CONFIG_KEY, MODELS_KEY, ENDPOINT_TOKENS_KEY },
         showToast, confirmDialog: (...a) => confirmDialog(...a), alertDialog: (...a) => alertDialog(...a), copyTextDialog: (...a) => copyTextDialog(...a),
         updateChatAvailability, loadTransferUi, transferUiDiscardPending, openProviderSettings
