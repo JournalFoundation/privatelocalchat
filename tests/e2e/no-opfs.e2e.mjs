@@ -20,22 +20,22 @@ try{
  const a=await page.evaluate(async()=>String(await window.localModels.generate([{role:'user',content:'What is the capital of France? One short sentence.'}],{})).slice(0,160));
  assert(/Paris/i.test(a),'and answered: '+a);
  const where=await page.evaluate(async()=>{
-  const names=await caches.keys();const store=names.includes('plc-model-files-v1')?await caches.open('plc-model-files-v1'):null;
-  const entries=store?(await store.keys()).map(r=>decodeURIComponent(new URL(r.url).pathname.slice(1))).filter(k=>!k.endsWith('.__size')):[];
+  const names=await new Promise(res=>{const q=indexedDB.open('plc-model-files-v1');q.onsuccess=()=>{const db=q.result;const tx=db.transaction('files','readonly');const r=tx.objectStore('files').getAllKeys();r.onsuccess=()=>{db.close();res(r.result)};r.onerror=()=>res([])};q.onerror=()=>res([])});
   let opfs=[];try{const d=await navigator.storage.getDirectory();const c=await d.getDirectoryHandle('cache').catch(()=>null);if(c)for await(const [n] of c.entries())opfs.push(n);}catch{}
-  return {cacheApi:entries.map(k=>k.replace(/^(__metadata__)?[0-9a-f]+_/,'')),opfs};
+  return {idb:names.filter(k=>k.startsWith('m:')).map(k=>k.slice(2).replace(/^(__metadata__)?[0-9a-f]+_/,'')),chunks:names.filter(k=>k.startsWith('c:')).length,opfs};
  });
- assert(where.cacheApi.some(n=>/SmolLM2.*\.gguf$/.test(n)),'the model file is in the Cache API: '+JSON.stringify(where));
+ assert(where.idb.some(n=>/SmolLM2.*\.gguf$/.test(n)),'the model file is in IndexedDB: '+JSON.stringify(where));
+ assert(where.chunks>=1,'in chunks: '+JSON.stringify(where));
  assert(!where.opfs.some(n=>/SmolLM2/.test(n)),'and not in OPFS: '+JSON.stringify(where));
- ok('with OPFS unusable the model is kept in the Cache API, loads and answers ("'+a.replace(/\s+/g,' ')+'")');
+ ok('with OPFS unusable the model is kept in IndexedDB, loads and answers ("'+a.replace(/\s+/g,' ')+'")');
  // it survives a reload (saved, not in memory), and removing it frees the Cache API
  await page.reload();await page.waitForFunction(()=>window.localModels?.state?.device&&window.localModels.supported!==undefined,null,{timeout:60000});
  await page.evaluate(()=>window.localModels.inspectAll());
  assert(await page.evaluate(()=>window.localModels.state.tiers.nano.install.ok),'after a reload the saved model is found');
  await page.evaluate(()=>window.localModels.removeTier('nano'));await page.evaluate(()=>window.localModels.inspectAll());
  assert(await page.evaluate(()=>window.localModels.state.tiers.nano.install.ok)===false,'removing it works');
- const left=await page.evaluate(async()=>{const s=await caches.open('plc-model-files-v1');return (await s.keys()).length;});
- assert(left===0,'and leaves nothing in the Cache API: '+left);
+ const left=await page.evaluate(()=>new Promise(res=>{const q=indexedDB.open('plc-model-files-v1');q.onsuccess=()=>{const db=q.result;const tx=db.transaction('files','readonly');const r=tx.objectStore('files').getAllKeys();r.onsuccess=()=>{db.close();res(r.result.length)}}}));
+ assert(left===0,'and leaves nothing in IndexedDB: '+left);
  ok('the saved model survives a reload and removal cleans up');
  console.log('no-opfs e2e: ok');
 }catch(e){console.error(e);process.exitCode=1;}
