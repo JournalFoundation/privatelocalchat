@@ -945,8 +945,8 @@ body.sidebar-open {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  transform: translate(-50%, 100%);
+  top: calc(10px + env(safe-area-inset-top, 0px)); /* comes down from the top of the screen */
+  transform: translate(-50%, -140%);
   background: var(--color-toast-bg);
   color: var(--color-toast-text);
   padding: 10px 16px;
@@ -958,7 +958,7 @@ body.sidebar-open {
   z-index: 2000;
   /* as wide as its text needs, up to most of a phone's width and a comfortable measure on a large screen (left: 50% alone would cap it at half the screen) */
   width: max-content;
-  max-width: min(calc(100vw - 24px), 40rem);
+  max-width: min(calc(100vw - 128px), 36rem); /* 64px clear on each side: the drawer button is at the top left and Temporary chat at the top right, and a toast must not cover them */
   box-sizing: border-box;
   text-align: center;
   line-height: 1.35;

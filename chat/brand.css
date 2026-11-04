@@ -239,7 +239,7 @@ textarea::placeholder, input::placeholder { color: var(--plc-muted); opacity: 1;
 .modal .lede { color: var(--plc-muted); margin-top: -0.25rem; }
 .app-dialog .dialog-actions button, .modal .cta-row button { min-height: var(--plc-control-min); }
 .app-dialog .list-row { padding: 0.5rem 0; }
-.toast { background: var(--plc-ink); color: var(--plc-background); border-radius: var(--plc-radius-control); max-width: min(calc(100vw - 24px), 40rem); z-index: 5000; }
+.toast { background: var(--plc-ink); color: var(--plc-background); border-radius: var(--plc-radius-control); max-width: min(calc(100vw - 128px), 36rem); z-index: 5000; }
 .toast-action { color: inherit; font-weight: 700; min-height: 2.25rem; }
 .lock-screen { background: var(--plc-background); }
 .lock-screen h2 { margin: 0 0 0.5rem; }
