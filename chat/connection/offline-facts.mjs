@@ -17,6 +17,7 @@ export function createOfflineFacts(host) {
       const L = host.models?.() || null, app = host.app?.() || null;
       let snap = null; try { snap = (await host.voice?.()) || null; } catch { /* the voice module is optional here */ }
       const facts = { standalone: Boolean(host.standalone?.()), ios: Boolean(host.ios?.()) };
+      if (L?.state?.device?.opfs === false) facts.opfs = false;
 
       // the saved copy of the app
       if (app && app.supported === false) facts.app = 'unsupported';

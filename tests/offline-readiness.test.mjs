@@ -77,3 +77,11 @@ test('the Home Screen hint is for iPhone and iPad with a saved model that is not
   assert.equal(installHint({ios:true,standalone:false,model:{downloaded:false}}),null,'nothing to keep yet');
   assert.equal(updateHint({app:'stale'}).kind,'update');assert.equal(updateHint({app:'current'}),null);assert.equal(updateHint(null),null);
 });
+
+test('a browser window that cannot keep the app, or its models, says why in words a person can act on',()=>{
+  const r=offlineReadiness({...ready,app:'unsupported'});
+  assert.match(byId(r,'app').detail,/Private Browsing/);assert.match(byId(r,'app').detail,/Lockdown Mode/);assert.equal(byId(r,'app').fix,null);
+  const o=offlineReadiness({...ready,opfs:false,persisted:false});
+  assert.match(byId(o,'storage').detail,/may be lost when you close Safari/);assert.equal(byId(o,'storage').state,'partial');
+  assert.equal(byId(offlineReadiness({...ready,opfs:true}),'storage').state,'ready','storage that works is not warned about');
+});

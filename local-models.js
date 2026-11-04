@@ -234,8 +234,8 @@ if('serviceWorker' in navigator) {
     activate(registration.waiting);
     registration.addEventListener('updatefound',()=>{const worker=registration.installing;worker?.addEventListener('statechange',()=>{if(worker.state==='installed')activate(worker);});});
     checkOffline();
-  }).catch(e=>showError(new Error('Offline app setup failed: '+e.message)));
-} else $('offlineStatus').textContent='This browser cannot install the app for offline use.';
+  }).catch(e=>{offlineApp={checked:true,supported:false,controlled:false,current:false,bulkSaved:0,bulkExpected:0,reason:String(e&&e.message||e).slice(0,160)};window.dispatchEvent(new Event('offline-status'));$('offlineStatus').textContent='This browser window cannot keep the app for offline use ('+offlineApp.reason+').';showError(new Error('Offline app setup failed: '+e.message));});
+} else {offlineApp={checked:true,supported:false,controlled:false,current:false,bulkSaved:0,bulkExpected:0,reason:'no service worker'};window.dispatchEvent(new Event('offline-status'));$('offlineStatus').textContent='This browser window cannot keep the app for offline use (no service worker).';}
 try {
   env=await gatherEnv();
   host.subscribe(render);

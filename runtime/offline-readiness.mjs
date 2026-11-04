@@ -10,6 +10,7 @@
 //   voice:     { name, system, downloaded } the voice reading answers aloud
 //   matching:  { needed, downloaded } the small matching model for search and Roberta; needed=false when nothing will ask for it
 //   storage:   { free } bytes this browser will still let the site save, or null when not known; model.bytes is what the chosen model still has to download
+//   opfs:      false when the browser would not open its file storage (a model may not be kept), true or null otherwise
 //   persisted: true | false | null  whether the browser promised not to delete the saved data
 //   standalone: true when opened from the home screen
 //
@@ -25,7 +26,7 @@ export function offlineReadiness(f = {}) {
   const items = [];
 
   // The app itself
-  if (f.app === 'unsupported') items.push(item('app', ITEM_LABELS.app, 'missing', 'This browser cannot save the app for offline use.'));
+  if (f.app === 'unsupported') items.push(item('app', ITEM_LABELS.app, 'missing', 'This browser window cannot keep the app for offline use. Private Browsing and Lockdown Mode turn that off: open the site in a normal Safari tab (not private), and add it to your Home Screen.'));
   else if (f.app === 'current') items.push(item('app', ITEM_LABELS.app, 'ready', 'Saved on this device.'));
   else if (f.app === 'stale') items.push(item('app', ITEM_LABELS.app, 'partial', 'A newer version is saved. Reload once while online to use it.', 'reload'));
   else if (f.app === 'none') items.push(item('app', ITEM_LABELS.app, 'missing', 'Not saved yet. Keep this page open while online for a moment.', 'reload'));
@@ -67,7 +68,8 @@ export function offlineReadiness(f = {}) {
   }
 
   // Will the browser keep it
-  if (f.persisted === true) items.push(item('storage', ITEM_LABELS.storage, 'ready', 'The browser has promised to keep this data.'));
+  if (f.opfs === false && f.persisted !== true) items.push(item('storage', ITEM_LABELS.storage, 'partial', 'This browser window would not open its file storage, so a saved model may be lost when you close Safari. A normal tab (not Private Browsing) keeps it.'));
+  else if (f.persisted === true) items.push(item('storage', ITEM_LABELS.storage, 'ready', 'The browser has promised to keep this data.'));
   else if (f.persisted === false) items.push(item('storage', ITEM_LABELS.storage, 'partial', 'The browser may delete saved models when it needs space.', 'persist'));
 
   const needed = items.filter(i => i.id !== 'matching' && i.id !== 'storage');
