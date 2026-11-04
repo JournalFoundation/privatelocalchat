@@ -214,3 +214,24 @@ Inspect `ready.json` for the resulting cleanup receipt, including errors; do not
 model removal or disk reclamation from a close command acknowledgement. The empty-page physical
 check confirms window closure and session removal; loaded-model teardown remains unqualified.
 The operator script is never copied into deployed browser artifacts.
+
+## Voice-call trace and the closed-loop phone test
+
+On `dev.privatelocal.chat` the voice call (`chat/call/call.mjs`) and the gapless audio player (`chat/voice/voice-player.mjs`)
+report to the diagnostics stream as `call` events (`callKind`: `state`, `note`, `send`, `recogniser-open/text/end/error`,
+`speak-begin/audio/end/error`, `player-push/ended/finish/finish-still`), each with the time since the call started and the speech
+queue's own flags (`speaking`, `speechPending`). They carry lengths, timings and states, never what was said or heard. The code
+sits between the development markers and the build strips it from both files for every other site
+(`tests/dev-telemetry.test.mjs` checks that no unstripped marker ships). A tester opens `/?diag=<session id>` on the phone.
+
+`dev-tools/operator-call-loop.py` closes the loop: it reads the stream and, each time the call says "listening", plays the next
+recorded line through a speaker beside the phone (cloned voice lines made with the Qwen3-TTS Base service; the speaker must be played
+in the logged-in user's audio session, not root's). It prints a timeline and says when a turn makes no progress for two minutes.
+
+Do not try this through Safari remote automation: its sessions use WebKit's mock capture devices and mock speech recogniser, so the
+microphone "hears" the literal text "Test" repeated whatever is playing (`WebSpeechRecognizerTaskMock`), and a real touch to answer
+a permission prompt ends the automation. Set Safari > Microphone to Allow, and use normal Safari with the person at the phone.
+
+What the first runs showed (iPhone 15 Pro, dev build `63b74c9`): with the system voice every sentence ended on time over four turns;
+with a downloaded voice (`speaking` False throughout) the sentence started, never reported an end, was retried at the sentence limit
+(about 10 s + 0.65 s per character), stalled again and was skipped. The audio-player trace is there to find which step never fires.
