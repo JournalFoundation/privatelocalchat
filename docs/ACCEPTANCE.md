@@ -117,5 +117,7 @@ Plan: `docs/OFFLINE-PLAN.md`; evidence: `docs/evidence/offline/`.
 | Saved app opens cold with no connection, conversations kept and found, public pages, real model reply offline, back online | Chromium, real 2B model (`matrix-chromium.json`) | Passed |
 | Saved app opens cold with the origin gone, local data kept, Help from its own saved page | Mac Safari, macOS 26.7.1 (`matrix-mac-safari.json`) | Passed |
 | Saved app opens cold with the network denied in the service worker (not airplane mode), local data kept | iPhone 11 Pro, iOS 18.6.2 (`matrix-iphone11pro.json`) | Passed |
+| The connection pill, the checklist and the dead-connection check, on the real phone and on the Mac | iPhone 11 Pro (`ui-iphone11pro.json`, screenshots) and Mac Safari (`ui-mac-safari.json`) | Passed |
+| Download interrupted by losing the connection: waits, says so, resumes, cleans up | Chromium, real 2B download (`tests/e2e/offline-download.e2e.mjs`) | Passed |
 | The same on the iPhone 15 Pro | Not run: attached to the lab machine but not listed by its USB multiplexer (needs a replug or unlock) | Open |
 | Real airplane mode on a phone | By hand | Open |

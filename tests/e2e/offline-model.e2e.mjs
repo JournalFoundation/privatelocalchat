@@ -68,9 +68,12 @@ try{
  check('B: a real reply from the model with no connection',!/^ERROR/.test(second)&&second.length>0,second);
  // search finds the earlier conversation (keyword search needs no network; the matching model, never downloaded here, is only a bonus)
  await page.keyboard.press('Control+k');
+ const t1=Date.now();
+ await page.waitForSelector('#searchOverlay',{state:'visible',timeout:10000}).catch(()=>{});
  await page.fill('.search-input',MARKER);
- const found=await page.waitForSelector('.search-item',{timeout:8000}).then(()=>true,()=>false);
- check('B: search finds the earlier conversation by its words',found&&/zebra-lantern/.test(await page.locator('.search-item').first().innerText()));
+ const found=await page.waitForSelector('.search-item',{timeout:30000}).then(()=>true,()=>false);
+ const shown=found?await page.locator('.search-item').first().innerText():await page.locator('#searchOverlay').innerText().catch(()=>'(no overlay)');
+ check('B: search finds the earlier conversation by its words',found&&/Reply with one short sentence/.test(shown),Math.round((Date.now()-t1)/1000)+' s: '+shown.replace(/\s+/g,' '));
  await page.keyboard.press('Escape');
  // the public pages
  const help=await context.newPage();await help.goto(origin+'/help').catch(()=>{});

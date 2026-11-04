@@ -2,7 +2,7 @@
 
 This is a **living plan**, the same shape as `docs/RESTRUCTURE-PLAN.md`: where we are, where we are going, the order, and a log that is updated as we learn. It does not have to be right at the start; each phase ends by correcting this page. `docs/ARCHITECTURE.md` stays the description of how the app is put together now; anything this plan adds (a folder, an event, a window global) goes there too.
 
-Started 2026-11-03. **Status: draft, waiting for the owner's approval.** Nothing below has been built except the pre-work in "What we know".
+Started 2026-11-03. **Status: implemented 2026-11-03; open items are listed under Phase 5.** Phases 0 to 4 are ticked; the iPhone 15 Pro run and a real airplane-mode check are the owner's physical steps.
 
 ## Where we need to be
 
@@ -86,14 +86,16 @@ Designed with the owner's brief in mind: visual, calm, informative, with the rig
 
 ### Phase 4: the test suite and the device checks
 
-- [~] **4.1 `tests/e2e/offline.e2e.mjs`** (fast, in CI; written and passing 2026-11-03 for the shell-only checks; the pill, the checklist and the refusals are added as phase 3 lands; not yet in the CI workflow): shell-only cold-offline; the pill appears and goes; the checklist reflects reality; refusals explain themselves; no unexpected requests.
-- [~] **4.2 `tests/e2e/offline-model.e2e.mjs`** (written; passed on 2026-11-03 except for one check that was then corrected): (release check, minutes, downloads the 2B): the full lifecycle in "Phase 0.2", with a real reply offline, a voice read-aloud offline, then back online.
-- [ ] **4.3 Real devices, scripted as far as the platform allows**: the same scenarios on the iPhone 15 Pro and Mac Safari through the owned bridge, evidence files committed (no identifiers), including airplane mode on the phone if the bridge survives it (it may not; if so, the result says "by hand" and records what the owner saw).
-- [ ] **4.4 CI wiring**: 4.1 runs on every push; 4.2 is in the release checklist (`docs/OPERATIONS.md`) and the device runs are listed in `docs/ACCEPTANCE.md` as qualified or open.
+- [x] **4.1 `tests/e2e/offline.e2e.mjs`** (2026-11-03; runs on every push in `.github/workflows/offline-e2e.yml`; covers the cold offline open, the pill, a provider on this device and on the internet, the checklist, the Models note, a dead connection the browser calls online, the public pages, Settings, search, and no unexpected requests; passes on the `main` and `dev` builds). Original plan text: shell-only cold-offline; the pill appears and goes; the checklist reflects reality; refusals explain themselves; no unexpected requests.
+- [x] **4.2 `tests/e2e/offline-model.e2e.mjs`** (2026-11-03; release check; passed end to end with the real 2B model on the `main` and `dev` builds, and `offline-download.e2e.mjs` covers the download interrupted by losing the connection): (release check, minutes, downloads the 2B): the full lifecycle in "Phase 0.2", with a real reply offline, a voice read-aloud offline, then back online.
+- [x] **4.3 Real devices** (2026-11-03: Mac Safari and the iPhone 11 Pro, evidence in `docs/evidence/offline/` (`matrix-*.json`, `ui-*.json`, `screens/`); the iPhone 15 Pro is attached to the lab machine but its USB multiplexer does not list it, so it needs a replug or unlock and a re-run of the same script; real airplane mode is a by-hand check; the iPhone 11 Pro quota is about 1 GB, less than the small model, so a full model run on a phone is a separate hardware question). Original plan text: the same scenarios on the iPhone 15 Pro and Mac Safari through the owned bridge, evidence files committed (no identifiers), including airplane mode on the phone if the bridge survives it (it may not; if so, the result says "by hand" and records what the owner saw).
+- [x] **4.4 CI wiring** (2026-11-03, `.github/workflows/offline-e2e.yml`, `docs/OPERATIONS.md`, `docs/ACCEPTANCE.md`). Original plan text: 4.1 runs on every push; 4.2 is in the release checklist (`docs/OPERATIONS.md`) and the device runs are listed in `docs/ACCEPTANCE.md` as qualified or open.
 
 ### Phase 5: close out
 
-- [ ] Update `docs/ARCHITECTURE.md`, `docs/TECHNICAL-DEBT.md` (item 16 fixed or restated), `docs/ACCEPTANCE.md`, the project `CLAUDE.md`; summarise outcomes here; list what stays open (for example an iOS behaviour that cannot be fixed, only explained).
+**Outcome (2026-11-03).** The app opens cold with no connection, keeps and finds its conversations, chats with a downloaded model, and says so: a connection pill (only when it has something to say), Settings > Models > Ready for offline use (app, chat model, runtime files, voice, keeping it, each with its fix), a plain-words failure for a provider that needs a connection, a calm treatment for a provider on this device, a download that says it is waiting and resumes by itself, a start-up and periodic check that notices a dead connection the browser calls online, and a Help section in the same words (a test keeps them in step). Defects found and fixed on the way: the checksum helper files missing from the service worker's list; "Failed to fetch" and a frozen download text; a dropped stream being called offline; the dev-only network switch serving the app for Help. Checked in Chromium (real 2B model, `main` and `dev` builds), Mac Safari and the iPhone 11 Pro. **Still open:** the iPhone 15 Pro (needs a replug or unlock on the lab machine); real airplane mode on a phone; the matching model has no "is it downloaded" answer, so it is not in the checklist; the iPhone 11 Pro's roughly 1 GB quota cannot hold the small model, which the checklist reports as "not saved yet" but does not explain.
+
+- [x] Update `docs/ARCHITECTURE.md`, `docs/TECHNICAL-DEBT.md` (item 16 fixed or restated), `docs/ACCEPTANCE.md`, the project `CLAUDE.md`; summarise outcomes here; list what stays open (for example an iOS behaviour that cannot be fixed, only explained).
 
 ## Automation (the checks, so the plan cannot rot)
 

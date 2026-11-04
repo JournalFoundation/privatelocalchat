@@ -30,7 +30,7 @@ try{
  ok('reset all settings');
  // copying a token when the browser refuses: a box with the text selected, not window.prompt
  await page.reload();await page.waitForFunction(()=>!document.querySelector('#messageInput').disabled);
- await page.evaluate(()=>window.plcShell.openSettings('models'));await page.evaluate(()=>window.localModels.setMode('api'));
+ await page.waitForFunction(()=>window.plcShell);await page.evaluate(()=>window.plcShell.openSettings('models'));await page.evaluate(()=>window.localModels.setMode('api'));
  await page.waitForSelector('#tokenInput');await page.fill('#tokenInput','sk-test-token-123');
  await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(new Error('blocked'))}});});
  await page.click('#copyTokenBtn');await dialog().waitFor();
