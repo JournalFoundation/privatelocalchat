@@ -11,15 +11,27 @@ export function createCacheApiBackend({ cacheStorage = globalThis.caches, cacheN
   const urlFor = (key) => ORIGIN + encodeURIComponent(key);
   const keyOf = (url) => decodeURIComponent(url.slice(ORIGIN.length));
   const open = () => cacheStorage.open(cacheName);
+  // Response.blob() loads the whole body into memory (on iOS), and the runtime re-opens the source file several times while it loads a model (progressive source release),
+  // which on an iPhone 11 Pro made the page freeze. So the same Blob is handed back for the same file until forget() is called (the adapter calls it once the model is
+  // loaded), and at most one file is held that way.
+  let held = null; // { key, promise }
+  const hold = (key) => { if (held?.key !== key) held = { key, promise: null }; return held; };
   return {
     kind: "cache-api",
     isSupported: () => Boolean(cacheStorage?.open),
-    /** The file as a Blob, or null when it is not there. */
+    /** Let go of the Blob that read() is keeping (its memory) once nothing needs to re-open it. */
+    forget() { held = null; },
+    /** The file as a Blob, or null when it is not there. The same Blob again for the same file until forget(). */
     async read(key) {
-      try { const r = await (await open()).match(urlFor(key)); return r ? await r.blob() : null; } catch { return null; }
+      const h = hold(key);
+      if (!h.promise) h.promise = (async () => { try { const r = await (await open()).match(urlFor(key)); return r ? await r.blob() : null; } catch { return null; } })();
+      const blob = await h.promise;
+      if (blob === null && held === h) held = null; // a miss is not remembered
+      return blob;
     },
     /** Stores the stream. Nothing is kept unless the whole stream arrived. */
     async write(key, stream) {
+      if (held?.key === key) held = null;
       const cache = await open();
       let size = 0;
       const counted = stream.pipeThrough(new TransformStream({ transform(chunk, controller) { size += chunk.byteLength; controller.enqueue(chunk); } }));
@@ -49,6 +61,7 @@ export function createCacheApiBackend({ cacheStorage = globalThis.caches, cacheN
       return out;
     },
     async delete(key) {
+      if (held?.key === key) held = null;
       const cache = await open();
       await cache.delete(urlFor(key)); await cache.delete(urlFor(key) + SIZE);
     },

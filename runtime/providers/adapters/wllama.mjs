@@ -14,7 +14,6 @@ import { preflight as webgpuPreflight } from "./webgpu.mjs";
 import {retryDownload} from '../download-retry.mjs';
 import {writeOpfsStream} from '../opfs-stream-writer.mjs';
 import {createCacheApiBackend} from '../cache-api-backend.mjs';
-import {createIdbFileBackend} from '../idb-file-backend.mjs';
 import {createThinkFilter} from '../think.mjs';
 export async function preflight(config) {
   if (config?.backend === "cpu") { // the processor runs the model: only WebAssembly is needed, not a graphics card
@@ -29,19 +28,18 @@ export async function preflight(config) {
 const wllamaCache = new Map(); // runtime dir -> Wllama (used only for its cache manager in storage ops)
 
 // Where the model files are kept: OPFS, the browser's file storage, unless it cannot be opened, as on an iPhone 11 Pro's Safari 18 (navigator.storage.getDirectory()
-// rejects with "unknown transient reason"). Then IndexedDB in chunks (file-backed Blobs on iOS; the Cache API works too but loads a whole file into memory every time the
-// runtime re-opens it, which a phone cannot afford), and the Cache API only if there is no IndexedDB. Decided once per worker by really opening the cache directory.
+// rejects with "unknown transient reason"; its IndexedDB cannot store Blobs either, which is why the files are not kept there). Then the Cache API. Decided once per worker
+// by really opening the cache directory.
 let storageKind = null;
 async function chooseStorage() {
   if (storageKind) return storageKind;
   try { const root = await navigator.storage.getDirectory(); await root.getDirectoryHandle("cache", { create: true }); storageKind = "opfs"; }
-  catch { storageKind = createIdbFileBackend().isSupported() ? "indexeddb" : createCacheApiBackend().isSupported() ? "cache-api" : "opfs"; }
+  catch { storageKind = createCacheApiBackend().isSupported() ? "cache-api" : "opfs"; }
   return storageKind;
 }
 /** Make this Wllama's cache manager use the storage that works here. */
 async function useStorage(w) {
   const kind = await chooseStorage();
-  if (kind === "indexeddb") { w.cacheManager.sb = createIdbFileBackend(); return kind; }
   if (kind === "cache-api") { w.cacheManager.sb = createCacheApiBackend(); return kind; }
   // Keep the pinned cache keys/metadata while owning failure-safe writer cleanup.
   // The vendored writer can retain a Worker when opening or closing a file rejects.
@@ -84,7 +82,7 @@ async function inspect({ files, runtimeDir }) {
   const t0 = performance.now(); const cm = await cacheManagerFor(runtimeDir);
   const { actual, noMeta } = await measure(cm, files);
   const inv = compareInventory(files, actual);
-  return { ...inv, partialNoMetadata: noMeta, ms: Math.round(performance.now() - t0), engine: "wllama", where: storageKind === "indexeddb" ? "IndexedDB (OPFS cannot be opened in this browser)" : storageKind === "cache-api" ? "Cache API (OPFS cannot be opened in this browser)" : "OPFS (wllama cache)", storage: storageKind };
+  return { ...inv, partialNoMetadata: noMeta, ms: Math.round(performance.now() - t0), engine: "wllama", where: storageKind === "cache-api" ? "Cache API (OPFS cannot be opened in this browser)" : "OPFS (wllama cache)", storage: storageKind };
 }
 
 async function verify({ files, runtimeDir, deep = false }, hooks = {}) {
@@ -229,6 +227,7 @@ export class WllamaAdapter {
     if (k.progressiveSourceRelease) { try { this.w.releaseModelSource?.(); } catch (e) { this._native([`releaseModelSource failed: ${e?.message || e}`]); } }
 
     onProgress?.({phase:"source-released"});
+    this.w.cacheManager.sb.forget?.(); // the Cache API backend keeps the file's Blob while the runtime may re-open it; the model is loaded now
     const ctx = this.w.getLoadedContextInfo();
     const meta = ctx.metadata || {};
     this.info = {

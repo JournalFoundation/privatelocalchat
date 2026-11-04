@@ -44,3 +44,17 @@ test('keys with odd characters survive, and a browser without the Cache API is n
   assert.deepEqual(await b.list(),[{key:'__metadata__abc_a b/c?.gguf',size:1}]);
   assert.equal(createCacheApiBackend({cacheStorage:undefined}).isSupported(),false);
 });
+
+test('the same Blob comes back for the same file until forget(), a miss is not remembered, and a write or delete drops it',async()=>{
+  const b=createCacheApiBackend({cacheStorage:fakeCaches()});
+  assert.equal(await b.read('x'),null);
+  await b.write('x',streamOf([1,2,3]));
+  const first=await b.read('x'),again=await b.read('x');
+  assert.ok(first&&first===again,'re-opening the file does not load it again');
+  await b.read('y'); // another file replaces the held one
+  const third=await b.read('x');assert.notEqual(third,first);
+  b.forget();assert.notEqual(await b.read('x'),third,'forget() lets go of it');
+  const held=await b.read('x');await b.write('x',streamOf([9]));
+  const fresh=await b.read('x');assert.notEqual(fresh,held);assert.deepEqual([...new Uint8Array(await fresh.arrayBuffer())],[9]);
+  await b.delete('x');assert.equal(await b.read('x'),null);
+});
