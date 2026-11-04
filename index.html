@@ -859,8 +859,9 @@
       const callSoundsOn = () => prefs.callSounds !== false;
       const ensureCallSounds = async () => { await loadCallSounds().catch(() => null); if (callSoundsMod && !callSounds) callSounds = callSoundsMod.createCallSounds({ enabled: callSoundsOn }); return callSounds; };
       loadDocModules().then(m => { loadedDocExports = m.exports; }).catch(() => {});
-      let callStallBase = null;
+      let callStallBase = null, callSentenceBase = null;
       /* DEV_DIAGNOSTICS_START */
+      callSentenceBase = () => window.__plcCallSentenceMs || 0; // test hook: shortens how long one spoken sentence may take; stripped from production builds
       callStallBase = () => window.__plcCallStallMs || 0; // test hook: shortens the wait before a silent spoken reply is given up on; stripped from production builds
       /* DEV_DIAGNOSTICS_END */
       const call = createCall({
@@ -870,7 +871,7 @@
         loadSpeech, loadVoice, ensureCallSounds, callSounds: () => callSounds, callSoundsOn, loadVoiceChoice, voiceOpts,
         cleanText: text => (loadedDocExports?.stripMarkdown ? loadedDocExports.stripMarkdown(text) : text), moduleBase,
         explainSpeechInputFailure, endDictation, stopSpeaking, voiceButton: voiceUi.voiceButton, events,
-        stallBaseMs: callStallBase
+        stallBaseMs: callStallBase, sentenceMs: callSentenceBase
       });
 
       // ---- Roberta in the page (chat/roberta/roberta-glue.mjs) ----

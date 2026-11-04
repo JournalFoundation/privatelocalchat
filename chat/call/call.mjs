@@ -17,6 +17,42 @@ export function createCall(host) {
   const callSoundsOn = () => host.callSoundsOn();
   const buzz = ms => { try { if (callSoundsOn()) navigator.vibrate?.(ms); } catch { /* not supported */ } };
   const callIcon = (name, fallback) => { const icons = host.icons(), n = icons ? icons.iconNode(name) : null; if (n) return n; const f = el('span', null, fallback); f.setAttribute('aria-hidden', 'true'); return f; };
+  // The picture in the middle of the orb says what the call is doing: it changes with the state (see the call glyphs in chat/brand.css).
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgNode(tag, attrs = {}, kids = []) { const n = document.createElementNS(SVG_NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); kids.forEach(c => n.appendChild(c)); return n; }
+  function callGlyphs() {
+    const wrap = el('span', 'call-glyphs'); wrap.setAttribute('aria-hidden', 'true');
+    const g = (name, children) => { const s = svgNode('svg', { class: 'call-glyph g-' + name, viewBox: '0 0 64 64', fill: 'none', stroke: 'currentColor', 'stroke-width': '4', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, children); wrap.appendChild(s); return s; };
+    const bars = (xs, base = 32) => xs.map((x, i) => svgNode('line', { class: 'b b' + (i + 1), x1: x, x2: x, y1: base - 10, y2: base + 10 }));
+    // listening: a voice-shaped bar chart that breathes, and jumps when words arrive
+    g('listen', bars([14, 23, 32, 41, 50]));
+    // thinking: a small core with three dots circling it
+    g('think', [svgNode('circle', { class: 'core', cx: 32, cy: 32, r: 5, fill: 'currentColor', stroke: 'none' }), svgNode('g', { class: 'orbit' }, [svgNode('circle', { cx: 32, cy: 12, r: 3.5, fill: 'currentColor', stroke: 'none' }), svgNode('circle', { cx: 49, cy: 42, r: 3.5, fill: 'currentColor', stroke: 'none' }), svgNode('circle', { cx: 15, cy: 42, r: 3.5, fill: 'currentColor', stroke: 'none' })])]);
+    // the chat model is being downloaded or loaded: an arrow dropping into a tray
+    g('load', [svgNode('path', { class: 'arrow', d: 'M32 10v26M21 27l11 11 11-11' }), svgNode('path', { d: 'M12 44v8h40v-8' })]);
+    // writing the reply: three lines of text being written one after another
+    g('write', [svgNode('line', { class: 'ln l1', x1: 12, x2: 52, y1: 20, y2: 20, pathLength: 1 }), svgNode('line', { class: 'ln l2', x1: 12, x2: 52, y1: 32, y2: 32, pathLength: 1 }), svgNode('line', { class: 'ln l3', x1: 12, x2: 36, y1: 44, y2: 44, pathLength: 1 }), svgNode('line', { class: 'caret', x1: 40, x2: 40, y1: 38, y2: 50 })]);
+    // making the sound: a waveform being built, bar by bar
+    g('prepare', bars([12, 20, 28, 36, 44, 52]));
+    // speaking: a speaker with sound rippling out of it
+    g('play', [svgNode('path', { d: 'M10 26h9l12-9v30l-12-9h-9z', fill: 'currentColor' }), svgNode('path', { class: 'w w1', d: 'M39 25a10 10 0 0 1 0 14' }), svgNode('path', { class: 'w w2', d: 'M44 19a18 18 0 0 1 0 26' }), svgNode('path', { class: 'w w3', d: 'M49 13a26 26 0 0 1 0 38' })]);
+    // muted: the microphone, crossed out
+    g('muted', [svgNode('rect', { x: 25, y: 10, width: 14, height: 26, rx: 7 }), svgNode('path', { d: 'M17 30a15 15 0 0 0 30 0' }), svgNode('line', { x1: 32, x2: 32, y1: 45, y2: 54 }), svgNode('line', { class: 'slash', x1: 12, x2: 52, y1: 10, y2: 54 })]);
+    // on hold or waiting for a tap
+    g('hold', [svgNode('line', { x1: 24, x2: 24, y1: 16, y2: 48 }), svgNode('line', { x1: 40, x2: 40, y1: 16, y2: 48 })]);
+    // something went wrong
+    g('error', [svgNode('path', { d: 'M32 9 57 53H7z' }), svgNode('line', { x1: 32, x2: 32, y1: 26, y2: 40 }), svgNode('circle', { cx: 32, cy: 47, r: 1.5, fill: 'currentColor' })]);
+    return wrap;
+  }
+  const glyphFor = (state, info = {}, loadingModel = false) => {
+    if (state === 'listening') return 'listen';
+    if (state === 'thinking' && loadingModel && info.phase !== 'writing') return 'load'; // the chat model is still coming into memory
+    if (state === 'thinking') return info.phase === 'writing' ? 'write' : 'think';
+    if (state === 'speaking') return info.phase === 'preparing' ? 'prepare' : 'play';
+    if (state === 'paused') return info.reason === 'muted' ? 'muted' : 'hold';
+    if (state === 'error') return 'error';
+    return 'mark'; // calling, ended: the app's own mark
+  };
   function buildVoiceUi() {
     const root = el('section', 'call'); root.id = 'voiceSheet'; root.hidden = true; root.setAttribute('role', 'group'); root.setAttribute('aria-label', 'Voice call');
     const top = el('div', 'call-top');
@@ -28,9 +64,9 @@ export function createCall(host) {
     const models = el('div', 'call-models'); models.setAttribute('role', 'group'); models.setAttribute('aria-label', 'Models in use');
     const chip = id => { const c = el('span', 'call-chip'); c.id = id; c.dataset.state = 'none'; c.append(el('span', 'call-chip-dot'), el('span', 'call-chip-text')); models.appendChild(c); return c; };
     const chipChat = chip('callChipChat'), chipVoice = chip('callChipVoice');
-    const avatar = el('div', 'call-avatar'); avatar.setAttribute('aria-hidden', 'true');
+    const avatar = el('button', 'call-avatar'); avatar.type = 'button'; avatar.id = 'callOrb'; avatar.setAttribute('aria-label', 'Calling');
     for (let i = 1; i <= 3; i++) avatar.appendChild(el('span', 'call-ring r' + i));
-    const face = el('span', 'call-face'); const mark = el('img'); mark.src = '/brand/mark-dark.svg'; mark.alt = ''; mark.width = 64; mark.height = 64; face.appendChild(mark); avatar.appendChild(face);
+    const face = el('span', 'call-face'); const mark = el('img'); mark.src = '/brand/mark-dark.svg'; mark.alt = ''; mark.width = 64; mark.height = 64; face.append(mark, callGlyphs()); avatar.appendChild(face);
     const captionBox = el('div', 'call-captions');
     const who = el('p', 'call-who'); who.setAttribute('aria-hidden', 'true');
     const caption = el('p', 'call-caption'); caption.id = 'voiceCaption'; caption.setAttribute('aria-live', 'off');
@@ -50,14 +86,27 @@ export function createCall(host) {
     const row = el('div', 'call-controls'); row.append(mute.wrap, skip.wrap, end.wrap);
     root.append(top, models, avatar, log, captionBox, notice, hint, sendNow, resume, row);
     messageForm.parentNode.insertBefore(root, messageForm);
+    avatar.addEventListener('click', () => orbTap());
     sendNow.addEventListener('click', () => voiceSession?.tap());
     resume.addEventListener('click', () => voiceSession?.tap());
     mute.b.addEventListener('click', () => { const on = mute.b.getAttribute('aria-pressed') !== 'true'; voiceSession?.setMuted(on); });
     skip.b.addEventListener('click', () => voiceSession?.interrupt());
     end.b.addEventListener('click', () => endVoice());
     root.addEventListener('keydown', e => { if (e.key === 'Escape') endVoice(); });
-    return { root, status, timer, who, caption, hint, sendNow, resume, mute, skip, end, models, chipChat, chipVoice, log, notice };
+    return { root, avatar, status, timer, who, caption, hint, sendNow, resume, mute, skip, end, models, chipChat, chipVoice, log, notice };
   }
+  // What a tap on the orb does depends on what it is showing.
+  function orbTap() {
+    const root = voiceUi?.root; if (!root) return;
+    const st = root.dataset.state, glyph = root.dataset.glyph;
+    if (st === 'error') { endVoice(); startVoice(); return; } // the call failed: try it again
+    if (!voiceSession?.active) return;
+    if (st === 'paused' && glyph === 'muted') { voiceSession.setMuted(false); return; } // muted: unmute
+    if (st === 'listening' && !root.dataset.heard) { voiceSession.setMuted(true); return; } // nothing heard yet: mute the microphone
+    voiceSession.tap(); // heard something: send it now · thinking or speaking: skip · on hold: talk again
+  }
+  const orbLabel = (state, info, glyph) => state === 'error' ? 'Try the call again' : state === 'connecting' ? 'Calling' : glyph === 'muted' ? 'Unmute the microphone' : state === 'paused' ? 'Tap to talk'
+    : state === 'listening' ? (info.caption ? 'Send what you said now' : 'Mute the microphone') : state === 'thinking' ? 'Stop waiting and listen' : state === 'speaking' ? 'Skip the rest of this reply' : 'Voice call';
   const callElapsed = () => (call.startedAt === null ? 0 : (Date.now() - call.startedAt) / 1000);
   function startTimer() {
     call.startedAt = Date.now(); voiceUi.timer.textContent = '0:00';
@@ -116,11 +165,13 @@ export function createCall(host) {
     if (lm?.mode === 'api') { ui.chipChat.dataset.state = 'provider'; ui.chipChat.querySelector('.call-chip-text').textContent = 'Replies: ' + providerName(); }
     else if (lm?.state) {
       const vm = modelsViewMod.languageRows(lm.state, { mode: 'local' }).find(r => r.inUse) || modelsViewMod.languageRows(lm.state, { mode: 'local' })[0];
+      ui.root.dataset.modelState = vm ? vm.state : 'none'; ui.root.style.setProperty('--model-p', String(Math.round(((vm && vm.progress) || 0) * 100)));
       ui.chipChat.dataset.state = vm ? vm.state : 'none'; ui.chipChat.querySelector('.call-chip-text').textContent = 'Chat model ' + (vm ? (vm.modelId || vm.label) + ': ' + chipWord(vm) : '');
     }
     const vctl = await host.loadVoiceChoice().catch(() => null);
     if (vctl) {
       const sel = modelsViewMod.voiceRows(vctl.snapshot()).find(r => r.inUse);
+      ui.root.dataset.voiceState = !sel || sel.kind === 'system' ? 'system' : sel.state; ui.root.style.setProperty('--voice-p', String(Math.round(((sel && sel.progress) || 0) * 100)));
       if (!sel || sel.kind === 'system') { ui.chipVoice.dataset.state = 'system'; ui.chipVoice.querySelector('.call-chip-text').textContent = 'Voice: system voice'; }
       else { ui.chipVoice.dataset.state = sel.state; ui.chipVoice.querySelector('.call-chip-text').textContent = 'Voice ' + sel.label + ': ' + chipWord(sel); }
     }
@@ -179,7 +230,10 @@ export function createCall(host) {
       return;
     }
     clearTimeout(call.endedTimer); call.endedTimer = null;
-    ui.root.hidden = false; ui.root.dataset.state = state; ui.root.dataset.phase = info.phase || ''; document.body.classList.add('voice-on');
+    const lm0 = window.localModels, loadingModel = Boolean(lm0 && lm0.mode === 'local' && !lm0.ready);
+    ui.root.hidden = false; ui.root.dataset.state = state; ui.root.dataset.phase = info.phase || ''; ui.root.dataset.glyph = glyphFor(state, info, loadingModel);
+    const orbWord = orbLabel(state, info, ui.root.dataset.glyph); ui.avatar.setAttribute('aria-label', orbWord); ui.avatar.title = orbWord;
+    if (state === 'listening' && info.caption !== ui.root.dataset.heard) { ui.root.dataset.heard = info.caption || ''; ui.root.classList.remove('call-heard'); void ui.root.offsetWidth; if (info.caption) ui.root.classList.add('call-heard'); } // the bars jump when words arrive document.body.classList.add('voice-on');
     if (state === 'connecting') {
       call.startedAt = null; call.failed = false; ui.timer.textContent = '0:00';
       ui.status.textContent = callWords.connecting[0]; ui.who.textContent = ''; ui.caption.textContent = ''; ui.hint.textContent = '';
@@ -219,13 +273,14 @@ export function createCall(host) {
     } catch { /* the screen may simply turn off */ }
   }
   // a spoken (empty) utterance made inside the tap lets iPhone Safari speak later, when the reply arrives
-  const unlockSpeech = () => { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch { /* no voices */ } };
+  // The silent utterance can get stuck in iPhone Safari's queue and hold back every real sentence behind it, so if nothing real has been said a moment later it is cleared.
+  const unlockSpeech = () => { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); setTimeout(() => { if (!call.spoke) { try { speechSynthesis.cancel(); } catch { /* nothing queued */ } } }, 1200); } catch { /* no voices */ } };
   function ensureVoiceSession() {
     if (voiceSession || !speechMod || !voiceMod) return voiceSession;
     voiceUi ||= buildVoiceUi();
     voiceSession = voiceMod.createVoiceSession({
       listen: handlers => speechMod.startDictation(handlers),
-      speakOne: text => speechMod.speak(text, { voiceURI: host.prefs().voiceURI, rate: host.prefs().speechRate || 1, interrupt: false, onAudio: () => voiceSession?.audioStarted(), ...host.voiceOpts() }),
+      speakOne: text => { call.spoke = true; return speechMod.speak(text, { voiceURI: host.prefs().voiceURI, rate: host.prefs().speechRate || 1, interrupt: false, onAudio: () => voiceSession?.audioStarted(), ...host.voiceOpts() }); },
       send: async text => {
         replyBegan = false; callLogAdd('You', text);
         messageInput.value = text; growComposer();
@@ -234,7 +289,13 @@ export function createCall(host) {
       },
       abortReply: () => host.abortReply(),
       clean: text => host.cleanText(text), // markdown that slipped through is not read out as symbols
-      onState: renderVoice, connectMs: CALL_RING_MS, unlockAudio: () => { unlockSpeech(); host.callSounds()?.unlock(); }, keepAwake: keepScreenOn
+      onState: renderVoice, connectMs: CALL_RING_MS, ...(host.sentenceMs?.() ? { sentenceMs: () => host.sentenceMs() } : {}), // (a development hook can shorten the limit)
+      thinkingMs: 150000, holdThinking: () => { const lm = window.localModels; return Boolean(lm && lm.mode === 'local' && !lm.ready); }, // a model still downloading or loading is not a stalled reply
+      onNote: (kind, text) => {
+        if (kind === 'sentence-stalled') showCallNotice('The voice did not finish a sentence, so it was skipped. If it keeps happening, pick another voice in the voice menu.', 12000);
+        else if (kind === 'reply-stalled') showCallNotice('The reply stopped coming, so the call went back to listening. You can say it again.', 14000);
+        else if (kind === 'listening-failed') showCallNotice('The microphone keeps stopping on this browser. Tap to talk to carry on.', 14000);
+      }, unlockAudio: () => { unlockSpeech(); host.callSounds()?.unlock(); }, keepAwake: keepScreenOn
     });
     return voiceSession;
   }
@@ -246,7 +307,7 @@ export function createCall(host) {
     speechMod = await host.loadSpeech(); voiceMod = await host.loadVoice(); await host.ensureCallSounds();
     const session = ensureVoiceSession(); if (!session) return;
     setPressed(true);
-    call.log = []; renderCallLog();
+    call.log = []; renderCallLog(); call.spoke = false;
     session.start();
     voiceUi.mute.b.focus({ preventScroll: true });
   }

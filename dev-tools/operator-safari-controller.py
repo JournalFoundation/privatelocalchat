@@ -15,6 +15,7 @@ from pymobiledevice3.services.web_protocol.driver import WebDriver
 def options():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--usbmux-socket',required=True)
+    parser.add_argument('--udid',default=None,help='the exact device to control when more than one phone is attached (otherwise the first one found)')
     parser.add_argument('--pairing-cache',default='work/ios-pairing')
     parser.add_argument('--ipc-directory',default='work/usb-control')
     parser.add_argument('--start-path',choices=('/', '/404.html'),default='/404.html')
@@ -41,7 +42,7 @@ async def main(args):
         if not out.exists():
             command=json.loads(f.read_text())
             out.write_text(json.dumps({'id':command['id'],'ok':False,'error':'PreviousSessionEnded','message':'Not replayed in a new automation context'})+'\n')
-    ld=await create_using_usbmux(usbmux_address=args.usbmux_socket,autopair=False,pairing_records_cache_folder=Path(args.pairing_cache))
+    ld=await create_using_usbmux(serial=args.udid,usbmux_address=args.usbmux_socket,autopair=False,pairing_records_cache_folder=Path(args.pairing_cache))
     session=None;driver=None;shutdown={'windowClosed':False,'deleteSent':False,'sessionRemovalConfirmed':False}
     try:
         async with WebinspectorService(ld) as inspector:
@@ -77,6 +78,13 @@ async def main(args):
                             elif c['action']=='eval':
                                 script='if(location.hostname!=="dev.privatelocal.chat")throw Error("Unexpected origin");'+c['script']
                                 value=await asyncio.wait_for(driver.execute_script(script),20)
+                            elif c['action']=='tap':
+                                # a real tap through the automation channel (page script cannot make one): browsers only allow audio and speech after a tap
+                                from pymobiledevice3.services.web_protocol.selenium_api import By
+                                assert isinstance(c.get('selector'),str) and len(c['selector'])<200
+                                await asyncio.wait_for(driver.execute_script('if(location.hostname!=="dev.privatelocal.chat")throw Error("Unexpected origin");return true;'),10)
+                                element=await asyncio.wait_for(driver.find_element(By.CSS_SELECTOR,c['selector']),10)
+                                await asyncio.wait_for(element.click(),10);value={'tapped':c['selector']}
                             elif c['action']=='close':
                                 out.write_text(json.dumps({'id':c['id'],'ok':True,'value':{'closing':True,'shutdownReceipt':'ready.json'}})+'\n')
                                 return

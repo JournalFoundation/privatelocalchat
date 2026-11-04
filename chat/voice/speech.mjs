@@ -91,7 +91,8 @@ export function speak(text, { voiceURI, rate = 1, onStart, onAudio, interrupt = 
     await whenVoicesReady();
     const voice = bestVoice(voiceURI);
     if (!voice) throw new Error("This browser has no voice installed for reading aloud.");
-    if (interrupt) s.cancel();
+    if (interrupt) { s.cancel(); if (s.speaking || s.pending) await new Promise((r) => setTimeout(r, 60)); } // Safari drops an utterance spoken in the same moment as a cancel
+    try { if (s.paused) s.resume(); } catch { /* not paused */ } // a synth left paused (after a call, or by the system) otherwise swallows everything
     onStart?.();
     for (const piece of speechChunks(text)) {
       if (stopped) return;
