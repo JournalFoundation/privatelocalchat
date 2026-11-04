@@ -12,6 +12,7 @@
 // Returns { connection, readiness(), subscribe(fn) -> off, fix(action), reason(kind), isNetworkError(err), noteRequest(ok, err) }.
 import { createConnection, offlineReason, providerPlace } from './connection.mjs';
 import { createOfflineFacts } from './offline-facts.mjs';
+import { guessPrivate } from './private-mode.mjs';
 import { embeddingSaved } from '../embedding/embedding-saved.mjs';
 import { offlineReadiness, offlineHint, installHint, updateHint } from '../../runtime/offline-readiness.mjs';
 
@@ -31,7 +32,33 @@ export function createConnectionGlue(host) {
     setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: id => clearTimeout(id),
     onChange: info => { host.events.emit('connection:changed', info); window.dispatchEvent(new Event('connection-changed')); notify(); },
   });
+  // Is this window private? Asked of what it refuses (chat/connection/private-mode.mjs). IndexedDB blob storage is probed once, with a throw-away database.
+  let idbBlobProbe = null;
+  const probeIdbBlob = () => (idbBlobProbe ||= new Promise(resolve => {
+    try {
+      const name = 'plc-probe-' + Math.random().toString(36).slice(2);
+      const open = indexedDB.open(name, 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('f');
+      open.onerror = () => resolve(false);
+      open.onsuccess = () => {
+        const db = open.result; let result = false;
+        try {
+          const tx = db.transaction('f', 'readwrite'); tx.objectStore('f').put(new Blob([new Uint8Array(1024)]), 'k');
+          tx.oncomplete = () => { result = true; finish(); }; tx.onerror = () => { result = false; finish(); }; tx.onabort = () => { result = false; finish(); };
+        } catch { finish(); }
+        function finish() { try { db.close(); indexedDB.deleteDatabase(name); } catch { /* it was throw-away */ } resolve(result); }
+      };
+    } catch { resolve(null); }
+    setTimeout(() => resolve(null), 4000);
+  }));
+  const serviceWorkerState = () => { const o = host.models?.()?.offlineApp; if (!('serviceWorker' in navigator)) return 'missing'; if (o?.checked && o.supported === false) return 'failed'; return o?.checked ? 'ok' : null; };
+  const privateGuess = async () => {
+    const L = host.models?.();
+    const est = await (navigator.storage?.estimate?.() ?? Promise.resolve(null)).catch(() => null);
+    return guessPrivate({ userAgent: navigator.userAgent, opfs: L?.state?.device ? L.state.device.opfs : null, idbBlob: await probeIdbBlob(), serviceWorker: serviceWorkerState(), quotaBytes: est?.quota ?? null });
+  };
   const facts = createOfflineFacts({
+    privateGuess,
     models: () => host.models?.(), app: () => host.models?.()?.offlineApp,
     voice: () => host.voice?.(), storage: () => navigator.storage?.estimate?.() ?? Promise.resolve(null), matching: () => embeddingSaved(),
     persisted: () => navigator.storage?.persisted?.() ?? Promise.resolve(null),
@@ -75,7 +102,7 @@ export function createConnectionGlue(host) {
       try {
         const seen = JSON.parse(localStorage.getItem(HINT_KEY) || '{}');
         const hint = offlineHint(await readiness());
-        if (!hint || seen[hint.kind]) return;
+        if (!hint || hint.kind === 'private' || seen[hint.kind]) return; // a private window is said at start-up, not again here
         seen[hint.kind] = true; localStorage.setItem(HINT_KEY, JSON.stringify(seen));
         host.toast?.(hint.text);
       } catch { /* a hint is never worth an error */ }
@@ -89,6 +116,14 @@ export function createConnectionGlue(host) {
     if (!updateSaid && updateHint(f)) { updateSaid = true; host.toast?.(updateHint(f).text); }
     else if (installHint(f)) setTimeout(() => sayOnce(installHint(f)), 6000);
   });
+
+  // A window that looks private: say so early, once per page load, because the person finds out otherwise only after a download that will not be kept.
+  setTimeout(async () => {
+    try {
+      const r = await readiness(); const hint = offlineHint(r);
+      if (hint?.kind === 'private') host.toast?.(hint.text, 14000);
+    } catch { /* a hint is never worth an error */ }
+  }, 6000);
 
   async function fix(action) {
     const L = host.models?.();

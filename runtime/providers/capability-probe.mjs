@@ -36,9 +36,9 @@ export async function gatherEnv(nav = globalThis.navigator) {
   env.wasm = wasmSupport();
   try { const e = await nav?.storage?.estimate?.(); env.storage = e ? { usage: e.usage ?? null, quota: e.quota ?? null } : null; } catch (e) { env.storage = { error: String(e?.message || e) }; }
   // Can the browser's file storage (OPFS) be opened? Not in an iPhone 11 Pro's Safari 18 automation or private session (getDirectory() rejects with "unknown transient
-  // reason"). Then models are kept in the Cache API and in memory, and only a small one fits. null: this browser has no OPFS to ask.
+  // reason"). Then models are kept in the Cache API and in memory, and only a small one fits. (No OPFS API at all counts as unavailable.)
   env.opfs = await (async () => {
-    if (typeof nav?.storage?.getDirectory !== "function") return null;
+    if (typeof nav?.storage?.getDirectory !== "function") return false; // no OPFS at all: a model cannot be kept there
     for (let attempt = 0; attempt < 3; attempt++) { // the failure is described as "transient": try again before believing it
       try { const root = await nav.storage.getDirectory(); await root.getDirectoryHandle("cache", { create: true }); return true; }
       catch { if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1))); }

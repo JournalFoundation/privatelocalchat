@@ -6,6 +6,7 @@
 //   voice()         the voice picker's snapshot (or a promise of it), or null when it is not available
 //   storage()       Promise<{ quota, usage }|null> what the browser allows this site to save
 //   matching()      Promise<true|false|null> whether the small matching model (search by meaning) is saved; null when not known
+//   privateGuess()  Promise<{state, reasons}|null> the guess whether this window is private (chat/connection/private-mode.mjs)
 //   persisted()     Promise<boolean|null> whether the browser promised to keep the data
 //   standalone()    true when opened from the home screen
 //   ios()           true on iPhone and iPad (where Safari may delete saved data of a site that is not on the home screen)
@@ -46,6 +47,7 @@ export function createOfflineFacts(host) {
 
       try { const est = await host.storage?.(); if (est && est.quota > 0) facts.storage = { free: Math.max(0, est.quota - (est.usage || 0)) }; } catch { /* unknown */ }
       try { const saved = await host.matching?.(); if (saved === true || saved === false) facts.matching = { needed: true, downloaded: saved }; } catch { /* unknown */ }
+      try { const g = await host.privateGuess?.(); if (g && g.state !== 'no') facts.private = g; } catch { /* a guess is optional */ }
       try { facts.persisted = (await host.persisted?.()) ?? null; } catch { facts.persisted = null; }
       return facts;
     },

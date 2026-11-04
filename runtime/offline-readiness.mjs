@@ -10,6 +10,7 @@
 //   voice:     { name, system, downloaded } the voice reading answers aloud
 //   matching:  { needed, downloaded } the small matching model for search and Roberta; needed=false when nothing will ask for it
 //   storage:   { free } bytes this browser will still let the site save, or null when not known; model.bytes is what the chosen model still has to download
+//   private:   { state: 'likely' | 'possible' | 'no' } a guess whether this window is private or restricted (chat/connection/private-mode.mjs)
 //   opfs:      false when the browser would not open its file storage (a model may not be kept), true or null otherwise
 //   persisted: true | false | null  whether the browser promised not to delete the saved data
 //   standalone: true when opened from the home screen
@@ -19,11 +20,15 @@
 // The summary is 'ready' | 'almost' | 'not-ready' | 'api' and `text` is the one line shown above the list.
 
 /** The names of the lines, one place, so the Help page can be checked against them. */
-export const ITEM_LABELS = Object.freeze({ app: 'The app', model: 'Chat model', runtime: 'What runs the model', voice: 'Voice', matching: 'Matching model', storage: 'Keeping it' });
+export const ITEM_LABELS = Object.freeze({ window: 'This window', app: 'The app', model: 'Chat model', runtime: 'What runs the model', voice: 'Voice', matching: 'Matching model', storage: 'Keeping it' });
 const item = (id, label, state, detail, fix = null) => ({ id, label, state, detail, fix });
 
 export function offlineReadiness(f = {}) {
   const items = [];
+
+  // Is this window private? Said first: nothing below can be kept for offline use there
+  if (f.private?.state === 'likely') items.push(item('window', ITEM_LABELS.window, 'missing', 'This looks like a private window. Nothing is kept for offline use there, and a downloaded model is lost when you close it. Open the site in a normal Safari tab (not Private).'));
+  else if (f.private?.state === 'possible') items.push(item('window', ITEM_LABELS.window, 'partial', 'This window may be private or restricted, and then nothing is kept for offline use. If you did not choose that, try a normal tab.'));
 
   // The app itself
   if (f.app === 'unsupported') items.push(item('app', ITEM_LABELS.app, 'missing', 'This browser window cannot keep the app for offline use. Private Browsing and Lockdown Mode turn that off: open the site in a normal Safari tab (not private), and add it to your Home Screen.'));
@@ -72,12 +77,13 @@ export function offlineReadiness(f = {}) {
   else if (f.persisted === true) items.push(item('storage', ITEM_LABELS.storage, 'ready', 'The browser has promised to keep this data.'));
   else if (f.persisted === false) items.push(item('storage', ITEM_LABELS.storage, 'partial', 'The browser may delete saved models when it needs space.', 'persist'));
 
-  const needed = items.filter(i => i.id !== 'matching' && i.id !== 'storage');
+  const needed = items.filter(i => i.id !== 'matching' && i.id !== 'storage' && i.id !== 'window');
   const blocking = needed.filter(i => i.state === 'missing');
   const partial = needed.filter(i => i.state === 'partial');
   const unknown = needed.filter(i => i.state === 'unknown');
   let summary, text;
-  if (f.mode === 'api') { summary = 'api'; text = 'You are using a connected provider, which needs a connection. Switch to an on-device model to chat offline.'; }
+  if (f.private?.state === 'likely') { summary = 'not-ready'; text = 'This looks like a private window, so nothing is kept for offline use. Open the site in a normal Safari tab (not Private).'; }
+  else if (f.mode === 'api') { summary = 'api'; text = 'You are using a connected provider, which needs a connection. Switch to an on-device model to chat offline.'; }
   else if (blocking.length) { summary = 'not-ready'; text = 'Not ready for offline use yet: ' + blocking.map(i => i.label.toLowerCase()).join(' and ') + ' still to save.'; }
   else if (partial.length || unknown.length) { summary = 'almost'; text = unknown.length && !partial.length ? 'Checking whether this device is ready for offline use…' : 'Almost ready: ' + partial.map(i => i.label.toLowerCase()).join(' and ') + ' needs one more step.'; }
   else { summary = 'ready'; text = 'Ready for offline use. Chatting with your downloaded model needs no connection.'; }
@@ -87,6 +93,7 @@ export function offlineReadiness(f = {}) {
 /** The one thing worth saying the first time a model is ready to answer: it works offline, or what is left to do. Null when nothing needs saying. */
 export function offlineHint(result) {
   if (!result || result.summary === 'api') return null;
+  if (result.items?.some((i) => i.id === 'window' && i.state === 'missing')) return { kind: 'private', text: 'This looks like a private window: nothing is kept for offline use. Open the site in a normal Safari tab (not Private) to use it offline.' };
   if (result.summary === 'ready') return { kind: 'ready', text: 'Your model is ready for offline use. You can chat without a connection.' };
   if (result.summary === 'not-ready' || result.summary === 'almost') return { kind: 'todo', text: 'One more step before this works offline: open Settings, Models, Ready for offline use.' };
   return null;

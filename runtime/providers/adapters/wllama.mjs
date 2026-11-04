@@ -68,10 +68,21 @@ async function openRuntime(runtimeDir) {
   return { base, Wllama };
 }
 
+// The runtime refuses to start ("No supported storage backend found") when the browser has no OPFS API at all (an old Safari, WebKit under test). Give it one that refuses
+// to open: chooseStorage() then sees the refusal and moves the files to the fallback.
+function ensureStorageShape() {
+  try {
+    const nav = self.navigator;
+    if (!nav.storage) Object.defineProperty(nav, "storage", { value: {}, configurable: true });
+    if (typeof nav.storage.getDirectory !== "function") Object.defineProperty(nav.storage, "getDirectory", { value: () => Promise.reject(Object.assign(new Error("OPFS is not available in this browser"), { name: "NotSupportedError" })), configurable: true, writable: true });
+  } catch { /* a frozen navigator: the runtime will say what is missing */ }
+}
+
 async function cacheManagerFor(runtimeDir) {
   let w = wllamaCache.get(runtimeDir);
   if (!w) {
     const { base, Wllama } = await openRuntime(runtimeDir);
+    ensureStorageShape();
     w = new Wllama({ default: base + "default.wasm", "single-thread/wllama.wasm": base + "default.wasm" }, { useMultiThread: false, allowOffline: true, logger: { debug() {}, log() {}, warn() {}, error() {} } });
     await useStorage(w);
     wllamaCache.set(runtimeDir, w);
@@ -196,6 +207,7 @@ export class WllamaAdapter {
       /* DEV_DIAGNOSTICS_END */
     };
     const quiet = { debug: (...a) => this._native(a), log: (...a) => this._native(a), warn: (...a) => this._native(a), error: nativeError };
+    ensureStorageShape();
     this.w = new Wllama({ default: base + "default.wasm", "single-thread/wllama.wasm": base + "default.wasm" }, {
       useMultiThread: false, parallelDownloads: 1, allowOffline: true, expectedBuildId: rt.buildId, forceCompat: rt.cls === "compat", logger: quiet
     });

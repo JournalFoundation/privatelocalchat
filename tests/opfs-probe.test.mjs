@@ -11,5 +11,5 @@ test('the probe records whether the browser\'s file storage can be opened',async
   assert.equal((await gatherEnv(nav(broken))).opfs,false,'getDirectory() rejects, as on an iPhone 11 Pro in a Safari 18 automation session');
   const noDir={...opfsOk,getDirectory:async()=>({getDirectoryHandle:async()=>{throw new Error('denied');}})};
   assert.equal((await gatherEnv(nav(noDir))).opfs,false,'a directory that cannot be created counts');
-  assert.equal((await gatherEnv(nav({estimate:opfsOk.estimate}))).opfs,null,'a browser without OPFS is unknown, not broken');
+  assert.equal((await gatherEnv(nav({estimate:opfsOk.estimate}))).opfs,false,'a browser without OPFS cannot keep a model: unavailable');
 });

@@ -85,3 +85,13 @@ test('a browser window that cannot keep the app, or its models, says why in word
   assert.match(byId(o,'storage').detail,/may be lost when you close Safari/);assert.equal(byId(o,'storage').state,'partial');
   assert.equal(byId(offlineReadiness({...ready,opfs:true}),'storage').state,'ready','storage that works is not warned about');
 });
+
+test('a window that looks private is said first, the summary names it, and the hint says what to do',()=>{
+  const r=offlineReadiness({...ready,private:{state:'likely',reasons:['file-storage-refused']}});
+  assert.equal(r.items[0].id,'window');assert.equal(r.items[0].state,'missing');assert.match(r.items[0].detail,/private window/);
+  assert.equal(r.summary,'not-ready');assert.match(r.text,/private window/);
+  assert.match(offlineHint(r).text,/normal Safari tab/);assert.equal(offlineHint(r).kind,'private');
+  const p=offlineReadiness({...ready,private:{state:'possible',reasons:['no-service-worker']}});
+  assert.equal(p.items[0].id,'window');assert.equal(p.items[0].state,'partial');assert.equal(p.summary,'ready','a guess that is only possible does not block');
+  assert.equal(offlineReadiness(ready).items.some(i=>i.id==='window'),false,'a normal window has no such line');
+});
