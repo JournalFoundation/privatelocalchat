@@ -26,6 +26,6 @@ export async function launch({build=true,port:basePort=18271,viewport={width:128
  await page.goto(`http://127.0.0.1:${port}/`);
  await page.waitForSelector('#messageInput');
  const close=async()=>{await browser.close();web.kill();await api.close();};
- return {page,context,browser,api,errors,close,origin:`http://127.0.0.1:${port}`};
+ return {page,context,browser,api,errors,close,web,origin:`http://127.0.0.1:${port}`}; // web: the static server process (stopping it makes the origin truly unreachable, even for the service worker)
 }
 export const assert=(cond,msg)=>{if(!cond)throw new Error('E2E assertion failed: '+msg);};

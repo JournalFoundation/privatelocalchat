@@ -74,6 +74,9 @@ try{
  // ---- offline, in a brand-new page (the page and its workers start from the saved files)
  const foreign=[],failed=[],errors=[];
  await context.setOffline(true);
+ // Some Chromium builds do not apply the offline setting to requests the service worker makes, so the origin itself is taken away too: from here on
+ // everything the app asks of its own server is refused, the way a dead network refuses it. Pages must come from what the service worker saved.
+ h.web.kill();await new Promise(r=>setTimeout(r,500));
  await context.route(url=>url.origin!==origin,route=>{foreign.push(route.request().url());return route.abort('internetdisconnected');});
  const off=await context.newPage();
  off.on('pageerror',e=>errors.push(e.message));
