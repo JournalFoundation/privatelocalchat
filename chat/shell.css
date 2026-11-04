@@ -238,8 +238,10 @@ body.shell #generationStatus { background: none; border: 0; padding: 0 16px; mar
   .settings-nav { display: grid; grid-template-columns: 1fr auto; padding: 8px 8px 0; gap: 0; }
   .settings-nav-head { grid-column: 1 / -1; padding: 4px 6px; }
   .settings-nav > .settings-nav-item { display: none; }
-  .settings-nav-tabs { grid-column: 1 / -1; display: flex; overflow-x: auto; gap: 2px; padding-bottom: 6px; }
-  .settings-nav-tabs .settings-nav-item { display: flex; flex: none; }
+  /* one scrolling row of tabs under the title. (The rule `.settings-nav-tabs { display: contents }` further down used to win and made the tabs a two-column grid 221 px tall, which scrolled away.) */
+  .settings-nav > .settings-nav-tabs { grid-column: 1 / -1; display: flex; overflow-x: auto; gap: 2px; padding-bottom: 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .settings-nav > .settings-nav-tabs::-webkit-scrollbar { display: none; }
+  .settings-nav > .settings-nav-tabs .settings-nav-item { display: flex; flex: none; white-space: nowrap; }
   .settings-content { padding: 18px 14px 56px; }
 }
 .set-moved details { padding: 0; margin: 0; }
@@ -360,3 +362,12 @@ body.shell .composer-bar .shell-conn .shell-model-name { max-width: none; overfl
 .shell-pop-row:has(.shell-pop-right) { flex-wrap: wrap; row-gap: 2px; }
 .shell-pop-row:has(.shell-pop-right) .shell-pop-text { flex: 1 1 10em; min-width: 0; }
 .shell-pop-row:has(.shell-pop-right) .shell-pop-right { flex: none; margin-left: auto; padding-left: 22px; }
+
+/* ---- it should feel like an app, not a page (phones) ----
+   The page itself never scrolls or rubber-bands: only the message list, the side panel and the settings content scroll, each on its own and without chaining to the page. */
+html, body { overscroll-behavior: none; }
+body.shell { height: 100dvh; }
+.settings-content, .roberta-page-body, .sidebar-scroll, #messages, .shell-pop, .search-results { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.settings-page { height: 100dvh; max-height: 100dvh; }
+.settings-content { min-height: 0; }
+@media (max-width: 760px) { .settings-page { padding-top: env(safe-area-inset-top, 0px); } .settings-content { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); } }
