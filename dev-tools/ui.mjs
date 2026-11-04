@@ -24,6 +24,7 @@ export async function startDiagnostics(){
   $('debugStatus').textContent=lastStatus||'Enter a receiver URL to enable diagnostics.';
  }
  const record=(type,data)=>t.record(type,{version:window.APP_BUILD.version,commit:window.APP_BUILD.commit,...data});
+ window.__plcDiagCall=(kind,data)=>{if(t.config.enabled)record('call',{callKind:kind,...data});}; // the voice call's own trace (states, timings, lengths: never what was said); chat/call/call.mjs calls it between its development markers
  const runtime=window.APP_BUILD.developmentRuntime;
  const runtimeIdentity=runtime?{nativeBuildId:runtime.nativeBuildId,runtimeVariant:runtime.variant,runtimeSha256:runtime.wasmSha256}:{};
  if(runtime){const identity=document.createElement('p');identity.id='debugRuntime';identity.textContent='Runtime experiment: '+runtime.variant+' · Wasm '+runtime.wasmSha256.slice(0,12);panel.querySelector('summary').after(identity);}

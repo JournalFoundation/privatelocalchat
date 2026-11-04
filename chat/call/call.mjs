@@ -275,13 +275,51 @@ export function createCall(host) {
   // a spoken (empty) utterance made inside the tap lets iPhone Safari speak later, when the reply arrives
   // The silent utterance can get stuck in iPhone Safari's queue and hold back every real sentence behind it, so if nothing real has been said a moment later it is cleared.
   const unlockSpeech = () => { try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); setTimeout(() => { if (!call.spoke) { try { speechSynthesis.cancel(); } catch { /* nothing queued */ } } }, 1200); } catch { /* no voices */ } };
+  /* DEV_DIAGNOSTICS_START */
+  // Development trace for the voice call (dev.privatelocal.chat only; the build strips this): what the call is doing and when, with the speech queue's own state, never the words.
+  const callT0 = performance.now();
+  function trace(kind, data) {
+    try {
+      const ss = window.speechSynthesis;
+      window.__plcDiagCall?.(kind, { sinceStartMs: Math.round(performance.now() - callT0), speaking: ss ? ss.speaking : null, speechPending: ss ? ss.pending : null, visibility: document.visibilityState, ...data });
+    } catch { /* tracing must never disturb the call */ }
+  }
+  /* DEV_DIAGNOSTICS_END */
   function ensureVoiceSession() {
     if (voiceSession || !speechMod || !voiceMod) return voiceSession;
     voiceUi ||= buildVoiceUi();
     voiceSession = voiceMod.createVoiceSession({
-      listen: handlers => speechMod.startDictation(handlers),
-      speakOne: text => { call.spoke = true; return speechMod.speak(text, { voiceURI: host.prefs().voiceURI, rate: host.prefs().speechRate || 1, interrupt: false, onAudio: () => voiceSession?.audioStarted(), ...host.voiceOpts() }); },
+      listen: handlers => {
+        /* DEV_DIAGNOSTICS_START */
+        { // the microphone's life, without a word of what was heard: how many results arrived, how long the text is, how it ended
+          const inner = handlers; let results = 0; trace('recogniser-open', {});
+          handlers = { onText: (r) => { results++; if (results <= 3 || results % 10 === 0) trace('recogniser-text', { resultCount: results, heardChars: ((r?.final || '') + (r?.interim || '')).length }); inner.onText?.(r); },
+            onEnd: (...a) => { trace('recogniser-end', { resultCount: results }); inner.onEnd?.(...a); },
+            onError: (e) => { trace('recogniser-error', { code: e?.code || e?.name || 'unknown', resultCount: results }); inner.onError?.(e); } };
+        }
+        /* DEV_DIAGNOSTICS_END */
+        return speechMod.startDictation(handlers);
+      },
+      speakOne: text => {
+        call.spoke = true;
+        /* DEV_DIAGNOSTICS_START */
+        const spokeAt = performance.now(); trace('speak-begin', { sentenceChars: text.length });
+        /* DEV_DIAGNOSTICS_END */
+        const handle = speechMod.speak(text, { voiceURI: host.prefs().voiceURI, rate: host.prefs().speechRate || 1, interrupt: false, onAudio: () => {
+          /* DEV_DIAGNOSTICS_START */
+          trace('speak-audio', { durationMs: Math.round(performance.now() - spokeAt) });
+          /* DEV_DIAGNOSTICS_END */
+          voiceSession?.audioStarted();
+        }, ...host.voiceOpts() });
+        /* DEV_DIAGNOSTICS_START */
+        handle?.done?.then(() => trace('speak-end', { durationMs: Math.round(performance.now() - spokeAt) }), (e) => trace('speak-error', { durationMs: Math.round(performance.now() - spokeAt), outcome: String(e?.message || e).slice(0, 120) }));
+        /* DEV_DIAGNOSTICS_END */
+        return handle;
+      },
       send: async text => {
+        /* DEV_DIAGNOSTICS_START */
+        trace('send', { characters: text.length });
+        /* DEV_DIAGNOSTICS_END */
         replyBegan = false; callLogAdd('You', text);
         messageInput.value = text; growComposer();
         await host.sendMessage();
@@ -289,9 +327,17 @@ export function createCall(host) {
       },
       abortReply: () => host.abortReply(),
       clean: text => host.cleanText(text), // markdown that slipped through is not read out as symbols
-      onState: renderVoice, connectMs: CALL_RING_MS, ...(host.sentenceMs?.() ? { sentenceMs: () => host.sentenceMs() } : {}), // (a development hook can shorten the limit)
+      onState: (s, i) => {
+        /* DEV_DIAGNOSTICS_START */
+        trace('state', { state: s, reason: i?.reason, heardChars: (i?.heard || '').length, captionChars: (i?.caption || '').length, phase: i?.phase });
+        /* DEV_DIAGNOSTICS_END */
+        renderVoice(s, i);
+      }, connectMs: CALL_RING_MS, ...(host.sentenceMs?.() ? { sentenceMs: () => host.sentenceMs() } : {}), // (a development hook can shorten the limit)
       thinkingMs: 150000, holdThinking: () => { const lm = window.localModels; return Boolean(lm && lm.mode === 'local' && !lm.ready); }, // a model still downloading or loading is not a stalled reply
       onNote: (kind, text) => {
+        /* DEV_DIAGNOSTICS_START */
+        trace('note', { outcome: kind, sentenceChars: (text || '').length });
+        /* DEV_DIAGNOSTICS_END */
         if (kind === 'sentence-stalled') showCallNotice('The voice did not finish a sentence, so it was skipped. If it keeps happening, pick another voice in the voice menu.', 12000);
         else if (kind === 'reply-stalled') showCallNotice('The reply stopped coming, so the call went back to listening. You can say it again.', 14000);
         else if (kind === 'listening-failed') showCallNotice('The microphone keeps stopping on this browser. Tap to talk to carry on.', 14000);
