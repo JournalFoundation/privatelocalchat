@@ -188,7 +188,8 @@ export function createShell(app) {
   const mobileExplore = h("button", { type: "button", class: "shell-row mobile-only" }, icon("more"), h("span", { class: "btn-label", text: "Explore" }));
   mobileExplore.addEventListener("click", () => popover(mobileExplore, exploreRows(), { cls: "wide" }));
   const mobileSettings = h("button", { type: "button", class: "shell-row mobile-only", onclick: () => { shell.openSettings("general"); closePanelOnMobile(); } }, icon("gear"), h("span", { class: "btn-label", text: "Settings" }));
-  navList.append(robertaRow, mobileLib, mobileExplore, mobileSettings);
+  const reportIssue = h("a", { class: "shell-row", href: "https://github.com/johnbenac/privatelocalchat/issues/new/choose", target: "_blank", rel: "noopener" }, icon("help"), h("span", { class: "btn-label", text: "Report an issue" }));
+  navList.append(robertaRow, mobileLib, mobileExplore, mobileSettings, reportIssue);
   newRow.after(navList);
 
   const scroll = panel.querySelector(".sidebar-scroll");
