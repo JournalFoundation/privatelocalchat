@@ -7,7 +7,7 @@
     "branch": "dev",
     "site": "https://dev.privatelocal.chat",
     "commit": "eb8a16d6b1cb24efb9c4a8b73e5e156c3140d4a3",
-    "workflow": "https://github.com/JournalFoundation/privatelocalchat/actions/runs/41012496116",
+    "workflow": "https://github.com/johnbenac/privatelocalchat/actions/runs/41012496116",
     "workflowConclusion": "success",
     "verifiedRuntimeFiles": [
       {
