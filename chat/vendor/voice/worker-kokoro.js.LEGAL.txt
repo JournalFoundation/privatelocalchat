@@ -28,7 +28,7 @@ released under GPL-3.0.
 Corresponding source:
   - eSpeak NG:        https://github.com/espeak-ng/espeak-ng
   - this program, including the script that rebuilds worker-kokoro.js:
-                      https://github.com/JournalFoundation/privatelocalchat (ops/voice, docs/VOICE-RUNTIME.md)
+                      https://github.com/johnbenac/privatelocalchat (ops/voice, docs/VOICE-RUNTIME.md)
 Other notices and the data licences: /THIRD-PARTY-NOTICES.md
 
 

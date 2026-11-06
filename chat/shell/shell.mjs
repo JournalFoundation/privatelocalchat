@@ -464,8 +464,8 @@ function buildSettings({ app, shell, registry, moved }) {
       row("Help & about", "How privacy works, install tips, and answers.", btn("Open", () => app.openHelp())),
       row("Share this app", null, btn("Share", () => app.openShare())),
       row("Privacy", null, h("a", { class: "set-btn", href: "/privacy/", target: "_blank", rel: "noopener" }, "Read")),
-      row("Report a problem", "A GitHub account is needed. Leave out keys and private chats.", h("a", { class: "set-btn", href: "https://github.com/JournalFoundation/privatelocalchat/issues/new/choose", target: "_blank", rel: "noopener" }, "Open")),
-      row("Source code", null, h("a", { class: "set-btn", href: "https://github.com/JournalFoundation/privatelocalchat", target: "_blank", rel: "noopener" }, "View"))));
+      row("Report a problem", "A GitHub account is needed. Leave out keys and private chats.", h("a", { class: "set-btn", href: "https://github.com/johnbenac/privatelocalchat/issues/new/choose", target: "_blank", rel: "noopener" }, "Open")),
+      row("Source code", null, h("a", { class: "set-btn", href: "https://github.com/johnbenac/privatelocalchat", target: "_blank", rel: "noopener" }, "View"))));
     const foot = moved.footer; foot.classList.add("set-foot");
     w.append(foot); return w;
   });

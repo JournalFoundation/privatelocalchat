@@ -10,7 +10,7 @@ import {readFile, writeFile, access, mkdir} from 'node:fs/promises';
 import path from 'node:path';
 
 export const SITE_ORIGIN = 'https://privatelocal.chat';
-export const REPO_URL = 'https://github.com/JournalFoundation/privatelocalchat';
+export const REPO_URL = 'https://github.com/johnbenac/privatelocalchat';
 export const ISSUES_URL = REPO_URL + '/issues/new/choose';
 export const PAGES = Object.freeze([
   {name: 'help', title: 'Help', path: '/help/'},
@@ -200,7 +200,7 @@ const REGIONS = {
   'footer-source': () => '<p><a href="/">Open Private Local Chat</a> &middot; <a href="' + REPO_URL + '" target="_blank" rel="noopener">Source on GitHub</a> (GNU General Public License, version 3) &middot; <a href="/LICENSE">Licence</a> &middot; <a href="/THIRD-PARTY-NOTICES.md">Notices</a></p>',
   'licence-source': () => '<section id="licence" aria-labelledby="licence-title">\n'
     + '  <h2 id="licence-title">Licence and source</h2>\n'
-    + '  <p class="prose">Private Local Chat is released under the <a href="/LICENSE">GNU General Public License, version 3</a> (GPL-3.0). The complete corresponding source is the GitHub repository <a href="' + REPO_URL + '" target="_blank" rel="noopener">JournalFoundation/privatelocalchat</a>. The optional voice program is bundled from open-source packages and can be rebuilt from the scripts in <code>ops/voice</code> in that repository, as described in <code>docs/VOICE-RUNTIME.md</code>. It contains eSpeak NG, whose source is at <a href="https://github.com/espeak-ng/espeak-ng" target="_blank" rel="noopener">https://github.com/espeak-ng/espeak-ng</a>. The <a href="/THIRD-PARTY-NOTICES.md">third-party notices</a> list every bundled component, its licence and its source.</p>\n'
+    + '  <p class="prose">Private Local Chat is released under the <a href="/LICENSE">GNU General Public License, version 3</a> (GPL-3.0). The complete corresponding source is the GitHub repository <a href="' + REPO_URL + '" target="_blank" rel="noopener">johnbenac/privatelocalchat</a>. The optional voice program is bundled from open-source packages and can be rebuilt from the scripts in <code>ops/voice</code> in that repository, as described in <code>docs/VOICE-RUNTIME.md</code>. It contains eSpeak NG, whose source is at <a href="https://github.com/espeak-ng/espeak-ng" target="_blank" rel="noopener">https://github.com/espeak-ng/espeak-ng</a>. The <a href="/THIRD-PARTY-NOTICES.md">third-party notices</a> list every bundled component, its licence and its source.</p>\n'
     + '</section>',
   'hosting-logs': ({config}) => config.hostingLogs ? '<p>Retention noted by the project owner: ' + esc(config.hostingLogs) + '</p>' : '',
   'updates-list': ({data}) => renderUpdatesList(data),

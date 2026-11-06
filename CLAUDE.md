@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Private Local Chat: a static, no-framework browser app (WebGPU/WASM local LLMs, or an explicitly chosen OpenAI-compatible API). GitHub `JournalFoundation/privatelocalchat` is the source of truth; Cloudflare Pages serves the app, R2 (`assets.privatelocal.chat`) serves model files. This repo is **not** deployed via the homelab/Flux/Caddy stack described in the global instructions.
+Private Local Chat: a static, no-framework browser app (WebGPU/WASM local LLMs, or an explicitly chosen OpenAI-compatible API). GitHub `johnbenac/privatelocalchat` is the source of truth; Cloudflare Pages serves the app, R2 (`assets.privatelocal.chat`) serves model files. This repo is **not** deployed via the homelab/Flux/Caddy stack described in the global instructions.
 
 ## Commands
 

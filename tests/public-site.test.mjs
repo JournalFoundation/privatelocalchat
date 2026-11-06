@@ -115,7 +115,7 @@ test('the About page uses the intro verbatim, three examples, ownership, source 
  assert.equal(strip(/<p id="resource-intro">([\s\S]*?)<\/p>/.exec(html)[1]),intro);
  assert.equal([...html.matchAll(/<li><strong>/g)].length>=3,true);
  for(const text of ['Turn rough notes into a clear message','Explain a passage with follow-up questions','Compare a set of options'])assert.ok(html.includes(text),text);
- for(const href of ['https://github.com/JournalFoundation/privatelocalchat','https://github.com/JournalFoundation/privatelocalchat/releases','https://JournalFoundation.org','/help/#install','/brand/social-card-1200x630.png','/brand/wordmark-light.svg','/brand/wordmark-dark.svg','/brand/screenshot-demo-1.png'])assert.ok(html.includes('"'+href+'"'),href);
+ for(const href of ['https://github.com/johnbenac/privatelocalchat','https://github.com/johnbenac/privatelocalchat/releases','/help/#install','/brand/social-card-1200x630.png','/brand/wordmark-light.svg','/brand/wordmark-dark.svg','/brand/screenshot-demo-1.png'])assert.ok(html.includes('"'+href+'"'),href);
  assert.ok(html.includes('Install on this device')&&html.includes('Share resources')&&html.includes('Share Private Local Chat'));
  assert.ok(html.includes('Free AI chat in your browser. Run a supported model on your device, or choose an outside provider.'));
  assert.match(html,/<img src="\/brand\/screenshot-demo-1\.png" alt="[^"]{30,}"/,'screenshot has alt text');
@@ -212,7 +212,7 @@ test('without configuration the Help page offers GitHub Issues as the public rou
  const html=await read(built,'help/index.html');
  assert.ok(!html.includes('mailto:')&&!html.includes('Email the project team'));
  assert.ok(!html.includes('id="community"')&&!html.includes('href="#community"')&&!html.includes('>Community<'));
- assert.ok(html.includes('id="contact"')&&html.includes('https://github.com/JournalFoundation/privatelocalchat/issues/new/choose'));
+ assert.ok(html.includes('id="contact"')&&html.includes('https://github.com/johnbenac/privatelocalchat/issues/new/choose'));
  assert.match(html,/<strong>Public\.<\/strong> Issues on GitHub are public/);
  for(const page of PAGES)assert.ok(!(await read(built,page.name+'/index.html')).includes('>Community<'),page.name+' nav');
  const app=await read(built,'index.html');
@@ -268,7 +268,7 @@ test('the licence documents are published, linked from every page and kept out o
  }
  const about=strip(await read(built,'about/index.html'));
  assert.match(about,/Licence and source Private Local Chat is released under the GNU General Public License, version 3/);
- assert.ok(about.includes('JournalFoundation/privatelocalchat')&&about.includes('ops/voice')&&about.includes('docs/VOICE-RUNTIME.md')&&about.includes('https://github.com/espeak-ng/espeak-ng'));
+ assert.ok(about.includes('johnbenac/privatelocalchat')&&about.includes('ops/voice')&&about.includes('docs/VOICE-RUNTIME.md')&&about.includes('https://github.com/espeak-ng/espeak-ng'));
 });
 
 test('every internal link and fragment in the built pages resolves',async()=>{

@@ -48,7 +48,7 @@ When `supportEmail` and `discussionsUrl` are unset, `#contact` still exists and 
 
 Add an entry at the top of `entries` in `updates/entries.json` (`id`, `date`, `release` as `vX.Y.Z` or `null` until a release is cut, `title`, `summary`, `points`, `help` links, `issues` ids), then run `node scripts/public-site.mjs sync` and `npm test`. The HTML list and the feed are both generated from that file. Known issues live in the same file (`knownIssues`) and appear in full on Help and in summary on Updates; each needs devices, browsers, models, symptom, status, a `verified` date and a workaround, and must come from recorded evidence.
 
-The "Share, transfer settings, and help" entry (2026-11-01) has `release: null`: set it to the tag semantic-release creates once the release is published (releases are listed at https://github.com/JournalFoundation/privatelocalchat/releases; `package.json` still says 2.0.0, which is the internal build version).
+The "Share, transfer settings, and help" entry (2026-11-01) has `release: null`: set it to the tag semantic-release creates once the release is published (releases are listed at https://github.com/johnbenac/privatelocalchat/releases; `package.json` still says 2.0.0, which is the internal build version).
 
 ## Demonstration screenshot
 

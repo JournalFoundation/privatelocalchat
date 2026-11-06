@@ -10,14 +10,14 @@ This is the practical starting point for a maintainer with access to the GitHub 
 | Production | `main` | [privatelocal.chat](https://privatelocal.chat), Pages project `privatelocalchat` |
 | Model distribution | Versioned R2 objects and app catalogue | [assets.privatelocal.chat](https://assets.privatelocal.chat/models/catalog.json), R2 bucket `privatelocalchat-assets` |
 
-The repository is [JournalFoundation/privatelocalchat](https://github.com/JournalFoundation/privatelocalchat). `privatelocal.chat` is canonical; `privatelocalchat.com` redirects to it. GitHub also hosts [feedback](https://github.com/JournalFoundation/privatelocalchat/issues/new/choose). GitHub Pages does not host the app.
+The repository is [johnbenac/privatelocalchat](https://github.com/johnbenac/privatelocalchat). `privatelocal.chat` is canonical; `privatelocalchat.com` redirects to it. GitHub also hosts [feedback](https://github.com/johnbenac/privatelocalchat/issues/new/choose). GitHub Pages does not host the app.
 
 ## Make and deploy a change
 
 Use Node.js 22 and Python 3. Clone the repository and start from the current development branch:
 
 ```sh
-git clone git@github.com:JournalFoundation/privatelocalchat.git
+git clone git@github.com:johnbenac/privatelocalchat.git
 cd privatelocalchat
 git switch dev
 git pull --ff-only origin dev
@@ -35,7 +35,7 @@ node scripts/serve.mjs
 
 The local server listens at `http://127.0.0.1:18171`. For a production build, run `DEPLOY_BRANCH=main npm run build`; each build replaces `dist/`. A feature branch and pull request into `dev` are suitable for review. Once the change is on `dev`, pushing it triggers deployment automatically. For a direct change on `dev`, commit the intended files and run `git push origin dev`.
 
-Inspect [GitHub Actions](https://github.com/JournalFoundation/privatelocalchat/actions/workflows/deploy.yml), or use:
+Inspect [GitHub Actions](https://github.com/johnbenac/privatelocalchat/actions/workflows/deploy.yml), or use:
 
 ```sh
 gh run list --workflow deploy.yml --branch dev --limit 5
